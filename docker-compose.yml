@@ -1,0 +1,18 @@
+services:
+  mbarete-app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      AUTH_SECRET: ${AUTH_SECRET}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      ADMIN_NAME: ${ADMIN_NAME:-Admin}
+    volumes:
+      - mbarete-data:/app/data
+      - mbarete-uploads:/app/public/uploads
+
+volumes:
+  mbarete-data:
+  mbarete-uploads:
