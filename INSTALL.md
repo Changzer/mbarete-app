@@ -257,7 +257,9 @@ This is the big one. Paste:
 docker compose up -d --build
 ```
 
-**This takes 5–15 minutes the first time.** It's downloading and compiling everything. You'll see a lot of scrolling text — that's normal, let it run. Don't close the window.
+**This takes 5–20 minutes the first time** — longer on a slow or heavily-filtered connection, where downloading the Node packages is the bottleneck. You'll see a lot of scrolling text and long pauses on individual steps; that's normal. Let it run and don't close the window.
+
+This is a **one-time cost**. Docker caches each step, so later updates only redo what actually changed — usually under a minute unless dependencies changed.
 
 **You should see**, at the end, something like:
 ```
