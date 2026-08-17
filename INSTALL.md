@@ -257,7 +257,9 @@ This is the big one. Paste:
 docker compose up -d --build
 ```
 
-**This takes 5–15 minutes the first time.** It's downloading and compiling everything. You'll see a lot of scrolling text — that's normal, let it run. Don't close the window.
+**This takes 5–20 minutes the first time** — longer on a slow or heavily-filtered connection, where downloading the Node packages is the bottleneck. You'll see a lot of scrolling text and long pauses on individual steps; that's normal. Let it run and don't close the window.
+
+This is a **one-time cost**. Docker caches each step, so later updates only redo what actually changed — usually under a minute unless dependencies changed.
 
 **You should see**, at the end, something like:
 ```
@@ -412,6 +414,48 @@ Usually a network hiccup while downloading. Just run it again:
 ```
 docker compose up -d --build
 ```
+
+**The build fails immediately with "failed to resolve source metadata for docker.io/library/node:22-alpine"**
+
+The build never reached the app's code — Docker couldn't download the base image it builds on top of. Look at the very end of the error message:
+
+- **If it mentions `proxyconnect` and a hostname that looks like placeholder text** (e.g. `lookup YOUR_PC_TAILSCALE_IP ... no such host`), your NAS's Docker is set to route through a proxy that was never filled in properly. Find where it's configured:
+
+  ```
+  sudo grep -rn "proxy\|Proxy" /etc/docker/daemon.json /root/.docker/config.json ~/.docker/config.json /etc/systemd/system/docker.service.d/ 2>/dev/null
+  ```
+
+  Then remove the bad proxy setting from whichever file it's in (see below), and restart Docker:
+
+  ```
+  sudo systemctl restart docker
+  ```
+
+  In `/etc/docker/daemon.json` the offending part looks like a `"proxies"` block — delete that block, keeping the rest of the file (and keeping it valid JSON — no trailing commas):
+
+  ```json
+  {
+    "registry-mirrors": ["https://docker.mirrors.ustc.edu.cn"],
+    "proxies": {                                    <-- delete
+      "http-proxy": "http://YOUR_PC_TAILSCALE_IP:1080",     <-- delete
+      "https-proxy": "http://YOUR_PC_TAILSCALE_IP:1080"     <-- delete
+    }                                               <-- delete
+  }
+  ```
+
+  In `/etc/systemd/system/docker.service.d/http-proxy.conf` it's an `Environment="HTTP_PROXY=..."` line — delete the file entirely if that's all it contains, then `sudo systemctl daemon-reload && sudo systemctl restart docker`.
+
+- **If it mentions a mirror like `docker.mirrors.ustc.edu.cn` timing out**, the registry mirror your NAS uses is down or unreachable. Edit `/etc/docker/daemon.json`, remove the `"registry-mirrors"` line so Docker goes to Docker Hub directly, and restart Docker.
+
+Either way, confirm the fix before rebuilding:
+
+```
+docker pull node:22-alpine
+```
+
+**You should see** it download and finish with `Status: Downloaded newer image for node:22-alpine`. Once that works, `docker compose up -d --build` will work too.
+
+> Restarting Docker briefly stops any *other* containers on your NAS. They'll come back automatically.
 
 ---
 

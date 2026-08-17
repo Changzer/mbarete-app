@@ -1,8 +1,16 @@
 FROM node:22-alpine AS deps
-RUN apk add --no-cache libc6-compat python3 make g++
+# Deliberately no `apk add` here. Every native dependency ships a prebuilt
+# musl binary inside its own npm package — better-sqlite3 (linuxmusl-x64 /
+# linuxmusl-arm64), sharp + libvips, and the Next.js SWC compiler — so nothing
+# compiles and nothing needs a glibc shim. Skipping apk entirely removes the
+# Alpine package CDN as a build dependency, which matters on networks where it
+# is slow or filtered.
 WORKDIR /app
+# Optional mirror for networks where registry.npmjs.org is slow. Override via
+# NPM_REGISTRY in .env (see .env.example); defaults to the public registry.
+ARG NPM_REGISTRY=https://registry.npmjs.org
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm config set registry "$NPM_REGISTRY" && npm ci
 
 FROM node:22-alpine AS builder
 WORKDIR /app
