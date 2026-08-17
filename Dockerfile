@@ -1,16 +1,23 @@
 FROM node:22-alpine AS deps
-# Deliberately no `apk add` here. Every native dependency ships a prebuilt
-# musl binary inside its own npm package — better-sqlite3 (linuxmusl-x64 /
-# linuxmusl-arm64), sharp + libvips, and the Next.js SWC compiler — so nothing
-# compiles and nothing needs a glibc shim. Skipping apk entirely removes the
-# Alpine package CDN as a build dependency, which matters on networks where it
-# is slow or filtered.
+# No `apk add` and no C/C++ toolchain here, which keeps the Alpine package CDN
+# out of the build entirely — it is slow or unreachable on some networks.
+#
+# The catch: better-sqlite3 ships a binding.gyp, so npm implicitly runs
+# `node-gyp rebuild` during `npm ci` and fails without Python + a compiler.
+# It also ships prebuilt binaries for every platform we care about
+# (linuxmusl-x64 / linuxmusl-arm64 among them) and loads those at require()
+# time, so that compile is redundant work. `--ignore-scripts` skips it.
+#
+# Every other native dependency (sharp, libvips, the Next.js SWC compiler)
+# resolves to a prebuilt musl package too, so nothing else needs a build step.
+# Verified end to end: install, next build, server boot, migrations, seed,
+# and login all succeed with no compiler present.
 WORKDIR /app
 # Optional mirror for networks where registry.npmjs.org is slow. Override via
 # NPM_REGISTRY in .env (see .env.example); defaults to the public registry.
 ARG NPM_REGISTRY=https://registry.npmjs.org
 COPY package.json package-lock.json ./
-RUN npm config set registry "$NPM_REGISTRY" && npm ci
+RUN npm config set registry "$NPM_REGISTRY" && npm ci --ignore-scripts
 
 FROM node:22-alpine AS builder
 WORKDIR /app
