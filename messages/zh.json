@@ -129,7 +129,11 @@
     "secondaryCurrency": "同时显示",
     "missingRate": "未设置 {codes} 的汇率。请在设置中添加——这些明细未计入合计。",
     "openSettings": "打开设置",
-    "totalCartons": "总箱数"
+    "totalCartons": "总箱数",
+    "cartons": "{count} 箱",
+    "perCarton": "每箱",
+    "partialCarton": "不满整箱——按 {cartons} 箱发运（每箱 {perCarton}）",
+    "roundTo": "调整为 {qty}"
   },
   "settings": {
     "exchangeRates": "汇率",

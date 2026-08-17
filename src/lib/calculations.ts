@@ -22,21 +22,55 @@ export function formatCbm(value: number) {
   return Math.abs(value) < 0.01 ? value.toFixed(6) : value.toFixed(4);
 }
 
-/** How many cartons a quantity occupies (partial cartons still ship whole). */
+/** Cartons a quantity fills, as a fraction — 75 pcs at 50/carton is 1.5. */
 export function cartonCount(product: ProductForCalc, quantity: number) {
   if (product.qtyPerBox <= 0) return 0;
   return quantity / product.qtyPerBox;
+}
+
+/** Cartons actually shipped: a partly-filled carton still travels as one. */
+export function fullCartons(product: ProductForCalc, quantity: number) {
+  return Math.ceil(cartonCount(product, quantity));
+}
+
+/** True when the quantity leaves a carton part-filled. */
+export function isPartialCarton(product: ProductForCalc, quantity: number) {
+  if (product.qtyPerBox <= 0 || quantity <= 0) return false;
+  return quantity % product.qtyPerBox !== 0;
+}
+
+/**
+ * Smallest quantity at or above `quantity` that clears MOQ *and* fills whole
+ * cartons — the number to actually put on a purchase order.
+ */
+export function suggestedQuantity(product: ProductForCalc, quantity: number) {
+  const atLeast = Math.max(quantity, product.moq);
+  if (product.qtyPerBox <= 0) return atLeast;
+  return Math.ceil(atLeast / product.qtyPerBox) * product.qtyPerBox;
 }
 
 export function isBelowMoq(quantity: number, moq: number) {
   return quantity > 0 && quantity < moq;
 }
 
+/**
+ * Volume this line occupies in a container, in m^3.
+ *
+ * Based on whole cartons: a part-filled carton still takes a full carton of
+ * space, so 175 pieces at 50/carton ships as 4 cartons and is quoted as 4.
+ * Quantities that fill cartons exactly are unaffected.
+ */
 export function lineCbm(product: ProductForCalc, quantity: number) {
-  if (product.qtyPerBox <= 0) return 0;
-  return (quantity / product.qtyPerBox) * product.cbm;
+  if (product.qtyPerBox <= 0 || quantity <= 0) return 0;
+  return fullCartons(product, quantity) * product.cbm;
 }
 
+/**
+ * Weight of the goods on this line, in kg.
+ *
+ * Unlike volume this stays proportional to the pieces ordered — a part-filled
+ * carton takes full space but does not weigh a full carton.
+ */
 export function lineWeightKg(product: ProductForCalc, quantity: number) {
   if (product.qtyPerBox <= 0) return 0;
   return (quantity / product.qtyPerBox) * product.weightKg;
@@ -130,7 +164,7 @@ export function computeOrderTotals(
 
     totalCbm += lineCbm(product, quantity);
     totalWeightKg += lineWeightKg(product, quantity);
-    totalCartons += cartonCount(product, quantity);
+    totalCartons += fullCartons(product, quantity);
     if (isBelowMoq(quantity, product.moq)) hasMoqViolation = true;
 
     const raw = lineTotal(product, quantity);

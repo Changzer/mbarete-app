@@ -129,7 +129,11 @@
     "secondaryCurrency": "Also show in",
     "missingRate": "No exchange rate set for {codes}. Add it in Settings — these lines are excluded from the totals.",
     "openSettings": "Open Settings",
-    "totalCartons": "Total cartons"
+    "totalCartons": "Total cartons",
+    "cartons": "{count} cartons",
+    "perCarton": "per carton",
+    "partialCarton": "Part carton — ships as {cartons} ({perCarton}/carton)",
+    "roundTo": "Round to {qty}"
   },
   "settings": {
     "exchangeRates": "Exchange Rates",

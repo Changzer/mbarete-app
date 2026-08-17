@@ -9,6 +9,9 @@ import {
   lineWeightKg,
   formatCbm,
   cartonCount,
+  fullCartons,
+  isPartialCarton,
+  suggestedQuantity,
   UnknownCurrencyError,
 } from "./calculations";
 
@@ -171,4 +174,51 @@ test("small CBM values keep enough precision to reconcile", () => {
   assert.equal(formatCbm(0.0024), "0.002400");
   assert.equal(formatCbm(0.3), "0.3000");
   assert.equal(formatCbm(0), "0.0000");
+});
+
+test("a part-filled carton is flagged and still ships as a whole carton", () => {
+  const boxed = { ...chicken, qtyPerBox: 50, moq: 100 };
+  assert.equal(isPartialCarton(boxed, 100), false); // exactly 2 cartons
+  assert.equal(isPartialCarton(boxed, 75), true);   // 1.5 cartons
+  assert.equal(cartonCount(boxed, 75), 1.5);
+  assert.equal(fullCartons(boxed, 75), 2, "a partial carton still travels as one");
+  assert.equal(isPartialCarton(boxed, 0), false, "an empty line is not a partial carton");
+});
+
+test("suggested quantity clears MOQ and fills whole cartons at once", () => {
+  const boxed = { ...chicken, qtyPerBox: 50, moq: 120 };
+  // below MOQ -> lift to MOQ, then round up to a whole carton (120 -> 150)
+  assert.equal(suggestedQuantity(boxed, 10), 150);
+  // above MOQ but a partial carton -> round up only (160 -> 200)
+  assert.equal(suggestedQuantity(boxed, 160), 200);
+  // already valid -> unchanged
+  assert.equal(suggestedQuantity(boxed, 200), 200);
+});
+
+test("suggested quantity copes with a product sold loose", () => {
+  const loose = { ...chicken, qtyPerBox: 1, moq: 10 };
+  assert.equal(suggestedQuantity(loose, 3), 10);
+  assert.equal(suggestedQuantity(loose, 17), 17);
+  assert.equal(isPartialCarton(loose, 17), false);
+});
+
+test("a part-filled carton is quoted at full carton volume", () => {
+  // 175 pcs at 50/carton ships as 4 cartons, so it occupies 4 x 0.03 m3 —
+  // not 3.5. Under-counting this understates the freight quote.
+  const boxed = { ...chicken, qtyPerBox: 50, cbm: 0.03, weightKg: 12, moq: 1 };
+  assert.equal(fullCartons(boxed, 175), 4);
+  closeTo(lineCbm(boxed, 175), 0.12);
+
+  const totals = computeOrderTotals([{ product: boxed, quantity: 175 }], ["CNY"], RATES);
+  assert.equal(totals.totalCartons, 4, "order total must agree with the line");
+  closeTo(totals.totalCbm, 0.12);
+  // weight stays proportional: a half-full carton is lighter
+  closeTo(totals.totalWeightKg, 3.5 * 12);
+});
+
+test("exact carton quantities are unchanged by the whole-carton rule", () => {
+  const boxed = { ...chicken, qtyPerBox: 50, cbm: 0.03, weightKg: 12, moq: 1 };
+  closeTo(lineCbm(boxed, 200), 0.12);
+  assert.equal(fullCartons(boxed, 200), 4);
+  closeTo(lineWeightKg(boxed, 200), 48);
 });

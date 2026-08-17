@@ -17,7 +17,10 @@ import {
 import {
   computeOrderTotals,
   formatCbm,
+  fullCartons,
   isBelowMoq,
+  isPartialCarton,
+  suggestedQuantity,
   lineTotal,
   type CurrencyRates,
 } from "@/lib/calculations";
@@ -191,6 +194,8 @@ export function OrderBuilder({
           {filteredProducts.map((p) => {
             const qty = cart[p.id] ?? 0;
             const below = isBelowMoq(qty, p.moq);
+            const partial = isPartialCarton(p, qty);
+            const suggestion = suggestedQuantity(p, qty);
             return (
               <div
                 key={p.id}
@@ -202,7 +207,7 @@ export function OrderBuilder({
                     {p.categoryName} · {p.price.toFixed(2)} {p.currency} · {t("moq")}: {p.moq}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Input
                     type="number"
                     min={0}
@@ -210,8 +215,27 @@ export function OrderBuilder({
                     onChange={(e) => setQuantity(p.id, Number(e.target.value))}
                     className="w-24"
                   />
+                  {qty > 0 ? (
+                    <Badge variant={partial ? "warning" : "secondary"}>
+                      {partial
+                        ? t("partialCarton", {
+                            cartons: fullCartons(p, qty),
+                            perCarton: p.qtyPerBox,
+                          })
+                        : t("cartons", { count: fullCartons(p, qty) })}
+                    </Badge>
+                  ) : null}
                   {below ? (
                     <Badge variant="warning">{t("moqWarning", { moq: p.moq })}</Badge>
+                  ) : null}
+                  {qty > 0 && suggestion !== qty ? (
+                    <button
+                      type="button"
+                      onClick={() => setQuantity(p.id, suggestion)}
+                      className="text-xs underline text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100"
+                    >
+                      {t("roundTo", { qty: suggestion })}
+                    </button>
                   ) : null}
                 </div>
               </div>
@@ -307,9 +331,21 @@ export function OrderBuilder({
                     </span>
                     <span>{lineTotal(product, quantity).toFixed(2)} {product.currency}</span>
                   </div>
+                  <div className="flex items-center justify-between text-xs text-neutral-400 dark:text-neutral-500">
+                    <span>{t("cartons", { count: fullCartons(product, quantity) })}</span>
+                    <span>{quantity} / {product.qtyPerBox} {t("perCarton")}</span>
+                  </div>
                   {isBelowMoq(quantity, product.moq) ? (
                     <Badge variant="warning" className="w-fit">
                       {t("moqWarning", { moq: product.moq })}
+                    </Badge>
+                  ) : null}
+                  {isPartialCarton(product, quantity) ? (
+                    <Badge variant="warning" className="w-fit">
+                      {t("partialCarton", {
+                        cartons: fullCartons(product, quantity),
+                        perCarton: product.qtyPerBox,
+                      })}
                     </Badge>
                   ) : null}
                 </li>

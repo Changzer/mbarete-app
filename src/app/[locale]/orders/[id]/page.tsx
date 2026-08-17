@@ -50,7 +50,11 @@ export default async function OrderDetailPage({
       ? localizeField(locale as Locale, product.nameEn, product.nameZh)
       : `#${item.productId}`;
     const below = item.quantity < item.moqSnapshot;
-    return { ...item, name, below };
+    // lineCbm was stored as the line's total volume; recover the carton count
+    // from the product's current pack size where it is still available.
+    const perCarton = product?.qtyPerBox ?? 0;
+    const cartons = perCarton > 0 ? Math.ceil(item.quantity / perCarton) : null;
+    return { ...item, name, below, cartons, perCarton };
   });
 
   const targets = [...new Set([order.displayCurrency, order.secondaryCurrency])];
@@ -96,6 +100,7 @@ export default async function OrderDetailPage({
             <tr>
               <th className="px-4 py-2 font-medium">{catalogT("title")}</th>
               <th className="px-4 py-2 font-medium">{t("quantity")}</th>
+              <th className="px-4 py-2 font-medium">{t("totalCartons")}</th>
               <th className="px-4 py-2 font-medium">{t("unitPrice")}</th>
               <th className="px-4 py-2 font-medium">{t("lineTotal")}</th>
             </tr>
@@ -111,6 +116,9 @@ export default async function OrderDetailPage({
                       {t("moqWarning", { moq: r.moqSnapshot })}
                     </Badge>
                   ) : null}
+                </td>
+                <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">
+                  {r.cartons !== null ? `${r.cartons} × ${r.perCarton}` : "—"}
                 </td>
                 <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">
                   {r.unitPriceSnapshot.toFixed(2)} {r.currencySnapshot}
@@ -169,6 +177,14 @@ export default async function OrderDetailPage({
               </span>
             </div>
           ))}
+        </div>
+        <div className="flex justify-between">
+          <span className="text-neutral-500 dark:text-neutral-400">{t("totalCartons")}</span>
+          <span className="font-semibold text-neutral-900 dark:text-neutral-100">
+            {Number.isInteger(totals.totalCartons)
+              ? totals.totalCartons
+              : totals.totalCartons.toFixed(2)}
+          </span>
         </div>
         <div className="flex justify-between">
           <span className="text-neutral-500 dark:text-neutral-400">{t("totalCbm")}</span>
