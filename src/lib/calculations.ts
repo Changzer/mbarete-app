@@ -7,8 +7,25 @@ export type ProductForCalc = {
   cbm: number;
 };
 
+/** Volume of one carton in m^3, from its outer dimensions in cm. */
 export function computeCbm(lengthCm: number, widthCm: number, heightCm: number) {
   return (lengthCm * widthCm * heightCm) / 1_000_000;
+}
+
+/**
+ * Cartons are often a fraction of a cubic metre, so a fixed 4 decimals rounds
+ * a real value like 0.00024 down to "0.0002" — which then fails to reconcile
+ * against an order total and looks like a broken calculator.
+ */
+export function formatCbm(value: number) {
+  if (value === 0) return "0.0000";
+  return Math.abs(value) < 0.01 ? value.toFixed(6) : value.toFixed(4);
+}
+
+/** How many cartons a quantity occupies (partial cartons still ship whole). */
+export function cartonCount(product: ProductForCalc, quantity: number) {
+  if (product.qtyPerBox <= 0) return 0;
+  return quantity / product.qtyPerBox;
 }
 
 export function isBelowMoq(quantity: number, moq: number) {
@@ -74,6 +91,8 @@ export type OrderTotals = {
   grandTotal: Record<string, number>;
   totalCbm: number;
   totalWeightKg: number;
+  /** cartons across the whole order, shown so CBM can be reconciled by eye */
+  totalCartons: number;
   hasMoqViolation: boolean;
   /** currencies used by products but absent from the rate table */
   missingRates: string[];
@@ -98,6 +117,7 @@ export function computeOrderTotals(
 
   let totalCbm = 0;
   let totalWeightKg = 0;
+  let totalCartons = 0;
   let hasMoqViolation = false;
 
   for (const target of targetCurrencies) {
@@ -110,6 +130,7 @@ export function computeOrderTotals(
 
     totalCbm += lineCbm(product, quantity);
     totalWeightKg += lineWeightKg(product, quantity);
+    totalCartons += cartonCount(product, quantity);
     if (isBelowMoq(quantity, product.moq)) hasMoqViolation = true;
 
     const raw = lineTotal(product, quantity);
@@ -137,6 +158,7 @@ export function computeOrderTotals(
     grandTotal,
     totalCbm,
     totalWeightKg,
+    totalCartons,
     hasMoqViolation,
     missingRates: [...missing],
   };

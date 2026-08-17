@@ -4,7 +4,7 @@ import { getOrderById, getExchangeRates } from "@/lib/queries/orders";
 import { getProducts } from "@/lib/queries/catalog";
 import { localizeField } from "@/lib/localize";
 import type { Locale } from "@/i18n/routing";
-import { computeOrderTotals } from "@/lib/calculations";
+import { computeOrderTotals, formatCbm } from "@/lib/calculations";
 import { Badge } from "@/components/ui/badge";
 import { OrderStatusActions } from "@/components/orders/order-status-actions";
 
@@ -172,7 +172,7 @@ export default async function OrderDetailPage({
         </div>
         <div className="flex justify-between">
           <span className="text-neutral-500 dark:text-neutral-400">{t("totalCbm")}</span>
-          <span className="font-semibold text-neutral-900 dark:text-neutral-100">{totalCbm.toFixed(4)} m³</span>
+          <span className="font-semibold text-neutral-900 dark:text-neutral-100">{formatCbm(totalCbm)} m³</span>
         </div>
         <div className="flex justify-between">
           <span className="text-neutral-500 dark:text-neutral-400">{t("totalWeight")}</span>

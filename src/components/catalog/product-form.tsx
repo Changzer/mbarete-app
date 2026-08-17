@@ -153,6 +153,10 @@ export function ProductForm({
           />
         </div>
 
+        <p className="sm:col-span-2 rounded-md bg-neutral-100 dark:bg-neutral-800 px-3 py-2 text-xs text-neutral-600 dark:text-neutral-400">
+          {t("cartonHelp")}
+        </p>
+
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="lengthCm">{t("length")}</Label>
           <Input

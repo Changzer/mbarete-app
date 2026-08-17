@@ -17,6 +17,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { deleteProduct } from "@/lib/actions/catalog";
+import { formatCbm } from "@/lib/calculations";
 
 export type CatalogProduct = {
   id: number;
@@ -198,7 +199,7 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
             </div>
             <div>
               <dt className="text-neutral-500 dark:text-neutral-400">{t("cbm")}</dt>
-              <dd className="font-medium text-neutral-900 dark:text-neutral-100">{product.cbm.toFixed(4)} m³</dd>
+              <dd className="font-medium text-neutral-900 dark:text-neutral-100">{formatCbm(product.cbm)} m³</dd>
             </div>
           </dl>
 

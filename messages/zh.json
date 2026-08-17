@@ -47,17 +47,17 @@
     "moq": "起订量",
     "description": "描述",
     "qtyPerBox": "每箱数量",
-    "size": "尺寸 (长×宽×高 cm)",
-    "weight": "重量 (kg)",
-    "cbm": "体积 (CBM/m³)",
+    "size": "外箱尺寸 (长×宽×高 cm)",
+    "weight": "外箱重量 (kg)",
+    "cbm": "每箱体积 (CBM/m³)",
     "sku": "货号",
     "nameEn": "名称（英文）",
     "nameZh": "名称（中文）",
     "descriptionEn": "描述（英文）",
     "descriptionZh": "描述（中文）",
-    "length": "长 (cm)",
-    "width": "宽 (cm)",
-    "height": "高 (cm)",
+    "length": "外箱长 (cm)",
+    "width": "外箱宽 (cm)",
+    "height": "外箱高 (cm)",
     "currency": "货币",
     "image": "图片",
     "active": "启用",
@@ -67,7 +67,8 @@
     "perBox": "每箱",
     "images": "图片",
     "imagesHelp": "可一次选择多张照片——例如每种颜色一张。第一张将作为目录缩略图。",
-    "photos": "张图片"
+    "photos": "张图片",
+    "cartonHelp": "请填写运输外箱的尺寸和重量，而非单件产品。订单的体积和重量按箱数计算。"
   },
   "contacts": {
     "title": "联系人",
@@ -127,7 +128,8 @@
     "quoteCurrency": "报价货币",
     "secondaryCurrency": "同时显示",
     "missingRate": "未设置 {codes} 的汇率。请在设置中添加——这些明细未计入合计。",
-    "openSettings": "打开设置"
+    "openSettings": "打开设置",
+    "totalCartons": "总箱数"
   },
   "settings": {
     "exchangeRates": "汇率",

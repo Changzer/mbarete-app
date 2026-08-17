@@ -46,18 +46,18 @@
     "price": "Price",
     "moq": "MOQ",
     "description": "Description",
-    "qtyPerBox": "Qty per box",
-    "size": "Size (L×W×H cm)",
-    "weight": "Weight (kg)",
-    "cbm": "CBM (m³)",
+    "qtyPerBox": "Pieces per carton",
+    "size": "Carton size (L×W×H cm)",
+    "weight": "Carton weight (kg)",
+    "cbm": "CBM per carton (m³)",
     "sku": "SKU",
     "nameEn": "Name (English)",
     "nameZh": "Name (Chinese)",
     "descriptionEn": "Description (English)",
     "descriptionZh": "Description (Chinese)",
-    "length": "Length (cm)",
-    "width": "Width (cm)",
-    "height": "Height (cm)",
+    "length": "Carton length (cm)",
+    "width": "Carton width (cm)",
+    "height": "Carton height (cm)",
     "currency": "Currency",
     "image": "Image",
     "active": "Active",
@@ -67,7 +67,8 @@
     "perBox": "per box",
     "images": "Images",
     "imagesHelp": "You can select several photos at once — for example one per colour. The first is used as the catalog thumbnail.",
-    "photos": "photos"
+    "photos": "photos",
+    "cartonHelp": "Enter the dimensions and weight of the shipping carton, not of a single piece. Order CBM and weight are worked out from the number of cartons."
   },
   "contacts": {
     "title": "Contacts",
@@ -127,7 +128,8 @@
     "quoteCurrency": "Quote currency",
     "secondaryCurrency": "Also show in",
     "missingRate": "No exchange rate set for {codes}. Add it in Settings — these lines are excluded from the totals.",
-    "openSettings": "Open Settings"
+    "openSettings": "Open Settings",
+    "totalCartons": "Total cartons"
   },
   "settings": {
     "exchangeRates": "Exchange Rates",

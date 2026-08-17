@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import {
   computeOrderTotals,
+  formatCbm,
   isBelowMoq,
   lineTotal,
   type CurrencyRates,
@@ -363,8 +364,16 @@ export function OrderBuilder({
               ))}
             </div>
             <div className="flex justify-between">
+              <span className="text-neutral-500 dark:text-neutral-400">{t("totalCartons")}</span>
+              <span className="font-semibold text-neutral-900 dark:text-neutral-100">
+                {Number.isInteger(totals.totalCartons)
+                  ? totals.totalCartons
+                  : totals.totalCartons.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex justify-between">
               <span className="text-neutral-500 dark:text-neutral-400">{t("totalCbm")}</span>
-              <span className="font-semibold text-neutral-900 dark:text-neutral-100">{totals.totalCbm.toFixed(4)} m³</span>
+              <span className="font-semibold text-neutral-900 dark:text-neutral-100">{formatCbm(totals.totalCbm)} m³</span>
             </div>
             <div className="flex justify-between">
               <span className="text-neutral-500 dark:text-neutral-400">{t("totalWeight")}</span>

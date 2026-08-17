@@ -7,6 +7,8 @@ import {
   isBelowMoq,
   lineCbm,
   lineWeightKg,
+  formatCbm,
+  cartonCount,
   UnknownCurrencyError,
 } from "./calculations";
 
@@ -123,4 +125,50 @@ test("below-MOQ quantities are flagged", () => {
     RATES,
   );
   assert.equal(totals.hasMoqViolation, true);
+});
+
+test("CBM and weight scale linearly with quantity", () => {
+  // The reported doubt: does the total multiply by quantity, or show one unit?
+  const unit = { ...chicken, qtyPerBox: 1, cbm: computeCbm(4, 2, 30), weightKg: 0.3 };
+  for (const qty of [1, 10, 100, 1000]) {
+    const totals = computeOrderTotals([{ product: unit, quantity: qty }], ["CNY"], RATES);
+    closeTo(totals.totalCbm, qty * 0.00024, `CBM at qty ${qty}`);
+    closeTo(totals.totalWeightKg, qty * 0.3, `weight at qty ${qty}`);
+  }
+});
+
+test("dimensions describe the carton, so quantity is divided by qtyPerBox", () => {
+  // 50 pieces per 40x30x25cm carton: 500 pieces is 10 cartons, not 500.
+  const boxed = { ...chicken, qtyPerBox: 50, cbm: computeCbm(40, 30, 25), weightKg: 12 };
+  assert.equal(cartonCount(boxed, 500), 10);
+  closeTo(lineCbm(boxed, 500), 0.3);
+  closeTo(lineWeightKg(boxed, 500), 120);
+
+  const totals = computeOrderTotals([{ product: boxed, quantity: 500 }], ["CNY"], RATES);
+  closeTo(totals.totalCbm, 0.3);
+  assert.equal(totals.totalCartons, 10);
+});
+
+test("carton totals add up across several products", () => {
+  const a = { ...chicken, qtyPerBox: 50, cbm: computeCbm(40, 30, 25), weightKg: 12 };
+  const b = { ...chicken, qtyPerBox: 10, cbm: computeCbm(20, 20, 20), weightKg: 2 };
+  const totals = computeOrderTotals(
+    [
+      { product: a, quantity: 500 }, // 10 cartons x 0.03 = 0.3
+      { product: b, quantity: 100 }, // 10 cartons x 0.008 = 0.08
+    ],
+    ["CNY"],
+    RATES,
+  );
+  assert.equal(totals.totalCartons, 20);
+  closeTo(totals.totalCbm, 0.38);
+  closeTo(totals.totalWeightKg, 10 * 12 + 10 * 2);
+});
+
+test("small CBM values keep enough precision to reconcile", () => {
+  // 0.00024 must not render as "0.0002", which cannot be multiplied back up.
+  assert.equal(formatCbm(0.00024), "0.000240");
+  assert.equal(formatCbm(0.0024), "0.002400");
+  assert.equal(formatCbm(0.3), "0.3000");
+  assert.equal(formatCbm(0), "0.0000");
 });
