@@ -32,11 +32,13 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV DATABASE_DIR=/app/data
+# Uploads live outside public/ on purpose — see src/lib/uploads.ts.
+ENV UPLOADS_DIR=/app/uploads
 
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs \
-  && mkdir -p /app/data /app/public/uploads \
-  && chown -R nextjs:nodejs /app/data /app/public/uploads
+  && mkdir -p /app/data /app/uploads \
+  && chown -R nextjs:nodejs /app/data /app/uploads
 
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./

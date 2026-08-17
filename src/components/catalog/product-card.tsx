@@ -47,7 +47,7 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
         className="cursor-pointer overflow-hidden transition-shadow hover:shadow-md"
         onClick={() => setOpen(true)}
       >
-        <div className="relative aspect-square w-full bg-neutral-100">
+        <div className="relative aspect-square w-full bg-neutral-100 dark:bg-neutral-800">
           {product.imagePath ? (
             <Image
               src={product.imagePath}
@@ -57,7 +57,7 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
               className="object-cover"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-sm text-neutral-400">
+            <div className="flex h-full w-full items-center justify-center text-sm text-neutral-400 dark:text-neutral-500">
               {t("image")}
             </div>
           )}
@@ -68,10 +68,10 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
           ) : null}
         </div>
         <CardContent className="p-3">
-          <p className="truncate text-sm font-semibold text-neutral-900">
+          <p className="truncate text-sm font-semibold text-neutral-900 dark:text-neutral-100">
             {product.name}
           </p>
-          <p className="truncate text-xs text-neutral-500">{product.categoryName}</p>
+          <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">{product.categoryName}</p>
         </CardContent>
       </Card>
 
@@ -83,7 +83,7 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
           </DialogHeader>
 
           {product.imagePath ? (
-            <div className="relative aspect-video w-full overflow-hidden rounded-md bg-neutral-100">
+            <div className="relative aspect-video w-full overflow-hidden rounded-md bg-neutral-100 dark:bg-neutral-800">
               <Image
                 src={product.imagePath}
                 alt={product.name}
@@ -96,39 +96,39 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
 
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
             <div>
-              <dt className="text-neutral-500">{t("price")}</dt>
-              <dd className="font-medium text-neutral-900">
+              <dt className="text-neutral-500 dark:text-neutral-400">{t("price")}</dt>
+              <dd className="font-medium text-neutral-900 dark:text-neutral-100">
                 {product.price.toFixed(2)} {product.currency}
               </dd>
             </div>
             <div>
-              <dt className="text-neutral-500">{t("moq")}</dt>
-              <dd className="font-medium text-neutral-900">{product.moq}</dd>
+              <dt className="text-neutral-500 dark:text-neutral-400">{t("moq")}</dt>
+              <dd className="font-medium text-neutral-900 dark:text-neutral-100">{product.moq}</dd>
             </div>
             <div>
-              <dt className="text-neutral-500">{t("qtyPerBox")}</dt>
-              <dd className="font-medium text-neutral-900">{product.qtyPerBox}</dd>
+              <dt className="text-neutral-500 dark:text-neutral-400">{t("qtyPerBox")}</dt>
+              <dd className="font-medium text-neutral-900 dark:text-neutral-100">{product.qtyPerBox}</dd>
             </div>
             <div>
-              <dt className="text-neutral-500">{t("size")}</dt>
-              <dd className="font-medium text-neutral-900">
+              <dt className="text-neutral-500 dark:text-neutral-400">{t("size")}</dt>
+              <dd className="font-medium text-neutral-900 dark:text-neutral-100">
                 {product.lengthCm}×{product.widthCm}×{product.heightCm}
               </dd>
             </div>
             <div>
-              <dt className="text-neutral-500">{t("weight")}</dt>
-              <dd className="font-medium text-neutral-900">{product.weightKg} kg</dd>
+              <dt className="text-neutral-500 dark:text-neutral-400">{t("weight")}</dt>
+              <dd className="font-medium text-neutral-900 dark:text-neutral-100">{product.weightKg} kg</dd>
             </div>
             <div>
-              <dt className="text-neutral-500">{t("cbm")}</dt>
-              <dd className="font-medium text-neutral-900">{product.cbm.toFixed(4)} m³</dd>
+              <dt className="text-neutral-500 dark:text-neutral-400">{t("cbm")}</dt>
+              <dd className="font-medium text-neutral-900 dark:text-neutral-100">{product.cbm.toFixed(4)} m³</dd>
             </div>
           </dl>
 
           {product.description ? (
             <div>
-              <p className="text-sm text-neutral-500">{t("description")}</p>
-              <p className="text-sm text-neutral-800 whitespace-pre-wrap">
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">{t("description")}</p>
+              <p className="text-sm text-neutral-800 dark:text-neutral-200 whitespace-pre-wrap">
                 {product.description}
               </p>
             </div>

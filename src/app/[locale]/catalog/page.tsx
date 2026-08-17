@@ -54,7 +54,7 @@ export default async function CatalogPage({
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-neutral-900">{t("title")}</h1>
+        <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">{t("title")}</h1>
         <div className="flex items-center gap-2">
           <Button asChild variant="outline" size="sm">
             <Link href="/catalog/categories">{t("manageCategories")}</Link>
@@ -70,7 +70,7 @@ export default async function CatalogPage({
       </div>
 
       {catalogProducts.length === 0 ? (
-        <p className="text-sm text-neutral-500">{t("noProducts")}</p>
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">{t("noProducts")}</p>
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
           {catalogProducts.map((p) => (

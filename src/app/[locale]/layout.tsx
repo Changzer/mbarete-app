@@ -44,7 +44,7 @@ export default async function LocaleLayout({
       lang={locale}
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-neutral-50">
+      <body className="min-h-full flex flex-col bg-neutral-50 dark:bg-neutral-950">
         <NextIntlClientProvider messages={messages}>
           {session?.user ? <AppNav userName={session.user.name ?? ""} /> : null}
           <main className="flex-1">{children}</main>

@@ -14,7 +14,11 @@ services:
       ADMIN_NAME: ${ADMIN_NAME:-Admin}
     volumes:
       - mbarete-data:/app/data
-      - mbarete-uploads:/app/public/uploads
+      # Same volume as before, remounted: uploads moved out of public/ because
+      # standalone Next.js will not serve files written there after build.
+      # Existing images keep working — they are still in this volume, and the
+      # /uploads route now streams them from the new path.
+      - mbarete-uploads:/app/uploads
 
 volumes:
   mbarete-data:

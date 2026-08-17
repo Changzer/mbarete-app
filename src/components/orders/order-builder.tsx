@@ -176,11 +176,11 @@ export function OrderBuilder({
             return (
               <div
                 key={p.id}
-                className="flex flex-col gap-2 rounded-lg border border-neutral-200 bg-white p-3"
+                className="flex flex-col gap-2 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3"
               >
                 <div>
-                  <p className="text-sm font-semibold text-neutral-900">{p.name}</p>
-                  <p className="text-xs text-neutral-500">
+                  <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{p.name}</p>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
                     {p.categoryName} · {p.price.toFixed(2)} {p.currency} · {t("moq")}: {p.moq}
                   </p>
                 </div>
@@ -203,8 +203,8 @@ export function OrderBuilder({
       </div>
 
       <div className="lg:col-span-1">
-        <div className="sticky top-4 flex flex-col gap-4 rounded-lg border border-neutral-200 bg-white p-4">
-          <h2 className="font-semibold text-neutral-900">{t("cart")}</h2>
+        <div className="sticky top-4 flex flex-col gap-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
+          <h2 className="font-semibold text-neutral-900 dark:text-neutral-100">{t("cart")}</h2>
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="clientId">{t("client")}</Label>
@@ -239,22 +239,22 @@ export function OrderBuilder({
           </div>
 
           {cartLines.length === 0 ? (
-            <p className="text-sm text-neutral-500">{t("emptyCart")}</p>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">{t("emptyCart")}</p>
           ) : (
             <ul className="flex flex-col gap-2 max-h-64 overflow-y-auto">
               {cartLines.map(({ product, quantity }) => (
-                <li key={product.id} className="flex flex-col gap-1 border-b border-neutral-100 pb-2 text-sm">
+                <li key={product.id} className="flex flex-col gap-1 border-b border-neutral-100 dark:border-neutral-800 pb-2 text-sm">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-neutral-900">{product.name}</span>
+                    <span className="font-medium text-neutral-900 dark:text-neutral-100">{product.name}</span>
                     <button
                       type="button"
-                      className="text-xs text-neutral-400 hover:text-red-600"
+                      className="text-xs text-neutral-400 dark:text-neutral-500 hover:text-red-600"
                       onClick={() => setQuantity(product.id, 0)}
                     >
                       {t("removeLine")}
                     </button>
                   </div>
-                  <div className="flex items-center justify-between text-neutral-500">
+                  <div className="flex items-center justify-between text-neutral-500 dark:text-neutral-400">
                     <span>
                       {quantity} × {product.price.toFixed(2)} {product.currency}
                     </span>
@@ -270,20 +270,20 @@ export function OrderBuilder({
             </ul>
           )}
 
-          <div className="flex flex-col gap-1 border-t border-neutral-200 pt-3 text-sm">
+          <div className="flex flex-col gap-1 border-t border-neutral-200 dark:border-neutral-800 pt-3 text-sm">
             <div className="flex justify-between">
-              <span className="text-neutral-500">{t("totalPrice")}</span>
-              <span className="font-semibold text-neutral-900">
+              <span className="text-neutral-500 dark:text-neutral-400">{t("totalPrice")}</span>
+              <span className="font-semibold text-neutral-900 dark:text-neutral-100">
                 {totals.totalPrice.toFixed(2)} {displayCurrency}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-neutral-500">{t("totalCbm")}</span>
-              <span className="font-semibold text-neutral-900">{totals.totalCbm.toFixed(4)} m³</span>
+              <span className="text-neutral-500 dark:text-neutral-400">{t("totalCbm")}</span>
+              <span className="font-semibold text-neutral-900 dark:text-neutral-100">{totals.totalCbm.toFixed(4)} m³</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-neutral-500">{t("totalWeight")}</span>
-              <span className="font-semibold text-neutral-900">{totals.totalWeightKg.toFixed(2)} kg</span>
+              <span className="text-neutral-500 dark:text-neutral-400">{t("totalWeight")}</span>
+              <span className="font-semibold text-neutral-900 dark:text-neutral-100">{totals.totalWeightKg.toFixed(2)} kg</span>
             </div>
           </div>
 

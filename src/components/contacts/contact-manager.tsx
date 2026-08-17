@@ -74,11 +74,11 @@ export function ContactManager({
       </div>
 
       {contacts.length === 0 ? (
-        <p className="text-sm text-neutral-500">{t("noContacts")}</p>
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">{t("noContacts")}</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
+        <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
           <table className="w-full text-sm">
-            <thead className="border-b border-neutral-200 bg-neutral-50 text-left text-neutral-500">
+            <thead className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800 text-left text-neutral-500 dark:text-neutral-400">
               <tr>
                 <th className="px-4 py-2 font-medium">{t("companyName")}</th>
                 <th className="px-4 py-2 font-medium">{t("contactPerson")}</th>
@@ -89,15 +89,15 @@ export function ContactManager({
                 <th className="px-4 py-2 font-medium">{common("actions")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-neutral-100">
+            <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
               {contacts.map((c) => (
                 <tr key={c.id}>
-                  <td className="px-4 py-2 font-medium text-neutral-900">{c.companyName}</td>
-                  <td className="px-4 py-2 text-neutral-700">{c.contactPerson}</td>
-                  <td className="px-4 py-2 text-neutral-700">{c.phone}</td>
-                  <td className="px-4 py-2 text-neutral-700">{c.email}</td>
-                  <td className="px-4 py-2 text-neutral-700">{c.whatsapp}</td>
-                  <td className="px-4 py-2 text-neutral-700">{c.wechat}</td>
+                  <td className="px-4 py-2 font-medium text-neutral-900 dark:text-neutral-100">{c.companyName}</td>
+                  <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">{c.contactPerson}</td>
+                  <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">{c.phone}</td>
+                  <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">{c.email}</td>
+                  <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">{c.whatsapp}</td>
+                  <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">{c.wechat}</td>
                   <td className="px-4 py-2">
                     <div className="flex gap-2">
                       <Button variant="ghost" size="sm" onClick={() => openEdit(c)}>
