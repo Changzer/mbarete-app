@@ -5,11 +5,23 @@ import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
 import type { Locale } from "@/i18n/routing";
 import { db } from "@/db";
-import { products, categories } from "@/db/schema";
+import { products, categories, productImages } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { productSchema, categorySchema } from "@/lib/validators";
 import { computeCbm } from "@/lib/calculations";
 import { saveUploadedImage, deleteUpload } from "@/lib/uploads";
+
+/** Saves every non-empty file under `images`, preserving the chosen order. */
+async function saveUploadedImages(formData: FormData) {
+  const files = formData
+    .getAll("images")
+    .filter((f): f is File => f instanceof File && f.size > 0);
+  const paths: string[] = [];
+  for (const file of files) {
+    paths.push(await saveUploadedImage(file));
+  }
+  return paths;
+}
 import { auth } from "@/lib/auth";
 
 async function requireSession() {
@@ -56,17 +68,14 @@ export async function createProduct(
       ? data.cbmOverride
       : computeCbm(data.lengthCm, data.widthCm, data.heightCm);
 
-  let imagePath: string | null = null;
-  const file = formData.get("image");
-  if (file instanceof File && file.size > 0) {
-    try {
-      imagePath = await saveUploadedImage(file);
-    } catch {
-      return "image-error";
-    }
+  let uploaded: string[];
+  try {
+    uploaded = await saveUploadedImages(formData);
+  } catch {
+    return "image-error";
   }
 
-  db.insert(products)
+  const inserted = db.insert(products)
     .values({
       sku: data.sku,
       nameEn: data.nameEn,
@@ -83,11 +92,17 @@ export async function createProduct(
       heightCm: data.heightCm,
       weightKg: data.weightKg,
       cbm,
-      imagePath,
       active: data.active,
       updatedAt: new Date().toISOString(),
     })
     .run();
+
+  const newProductId = Number(inserted.lastInsertRowid);
+  uploaded.forEach((path, i) => {
+    db.insert(productImages)
+      .values({ productId: newProductId, path, sortOrder: i })
+      .run();
+  });
 
   revalidatePath("/catalog");
   redirect({ href: "/catalog", locale: (await getLocale()) as Locale });
@@ -115,18 +130,41 @@ export async function updateProduct(
   const existing = db.select().from(products).where(eq(products.id, id)).get();
   if (!existing) return "not-found";
 
-  let imagePath = existing.imagePath;
-  const file = formData.get("image");
-  if (file instanceof File && file.size > 0) {
-    try {
-      imagePath = await saveUploadedImage(file);
-      if (existing.imagePath) {
-        await deleteUpload(existing.imagePath);
-      }
-    } catch {
-      return "image-error";
+  // Images the user ticked for removal in the form.
+  const removeIds = formData
+    .getAll("removeImageIds")
+    .map((v) => Number(v))
+    .filter((n) => Number.isFinite(n));
+
+  for (const imageId of removeIds) {
+    const row = db
+      .select()
+      .from(productImages)
+      .where(eq(productImages.id, imageId))
+      .get();
+    if (row && row.productId === id) {
+      db.delete(productImages).where(eq(productImages.id, imageId)).run();
+      await deleteUpload(row.path);
     }
   }
+
+  let uploaded: string[];
+  try {
+    uploaded = await saveUploadedImages(formData);
+  } catch {
+    return "image-error";
+  }
+
+  const remaining = db
+    .select()
+    .from(productImages)
+    .where(eq(productImages.productId, id))
+    .all();
+  uploaded.forEach((path, i) => {
+    db.insert(productImages)
+      .values({ productId: id, path, sortOrder: remaining.length + i })
+      .run();
+  });
 
   db.update(products)
     .set({
@@ -145,7 +183,6 @@ export async function updateProduct(
       heightCm: data.heightCm,
       weightKg: data.weightKg,
       cbm,
-      imagePath,
       active: data.active,
       updatedAt: new Date().toISOString(),
     })
@@ -158,7 +195,19 @@ export async function updateProduct(
 
 export async function deleteProduct(id: number) {
   await requireSession();
+
+  // Rows cascade, but the files on disk would be orphaned otherwise.
+  const images = db
+    .select()
+    .from(productImages)
+    .where(eq(productImages.productId, id))
+    .all();
+
   db.delete(products).where(eq(products.id, id)).run();
+  for (const image of images) {
+    await deleteUpload(image.path);
+  }
+
   revalidatePath("/catalog");
 }
 

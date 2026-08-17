@@ -29,7 +29,9 @@
     "required": "必填",
     "yes": "是",
     "no": "否",
-    "close": "关闭"
+    "close": "关闭",
+    "previous": "上一张",
+    "next": "下一张"
   },
   "catalog": {
     "title": "产品目录",
@@ -62,7 +64,10 @@
     "manageCategories": "管理分类",
     "addCategory": "添加分类",
     "deleteConfirm": "确定删除此产品吗？",
-    "perBox": "每箱"
+    "perBox": "每箱",
+    "images": "图片",
+    "imagesHelp": "可一次选择多张照片——例如每种颜色一张。第一张将作为目录缩略图。",
+    "photos": "张图片"
   },
   "contacts": {
     "title": "联系人",

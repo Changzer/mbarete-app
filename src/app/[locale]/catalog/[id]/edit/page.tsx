@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { getCategories, getProductById } from "@/lib/queries/catalog";
+import { getCategories, getProductById, getProductImages } from "@/lib/queries/catalog";
 import { updateProduct } from "@/lib/actions/catalog";
 import { ProductForm } from "@/components/catalog/product-form";
 
@@ -14,9 +14,10 @@ export default async function EditProductPage({
   const t = await getTranslations("catalog");
   const common = await getTranslations("common");
 
-  const [categories, product] = await Promise.all([
+  const [categories, product, images] = await Promise.all([
     getCategories(),
     getProductById(productId),
+    getProductImages(productId),
   ]);
 
   if (!product) notFound();
@@ -32,6 +33,7 @@ export default async function EditProductPage({
         categories={categories}
         action={boundUpdate}
         defaultValues={product}
+        existingImages={images.map((i) => ({ id: i.id, path: i.path }))}
         submitLabel={common("save")}
       />
     </div>

@@ -29,7 +29,9 @@
     "required": "Required",
     "yes": "Yes",
     "no": "No",
-    "close": "Close"
+    "close": "Close",
+    "previous": "Previous",
+    "next": "Next"
   },
   "catalog": {
     "title": "Product Catalog",
@@ -62,7 +64,10 @@
     "manageCategories": "Manage Categories",
     "addCategory": "Add Category",
     "deleteConfirm": "Delete this product?",
-    "perBox": "per box"
+    "perBox": "per box",
+    "images": "Images",
+    "imagesHelp": "You can select several photos at once — for example one per colour. The first is used as the catalog thumbnail.",
+    "photos": "photos"
   },
   "contacts": {
     "title": "Contacts",

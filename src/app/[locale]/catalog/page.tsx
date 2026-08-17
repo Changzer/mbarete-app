@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import { getCategories, getProducts } from "@/lib/queries/catalog";
+import { getCategories, getProducts, getImagesByProduct } from "@/lib/queries/catalog";
 import { localizeField } from "@/lib/localize";
 import type { Locale } from "@/i18n/routing";
 import { CatalogControls } from "@/components/catalog/catalog-controls";
@@ -25,6 +25,7 @@ export default async function CatalogPage({
     sort: sort === "price-asc" ? "price-asc" : "default",
   });
 
+  const imagesByProduct = await getImagesByProduct(products.map((p) => p.id));
   const categoryMap = new Map(categories.map((c) => [c.id, c]));
 
   const catalogProducts: CatalogProduct[] = products.map((p) => {
@@ -46,7 +47,7 @@ export default async function CatalogPage({
       heightCm: p.heightCm,
       weightKg: p.weightKg,
       cbm: p.cbm,
-      imagePath: p.imagePath,
+      images: imagesByProduct.get(p.id) ?? [],
       active: p.active,
     };
   });

@@ -33,23 +33,27 @@ type ProductFormValues = {
   heightCm: number;
   weightKg: number;
   active: boolean;
-  imagePath: string | null;
 };
+
+export type ExistingImage = { id: number; path: string };
 
 export function ProductForm({
   categories,
   action,
   defaultValues,
+  existingImages = [],
   submitLabel,
 }: {
   categories: Category[];
   action: (prevState: string | undefined, formData: FormData) => Promise<string | undefined>;
   defaultValues?: Partial<ProductFormValues>;
+  existingImages?: ExistingImage[];
   submitLabel: string;
 }) {
   const t = useTranslations("catalog");
   const common = useTranslations("common");
   const [errorMessage, formAction, isPending] = useActionState(action, undefined);
+  const [removed, setRemoved] = useState<number[]>([]);
   const [categoryId, setCategoryId] = useState(
     defaultValues?.categoryId ? String(defaultValues.categoryId) : categories[0] ? String(categories[0].id) : "",
   );
@@ -194,23 +198,56 @@ export function ProductForm({
           />
         </div>
 
-        <div className="flex flex-col gap-1.5 sm:col-span-2">
-          <Label htmlFor="image">{t("image")}</Label>
-          {defaultValues?.imagePath ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={defaultValues.imagePath}
-              alt=""
-              className="mb-1 h-24 w-24 rounded-md object-cover"
-            />
+        <div className="flex flex-col gap-2 sm:col-span-2">
+          <Label htmlFor="images">{t("images")}</Label>
+
+          {existingImages.length > 0 ? (
+            <div className="flex flex-wrap gap-3">
+              {existingImages.map((img) => {
+                const isRemoved = removed.includes(img.id);
+                return (
+                  <div key={img.id} className="flex flex-col items-center gap-1">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={img.path}
+                      alt=""
+                      className={`h-24 w-24 rounded-md border border-neutral-200 dark:border-neutral-800 object-contain bg-neutral-100 dark:bg-neutral-800 ${
+                        isRemoved ? "opacity-30" : ""
+                      }`}
+                    />
+                    {isRemoved ? (
+                      <input type="hidden" name="removeImageIds" value={img.id} />
+                    ) : null}
+                    <button
+                      type="button"
+                      className="text-xs text-neutral-500 dark:text-neutral-400 hover:text-red-600 dark:hover:text-red-400"
+                      onClick={() =>
+                        setRemoved((prev) =>
+                          prev.includes(img.id)
+                            ? prev.filter((v) => v !== img.id)
+                            : [...prev, img.id],
+                        )
+                      }
+                    >
+                      {isRemoved ? common("cancel") : common("delete")}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           ) : null}
+
           <input
-            id="image"
-            name="image"
+            id="images"
+            name="images"
             type="file"
+            multiple
             accept="image/png,image/jpeg,image/webp,image/gif"
             className="text-sm"
           />
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+            {t("imagesHelp")}
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
