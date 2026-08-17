@@ -2,6 +2,8 @@
 
 Internal tool for Mbarete's sourcing/procurement business — a bilingual (EN/中文) product catalog, order builder with MOQ/CBM/weight calculations, and a supplier/client directory. Built to self-host cheaply on a home NAS.
 
+> **Installing this on the NAS?** Follow **[INSTALL.md](INSTALL.md)** — a complete step-by-step walkthrough over SSH, written for non-technical users. The rest of this README is developer reference.
+
 ## Stack
 
 - **Next.js 16 (App Router) + TypeScript** — one process serves both the UI and the API.
