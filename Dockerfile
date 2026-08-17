@@ -1,12 +1,16 @@
 FROM node:22-alpine AS deps
-# No C/C++ toolchain needed: better-sqlite3 ships prebuilt binaries for both
-# Alpine targets (linuxmusl-x64 / linuxmusl-arm64) inside its npm package, so
-# node-gyp never runs. Adding python3/make/g++ here cost ~8 min of build time
-# and ~250MB for nothing.
-RUN apk add --no-cache libc6-compat
+# Deliberately no `apk add` here. Every native dependency ships a prebuilt
+# musl binary inside its own npm package — better-sqlite3 (linuxmusl-x64 /
+# linuxmusl-arm64), sharp + libvips, and the Next.js SWC compiler — so nothing
+# compiles and nothing needs a glibc shim. Skipping apk entirely removes the
+# Alpine package CDN as a build dependency, which matters on networks where it
+# is slow or filtered.
 WORKDIR /app
+# Optional mirror for networks where registry.npmjs.org is slow. Override via
+# NPM_REGISTRY in .env (see .env.example); defaults to the public registry.
+ARG NPM_REGISTRY=https://registry.npmjs.org
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm config set registry "$NPM_REGISTRY" && npm ci
 
 FROM node:22-alpine AS builder
 WORKDIR /app

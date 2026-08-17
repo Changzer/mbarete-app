@@ -1,6 +1,9 @@
 services:
   mbarete-app:
-    build: .
+    build:
+      context: .
+      args:
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org}
     restart: unless-stopped
     ports:
       - "3000:3000"
