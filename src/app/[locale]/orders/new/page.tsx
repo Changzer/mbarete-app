@@ -47,7 +47,7 @@ export default async function NewOrderPage({
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
-      <h1 className="mb-6 text-2xl font-semibold text-neutral-900">{t("newOrder")}</h1>
+      <h1 className="mb-6 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">{t("newOrder")}</h1>
       <OrderBuilder
         mode="create"
         products={builderProducts}

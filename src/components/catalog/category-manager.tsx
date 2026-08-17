@@ -41,10 +41,10 @@ export function CategoryManager({ categories }: { categories: Category[] }) {
         </CardContent>
       </Card>
 
-      <ul className="flex flex-col divide-y divide-neutral-200 rounded-lg border border-neutral-200 bg-white">
+      <ul className="flex flex-col divide-y divide-neutral-200 dark:divide-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
         {categories.map((c) => (
           <li key={c.id} className="flex items-center justify-between px-4 py-3">
-            <span className="text-sm text-neutral-900">
+            <span className="text-sm text-neutral-900 dark:text-neutral-100">
               {c.nameEn} / {c.nameZh}
             </span>
             <Button

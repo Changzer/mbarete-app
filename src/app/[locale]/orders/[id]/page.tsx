@@ -53,8 +53,8 @@ export default async function OrderDetailPage({
     <div className="mx-auto max-w-4xl px-4 py-6">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-neutral-900">{order.orderNumber}</h1>
-          <p className="text-sm text-neutral-500">{client?.companyName}</p>
+          <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">{order.orderNumber}</h1>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">{client?.companyName}</p>
         </div>
         <div className="flex flex-col items-end gap-2">
           <Badge variant={STATUS_VARIANT[order.status]}>
@@ -64,9 +64,9 @@ export default async function OrderDetailPage({
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
+      <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
         <table className="w-full text-sm">
-          <thead className="border-b border-neutral-200 bg-neutral-50 text-left text-neutral-500">
+          <thead className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800 text-left text-neutral-500 dark:text-neutral-400">
             <tr>
               <th className="px-4 py-2 font-medium">{catalogT("title")}</th>
               <th className="px-4 py-2 font-medium">{t("quantity")}</th>
@@ -74,11 +74,11 @@ export default async function OrderDetailPage({
               <th className="px-4 py-2 font-medium">{t("lineTotal")}</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-neutral-100">
+          <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
             {rows.map((r) => (
               <tr key={r.id}>
-                <td className="px-4 py-2 text-neutral-900">{r.name}</td>
-                <td className="px-4 py-2 text-neutral-700">
+                <td className="px-4 py-2 text-neutral-900 dark:text-neutral-100">{r.name}</td>
+                <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">
                   {r.quantity}
                   {r.below ? (
                     <Badge variant="warning" className="ml-2">
@@ -86,10 +86,10 @@ export default async function OrderDetailPage({
                     </Badge>
                   ) : null}
                 </td>
-                <td className="px-4 py-2 text-neutral-700">
+                <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">
                   {r.unitPriceSnapshot.toFixed(2)} {r.currencySnapshot}
                 </td>
-                <td className="px-4 py-2 text-neutral-700">
+                <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">
                   {r.lineTotal.toFixed(2)} {r.currencySnapshot}
                 </td>
               </tr>
@@ -98,27 +98,27 @@ export default async function OrderDetailPage({
         </table>
       </div>
 
-      <div className="mt-4 flex flex-col gap-1 rounded-lg border border-neutral-200 bg-white p-4 text-sm sm:w-72 sm:self-end">
+      <div className="mt-4 flex flex-col gap-1 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 text-sm sm:w-72 sm:self-end">
         <div className="flex justify-between">
-          <span className="text-neutral-500">{t("totalPrice")}</span>
-          <span className="font-semibold text-neutral-900">
+          <span className="text-neutral-500 dark:text-neutral-400">{t("totalPrice")}</span>
+          <span className="font-semibold text-neutral-900 dark:text-neutral-100">
             {totalPrice.toFixed(2)} {order.displayCurrency}
           </span>
         </div>
         <div className="flex justify-between">
-          <span className="text-neutral-500">{t("totalCbm")}</span>
-          <span className="font-semibold text-neutral-900">{totalCbm.toFixed(4)} m³</span>
+          <span className="text-neutral-500 dark:text-neutral-400">{t("totalCbm")}</span>
+          <span className="font-semibold text-neutral-900 dark:text-neutral-100">{totalCbm.toFixed(4)} m³</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-neutral-500">{t("totalWeight")}</span>
-          <span className="font-semibold text-neutral-900">{totalWeight.toFixed(2)} kg</span>
+          <span className="text-neutral-500 dark:text-neutral-400">{t("totalWeight")}</span>
+          <span className="font-semibold text-neutral-900 dark:text-neutral-100">{totalWeight.toFixed(2)} kg</span>
         </div>
       </div>
 
       {order.notes ? (
         <div className="mt-4">
-          <p className="text-sm text-neutral-500">{t("notes")}</p>
-          <p className="whitespace-pre-wrap text-sm text-neutral-800">{order.notes}</p>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">{t("notes")}</p>
+          <p className="whitespace-pre-wrap text-sm text-neutral-800 dark:text-neutral-200">{order.notes}</p>
         </div>
       ) : null}
 

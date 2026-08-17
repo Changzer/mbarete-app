@@ -10,27 +10,27 @@ export async function AppNav({ userName }: { userName: string }) {
   const boundSignOut = signOutAction.bind(null, locale);
 
   return (
-    <header className="border-b border-neutral-200 bg-white">
+    <header className="border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         <div className="flex items-center gap-6">
-          <span className="text-lg font-semibold text-neutral-900">
+          <span className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
             {t("appName")}
           </span>
-          <nav className="flex items-center gap-4 text-sm font-medium text-neutral-600">
-            <Link href="/catalog" className="hover:text-neutral-900">
+          <nav className="flex items-center gap-4 text-sm font-medium text-neutral-600 dark:text-neutral-400">
+            <Link href="/catalog" className="hover:text-neutral-900 dark:hover:text-neutral-100">
               {t("catalog")}
             </Link>
-            <Link href="/orders" className="hover:text-neutral-900">
+            <Link href="/orders" className="hover:text-neutral-900 dark:hover:text-neutral-100">
               {t("orders")}
             </Link>
-            <Link href="/contacts" className="hover:text-neutral-900">
+            <Link href="/contacts" className="hover:text-neutral-900 dark:hover:text-neutral-100">
               {t("contacts")}
             </Link>
           </nav>
         </div>
         <div className="flex items-center gap-3">
           <LanguageSwitcher />
-          <span className="hidden text-sm text-neutral-500 sm:inline">
+          <span className="hidden text-sm text-neutral-500 dark:text-neutral-400 sm:inline">
             {userName}
           </span>
           <form action={boundSignOut}>

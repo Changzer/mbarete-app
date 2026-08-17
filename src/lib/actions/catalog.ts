@@ -9,10 +9,8 @@ import { products, categories } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { productSchema, categorySchema } from "@/lib/validators";
 import { computeCbm } from "@/lib/calculations";
-import { saveUploadedImage } from "@/lib/uploads";
+import { saveUploadedImage, deleteUpload } from "@/lib/uploads";
 import { auth } from "@/lib/auth";
-import fs from "node:fs/promises";
-import path from "node:path";
 
 async function requireSession() {
   const session = await auth();
@@ -123,9 +121,7 @@ export async function updateProduct(
     try {
       imagePath = await saveUploadedImage(file);
       if (existing.imagePath) {
-        await fs
-          .unlink(path.join(process.cwd(), "public", existing.imagePath))
-          .catch(() => {});
+        await deleteUpload(existing.imagePath);
       }
     } catch {
       return "image-error";
