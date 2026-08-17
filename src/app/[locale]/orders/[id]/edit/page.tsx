@@ -65,6 +65,8 @@ export default async function EditOrderPage({
         initial={{
           clientId: order.clientId,
           displayCurrency: order.displayCurrency,
+          secondaryCurrency: order.secondaryCurrency,
+          commissionPct: order.commissionPct,
           notes: order.notes,
           items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
         }}

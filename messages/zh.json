@@ -4,7 +4,8 @@
     "orders": "订单",
     "contacts": "联系人",
     "signOut": "退出登录",
-    "appName": "Mbarete"
+    "appName": "Mbarete",
+    "settings": "设置"
   },
   "login": {
     "title": "登录",
@@ -113,6 +114,24 @@
     "notes": "备注",
     "deleteConfirm": "确定删除此订单吗？",
     "markShipped": "标记为已发货",
-    "cancelOrder": "取消订单"
+    "cancelOrder": "取消订单",
+    "commission": "佣金 %",
+    "commissionAmount": "佣金",
+    "goodsSubtotal": "货品小计",
+    "grandTotal": "总计",
+    "quoteCurrency": "报价货币",
+    "secondaryCurrency": "同时显示",
+    "missingRate": "未设置 {codes} 的汇率。请在设置中添加——这些明细未计入合计。",
+    "openSettings": "打开设置"
+  },
+  "settings": {
+    "exchangeRates": "汇率",
+    "ratesHelp": "汇率表示 1 单位货币折合多少美元。若产品使用的货币未在此列出，则无法换算，订单合计会被标记。货币代码必须与产品中填写的完全一致（RMB 与 CNY 属于不同代码）。",
+    "currencyCode": "货币",
+    "rateToUsd": "折合美元",
+    "example": "示例",
+    "saveRate": "保存汇率",
+    "baseCurrency": "基准货币",
+    "deleteRateConfirm": "确定删除此货币汇率吗？"
   }
 }

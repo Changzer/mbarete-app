@@ -17,10 +17,10 @@ export async function GET(
   }
 
   const ext = filename.split(".").pop()!;
-  const filePath = path.join(uploadsDir(), filename);
+  const filePath = path.join(/* turbopackIgnore: true */ uploadsDir(), filename);
 
   try {
-    const file = await fs.readFile(filePath);
+    const file = await fs.readFile(/* turbopackIgnore: true */ filePath);
     return new NextResponse(new Uint8Array(file), {
       headers: {
         "Content-Type": CONTENT_TYPES[ext] ?? "application/octet-stream",

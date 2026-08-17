@@ -99,7 +99,15 @@ export const orders = sqliteTable(
     })
       .notNull()
       .default("draft"),
+    // Quote currency (what the client is billed in) and the secondary currency
+    // shown alongside it, so RMB cost and USD quote are visible together.
     displayCurrency: text("display_currency").notNull().default("USD"),
+    secondaryCurrency: text("secondary_currency").notNull().default("CNY"),
+    // Mbarete's margin, charged on top of the goods subtotal.
+    commissionPct: real("commission_pct").notNull().default(0),
+    // Rates in force when the order was saved, so a stored quote does not move
+    // when the rate table is later edited. JSON: {"CNY":0.14,"USD":1}
+    ratesSnapshot: text("rates_snapshot").notNull().default("{}"),
     notes: text("notes").notNull().default(""),
     createdBy: integer("created_by")
       .notNull()

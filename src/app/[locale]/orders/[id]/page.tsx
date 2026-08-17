@@ -4,7 +4,7 @@ import { getOrderById, getExchangeRates } from "@/lib/queries/orders";
 import { getProducts } from "@/lib/queries/catalog";
 import { localizeField } from "@/lib/localize";
 import type { Locale } from "@/i18n/routing";
-import { convert } from "@/lib/calculations";
+import { computeOrderTotals } from "@/lib/calculations";
 import { Badge } from "@/components/ui/badge";
 import { OrderStatusActions } from "@/components/orders/order-status-actions";
 
@@ -34,17 +34,43 @@ export default async function OrderDetailPage({
   const { order, items, client } = data;
   const productMap = new Map(products.map((p) => [p.id, p]));
 
+  // Prefer the rates frozen when the order was saved, so a historical quote
+  // stays as quoted; fall back to live rates for orders saved before snapshots.
+  let snapshot: Record<string, number> = {};
+  try {
+    snapshot = JSON.parse(order.ratesSnapshot || "{}");
+  } catch {
+    snapshot = {};
+  }
+  const effectiveRates = Object.keys(snapshot).length > 0 ? snapshot : rates;
+
   const rows = items.map((item) => {
     const product = productMap.get(item.productId);
     const name = product
       ? localizeField(locale as Locale, product.nameEn, product.nameZh)
       : `#${item.productId}`;
-    const converted = convert(item.lineTotal, item.currencySnapshot, order.displayCurrency, rates);
     const below = item.quantity < item.moqSnapshot;
-    return { ...item, name, below, converted };
+    return { ...item, name, below };
   });
 
-  const totalPrice = rows.reduce((sum, r) => sum + r.converted, 0);
+  const targets = [...new Set([order.displayCurrency, order.secondaryCurrency])];
+  const totals = computeOrderTotals(
+    items.map((i) => ({
+      // reuse the snapshotted line values, not today's catalog prices
+      product: {
+        price: i.unitPriceSnapshot,
+        currency: i.currencySnapshot,
+        moq: i.moqSnapshot,
+        qtyPerBox: 1,
+        weightKg: i.lineWeightKg,
+        cbm: i.lineCbm,
+      },
+      quantity: i.quantity,
+    })),
+    targets,
+    effectiveRates,
+    order.commissionPct,
+  );
   const totalCbm = rows.reduce((sum, r) => sum + r.lineCbm, 0);
   const totalWeight = rows.reduce((sum, r) => sum + r.lineWeightKg, 0);
   const hasMoqViolation = rows.some((r) => r.below);
@@ -98,12 +124,51 @@ export default async function OrderDetailPage({
         </table>
       </div>
 
-      <div className="mt-4 flex flex-col gap-1 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 text-sm sm:w-72 sm:self-end">
-        <div className="flex justify-between">
-          <span className="text-neutral-500 dark:text-neutral-400">{t("totalPrice")}</span>
-          <span className="font-semibold text-neutral-900 dark:text-neutral-100">
-            {totalPrice.toFixed(2)} {order.displayCurrency}
-          </span>
+      <div className="mt-4 flex flex-col gap-2 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 text-sm sm:w-80 sm:self-end">
+        {totals.missingRates.length > 0 ? (
+          <p className="rounded-md bg-amber-100 dark:bg-amber-950 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+            {t("missingRate", { codes: totals.missingRates.join(", ") })}
+          </p>
+        ) : null}
+
+        <div className="flex flex-col gap-1">
+          <span className="text-neutral-500 dark:text-neutral-400">{t("goodsSubtotal")}</span>
+          {targets.map((code) => (
+            <div key={code} className="flex justify-between">
+              <span className="text-neutral-400 dark:text-neutral-500">{code}</span>
+              <span className="text-neutral-700 dark:text-neutral-300">
+                {totals.goods[code].toFixed(2)}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {order.commissionPct > 0 ? (
+          <div className="flex flex-col gap-1">
+            <span className="text-neutral-500 dark:text-neutral-400">
+              {t("commissionAmount")} ({order.commissionPct}%)
+            </span>
+            {targets.map((code) => (
+              <div key={code} className="flex justify-between">
+                <span className="text-neutral-400 dark:text-neutral-500">{code}</span>
+                <span className="text-neutral-700 dark:text-neutral-300">
+                  {totals.commission[code].toFixed(2)}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="flex flex-col gap-1 border-t border-neutral-200 dark:border-neutral-800 pt-2">
+          <span className="text-neutral-500 dark:text-neutral-400">{t("grandTotal")}</span>
+          {targets.map((code) => (
+            <div key={code} className="flex justify-between">
+              <span className="text-neutral-400 dark:text-neutral-500">{code}</span>
+              <span className="font-semibold text-neutral-900 dark:text-neutral-100">
+                {totals.grandTotal[code].toFixed(2)}
+              </span>
+            </div>
+          ))}
         </div>
         <div className="flex justify-between">
           <span className="text-neutral-500 dark:text-neutral-400">{t("totalCbm")}</span>

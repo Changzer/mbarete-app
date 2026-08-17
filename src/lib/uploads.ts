@@ -44,7 +44,8 @@ export async function saveUploadedImage(file: File): Promise<string> {
 
   const filename = `${crypto.randomUUID()}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
-  await fs.writeFile(path.join(dir, filename), buffer);
+  const target = path.join(/* turbopackIgnore: true */ dir, filename);
+  await fs.writeFile(/* turbopackIgnore: true */ target, buffer);
 
   return `/uploads/${filename}`;
 }
@@ -52,5 +53,6 @@ export async function saveUploadedImage(file: File): Promise<string> {
 export async function deleteUpload(publicPath: string) {
   const filename = publicPath.replace(/^\/uploads\//, "");
   if (!isSafeUploadName(filename)) return;
-  await fs.unlink(path.join(uploadsDir(), filename)).catch(() => {});
+  const target = path.join(/* turbopackIgnore: true */ uploadsDir(), filename);
+  await fs.unlink(/* turbopackIgnore: true */ target).catch(() => {});
 }

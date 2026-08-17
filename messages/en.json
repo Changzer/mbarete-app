@@ -4,7 +4,8 @@
     "orders": "Orders",
     "contacts": "Contacts",
     "signOut": "Sign out",
-    "appName": "Mbarete"
+    "appName": "Mbarete",
+    "settings": "Settings"
   },
   "login": {
     "title": "Sign in",
@@ -113,6 +114,24 @@
     "notes": "Notes",
     "deleteConfirm": "Delete this order?",
     "markShipped": "Mark as Shipped",
-    "cancelOrder": "Cancel Order"
+    "cancelOrder": "Cancel Order",
+    "commission": "Commission %",
+    "commissionAmount": "Commission",
+    "goodsSubtotal": "Goods subtotal",
+    "grandTotal": "Total",
+    "quoteCurrency": "Quote currency",
+    "secondaryCurrency": "Also show in",
+    "missingRate": "No exchange rate set for {codes}. Add it in Settings — these lines are excluded from the totals.",
+    "openSettings": "Open Settings"
+  },
+  "settings": {
+    "exchangeRates": "Exchange Rates",
+    "ratesHelp": "Rates are per 1 unit in USD. A product priced in a currency that is not listed here cannot be converted, and its order totals will be flagged. Currency codes must match exactly what you type on the product (RMB and CNY are different codes).",
+    "currencyCode": "Currency",
+    "rateToUsd": "Value in USD",
+    "example": "Example",
+    "saveRate": "Save rate",
+    "baseCurrency": "Base currency",
+    "deleteRateConfirm": "Delete this currency rate?"
   }
 }
