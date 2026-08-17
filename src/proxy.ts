@@ -1,0 +1,28 @@
+import createMiddleware from "next-intl/middleware";
+import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { routing } from "@/i18n/routing";
+
+const intlMiddleware = createMiddleware(routing);
+
+function isPublicPath(pathname: string) {
+  const withoutLocale = pathname.replace(/^\/(en|zh)/, "") || "/";
+  return withoutLocale.startsWith("/login");
+}
+
+export default auth((req) => {
+  const { pathname } = req.nextUrl;
+
+  if (!req.auth && !isPublicPath(pathname)) {
+    const locale = pathname.startsWith("/zh") ? "zh" : routing.defaultLocale;
+    const loginUrl = new URL(`/${locale}/login`, req.url);
+    loginUrl.searchParams.set("callbackUrl", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  return intlMiddleware(req);
+});
+
+export const config = {
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|uploads).*)"],
+};
