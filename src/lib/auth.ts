@@ -26,6 +26,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           .where(eq(users.email, email.toLowerCase().trim()))
           .get();
         if (!user) return null;
+        // Deactivated accounts keep their history but lose their access.
+        if (!user.active) return null;
 
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;

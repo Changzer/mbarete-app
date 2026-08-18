@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getOrderById, getExchangeRates } from "@/lib/queries/orders";
 import { getProducts } from "@/lib/queries/catalog";
+import { getUserNames } from "@/lib/queries/users";
 import { localizeField } from "@/lib/localize";
 import type { Locale } from "@/i18n/routing";
 import { computeSnapshotTotals, formatCbm } from "@/lib/calculations";
@@ -24,10 +25,11 @@ export default async function OrderDetailPage({
   const t = await getTranslations("orders");
   const catalogT = await getTranslations("catalog");
 
-  const [data, rates, products] = await Promise.all([
+  const [data, rates, products, userNames] = await Promise.all([
     getOrderById(Number(id)),
     getExchangeRates(),
     getProducts(),
+    getUserNames(),
   ]);
 
   if (!data) notFound();
@@ -92,6 +94,15 @@ export default async function OrderDetailPage({
         <div>
           <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">{order.orderNumber}</h1>
           <p className="text-sm text-neutral-500 dark:text-neutral-400">{client?.companyName}</p>
+          <p
+            className="mt-1 text-xs text-neutral-500 dark:text-neutral-400"
+            data-testid="order-attribution"
+          >
+            {t("filedBy")}: {userNames.get(order.createdBy) ?? t("unknownUser")}
+            {order.updatedBy && order.updatedBy !== order.createdBy
+              ? ` · ${t("updatedBy")}: ${userNames.get(order.updatedBy) ?? t("unknownUser")}`
+              : ""}
+          </p>
         </div>
         <div className="flex flex-col items-end gap-2">
           <Badge variant={STATUS_VARIANT[order.status]}>

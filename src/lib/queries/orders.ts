@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { orders, orderItems, contacts, exchangeRates } from "@/db/schema";
+import { orders, orderItems, contacts, exchangeRates, users } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 
 export async function getExchangeRates() {
@@ -16,9 +16,11 @@ export async function getOrders() {
       displayCurrency: orders.displayCurrency,
       createdAt: orders.createdAt,
       clientName: contacts.companyName,
+      createdByName: users.name,
     })
     .from(orders)
     .leftJoin(contacts, eq(orders.clientId, contacts.id))
+    .leftJoin(users, eq(orders.createdBy, users.id))
     .orderBy(desc(orders.createdAt))
     .all();
 

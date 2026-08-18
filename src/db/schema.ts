@@ -12,6 +12,10 @@ export const users = sqliteTable("users", {
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   name: text("name").notNull(),
+  // Accounts are deactivated, never deleted: products and orders point at
+  // this row, and removing it would erase who did what. An inactive user
+  // cannot sign in but still gets credited on everything they entered.
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(current_timestamp)`),
@@ -61,6 +65,10 @@ export const products = sqliteTable(
     pieceWeightKg: real("piece_weight_kg").notNull().default(0),
     packingAllowancePct: real("packing_allowance_pct").notNull().default(15),
     active: integer("active", { mode: "boolean" }).notNull().default(true),
+    // Who entered this product and who last changed it. Nullable because rows
+    // written before attribution existed have nobody to credit.
+    createdBy: integer("created_by").references(() => users.id),
+    updatedBy: integer("updated_by").references(() => users.id),
     createdAt: text("created_at")
       .notNull()
       .default(sql`(current_timestamp)`),
@@ -147,6 +155,7 @@ export const orders = sqliteTable(
     createdBy: integer("created_by")
       .notNull()
       .references(() => users.id),
+    updatedBy: integer("updated_by").references(() => users.id),
     createdAt: text("created_at")
       .notNull()
       .default(sql`(current_timestamp)`),

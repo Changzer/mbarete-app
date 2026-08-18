@@ -350,6 +350,78 @@ cd /volume1/docker/mbarete-app
 
 ---
 
+## Updating itself automatically
+
+Instead of connecting by SSH every time something is merged, you can have the
+NAS follow the `main` branch on its own. It checks every few minutes and
+rebuilds only when the branch has actually moved.
+
+Set it up once:
+
+```
+cd /volume1/docker/mbarete-app
+sudo ./scripts/install-auto-update.sh
+```
+
+That's it. To check every 15 minutes instead of every 5:
+
+```
+sudo ./scripts/install-auto-update.sh 15
+```
+
+### What it does when something is merged
+
+1. Notices that `main` has moved.
+2. Updates the code and rebuilds the app.
+3. Waits for the app to answer, for up to two minutes.
+4. If it answers, you're done — the new version is live.
+5. **If it doesn't answer, it puts the previous version back**, so the NAS is
+   never left down while nobody is watching.
+
+A version that fails is not tried again, so a broken merge cannot put the NAS
+into a rebuild loop. Push a fix to `main` and the next check picks it up.
+
+If the *build* fails rather than the app, nothing is disturbed at all — the
+version that is already running keeps running.
+
+### Keeping an eye on it
+
+```
+tail -f /volume1/docker/mbarete-app/auto-update.log
+```
+
+A quiet log is a good sign: nothing is written when there is nothing to do.
+You'll see entries like:
+
+```
+2026-08-18 14:02:11  update found on main: 4d98ddd Fix order totals
+2026-08-18 14:02:11  rebuilding
+2026-08-18 14:04:36  deployed 4d98ddd and the app is answering
+```
+
+Other useful commands:
+
+| What you want | Command |
+|---|---|
+| Check for updates right now | `sudo systemctl start mbarete-auto-update.service` |
+| See when it last ran | `systemctl status mbarete-auto-update.timer` |
+| Turn it off | `sudo ./scripts/install-auto-update.sh --uninstall` |
+
+### Things worth knowing
+
+- **Your settings are safe.** `.env` is never touched, and your products,
+  orders and photos live in Docker volumes that updates don't go near.
+- **Anything you edit on the NAS by hand gets set aside**, not deleted. The
+  log tells you when this happens, and `git stash list` shows what was kept.
+- **It needs a git clone.** If you installed from a ZIP instead, auto-update
+  has nothing to follow — see the next section for that route.
+- **The NAS still needs to reach GitHub.** If it can't, the updater logs the
+  outage and tries again on the next check; nothing breaks.
+- **It rebuilds without asking.** Anything merged into `main` goes live within
+  minutes, so treat merging as deploying.
+
+---
+
 ## Updating when the NAS cannot reach GitHub
 
 GitHub is unreliable or blocked from some networks. If `git pull` on the NAS

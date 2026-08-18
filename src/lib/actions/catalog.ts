@@ -28,9 +28,11 @@ async function saveUploadedImages(formData: FormData) {
 }
 import { auth } from "@/lib/auth";
 
+/** Returns the signed-in user's id, so edits can be attributed to them. */
 async function requireSession() {
   const session = await auth();
-  if (!session?.user) throw new Error("unauthorized");
+  if (!session?.user?.id) throw new Error("unauthorized");
+  return Number(session.user.id);
 }
 
 function formToProductInput(formData: FormData) {
@@ -122,7 +124,7 @@ export async function createProduct(
   _prevState: string | undefined,
   formData: FormData,
 ): Promise<string | undefined> {
-  await requireSession();
+  const userId = await requireSession();
 
   let data;
   try {
@@ -154,6 +156,8 @@ export async function createProduct(
       qtyPerBox: data.qtyPerBox,
       ...carton,
       active: data.active,
+      createdBy: userId,
+      updatedBy: userId,
       updatedAt: new Date().toISOString(),
     })
     .run();
@@ -174,7 +178,7 @@ export async function updateProduct(
   _prevState: string | undefined,
   formData: FormData,
 ): Promise<string | undefined> {
-  await requireSession();
+  const userId = await requireSession();
 
   let data;
   try {
@@ -238,6 +242,7 @@ export async function updateProduct(
       qtyPerBox: data.qtyPerBox,
       ...carton,
       active: data.active,
+      updatedBy: userId,
       updatedAt: new Date().toISOString(),
     })
     .where(eq(products.id, id))
