@@ -44,3 +44,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# auto-update state, written on the server by scripts/auto-update.sh.
+# These must be ignored: the script treats an untracked file as a local edit
+# and would stash its own log away on every deploy.
+/auto-update.log
+/.auto-update.lock/
+/.auto-update-skip
+/.auto-update-skip-notice
