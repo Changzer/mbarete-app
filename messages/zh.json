@@ -31,7 +31,8 @@
     "no": "否",
     "close": "关闭",
     "previous": "上一张",
-    "next": "下一张"
+    "next": "下一张",
+    "enlarge": "放大"
   },
   "catalog": {
     "title": "产品目录",
