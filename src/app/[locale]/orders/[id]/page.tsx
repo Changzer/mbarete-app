@@ -1,20 +1,16 @@
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { getOrderById, getExchangeRates, getOrderFinanceRows } from "@/lib/queries/orders";
-import { getProducts } from "@/lib/queries/catalog";
+import { getOrderView } from "@/lib/queries/order-view";
+import { getOrderFinanceRows } from "@/lib/queries/orders";
 import { getUserNames } from "@/lib/queries/users";
-import { localizeField } from "@/lib/localize";
 import type { Locale } from "@/i18n/routing";
-import {
-  computeSnapshotTotals,
-  computeOrderFinance,
-  formatCbm,
-} from "@/lib/calculations";
+import { computeOrderFinance, formatCbm } from "@/lib/calculations";
 import { Badge } from "@/components/ui/badge";
-import { OrderStatusActions } from "@/components/orders/order-status-actions";
-import { OrderFinance } from "@/components/orders/order-finance";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
+import { OrderStatusActions } from "@/components/orders/order-status-actions";
+import { OrderFinance } from "@/components/orders/order-finance";
+import { OrderResult } from "@/components/orders/order-result";
 
 const STATUS_VARIANT = {
   draft: "secondary",
@@ -33,67 +29,14 @@ export default async function OrderDetailPage({
   const catalogT = await getTranslations("catalog");
   const proformaT = await getTranslations("proforma");
 
-  const financeT = await getTranslations("finance");
-  const [data, rates, products, userNames, finance] = await Promise.all([
-    getOrderById(Number(id)),
-    getExchangeRates(),
-    getProducts(),
+  const [view, userNames, finance] = await Promise.all([
+    getOrderView(Number(id), locale as Locale),
     getUserNames(),
     getOrderFinanceRows(Number(id)),
   ]);
+  if (!view) notFound();
+  const { order, client, rows, targets, totals, effectiveRates } = view;
 
-  if (!data) notFound();
-  const { order, items, client } = data;
-  const productMap = new Map(products.map((p) => [p.id, p]));
-
-  // Prefer the rates frozen when the order was saved, so a historical quote
-  // stays as quoted. Live rates fill the gaps rather than replacing anything:
-  // an order saved before a currency had a rate would otherwise be stuck
-  // reporting a 0.00 total forever, even once the rate is added in Settings.
-  let snapshot: Record<string, number> = {};
-  try {
-    snapshot = JSON.parse(order.ratesSnapshot || "{}");
-  } catch {
-    snapshot = {};
-  }
-  const effectiveRates = { ...rates, ...snapshot };
-
-  const rows = items.map((item) => {
-    const product = productMap.get(item.productId);
-    const name = product
-      ? localizeField(locale as Locale, product.nameEn, product.nameZh)
-      : `#${item.productId}`;
-    const below = item.quantity < item.moqSnapshot;
-    // lineCbm was stored as the line's total volume; recover the carton count
-    // from the product's current pack size where it is still available.
-    const perCarton = product?.qtyPerBox ?? 0;
-    // Orders saved before cartons were snapshotted carry 0; recover the count
-    // from the product's current pack size for those.
-    const cartons =
-      item.cartonsSnapshot > 0
-        ? item.cartonsSnapshot
-        : perCarton > 0
-          ? Math.ceil(item.quantity / perCarton)
-          : null;
-    return { ...item, name, below, cartons, perCarton };
-  });
-
-  const targets = [...new Set([order.displayCurrency, order.secondaryCurrency])];
-  const totals = computeSnapshotTotals(
-    rows.map((r) => ({
-      // the values frozen at save time, not today's catalog
-      quantity: r.quantity,
-      unitPrice: r.unitPriceSnapshot,
-      currency: r.currencySnapshot,
-      moq: r.moqSnapshot,
-      lineCbm: r.lineCbm,
-      lineWeightKg: r.lineWeightKg,
-      cartons: r.cartons ?? 0,
-    })),
-    targets,
-    effectiveRates,
-    order.commissionPct,
-  );
   // The money position: what the client is billed against what the supplier
   // charges, then every recorded movement on top.
   const quote = order.displayCurrency;
@@ -108,14 +51,10 @@ export default async function OrderDetailPage({
     quote,
     effectiveRates,
   );
-  const supplierCurrency = items[0]?.currencySnapshot ?? order.secondaryCurrency;
-  const money = (n: number) => `${n.toFixed(2)} ${quote}`;
+  const supplierCurrency = rows[0]?.currencySnapshot ?? order.secondaryCurrency;
 
   // Lines whose product had no measurements when the order was saved.
   const hasUnmeasured = rows.some((r) => r.lineCbm <= 0 || r.lineWeightKg <= 0);
-  const totalCbm = totals.totalCbm;
-  const totalWeight = totals.totalWeightKg;
-  const hasMoqViolation = totals.hasMoqViolation;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6">
@@ -238,11 +177,11 @@ export default async function OrderDetailPage({
         </div>
         <div className="flex justify-between">
           <span className="text-neutral-500 dark:text-neutral-400">{t("totalCbm")}</span>
-          <span className="font-semibold text-neutral-900 dark:text-neutral-100">{formatCbm(totalCbm)} m³</span>
+          <span className="font-semibold text-neutral-900 dark:text-neutral-100">{formatCbm(totals.totalCbm)} m³</span>
         </div>
         <div className="flex justify-between">
           <span className="text-neutral-500 dark:text-neutral-400">{t("totalWeight")}</span>
-          <span className="font-semibold text-neutral-900 dark:text-neutral-100">{totalWeight.toFixed(2)} kg</span>
+          <span className="font-semibold text-neutral-900 dark:text-neutral-100">{totals.totalWeightKg.toFixed(2)} kg</span>
         </div>
         {hasUnmeasured ? (
           <p
@@ -261,7 +200,7 @@ export default async function OrderDetailPage({
         </div>
       ) : null}
 
-      {hasMoqViolation && order.status === "draft" ? (
+      {totals.hasMoqViolation && order.status === "draft" ? (
         <p className="mt-4 text-xs text-amber-700">{t("moqBlocksConfirm")}</p>
       ) : null}
 
@@ -277,90 +216,7 @@ export default async function OrderDetailPage({
         />
       </div>
 
-      {/* --- where the order lands --- */}
-      <div
-        className="mt-4 rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
-        data-testid="section-net"
-      >
-        <h2 className="mb-3 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-          {financeT("netTitle")}
-        </h2>
-
-        {fin.missingRates.length > 0 ? (
-          <p className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
-            {t("missingRate", { codes: fin.missingRates.join(", ") })}
-          </p>
-        ) : null}
-
-        <div className="grid grid-cols-1 gap-6 text-sm sm:grid-cols-2">
-          <div className="flex flex-col gap-1">
-            <div className="flex justify-between">
-              <span className="text-neutral-500 dark:text-neutral-400">{financeT("expectedRevenue")}</span>
-              <span className="text-neutral-900 dark:text-neutral-100">{money(fin.received + fin.clientOutstanding)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-neutral-500 dark:text-neutral-400">{financeT("received")}</span>
-              <span className="text-neutral-900 dark:text-neutral-100" data-testid="fin-received">{money(fin.received)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-neutral-500 dark:text-neutral-400">{financeT("clientOutstanding")}</span>
-              <span
-                className={fin.clientOutstanding > 0.005 ? "font-medium text-amber-700 dark:text-amber-400" : "text-neutral-900 dark:text-neutral-100"}
-                data-testid="fin-client-outstanding"
-              >
-                {money(fin.clientOutstanding)}
-              </span>
-            </div>
-          </div>
-          <div className="flex flex-col gap-1">
-            <div className="flex justify-between">
-              <span className="text-neutral-500 dark:text-neutral-400">{financeT("expectedCost")}</span>
-              <span className="text-neutral-900 dark:text-neutral-100">{money(fin.paidOut + fin.supplierOutstanding)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-neutral-500 dark:text-neutral-400">{financeT("paidOut")}</span>
-              <span className="text-neutral-900 dark:text-neutral-100" data-testid="fin-paid-out">{money(fin.paidOut)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-neutral-500 dark:text-neutral-400">{financeT("supplierOutstanding")}</span>
-              <span
-                className={fin.supplierOutstanding > 0.005 ? "font-medium text-amber-700 dark:text-amber-400" : "text-neutral-900 dark:text-neutral-100"}
-                data-testid="fin-supplier-outstanding"
-              >
-                {money(fin.supplierOutstanding)}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-4 flex flex-col gap-1 border-t border-neutral-200 pt-3 text-sm dark:border-neutral-800">
-          <div className="flex justify-between">
-            <span className="text-neutral-500 dark:text-neutral-400">{financeT("expensesTotal")}</span>
-            <span className="text-neutral-900 dark:text-neutral-100" data-testid="fin-expenses">{money(fin.expensesTotal)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-neutral-500 dark:text-neutral-400">{financeT("netActual")}</span>
-            <span
-              className={`font-semibold ${fin.netActual < 0 ? "text-red-600 dark:text-red-400" : "text-neutral-900 dark:text-neutral-100"}`}
-              data-testid="fin-net-actual"
-            >
-              {money(fin.netActual)}
-            </span>
-          </div>
-          <div className="flex justify-between text-base">
-            <span className="font-medium text-neutral-900 dark:text-neutral-100">{financeT("netExpected")}</span>
-            <span className="font-bold text-neutral-900 dark:text-neutral-100" data-testid="fin-net-expected">
-              {money(fin.netExpected)}
-              {fin.marginPct !== null ? (
-                <span className="ml-2 text-sm font-normal text-neutral-500 dark:text-neutral-400">
-                  ({fin.marginPct.toFixed(1)}%)
-                </span>
-              ) : null}
-            </span>
-          </div>
-          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{financeT("netHelp")}</p>
-        </div>
-      </div>
+      <OrderResult fin={fin} quote={quote} />
     </div>
   );
 }

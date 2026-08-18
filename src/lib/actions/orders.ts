@@ -6,7 +6,7 @@ import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
 import type { Locale } from "@/i18n/routing";
 import { db } from "@/db";
-import { orders, orderItems, products } from "@/db/schema";
+import { orders, orderItems, products, orderDocuments } from "@/db/schema";
 import { eq, inArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import {
@@ -17,6 +17,7 @@ import {
   fullCartons,
 } from "@/lib/calculations";
 import { nextOrderNumber, getExchangeRates } from "@/lib/queries/orders";
+import { deleteUpload } from "@/lib/uploads";
 
 const orderItemInput = z.object({
   productId: z.number().int().positive(),
@@ -194,7 +195,20 @@ export async function setOrderStatus(
 
 export async function deleteOrder(id: number) {
   await requireSession();
+
+  // Document rows cascade with the order; the files would stay behind in the
+  // uploads volume forever if they were not removed here.
+  const documents = await db
+    .select()
+    .from(orderDocuments)
+    .where(eq(orderDocuments.orderId, id))
+    .all();
+
   db.delete(orders).where(eq(orders.id, id)).run();
+  for (const doc of documents) {
+    await deleteUpload(doc.path);
+  }
+
   revalidatePath("/orders");
   redirect({ href: "/orders", locale: (await getLocale()) as Locale });
 }

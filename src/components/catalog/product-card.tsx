@@ -299,7 +299,11 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
               size="sm"
               onClick={async () => {
                 if (confirm(t("deleteConfirm"))) {
-                  await deleteProduct(product.id);
+                  const error = await deleteProduct(product.id);
+                  if (error) {
+                    alert(t("deleteOnOrders"));
+                    return;
+                  }
                   setOpen(false);
                 }
               }}

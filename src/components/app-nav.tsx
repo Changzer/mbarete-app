@@ -26,6 +26,9 @@ export async function AppNav({ userName }: { userName: string }) {
             <Link href="/contacts" className="hover:text-neutral-900 dark:hover:text-neutral-100">
               {t("contacts")}
             </Link>
+            <Link href="/finance" className="hover:text-neutral-900 dark:hover:text-neutral-100">
+              {t("finance")}
+            </Link>
             <Link href="/users" className="hover:text-neutral-900 dark:hover:text-neutral-100">
               {t("users")}
             </Link>

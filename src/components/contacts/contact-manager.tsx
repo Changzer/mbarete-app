@@ -106,9 +106,10 @@ export function ContactManager({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => {
+                        onClick={async () => {
                           if (confirm(t("deleteConfirm"))) {
-                            deleteContact(c.id);
+                            const error = await deleteContact(c.id);
+                            if (error) alert(t("deleteHasOrders"));
                           }
                         }}
                       >
