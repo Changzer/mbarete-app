@@ -350,6 +350,67 @@ cd /volume1/docker/mbarete-app
 
 ---
 
+## Updating when the NAS cannot reach GitHub
+
+GitHub is unreliable or blocked from some networks. If `git pull` on the NAS
+fails with a timeout while `nslookup github.com` returns a correct address
+(`20.x.x.x`), the NAS simply cannot reach GitHub — nothing is broken locally.
+
+Confirm with:
+
+```
+curl -sS -o /dev/null -w "%{http_code}\n" --max-time 15 https://github.com
+```
+
+`000` after a long pause means blocked. In that case update from your own
+computer instead, which can reach both GitHub and the NAS.
+
+**1. On your computer**, download the code: go to
+https://github.com/Changzer/mbarete-app → green **Code** button → **Download ZIP**.
+
+**2. Copy it to the NAS** from PowerShell (replace the address with your NAS's):
+
+```
+scp $HOME\Downloads\mbarete-app-main.zip changzer@100.114.174.9:/volume1/docker/
+```
+
+**3. On the NAS**, run the updater:
+
+```
+cd /volume1/docker/mbarete-app
+./scripts/update-from-zip.sh /volume1/docker/mbarete-app-main.zip
+```
+
+It keeps your `.env`, backs up the previous version alongside the app folder,
+and rebuilds. Your products, orders and photos are in Docker volumes and are
+not touched. The command to roll back is printed at the end.
+
+> If `./scripts/update-from-zip.sh` says "Permission denied", run
+> `chmod +x scripts/update-from-zip.sh` once.
+
+### Or route git through a proxy
+
+If you run a proxy (Clash, v2ray) on another machine on your Tailscale network,
+git can use it instead. Get that machine's address by running `tailscale ip -4`
+**on that machine** — not inside the NAS SSH session, which would report the
+NAS itself. Enable "Allow LAN" in the proxy, then test before committing to it:
+
+```
+curl -x http://PROXY_ADDRESS:7890 -sS -o /dev/null -w "%{http_code}\n" --max-time 10 https://github.com
+```
+
+Only if that prints `200`:
+
+```
+git config --global http.proxy http://PROXY_ADDRESS:7890
+git config --global https.proxy http://PROXY_ADDRESS:7890
+```
+
+Undo with `git config --global --unset http.proxy` (and `https.proxy`). Note
+this only works while that machine is on and the proxy is running.
+
+---
+
 ## Backing up your data
 
 Your products, orders, contacts, and uploaded images live in Docker volumes, separate from the code. They survive updates and restarts.
