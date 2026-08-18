@@ -25,41 +25,46 @@ function formToContactInput(formData: FormData) {
   });
 }
 
+/** `id` is returned so a caller can immediately select what it just created. */
+export type ContactActionResult = { error?: string; id?: number };
+
 export async function createContact(
-  _prevState: string | undefined,
+  _prevState: ContactActionResult | undefined,
   formData: FormData,
-): Promise<string | undefined> {
+): Promise<ContactActionResult> {
   await requireSession();
 
   let data;
   try {
     data = formToContactInput(formData);
   } catch {
-    return "invalid";
+    return { error: "invalid" };
   }
 
-  db.insert(contacts).values(data).run();
+  const inserted = db.insert(contacts).values(data).run();
   revalidatePath("/contacts");
-  return undefined;
+  revalidatePath("/orders");
+  return { id: Number(inserted.lastInsertRowid) };
 }
 
 export async function updateContact(
   id: number,
-  _prevState: string | undefined,
+  _prevState: ContactActionResult | undefined,
   formData: FormData,
-): Promise<string | undefined> {
+): Promise<ContactActionResult> {
   await requireSession();
 
   let data;
   try {
     data = formToContactInput(formData);
   } catch {
-    return "invalid";
+    return { error: "invalid" };
   }
 
   db.update(contacts).set(data).where(eq(contacts.id, id)).run();
   revalidatePath("/contacts");
-  return undefined;
+  revalidatePath("/orders");
+  return { id };
 }
 
 export async function deleteContact(id: number) {

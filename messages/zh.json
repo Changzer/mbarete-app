@@ -133,7 +133,10 @@
     "cartons": "{count} 箱",
     "perCarton": "每箱",
     "partialCarton": "不满整箱——按 {cartons} 箱发运（每箱 {perCarton}）",
-    "roundTo": "调整为 {qty}"
+    "roundTo": "调整为 {qty}",
+    "newClient": "+ 新建客户",
+    "editClient": "编辑客户",
+    "noClientsYet": "暂无客户——请先添加一个以创建此订单。"
   },
   "settings": {
     "exchangeRates": "汇率",

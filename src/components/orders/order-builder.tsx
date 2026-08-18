@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,14 @@ import {
   type CurrencyRates,
 } from "@/lib/calculations";
 import { createOrder, updateOrder, type OrderActionResult } from "@/lib/actions/orders";
+import { createContact, updateContact } from "@/lib/actions/contacts";
+import { ContactForm } from "@/components/contacts/contact-form";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export type BuilderProduct = {
   id: number;
@@ -40,7 +49,16 @@ export type BuilderProduct = {
   cbm: number;
 };
 
-type Client = { id: number; companyName: string };
+type Client = {
+  id: number;
+  companyName: string;
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
+  whatsapp?: string;
+  wechat?: string;
+  notes?: string;
+};
 type Category = { id: number; name: string };
 
 export function OrderBuilder({
@@ -94,6 +112,31 @@ export function OrderBuilder({
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  // A client created here is held locally as well as revalidated, so the new
+  // option is selectable immediately without waiting for the server round trip.
+  const [newClients, setNewClients] = useState<Client[]>([]);
+  const [clientDialog, setClientDialog] = useState<"closed" | "new" | "edit">("closed");
+
+  const allClients = useMemo(() => {
+    const extras = newClients.filter((n) => !clients.some((c) => c.id === n.id));
+    return [...clients, ...extras];
+  }, [clients, newClients]);
+
+  const selectedClient = allClients.find((c) => String(c.id) === clientId);
+
+  function handleClientSaved(id?: number, values?: Partial<Client>) {
+    if (id) {
+      setNewClients((prev) => [
+        ...prev.filter((c) => c.id !== id),
+        { id, companyName: values?.companyName ?? "", ...values } as Client,
+      ]);
+      setClientId(String(id));
+    }
+    setClientDialog("closed");
+    router.refresh();
+  }
 
   const productMap = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
 
@@ -249,19 +292,44 @@ export function OrderBuilder({
           <h2 className="font-semibold text-neutral-900 dark:text-neutral-100">{t("cart")}</h2>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="clientId">{t("client")}</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="clientId">{t("client")}</Label>
+              <div className="flex items-center gap-2">
+                {selectedClient ? (
+                  <button
+                    type="button"
+                    onClick={() => setClientDialog("edit")}
+                    className="text-xs underline text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100"
+                  >
+                    {common("edit")}
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setClientDialog("new")}
+                  className="text-xs underline text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100"
+                >
+                  {t("newClient")}
+                </button>
+              </div>
+            </div>
             <Select value={clientId} onValueChange={setClientId}>
               <SelectTrigger id="clientId">
                 <SelectValue placeholder={t("selectClient")} />
               </SelectTrigger>
               <SelectContent>
-                {clients.map((c) => (
+                {allClients.map((c) => (
                   <SelectItem key={c.id} value={String(c.id)}>
                     {c.companyName}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {allClients.length === 0 ? (
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                {t("noClientsYet")}
+              </p>
+            ) : null}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -454,6 +522,35 @@ export function OrderBuilder({
           </div>
         </div>
       </div>
+
+      {/* Add or correct a client without losing the order being built. */}
+      <Dialog
+        open={clientDialog !== "closed"}
+        onOpenChange={(next) => setClientDialog(next ? "new" : "closed")}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {clientDialog === "edit" ? t("editClient") : t("newClient")}
+            </DialogTitle>
+          </DialogHeader>
+          {clientDialog !== "closed" ? (
+            <ContactForm
+              type="client"
+              action={
+                clientDialog === "edit" && selectedClient
+                  ? updateContact.bind(null, selectedClient.id)
+                  : createContact
+              }
+              defaultValues={
+                clientDialog === "edit" ? selectedClient : undefined
+              }
+              submitLabel={common("save")}
+              onSuccess={(id) => handleClientSaved(id)}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
