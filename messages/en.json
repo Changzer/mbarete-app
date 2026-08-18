@@ -6,7 +6,8 @@
     "signOut": "Sign out",
     "appName": "Mbarete",
     "settings": "Settings",
-    "users": "Users"
+    "users": "Users",
+    "finance": "Finance"
   },
   "login": {
     "title": "Sign in",
@@ -309,5 +310,33 @@
     "netActual": "Net cash so far",
     "netExpected": "Net revenue when settled",
     "netHelp": "Net cash is money received minus money paid out so far — negative is normal while the supplier is paid before the client settles. Net revenue is where the order lands once both sides pay in full."
+  },
+  "financeReport": {
+    "title": "Finance",
+    "help": "Built from every order's own records. Each order is computed with the rates frozen when it was saved; only the cross-currency totals on this page use today's rates.",
+    "reportCurrency": "Show in",
+    "missingRates": "No exchange rate for {codes} — those entries are excluded from the totals. Add the rates in Settings.",
+    "tileExpectedNet": "Net revenue (all orders)",
+    "tileMargin": "Margin",
+    "tileReceivables": "Clients owe",
+    "tilePayables": "Owed to suppliers",
+    "tileNetCash": "Net cash so far",
+    "receivables": "Waiting on clients",
+    "payables": "To pay suppliers",
+    "allSettled": "Nothing outstanding.",
+    "byMonth": "Month by month",
+    "month": "Month",
+    "ordersCount": "Orders",
+    "expectedRevenue": "Revenue",
+    "expectedNet": "Net",
+    "cashIn": "Cash in",
+    "cashOut": "Cash out",
+    "netCash": "Net cash",
+    "expensesByCategory": "Expenses by category",
+    "byClient": "By client",
+    "client": "Client",
+    "margin": "Margin",
+    "outstanding": "Owes",
+    "noData": "Nothing recorded yet."
   }
 }

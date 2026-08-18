@@ -6,7 +6,8 @@
     "signOut": "退出登录",
     "appName": "Mbarete",
     "settings": "设置",
-    "users": "用户"
+    "users": "用户",
+    "finance": "财务"
   },
   "login": {
     "title": "登录",
@@ -309,5 +310,33 @@
     "netActual": "当前净现金",
     "netExpected": "结清后净收入",
     "netHelp": "净现金 = 已收款 − 已付款 − 费用；在客户结清之前为负数是正常的。净收入是双方全部结清后本订单的最终结果。"
+  },
+  "financeReport": {
+    "title": "财务",
+    "help": "由每个订单自身的记录汇总而成。每个订单按其保存时冻结的汇率计算；仅本页的跨货币合计使用当前汇率。",
+    "reportCurrency": "显示货币",
+    "missingRates": "缺少 {codes} 的汇率——相关条目未计入合计。请在设置中添加汇率。",
+    "tileExpectedNet": "净收入（全部订单）",
+    "tileMargin": "利润率",
+    "tileReceivables": "客户应付",
+    "tilePayables": "应付供应商",
+    "tileNetCash": "当前净现金",
+    "receivables": "待客户付款",
+    "payables": "待付供应商",
+    "allSettled": "无未结款项。",
+    "byMonth": "按月汇总",
+    "month": "月份",
+    "ordersCount": "订单数",
+    "expectedRevenue": "收入",
+    "expectedNet": "净额",
+    "cashIn": "现金流入",
+    "cashOut": "现金流出",
+    "netCash": "净现金",
+    "expensesByCategory": "费用分类",
+    "byClient": "按客户",
+    "client": "客户",
+    "margin": "利润率",
+    "outstanding": "未付",
+    "noData": "暂无记录。"
   }
 }
