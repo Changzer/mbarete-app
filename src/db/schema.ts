@@ -44,7 +44,6 @@ export const products = sqliteTable(
     heightCm: real("height_cm").notNull().default(0),
     weightKg: real("weight_kg").notNull().default(0),
     cbm: real("cbm").notNull().default(0),
-    imagePath: text("image_path"),
     active: integer("active", { mode: "boolean" }).notNull().default(true),
     createdAt: text("created_at")
       .notNull()
@@ -57,6 +56,26 @@ export const products = sqliteTable(
     index("products_category_idx").on(table.categoryId),
     index("products_active_idx").on(table.active),
   ],
+);
+
+/**
+ * One product can carry several photos (colour variants of the same item),
+ * ordered by sortOrder. The first is used as the catalog thumbnail.
+ */
+export const productImages = sqliteTable(
+  "product_images",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    productId: integer("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    path: text("path").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
+  },
+  (table) => [index("product_images_product_idx").on(table.productId)],
 );
 
 export const exchangeRates = sqliteTable("exchange_rates", {
@@ -99,7 +118,15 @@ export const orders = sqliteTable(
     })
       .notNull()
       .default("draft"),
+    // Quote currency (what the client is billed in) and the secondary currency
+    // shown alongside it, so RMB cost and USD quote are visible together.
     displayCurrency: text("display_currency").notNull().default("USD"),
+    secondaryCurrency: text("secondary_currency").notNull().default("CNY"),
+    // Mbarete's margin, charged on top of the goods subtotal.
+    commissionPct: real("commission_pct").notNull().default(0),
+    // Rates in force when the order was saved, so a stored quote does not move
+    // when the rate table is later edited. JSON: {"CNY":0.14,"USD":1}
+    ratesSnapshot: text("rates_snapshot").notNull().default("{}"),
     notes: text("notes").notNull().default(""),
     createdBy: integer("created_by")
       .notNull()

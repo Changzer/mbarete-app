@@ -16,7 +16,11 @@ import {
 } from "@/components/ui/select";
 import {
   computeOrderTotals,
+  formatCbm,
+  fullCartons,
   isBelowMoq,
+  isPartialCarton,
+  suggestedQuantity,
   lineTotal,
   type CurrencyRates,
 } from "@/lib/calculations";
@@ -57,6 +61,8 @@ export function OrderBuilder({
   initial?: {
     clientId: number;
     displayCurrency: string;
+    secondaryCurrency: string;
+    commissionPct: number;
     notes: string;
     items: { productId: number; quantity: number }[];
   };
@@ -70,6 +76,12 @@ export function OrderBuilder({
   );
   const [displayCurrency, setDisplayCurrency] = useState(
     initial?.displayCurrency ?? Object.keys(rates)[0] ?? "USD",
+  );
+  const [secondaryCurrency, setSecondaryCurrency] = useState(
+    initial?.secondaryCurrency ?? (rates["CNY"] !== undefined ? "CNY" : Object.keys(rates)[0] ?? "USD"),
+  );
+  const [commissionPct, setCommissionPct] = useState(
+    initial?.commissionPct !== undefined ? String(initial.commissionPct) : "0",
   );
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [cart, setCart] = useState<Record<number, number>>(() => {
@@ -105,9 +117,16 @@ export function OrderBuilder({
       .filter((l) => l.product);
   }, [cart, productMap]);
 
+  // Both currencies are shown side by side: cost is usually quoted by the
+  // supplier in RMB while the client is billed in USD.
+  const targets = useMemo(
+    () => [...new Set([displayCurrency, secondaryCurrency])],
+    [displayCurrency, secondaryCurrency],
+  );
+  const commissionValue = Number(commissionPct) || 0;
   const totals = useMemo(
-    () => computeOrderTotals(cartLines, displayCurrency, rates),
-    [cartLines, displayCurrency, rates],
+    () => computeOrderTotals(cartLines, targets, rates, commissionValue),
+    [cartLines, targets, rates, commissionValue],
   );
 
   function setQuantity(productId: number, quantity: number) {
@@ -128,6 +147,8 @@ export function OrderBuilder({
     const payload = {
       clientId: Number(clientId),
       displayCurrency,
+      secondaryCurrency,
+      commissionPct: commissionValue,
       notes,
       status,
       items: cartLines.map((l) => ({ productId: l.product.id, quantity: l.quantity })),
@@ -173,6 +194,8 @@ export function OrderBuilder({
           {filteredProducts.map((p) => {
             const qty = cart[p.id] ?? 0;
             const below = isBelowMoq(qty, p.moq);
+            const partial = isPartialCarton(p, qty);
+            const suggestion = suggestedQuantity(p, qty);
             return (
               <div
                 key={p.id}
@@ -184,7 +207,7 @@ export function OrderBuilder({
                     {p.categoryName} · {p.price.toFixed(2)} {p.currency} · {t("moq")}: {p.moq}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Input
                     type="number"
                     min={0}
@@ -192,8 +215,27 @@ export function OrderBuilder({
                     onChange={(e) => setQuantity(p.id, Number(e.target.value))}
                     className="w-24"
                   />
+                  {qty > 0 ? (
+                    <Badge variant={partial ? "warning" : "secondary"}>
+                      {partial
+                        ? t("partialCarton", {
+                            cartons: fullCartons(p, qty),
+                            perCarton: p.qtyPerBox,
+                          })
+                        : t("cartons", { count: fullCartons(p, qty) })}
+                    </Badge>
+                  ) : null}
                   {below ? (
                     <Badge variant="warning">{t("moqWarning", { moq: p.moq })}</Badge>
+                  ) : null}
+                  {qty > 0 && suggestion !== qty ? (
+                    <button
+                      type="button"
+                      onClick={() => setQuantity(p.id, suggestion)}
+                      className="text-xs underline text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100"
+                    >
+                      {t("roundTo", { qty: suggestion })}
+                    </button>
                   ) : null}
                 </div>
               </div>
@@ -222,20 +264,49 @@ export function OrderBuilder({
             </Select>
           </div>
 
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="displayCurrency">{t("quoteCurrency")}</Label>
+              <Select value={displayCurrency} onValueChange={setDisplayCurrency}>
+                <SelectTrigger id="displayCurrency">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.keys(rates).map((code) => (
+                    <SelectItem key={code} value={code}>
+                      {code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="secondaryCurrency">{t("secondaryCurrency")}</Label>
+              <Select value={secondaryCurrency} onValueChange={setSecondaryCurrency}>
+                <SelectTrigger id="secondaryCurrency">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.keys(rates).map((code) => (
+                    <SelectItem key={code} value={code}>
+                      {code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="displayCurrency">{t("displayCurrency")}</Label>
-            <Select value={displayCurrency} onValueChange={setDisplayCurrency}>
-              <SelectTrigger id="displayCurrency">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.keys(rates).map((code) => (
-                  <SelectItem key={code} value={code}>
-                    {code}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="commissionPct">{t("commission")}</Label>
+            <Input
+              id="commissionPct"
+              type="number"
+              step="0.01"
+              min="0"
+              value={commissionPct}
+              onChange={(e) => setCommissionPct(e.target.value)}
+            />
           </div>
 
           {cartLines.length === 0 ? (
@@ -260,9 +331,21 @@ export function OrderBuilder({
                     </span>
                     <span>{lineTotal(product, quantity).toFixed(2)} {product.currency}</span>
                   </div>
+                  <div className="flex items-center justify-between text-xs text-neutral-400 dark:text-neutral-500">
+                    <span>{t("cartons", { count: fullCartons(product, quantity) })}</span>
+                    <span>{quantity} / {product.qtyPerBox} {t("perCarton")}</span>
+                  </div>
                   {isBelowMoq(quantity, product.moq) ? (
                     <Badge variant="warning" className="w-fit">
                       {t("moqWarning", { moq: product.moq })}
+                    </Badge>
+                  ) : null}
+                  {isPartialCarton(product, quantity) ? (
+                    <Badge variant="warning" className="w-fit">
+                      {t("partialCarton", {
+                        cartons: fullCartons(product, quantity),
+                        perCarton: product.qtyPerBox,
+                      })}
                     </Badge>
                   ) : null}
                 </li>
@@ -270,16 +353,63 @@ export function OrderBuilder({
             </ul>
           )}
 
-          <div className="flex flex-col gap-1 border-t border-neutral-200 dark:border-neutral-800 pt-3 text-sm">
+          {totals.missingRates.length > 0 ? (
+            <p className="rounded-md bg-amber-100 dark:bg-amber-950 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+              {t("missingRate", { codes: totals.missingRates.join(", ") })}
+            </p>
+          ) : null}
+
+          <div className="flex flex-col gap-2 border-t border-neutral-200 dark:border-neutral-800 pt-3 text-sm">
+            <div className="flex flex-col gap-1">
+              <span className="text-neutral-500 dark:text-neutral-400">{t("goodsSubtotal")}</span>
+              {targets.map((code) => (
+                <div key={code} className="flex justify-between">
+                  <span className="text-neutral-400 dark:text-neutral-500">{code}</span>
+                  <span className="text-neutral-700 dark:text-neutral-300">
+                    {totals.goods[code].toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {commissionValue > 0 ? (
+              <div className="flex flex-col gap-1">
+                <span className="text-neutral-500 dark:text-neutral-400">
+                  {t("commissionAmount")} ({commissionValue}%)
+                </span>
+                {targets.map((code) => (
+                  <div key={code} className="flex justify-between">
+                    <span className="text-neutral-400 dark:text-neutral-500">{code}</span>
+                    <span className="text-neutral-700 dark:text-neutral-300">
+                      {totals.commission[code].toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="flex flex-col gap-1 border-t border-neutral-200 dark:border-neutral-800 pt-2">
+              <span className="text-neutral-500 dark:text-neutral-400">{t("grandTotal")}</span>
+              {targets.map((code) => (
+                <div key={code} className="flex justify-between">
+                  <span className="text-neutral-400 dark:text-neutral-500">{code}</span>
+                  <span className="font-semibold text-neutral-900 dark:text-neutral-100">
+                    {totals.grandTotal[code].toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
             <div className="flex justify-between">
-              <span className="text-neutral-500 dark:text-neutral-400">{t("totalPrice")}</span>
+              <span className="text-neutral-500 dark:text-neutral-400">{t("totalCartons")}</span>
               <span className="font-semibold text-neutral-900 dark:text-neutral-100">
-                {totals.totalPrice.toFixed(2)} {displayCurrency}
+                {Number.isInteger(totals.totalCartons)
+                  ? totals.totalCartons
+                  : totals.totalCartons.toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-neutral-500 dark:text-neutral-400">{t("totalCbm")}</span>
-              <span className="font-semibold text-neutral-900 dark:text-neutral-100">{totals.totalCbm.toFixed(4)} m³</span>
+              <span className="font-semibold text-neutral-900 dark:text-neutral-100">{formatCbm(totals.totalCbm)} m³</span>
             </div>
             <div className="flex justify-between">
               <span className="text-neutral-500 dark:text-neutral-400">{t("totalWeight")}</span>

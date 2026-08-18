@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import {
@@ -16,6 +17,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { deleteProduct } from "@/lib/actions/catalog";
+import { formatCbm } from "@/lib/calculations";
 
 export type CatalogProduct = {
   id: number;
@@ -32,7 +34,7 @@ export type CatalogProduct = {
   heightCm: number;
   weightKg: number;
   cbm: number;
-  imagePath: string | null;
+  images: string[];
   active: boolean;
 };
 
@@ -40,17 +42,42 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
   const t = useTranslations("catalog");
   const common = useTranslations("common");
   const [open, setOpen] = useState(false);
+  const [index, setIndex] = useState(0);
+
+  const count = product.images.length;
+  const go = useCallback(
+    (delta: number) => setIndex((i) => (i + delta + count) % count),
+    [count],
+  );
+
+  // Reset to the first photo on open, set during the event rather than in an
+  // effect so the dialog does not render once at a stale index first.
+  const openDialog = useCallback((next: boolean) => {
+    if (next) setIndex(0);
+    setOpen(next);
+  }, []);
+
+  // Arrow keys page through the carousel while the dialog is open.
+  useEffect(() => {
+    if (!open || count < 2) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") go(-1);
+      if (e.key === "ArrowRight") go(1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, count, go]);
 
   return (
     <>
       <Card
         className="cursor-pointer overflow-hidden transition-shadow hover:shadow-md"
-        onClick={() => setOpen(true)}
+        onClick={() => openDialog(true)}
       >
         <div className="relative aspect-square w-full bg-neutral-100 dark:bg-neutral-800">
-          {product.imagePath ? (
+          {count > 0 ? (
             <Image
-              src={product.imagePath}
+              src={product.images[0]}
               alt={product.name}
               fill
               sizes="(max-width: 768px) 50vw, 25vw"
@@ -61,6 +88,11 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
               {t("image")}
             </div>
           )}
+          {count > 1 ? (
+            <Badge variant="secondary" className="absolute left-2 top-2">
+              {count} {t("photos")}
+            </Badge>
+          ) : null}
           {!product.active ? (
             <Badge variant="secondary" className="absolute right-2 top-2">
               {t("active")}: {common("no")}
@@ -75,22 +107,68 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
         </CardContent>
       </Card>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={openDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{product.name}</DialogTitle>
             <DialogDescription>{product.categoryName} · {product.sku}</DialogDescription>
           </DialogHeader>
 
-          {product.imagePath ? (
-            <div className="relative aspect-video w-full overflow-hidden rounded-md bg-neutral-100 dark:bg-neutral-800">
-              <Image
-                src={product.imagePath}
-                alt={product.name}
-                fill
-                sizes="512px"
-                className="object-cover"
-              />
+          {count > 0 ? (
+            <div className="flex flex-col gap-2">
+              {/* object-contain so the whole photo is visible, never cropped */}
+              <div className="relative h-72 w-full overflow-hidden rounded-md bg-neutral-100 dark:bg-neutral-800">
+                <Image
+                  src={product.images[index]}
+                  alt={`${product.name} ${index + 1}/${count}`}
+                  fill
+                  sizes="(max-width: 640px) 90vw, 512px"
+                  className="object-contain"
+                />
+
+                {count > 1 ? (
+                  <>
+                    <button
+                      type="button"
+                      aria-label={common("previous")}
+                      onClick={() => go(-1)}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 dark:bg-neutral-900/90 p-1.5 text-neutral-900 dark:text-neutral-100 shadow hover:bg-white dark:hover:bg-neutral-900"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={common("next")}
+                      onClick={() => go(1)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 dark:bg-neutral-900/90 p-1.5 text-neutral-900 dark:text-neutral-100 shadow hover:bg-white dark:hover:bg-neutral-900"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                    <span className="absolute bottom-2 right-2 rounded-full bg-black/60 px-2 py-0.5 text-xs text-white">
+                      {index + 1} / {count}
+                    </span>
+                  </>
+                ) : null}
+              </div>
+
+              {count > 1 ? (
+                <div className="flex flex-wrap gap-2">
+                  {product.images.map((src, i) => (
+                    <button
+                      key={src}
+                      type="button"
+                      onClick={() => setIndex(i)}
+                      className={`relative h-14 w-14 overflow-hidden rounded border bg-neutral-100 dark:bg-neutral-800 ${
+                        i === index
+                          ? "border-neutral-900 dark:border-neutral-100"
+                          : "border-neutral-200 dark:border-neutral-800"
+                      }`}
+                    >
+                      <Image src={src} alt="" fill sizes="56px" className="object-cover" />
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -121,7 +199,7 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
             </div>
             <div>
               <dt className="text-neutral-500 dark:text-neutral-400">{t("cbm")}</dt>
-              <dd className="font-medium text-neutral-900 dark:text-neutral-100">{product.cbm.toFixed(4)} m³</dd>
+              <dd className="font-medium text-neutral-900 dark:text-neutral-100">{formatCbm(product.cbm)} m³</dd>
             </div>
           </dl>
 

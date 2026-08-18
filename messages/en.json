@@ -4,7 +4,8 @@
     "orders": "Orders",
     "contacts": "Contacts",
     "signOut": "Sign out",
-    "appName": "Mbarete"
+    "appName": "Mbarete",
+    "settings": "Settings"
   },
   "login": {
     "title": "Sign in",
@@ -28,7 +29,9 @@
     "required": "Required",
     "yes": "Yes",
     "no": "No",
-    "close": "Close"
+    "close": "Close",
+    "previous": "Previous",
+    "next": "Next"
   },
   "catalog": {
     "title": "Product Catalog",
@@ -43,25 +46,29 @@
     "price": "Price",
     "moq": "MOQ",
     "description": "Description",
-    "qtyPerBox": "Qty per box",
-    "size": "Size (L×W×H cm)",
-    "weight": "Weight (kg)",
-    "cbm": "CBM (m³)",
+    "qtyPerBox": "Pieces per carton",
+    "size": "Carton size (L×W×H cm)",
+    "weight": "Carton weight (kg)",
+    "cbm": "CBM per carton (m³)",
     "sku": "SKU",
     "nameEn": "Name (English)",
     "nameZh": "Name (Chinese)",
     "descriptionEn": "Description (English)",
     "descriptionZh": "Description (Chinese)",
-    "length": "Length (cm)",
-    "width": "Width (cm)",
-    "height": "Height (cm)",
+    "length": "Carton length (cm)",
+    "width": "Carton width (cm)",
+    "height": "Carton height (cm)",
     "currency": "Currency",
     "image": "Image",
     "active": "Active",
     "manageCategories": "Manage Categories",
     "addCategory": "Add Category",
     "deleteConfirm": "Delete this product?",
-    "perBox": "per box"
+    "perBox": "per box",
+    "images": "Images",
+    "imagesHelp": "You can select several photos at once — for example one per colour. The first is used as the catalog thumbnail.",
+    "photos": "photos",
+    "cartonHelp": "Enter the dimensions and weight of the shipping carton, not of a single piece. Order CBM and weight are worked out from the number of cartons."
   },
   "contacts": {
     "title": "Contacts",
@@ -113,6 +120,29 @@
     "notes": "Notes",
     "deleteConfirm": "Delete this order?",
     "markShipped": "Mark as Shipped",
-    "cancelOrder": "Cancel Order"
+    "cancelOrder": "Cancel Order",
+    "commission": "Commission %",
+    "commissionAmount": "Commission",
+    "goodsSubtotal": "Goods subtotal",
+    "grandTotal": "Total",
+    "quoteCurrency": "Quote currency",
+    "secondaryCurrency": "Also show in",
+    "missingRate": "No exchange rate set for {codes}. Add it in Settings — these lines are excluded from the totals.",
+    "openSettings": "Open Settings",
+    "totalCartons": "Total cartons",
+    "cartons": "{count} cartons",
+    "perCarton": "per carton",
+    "partialCarton": "Part carton — ships as {cartons} ({perCarton}/carton)",
+    "roundTo": "Round to {qty}"
+  },
+  "settings": {
+    "exchangeRates": "Exchange Rates",
+    "ratesHelp": "Rates are per 1 unit in USD. A product priced in a currency that is not listed here cannot be converted, and its order totals will be flagged. Currency codes must match exactly what you type on the product (RMB and CNY are different codes).",
+    "currencyCode": "Currency",
+    "rateToUsd": "Value in USD",
+    "example": "Example",
+    "saveRate": "Save rate",
+    "baseCurrency": "Base currency",
+    "deleteRateConfirm": "Delete this currency rate?"
   }
 }

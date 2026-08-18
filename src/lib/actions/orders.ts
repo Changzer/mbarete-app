@@ -10,7 +10,7 @@ import { orders, orderItems, products } from "@/db/schema";
 import { eq, inArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { isBelowMoq, lineCbm, lineWeightKg, lineTotal } from "@/lib/calculations";
-import { nextOrderNumber } from "@/lib/queries/orders";
+import { nextOrderNumber, getExchangeRates } from "@/lib/queries/orders";
 
 const orderItemInput = z.object({
   productId: z.number().int().positive(),
@@ -20,6 +20,8 @@ const orderItemInput = z.object({
 const orderInput = z.object({
   clientId: z.number().int().positive(),
   displayCurrency: z.string().min(1),
+  secondaryCurrency: z.string().min(1),
+  commissionPct: z.number().min(0),
   notes: z.string().default(""),
   status: z.enum(["draft", "confirmed"]),
   items: z.array(orderItemInput).min(1),
@@ -74,6 +76,9 @@ export async function createOrder(input: unknown): Promise<OrderActionResult> {
     return { error: "moq" };
   }
 
+  // Freeze the rates used, so a saved quote does not move when rates change.
+  const ratesSnapshot = JSON.stringify(await getExchangeRates());
+
   const orderId = db.transaction((tx) => {
     const inserted = tx
       .insert(orders)
@@ -82,6 +87,9 @@ export async function createOrder(input: unknown): Promise<OrderActionResult> {
         clientId: data.clientId,
         status: data.status,
         displayCurrency: data.displayCurrency,
+        secondaryCurrency: data.secondaryCurrency,
+        commissionPct: data.commissionPct,
+        ratesSnapshot,
         notes: data.notes,
         createdBy: Number(session!.user!.id),
         updatedAt: new Date().toISOString(),
@@ -116,12 +124,17 @@ export async function updateOrder(
     return { error: "moq" };
   }
 
+  const ratesSnapshot = JSON.stringify(await getExchangeRates());
+
   db.transaction((tx) => {
     tx.update(orders)
       .set({
         clientId: data.clientId,
         status: data.status,
         displayCurrency: data.displayCurrency,
+        secondaryCurrency: data.secondaryCurrency,
+        commissionPct: data.commissionPct,
+        ratesSnapshot,
         notes: data.notes,
         updatedAt: new Date().toISOString(),
       })

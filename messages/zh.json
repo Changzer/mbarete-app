@@ -4,7 +4,8 @@
     "orders": "订单",
     "contacts": "联系人",
     "signOut": "退出登录",
-    "appName": "Mbarete"
+    "appName": "Mbarete",
+    "settings": "设置"
   },
   "login": {
     "title": "登录",
@@ -28,7 +29,9 @@
     "required": "必填",
     "yes": "是",
     "no": "否",
-    "close": "关闭"
+    "close": "关闭",
+    "previous": "上一张",
+    "next": "下一张"
   },
   "catalog": {
     "title": "产品目录",
@@ -44,24 +47,28 @@
     "moq": "起订量",
     "description": "描述",
     "qtyPerBox": "每箱数量",
-    "size": "尺寸 (长×宽×高 cm)",
-    "weight": "重量 (kg)",
-    "cbm": "体积 (CBM/m³)",
+    "size": "外箱尺寸 (长×宽×高 cm)",
+    "weight": "外箱重量 (kg)",
+    "cbm": "每箱体积 (CBM/m³)",
     "sku": "货号",
     "nameEn": "名称（英文）",
     "nameZh": "名称（中文）",
     "descriptionEn": "描述（英文）",
     "descriptionZh": "描述（中文）",
-    "length": "长 (cm)",
-    "width": "宽 (cm)",
-    "height": "高 (cm)",
+    "length": "外箱长 (cm)",
+    "width": "外箱宽 (cm)",
+    "height": "外箱高 (cm)",
     "currency": "货币",
     "image": "图片",
     "active": "启用",
     "manageCategories": "管理分类",
     "addCategory": "添加分类",
     "deleteConfirm": "确定删除此产品吗？",
-    "perBox": "每箱"
+    "perBox": "每箱",
+    "images": "图片",
+    "imagesHelp": "可一次选择多张照片——例如每种颜色一张。第一张将作为目录缩略图。",
+    "photos": "张图片",
+    "cartonHelp": "请填写运输外箱的尺寸和重量，而非单件产品。订单的体积和重量按箱数计算。"
   },
   "contacts": {
     "title": "联系人",
@@ -113,6 +120,29 @@
     "notes": "备注",
     "deleteConfirm": "确定删除此订单吗？",
     "markShipped": "标记为已发货",
-    "cancelOrder": "取消订单"
+    "cancelOrder": "取消订单",
+    "commission": "佣金 %",
+    "commissionAmount": "佣金",
+    "goodsSubtotal": "货品小计",
+    "grandTotal": "总计",
+    "quoteCurrency": "报价货币",
+    "secondaryCurrency": "同时显示",
+    "missingRate": "未设置 {codes} 的汇率。请在设置中添加——这些明细未计入合计。",
+    "openSettings": "打开设置",
+    "totalCartons": "总箱数",
+    "cartons": "{count} 箱",
+    "perCarton": "每箱",
+    "partialCarton": "不满整箱——按 {cartons} 箱发运（每箱 {perCarton}）",
+    "roundTo": "调整为 {qty}"
+  },
+  "settings": {
+    "exchangeRates": "汇率",
+    "ratesHelp": "汇率表示 1 单位货币折合多少美元。若产品使用的货币未在此列出，则无法换算，订单合计会被标记。货币代码必须与产品中填写的完全一致（RMB 与 CNY 属于不同代码）。",
+    "currencyCode": "货币",
+    "rateToUsd": "折合美元",
+    "example": "示例",
+    "saveRate": "保存汇率",
+    "baseCurrency": "基准货币",
+    "deleteRateConfirm": "确定删除此货币汇率吗？"
   }
 }

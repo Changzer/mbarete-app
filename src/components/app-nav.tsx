@@ -26,6 +26,9 @@ export async function AppNav({ userName }: { userName: string }) {
             <Link href="/contacts" className="hover:text-neutral-900 dark:hover:text-neutral-100">
               {t("contacts")}
             </Link>
+            <Link href="/settings" className="hover:text-neutral-900 dark:hover:text-neutral-100">
+              {t("settings")}
+            </Link>
           </nav>
         </div>
         <div className="flex items-center gap-3">
