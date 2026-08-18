@@ -50,6 +50,13 @@
       "when": 1787066252871,
       "tag": "0006_lowly_brother_voodoo",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1787067202253,
+      "tag": "0007_cool_spot",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,6 @@
 import { db } from "@/db";
-import { orders, orderItems, contacts, exchangeRates, users } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { orders, orderItems, contacts, exchangeRates, users, orderPayments, orderExpenses, orderDocuments } from "@/db/schema";
+import { eq, desc, asc } from "drizzle-orm";
 
 export async function getExchangeRates() {
   const rows = await db.select().from(exchangeRates).all();
@@ -47,4 +47,29 @@ export function nextOrderNumber() {
   const yyyymmdd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
   const suffix = String(Date.now()).slice(-6);
   return `ORD-${yyyymmdd}-${suffix}`;
+}
+
+/** Everything attached to one order's money file, oldest first. */
+export async function getOrderFinanceRows(orderId: number) {
+  const [payments, expenses, documents] = await Promise.all([
+    db
+      .select()
+      .from(orderPayments)
+      .where(eq(orderPayments.orderId, orderId))
+      .orderBy(asc(orderPayments.paidOn), asc(orderPayments.id))
+      .all(),
+    db
+      .select()
+      .from(orderExpenses)
+      .where(eq(orderExpenses.orderId, orderId))
+      .orderBy(asc(orderExpenses.spentOn), asc(orderExpenses.id))
+      .all(),
+    db
+      .select()
+      .from(orderDocuments)
+      .where(eq(orderDocuments.orderId, orderId))
+      .orderBy(asc(orderDocuments.createdAt), asc(orderDocuments.id))
+      .all(),
+  ]);
+  return { payments, expenses, documents };
 }

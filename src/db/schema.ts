@@ -220,3 +220,84 @@ export const orderItems = sqliteTable(
   },
   (table) => [index("order_items_order_idx").on(table.orderId)],
 );
+
+/**
+ * Files attached to an order — the supplier's invoice above all, but packing
+ * lists, bills of lading and inspection reports all end up in the same file
+ * in this business. Stored in the uploads volume next to product photos.
+ */
+export const orderDocuments = sqliteTable(
+  "order_documents",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    orderId: integer("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    kind: text("kind", {
+      enum: ["supplier_invoice", "packing_list", "bill_of_lading", "inspection", "other"],
+    })
+      .notNull()
+      .default("other"),
+    /** Path under /uploads, uuid-named like product photos. */
+    path: text("path").notNull(),
+    /** The name the file arrived with, used when downloading it back. */
+    originalName: text("original_name").notNull(),
+    sizeBytes: integer("size_bytes").notNull().default(0),
+    uploadedBy: integer("uploaded_by").references(() => users.id),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
+  },
+  (table) => [index("order_documents_order_idx").on(table.orderId)],
+);
+
+/**
+ * Money moving on an order, in both directions: what the client pays in and
+ * what goes out to the supplier. Amounts keep their own currency and are
+ * converted for the summary the same way order totals are.
+ */
+export const orderPayments = sqliteTable(
+  "order_payments",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    orderId: integer("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    direction: text("direction", { enum: ["in", "out"] }).notNull(),
+    amount: real("amount").notNull(),
+    currency: text("currency").notNull(),
+    /** ISO date the money moved, not the date the row was typed in. */
+    paidOn: text("paid_on").notNull(),
+    note: text("note").notNull().default(""),
+    createdBy: integer("created_by").references(() => users.id),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
+  },
+  (table) => [index("order_payments_order_idx").on(table.orderId)],
+);
+
+/** Everything an order costs beyond the goods themselves. */
+export const orderExpenses = sqliteTable(
+  "order_expenses",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    orderId: integer("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    category: text("category", {
+      enum: ["freight", "customs", "inspection", "local_transport", "bank_fees", "other"],
+    })
+      .notNull()
+      .default("other"),
+    amount: real("amount").notNull(),
+    currency: text("currency").notNull(),
+    spentOn: text("spent_on").notNull(),
+    note: text("note").notNull().default(""),
+    createdBy: integer("created_by").references(() => users.id),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
+  },
+  (table) => [index("order_expenses_order_idx").on(table.orderId)],
+);

@@ -9,11 +9,25 @@ const ALLOWED_TYPES: Record<string, string> = {
   "image/gif": "gif",
 };
 
+// Order documents: what suppliers actually send. Excel and Word are accepted
+// because supplier invoices and packing lists very often arrive as either.
+const DOCUMENT_TYPES: Record<string, string> = {
+  ...ALLOWED_TYPES,
+  "application/pdf": "pdf",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "application/vnd.ms-excel": "xls",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+};
+
 export const CONTENT_TYPES: Record<string, string> = {
   jpg: "image/jpeg",
   png: "image/png",
   webp: "image/webp",
   gif: "image/gif",
+  pdf: "application/pdf",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  xls: "application/vnd.ms-excel",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 };
 
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -27,11 +41,20 @@ export function uploadsDir() {
 
 /** Only ever a bare `<uuid>.<ext>` — no separators, no traversal. */
 export function isSafeUploadName(name: string) {
-  return /^[A-Za-z0-9][A-Za-z0-9-]*\.(jpg|png|webp|gif)$/.test(name);
+  return /^[A-Za-z0-9][A-Za-z0-9-]*\.(jpg|png|webp|gif|pdf|xlsx|xls|docx)$/.test(name);
 }
 
 export async function saveUploadedImage(file: File): Promise<string> {
-  const ext = ALLOWED_TYPES[file.type];
+  return saveUpload(file, ALLOWED_TYPES);
+}
+
+/** Same store as photos, wider set of types: invoices arrive as PDFs and sheets. */
+export async function saveUploadedDocument(file: File): Promise<string> {
+  return saveUpload(file, DOCUMENT_TYPES);
+}
+
+async function saveUpload(file: File, allowed: Record<string, string>): Promise<string> {
+  const ext = allowed[file.type];
   if (!ext) {
     throw new Error("unsupported file type");
   }
