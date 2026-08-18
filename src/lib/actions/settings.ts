@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { exchangeRates } from "@/db/schema";
+import { exchangeRates, companyProfile } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 
@@ -62,4 +62,46 @@ export async function deleteExchangeRate(currencyCode: string) {
   db.delete(exchangeRates).where(eq(exchangeRates.currencyCode, currencyCode)).run();
   revalidatePath("/settings");
   revalidatePath("/orders");
+}
+
+/** Everything printed as the vendor block on a proforma invoice. */
+const companySchema = z.object({
+  companyName: z.string().trim().default(""),
+  addressLines: z.string().default(""),
+  phone: z.string().trim().default(""),
+  email: z.string().trim().default(""),
+  website: z.string().trim().default(""),
+  taxId: z.string().trim().default(""),
+  bankName: z.string().trim().default(""),
+  bankAccountName: z.string().trim().default(""),
+  bankAccountNumber: z.string().trim().default(""),
+  bankSwift: z.string().trim().default(""),
+  bankAddress: z.string().default(""),
+  paymentTerms: z.string().default(""),
+  incoterms: z.string().trim().default(""),
+  validityDays: z.coerce.number().int().min(0).max(3650).default(30),
+  footerNote: z.string().default(""),
+});
+
+export async function saveCompanyProfile(
+  _prevState: string | undefined,
+  formData: FormData,
+): Promise<string | undefined> {
+  await requireSession();
+
+  const parsed = companySchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return "invalid";
+  const data = { ...parsed.data, updatedAt: new Date().toISOString() };
+
+  // Always row 1: there is one company, and the proforma reads exactly it.
+  const existing = db.select().from(companyProfile).where(eq(companyProfile.id, 1)).get();
+  if (existing) {
+    db.update(companyProfile).set(data).where(eq(companyProfile.id, 1)).run();
+  } else {
+    db.insert(companyProfile).values({ id: 1, ...data }).run();
+  }
+
+  revalidatePath("/settings");
+  revalidatePath("/orders");
+  return undefined;
 }

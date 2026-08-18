@@ -345,3 +345,95 @@ export function estimateCartonWeightKg(
 export function formatWeightKg(value: number) {
   return String(Math.round(value * 1000) / 1000);
 }
+
+/**
+ * True when a product has no usable carton figures.
+ *
+ * Measurements are optional so a product can be registered at a supplier
+ * without them, which means an order can contain a line contributing nothing
+ * to volume or weight. That has to be visible: an under-reported CBM is the
+ * kind of error that only shows up as a freight bill.
+ */
+export function missingCartonFigures(product: { cbm: number; weightKg: number }) {
+  return product.cbm <= 0 || product.weightKg <= 0;
+}
+
+// --- order finance -----------------------------------------------------------
+
+export type MoneyEntry = { amount: number; currency: string };
+
+export type OrderFinanceInput = {
+  /** What the client is billed: goods + commission, in the quote currency. */
+  expectedRevenue: number;
+  /** What the supplier charges for the goods, in the quote currency. */
+  expectedCost: number;
+  paymentsIn: MoneyEntry[];
+  paymentsOut: MoneyEntry[];
+  expenses: MoneyEntry[];
+};
+
+export type OrderFinance = {
+  received: number;
+  paidOut: number;
+  expensesTotal: number;
+  /** expectedRevenue − received: what the client still owes. */
+  clientOutstanding: number;
+  /** expectedCost − paidOut: what is still owed to the supplier. */
+  supplierOutstanding: number;
+  /** received − paidOut − expenses: cash actually kept so far. */
+  netActual: number;
+  /** expectedRevenue − expectedCost − expenses: where the order lands. */
+  netExpected: number;
+  /** netExpected as a share of expectedRevenue, null when revenue is 0. */
+  marginPct: number | null;
+  /** currencies that could not be converted; their entries are excluded. */
+  missingRates: string[];
+};
+
+/**
+ * The money position of one order, everything in the quote currency.
+ *
+ * Actual and expected are kept apart on purpose. Actual is cash that moved:
+ * received minus paid minus expenses — negative early in an order's life,
+ * when the supplier deposit has gone out before the client balance is in.
+ * Expected is where the order lands once both sides settle in full. The gap
+ * between them is exactly the two outstanding balances.
+ */
+export function computeOrderFinance(
+  input: OrderFinanceInput,
+  quoteCurrency: string,
+  rates: CurrencyRates,
+): OrderFinance {
+  const missing = new Set<string>();
+
+  const sum = (entries: MoneyEntry[]) => {
+    let total = 0;
+    for (const e of entries) {
+      try {
+        total += convert(e.amount, e.currency, quoteCurrency, rates);
+      } catch (err) {
+        if (err instanceof UnknownCurrencyError) missing.add(err.currency);
+        else throw err;
+      }
+    }
+    return total;
+  };
+
+  const received = sum(input.paymentsIn);
+  const paidOut = sum(input.paymentsOut);
+  const expensesTotal = sum(input.expenses);
+
+  const netExpected = input.expectedRevenue - input.expectedCost - expensesTotal;
+  return {
+    received,
+    paidOut,
+    expensesTotal,
+    clientOutstanding: input.expectedRevenue - received,
+    supplierOutstanding: input.expectedCost - paidOut,
+    netActual: received - paidOut - expensesTotal,
+    netExpected,
+    marginPct:
+      input.expectedRevenue > 0 ? (netExpected / input.expectedRevenue) * 100 : null,
+    missingRates: [...missing],
+  };
+}

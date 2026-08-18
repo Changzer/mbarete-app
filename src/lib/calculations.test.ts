@@ -18,6 +18,8 @@ import {
   estimateCartonWeightKg,
   DEFAULT_PACKING_ALLOWANCE_PCT,
   formatWeightKg,
+  missingCartonFigures,
+  computeOrderFinance,
 } from "./calculations";
 import type { SnapshotLine } from "./calculations";
 
@@ -373,4 +375,87 @@ test("weights display without floating-point noise", () => {
   assert.equal(formatWeightKg(0.3), "0.3");
   assert.equal(formatWeightKg(5), "5");
   assert.equal(formatWeightKg(0), "0");
+});
+
+test("a product with no measurements is reported as missing them", () => {
+  assert.equal(missingCartonFigures({ cbm: 0, weightKg: 0 }), true);
+  // Half-entered counts as missing: either figure alone distorts a quote.
+  assert.equal(missingCartonFigures({ cbm: 0.024, weightKg: 0 }), true);
+  assert.equal(missingCartonFigures({ cbm: 0, weightKg: 5 }), true);
+  assert.equal(missingCartonFigures({ cbm: 0.024, weightKg: 5 }), false);
+});
+
+// --- order finance -----------------------------------------------------------
+
+test("order finance: a settled order nets the commission minus expenses", () => {
+  // 5352 RMB of goods quoted to the client at +15% in USD: revenue 861.67,
+  // cost 749.28. Client paid in full in USD, supplier paid in full in RMB.
+  const fin = computeOrderFinance(
+    {
+      expectedRevenue: 861.67,
+      expectedCost: 749.28,
+      paymentsIn: [{ amount: 861.67, currency: "USD" }],
+      paymentsOut: [{ amount: 5352, currency: "CNY" }],
+      expenses: [
+        { amount: 200, currency: "CNY" },   // 28 USD freight
+        { amount: 15, currency: "USD" },    // bank fee
+      ],
+    },
+    "USD",
+    RATES,
+  );
+  closeTo(fin.received, 861.67);
+  closeTo(fin.paidOut, 749.28);
+  closeTo(fin.expensesTotal, 43);
+  closeTo(fin.clientOutstanding, 0);
+  closeTo(fin.supplierOutstanding, 0);
+  closeTo(fin.netActual, 69.39);
+  closeTo(fin.netExpected, 69.39);
+  assert.ok(fin.marginPct !== null && Math.abs(fin.marginPct - 8.053) < 0.01);
+});
+
+test("order finance: mid-order, actual is negative and outstandings say why", () => {
+  // 30% client deposit in, 100% supplier payment out, freight paid.
+  const fin = computeOrderFinance(
+    {
+      expectedRevenue: 1000,
+      expectedCost: 800,
+      paymentsIn: [{ amount: 300, currency: "USD" }],
+      paymentsOut: [{ amount: 800, currency: "USD" }],
+      expenses: [{ amount: 50, currency: "USD" }],
+    },
+    "USD",
+    RATES,
+  );
+  closeTo(fin.netActual, -550);          // cash out of pocket right now
+  closeTo(fin.netExpected, 150);         // where it lands once settled
+  closeTo(fin.clientOutstanding, 700);   // the balance still to collect
+  closeTo(fin.supplierOutstanding, 0);
+  // The identity that makes the numbers trustworthy:
+  closeTo(fin.netActual + fin.clientOutstanding - fin.supplierOutstanding, fin.netExpected);
+});
+
+test("order finance: an unconvertible payment is flagged, not counted as zero silently", () => {
+  const fin = computeOrderFinance(
+    {
+      expectedRevenue: 1000,
+      expectedCost: 800,
+      paymentsIn: [{ amount: 500, currency: "GBP" }],
+      paymentsOut: [],
+      expenses: [],
+    },
+    "USD",
+    RATES,
+  );
+  assert.deepEqual(fin.missingRates, ["GBP"]);
+  closeTo(fin.received, 0);
+});
+
+test("order finance: margin is null rather than dividing by zero", () => {
+  const fin = computeOrderFinance(
+    { expectedRevenue: 0, expectedCost: 0, paymentsIn: [], paymentsOut: [], expenses: [] },
+    "USD",
+    RATES,
+  );
+  assert.equal(fin.marginPct, null);
 });

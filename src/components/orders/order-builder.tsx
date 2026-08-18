@@ -24,6 +24,7 @@ import {
   suggestedQuantity,
   lineTotal,
   type CurrencyRates,
+  missingCartonFigures,
 } from "@/lib/calculations";
 import { createOrder, updateOrder, type OrderActionResult } from "@/lib/actions/orders";
 import { createContact, updateContact } from "@/lib/actions/contacts";
@@ -177,6 +178,13 @@ export function OrderBuilder({
   // line's carton was estimated from a piece rather than measured.
   const hasEstimatedCarton = useMemo(
     () => cartLines.some((l) => l.product.dimensionSource === "piece"),
+    [cartLines],
+  );
+
+  // A product registered without measurements contributes nothing to volume or
+  // weight, which would otherwise quietly under-report the whole shipment.
+  const hasUnmeasured = useMemo(
+    () => cartLines.some((l) => missingCartonFigures(l.product)),
     [cartLines],
   );
 
@@ -494,6 +502,14 @@ export function OrderBuilder({
               <span className="text-neutral-500 dark:text-neutral-400">{t("totalWeight")}</span>
               <span className="font-semibold text-neutral-900 dark:text-neutral-100">{totals.totalWeightKg.toFixed(2)} kg</span>
             </div>
+            {hasUnmeasured ? (
+              <p
+                className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
+                data-testid="order-unmeasured-note"
+              >
+                {t("unmeasuredIncluded")}
+              </p>
+            ) : null}
             {hasEstimatedCarton ? (
               <p
                 className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"

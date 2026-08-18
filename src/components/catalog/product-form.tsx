@@ -25,6 +25,10 @@ import {
 
 type Category = { id: number; nameEn: string; nameZh: string };
 
+/** Unmeasured fields show empty rather than a 0 nobody entered. */
+const blankIfZero = (v: number | undefined) => (v ? String(v) : "");
+
+
 type ProductFormValues = {
   sku: string;
   nameEn: string;
@@ -110,7 +114,7 @@ export function ProductForm({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="sku">{t("sku")}</Label>
-          <Input id="sku" name="sku" defaultValue={defaultValues?.sku} required />
+          <Input id="sku" name="sku" defaultValue={defaultValues?.sku} />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="categoryId">{t("category")}</Label>
@@ -131,11 +135,11 @@ export function ProductForm({
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="nameEn">{t("nameEn")}</Label>
-          <Input id="nameEn" name="nameEn" defaultValue={defaultValues?.nameEn} required />
+          <Input id="nameEn" name="nameEn" defaultValue={defaultValues?.nameEn} />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="nameZh">{t("nameZh")}</Label>
-          <Input id="nameZh" name="nameZh" defaultValue={defaultValues?.nameZh} required />
+          <Input id="nameZh" name="nameZh" defaultValue={defaultValues?.nameZh} />
         </div>
 
         <div className="flex flex-col gap-1.5 sm:col-span-2">
@@ -229,7 +233,7 @@ export function ProductForm({
         {source === "carton" ? (
           <>
             <p className="sm:col-span-2 rounded-md bg-neutral-100 dark:bg-neutral-800 px-3 py-2 text-xs text-neutral-600 dark:text-neutral-400">
-              {t("cartonHelp")}
+              {t("cartonHelp")} {t("measurementsOptional")}
             </p>
 
             <div className="flex flex-col gap-1.5">
@@ -237,11 +241,12 @@ export function ProductForm({
               <Input
                 id="lengthCm"
                 name="lengthCm"
+                placeholder={t("optionalPlaceholder")}
                 type="number"
                 inputMode="decimal"
                 step="0.01"
                 min="0"
-                defaultValue={defaultValues?.lengthCm ?? 0}
+                defaultValue={blankIfZero(defaultValues?.lengthCm)}
               />
             </div>
             <div className="flex flex-col gap-1.5">
@@ -249,11 +254,12 @@ export function ProductForm({
               <Input
                 id="widthCm"
                 name="widthCm"
+                placeholder={t("optionalPlaceholder")}
                 type="number"
                 inputMode="decimal"
                 step="0.01"
                 min="0"
-                defaultValue={defaultValues?.widthCm ?? 0}
+                defaultValue={blankIfZero(defaultValues?.widthCm)}
               />
             </div>
             <div className="flex flex-col gap-1.5">
@@ -261,11 +267,12 @@ export function ProductForm({
               <Input
                 id="heightCm"
                 name="heightCm"
+                placeholder={t("optionalPlaceholder")}
                 type="number"
                 inputMode="decimal"
                 step="0.01"
                 min="0"
-                defaultValue={defaultValues?.heightCm ?? 0}
+                defaultValue={blankIfZero(defaultValues?.heightCm)}
               />
             </div>
             <div className="flex flex-col gap-1.5">
@@ -273,11 +280,12 @@ export function ProductForm({
               <Input
                 id="weightKg"
                 name="weightKg"
+                placeholder={t("optionalPlaceholder")}
                 type="number"
                 inputMode="decimal"
                 step="0.01"
                 min="0"
-                defaultValue={defaultValues?.weightKg ?? 0}
+                defaultValue={blankIfZero(defaultValues?.weightKg)}
               />
             </div>
           </>
@@ -440,7 +448,13 @@ export function ProductForm({
       </div>
 
       {errorMessage ? (
-        <p className="text-sm text-red-600">{common("required")}</p>
+        <p className="text-sm text-red-600" data-testid="form-error">
+          {errorMessage === "duplicate-sku"
+            ? t("errorDuplicateSku")
+            : errorMessage === "image-error"
+              ? t("errorImage")
+              : t("errorRequiredFields")}
+        </p>
       ) : null}
 
       {/*

@@ -6,7 +6,7 @@ import { getLocale } from "next-intl/server";
 import type { Locale } from "@/i18n/routing";
 import { db } from "@/db";
 import { products, categories, productImages } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import { productSchema, categorySchema } from "@/lib/validators";
 import {
   computeCbm,
@@ -14,6 +14,7 @@ import {
   estimateCartonWeightKg,
 } from "@/lib/calculations";
 import { saveUploadedImage, deleteUpload } from "@/lib/uploads";
+import { suggestNextSku } from "@/lib/queries/catalog";
 
 /** Saves every non-empty file under `images`, preserving the chosen order. */
 async function saveUploadedImages(formData: FormData) {
@@ -135,6 +136,12 @@ export async function createProduct(
 
   const carton = resolveCartonFigures(data);
 
+  // Left blank on purpose, or cleared while entering products in a hurry.
+  const sku = data.sku || (await suggestNextSku());
+  if (db.select().from(products).where(eq(products.sku, sku)).get()) {
+    return "duplicate-sku";
+  }
+
   let uploaded: string[];
   try {
     uploaded = await saveUploadedImages(formData);
@@ -144,7 +151,7 @@ export async function createProduct(
 
   const inserted = db.insert(products)
     .values({
-      sku: data.sku,
+      sku,
       nameEn: data.nameEn,
       nameZh: data.nameZh,
       categoryId: data.categoryId,
@@ -199,6 +206,14 @@ export async function updateProduct(
   const existing = db.select().from(products).where(eq(products.id, id)).get();
   if (!existing) return "not-found";
 
+  const sku = data.sku || existing.sku;
+  const clash = db
+    .select()
+    .from(products)
+    .where(and(eq(products.sku, sku), ne(products.id, id)))
+    .get();
+  if (clash) return "duplicate-sku";
+
   // Images the user ticked for removal in the form.
   const removeIds = formData
     .getAll("removeImageIds")
@@ -237,7 +252,7 @@ export async function updateProduct(
 
   db.update(products)
     .set({
-      sku: data.sku,
+      sku,
       nameEn: data.nameEn,
       nameZh: data.nameZh,
       categoryId: data.categoryId,

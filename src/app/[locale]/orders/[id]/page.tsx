@@ -1,13 +1,20 @@
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { getOrderById, getExchangeRates } from "@/lib/queries/orders";
+import { getOrderById, getExchangeRates, getOrderFinanceRows } from "@/lib/queries/orders";
 import { getProducts } from "@/lib/queries/catalog";
 import { getUserNames } from "@/lib/queries/users";
 import { localizeField } from "@/lib/localize";
 import type { Locale } from "@/i18n/routing";
-import { computeSnapshotTotals, formatCbm } from "@/lib/calculations";
+import {
+  computeSnapshotTotals,
+  computeOrderFinance,
+  formatCbm,
+} from "@/lib/calculations";
 import { Badge } from "@/components/ui/badge";
 import { OrderStatusActions } from "@/components/orders/order-status-actions";
+import { OrderFinance } from "@/components/orders/order-finance";
+import { Button } from "@/components/ui/button";
+import { Link } from "@/i18n/navigation";
 
 const STATUS_VARIANT = {
   draft: "secondary",
@@ -24,12 +31,15 @@ export default async function OrderDetailPage({
   const { id, locale } = await params;
   const t = await getTranslations("orders");
   const catalogT = await getTranslations("catalog");
+  const proformaT = await getTranslations("proforma");
 
-  const [data, rates, products, userNames] = await Promise.all([
+  const financeT = await getTranslations("finance");
+  const [data, rates, products, userNames, finance] = await Promise.all([
     getOrderById(Number(id)),
     getExchangeRates(),
     getProducts(),
     getUserNames(),
+    getOrderFinanceRows(Number(id)),
   ]);
 
   if (!data) notFound();
@@ -84,6 +94,25 @@ export default async function OrderDetailPage({
     effectiveRates,
     order.commissionPct,
   );
+  // The money position: what the client is billed against what the supplier
+  // charges, then every recorded movement on top.
+  const quote = order.displayCurrency;
+  const fin = computeOrderFinance(
+    {
+      expectedRevenue: totals.grandTotal[quote] ?? 0,
+      expectedCost: totals.goods[quote] ?? 0,
+      paymentsIn: finance.payments.filter((p) => p.direction === "in"),
+      paymentsOut: finance.payments.filter((p) => p.direction === "out"),
+      expenses: finance.expenses,
+    },
+    quote,
+    effectiveRates,
+  );
+  const supplierCurrency = items[0]?.currencySnapshot ?? order.secondaryCurrency;
+  const money = (n: number) => `${n.toFixed(2)} ${quote}`;
+
+  // Lines whose product had no measurements when the order was saved.
+  const hasUnmeasured = rows.some((r) => r.lineCbm <= 0 || r.lineWeightKg <= 0);
   const totalCbm = totals.totalCbm;
   const totalWeight = totals.totalWeightKg;
   const hasMoqViolation = totals.hasMoqViolation;
@@ -109,6 +138,9 @@ export default async function OrderDetailPage({
             {t(`status${order.status.charAt(0).toUpperCase()}${order.status.slice(1)}` as "statusDraft")}
           </Badge>
           <OrderStatusActions orderId={order.id} status={order.status} />
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/orders/${order.id}/proforma`}>{proformaT("open")}</Link>
+          </Button>
         </div>
       </div>
 
@@ -212,6 +244,14 @@ export default async function OrderDetailPage({
           <span className="text-neutral-500 dark:text-neutral-400">{t("totalWeight")}</span>
           <span className="font-semibold text-neutral-900 dark:text-neutral-100">{totalWeight.toFixed(2)} kg</span>
         </div>
+        {hasUnmeasured ? (
+          <p
+            className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
+            data-testid="order-unmeasured-note"
+          >
+            {t("unmeasuredIncluded")}
+          </p>
+        ) : null}
       </div>
 
       {order.notes ? (
@@ -224,6 +264,103 @@ export default async function OrderDetailPage({
       {hasMoqViolation && order.status === "draft" ? (
         <p className="mt-4 text-xs text-amber-700">{t("moqBlocksConfirm")}</p>
       ) : null}
+
+      {/* --- the trade file: documents, money in and out, expenses --- */}
+      <div className="mt-8">
+        <OrderFinance
+          orderId={order.id}
+          quoteCurrency={quote}
+          supplierCurrency={supplierCurrency}
+          payments={finance.payments}
+          expenses={finance.expenses}
+          documents={finance.documents}
+        />
+      </div>
+
+      {/* --- where the order lands --- */}
+      <div
+        className="mt-4 rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
+        data-testid="section-net"
+      >
+        <h2 className="mb-3 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+          {financeT("netTitle")}
+        </h2>
+
+        {fin.missingRates.length > 0 ? (
+          <p className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+            {t("missingRate", { codes: fin.missingRates.join(", ") })}
+          </p>
+        ) : null}
+
+        <div className="grid grid-cols-1 gap-6 text-sm sm:grid-cols-2">
+          <div className="flex flex-col gap-1">
+            <div className="flex justify-between">
+              <span className="text-neutral-500 dark:text-neutral-400">{financeT("expectedRevenue")}</span>
+              <span className="text-neutral-900 dark:text-neutral-100">{money(fin.received + fin.clientOutstanding)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-neutral-500 dark:text-neutral-400">{financeT("received")}</span>
+              <span className="text-neutral-900 dark:text-neutral-100" data-testid="fin-received">{money(fin.received)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-neutral-500 dark:text-neutral-400">{financeT("clientOutstanding")}</span>
+              <span
+                className={fin.clientOutstanding > 0.005 ? "font-medium text-amber-700 dark:text-amber-400" : "text-neutral-900 dark:text-neutral-100"}
+                data-testid="fin-client-outstanding"
+              >
+                {money(fin.clientOutstanding)}
+              </span>
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <div className="flex justify-between">
+              <span className="text-neutral-500 dark:text-neutral-400">{financeT("expectedCost")}</span>
+              <span className="text-neutral-900 dark:text-neutral-100">{money(fin.paidOut + fin.supplierOutstanding)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-neutral-500 dark:text-neutral-400">{financeT("paidOut")}</span>
+              <span className="text-neutral-900 dark:text-neutral-100" data-testid="fin-paid-out">{money(fin.paidOut)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-neutral-500 dark:text-neutral-400">{financeT("supplierOutstanding")}</span>
+              <span
+                className={fin.supplierOutstanding > 0.005 ? "font-medium text-amber-700 dark:text-amber-400" : "text-neutral-900 dark:text-neutral-100"}
+                data-testid="fin-supplier-outstanding"
+              >
+                {money(fin.supplierOutstanding)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-1 border-t border-neutral-200 pt-3 text-sm dark:border-neutral-800">
+          <div className="flex justify-between">
+            <span className="text-neutral-500 dark:text-neutral-400">{financeT("expensesTotal")}</span>
+            <span className="text-neutral-900 dark:text-neutral-100" data-testid="fin-expenses">{money(fin.expensesTotal)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-neutral-500 dark:text-neutral-400">{financeT("netActual")}</span>
+            <span
+              className={`font-semibold ${fin.netActual < 0 ? "text-red-600 dark:text-red-400" : "text-neutral-900 dark:text-neutral-100"}`}
+              data-testid="fin-net-actual"
+            >
+              {money(fin.netActual)}
+            </span>
+          </div>
+          <div className="flex justify-between text-base">
+            <span className="font-medium text-neutral-900 dark:text-neutral-100">{financeT("netExpected")}</span>
+            <span className="font-bold text-neutral-900 dark:text-neutral-100" data-testid="fin-net-expected">
+              {money(fin.netExpected)}
+              {fin.marginPct !== null ? (
+                <span className="ml-2 text-sm font-normal text-neutral-500 dark:text-neutral-400">
+                  ({fin.marginPct.toFixed(1)}%)
+                </span>
+              ) : null}
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{financeT("netHelp")}</p>
+        </div>
+      </div>
     </div>
   );
 }
