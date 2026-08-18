@@ -69,7 +69,22 @@
     "images": "图片",
     "imagesHelp": "可一次选择多张照片——例如每种颜色一张。第一张将作为目录缩略图。",
     "photos": "张图片",
-    "cartonHelp": "请填写运输外箱的尺寸和重量，而非单件产品。订单的体积和重量按箱数计算。"
+    "cartonHelp": "请填写运输外箱的尺寸和重量，而非单件产品。订单的体积和重量按箱数计算。",
+    "dimensionSource": "您掌握的是哪种尺寸？",
+    "haveCartonSize": "我有外箱尺寸",
+    "havePieceSizeOnly": "我只有产品尺寸",
+    "pieceHelp": "请填写单件产品的尺寸。系统会根据每箱数量加上包装余量估算外箱——可用于初步核算，待供应商确认后请改为真实外箱尺寸。",
+    "pieceLength": "单件长 (cm)",
+    "pieceWidth": "单件宽 (cm)",
+    "pieceHeight": "单件高 (cm)",
+    "pieceWeight": "单件重量 (kg)",
+    "packingAllowance": "包装余量 (%)",
+    "packingAllowanceHelp": "用于计入产品之间的空隙和外箱本身。多数货品取 15%；异形或易碎品可加大，平板包装可减小。",
+    "estimatedCarton": "预估外箱",
+    "estimateBreakdown": "{pieces} 件 × 单件体积 = {bare} m³，再加 {allowance}% 包装余量。",
+    "estimated": "预估",
+    "pieceSize": "单件尺寸 (长×宽×高 cm)",
+    "estimatedFromPiece": "根据单件尺寸估算——尚无实际外箱测量值。"
   },
   "contacts": {
     "title": "联系人",
@@ -137,7 +152,8 @@
     "roundTo": "调整为 {qty}",
     "newClient": "+ 新建客户",
     "editClient": "编辑客户",
-    "noClientsYet": "暂无客户——请先添加一个以创建此订单。"
+    "noClientsYet": "暂无客户——请先添加一个以创建此订单。",
+    "estimatedCartonsIncluded": "体积和重量中包含根据单件尺寸估算的外箱——报运费前请与供应商确认。"
   },
   "settings": {
     "exchangeRates": "汇率",

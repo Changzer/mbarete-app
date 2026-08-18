@@ -37,6 +37,7 @@ export default async function NewOrderPage({
       qtyPerBox: p.qtyPerBox,
       weightKg: p.weightKg,
       cbm: p.cbm,
+      dimensionSource: p.dimensionSource,
     };
   });
 

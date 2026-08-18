@@ -283,3 +283,65 @@ export function computeSnapshotTotals(
     missingRates: [...missing],
   };
 }
+
+// --- estimating a carton from a single piece ---------------------------------
+
+/**
+ * Extra volume and weight a carton adds over the bare goods, as a percentage.
+ *
+ * Pieces never tessellate perfectly and the carton itself has walls and
+ * weight, so a carton is always bigger and heavier than the sum of what is
+ * inside it. 15% is a broadly safe default for mixed goods; irregular or
+ * fragile items pack worse and want more.
+ */
+export const DEFAULT_PACKING_ALLOWANCE_PCT = 15;
+
+export type PieceDimensions = {
+  lengthCm: number;
+  widthCm: number;
+  heightCm: number;
+};
+
+/**
+ * Approximate carton volume in m^3 from one piece's dimensions.
+ *
+ * Used when a supplier has quoted the product but not its export carton.
+ * Deliberately errs high: under-quoting freight costs money, over-quoting
+ * loses a little margin on the quote.
+ */
+export function estimateCartonCbm(
+  piece: PieceDimensions,
+  qtyPerBox: number,
+  allowancePct: number = DEFAULT_PACKING_ALLOWANCE_PCT,
+) {
+  if (qtyPerBox <= 0) return 0;
+  const pieceCbm = computeCbm(piece.lengthCm, piece.widthCm, piece.heightCm);
+  return pieceCbm * qtyPerBox * (1 + allowancePct / 100);
+}
+
+/**
+ * Approximate carton weight in kg from one piece's weight.
+ *
+ * Carries the same allowance as the volume estimate, which here stands for
+ * the packaging material rather than void space. Freight is charged on gross
+ * weight, so the carton's own weight belongs in the figure.
+ */
+export function estimateCartonWeightKg(
+  pieceWeightKg: number,
+  qtyPerBox: number,
+  allowancePct: number = DEFAULT_PACKING_ALLOWANCE_PCT,
+) {
+  if (qtyPerBox <= 0) return 0;
+  return pieceWeightKg * qtyPerBox * (1 + allowancePct / 100);
+}
+
+/**
+ * Weight for display, in kg.
+ *
+ * Estimated weights are the product of several floats and land on values like
+ * 5.5200000000000005, so round to the gram and drop trailing zeros. Hand-typed
+ * weights come back unchanged.
+ */
+export function formatWeightKg(value: number) {
+  return String(Math.round(value * 1000) / 1000);
+}

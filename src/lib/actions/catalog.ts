@@ -8,7 +8,11 @@ import { db } from "@/db";
 import { products, categories, productImages } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { productSchema, categorySchema } from "@/lib/validators";
-import { computeCbm } from "@/lib/calculations";
+import {
+  computeCbm,
+  estimateCartonCbm,
+  estimateCartonWeightKg,
+} from "@/lib/calculations";
 import { saveUploadedImage, deleteUpload } from "@/lib/uploads";
 
 /** Saves every non-empty file under `images`, preserving the chosen order. */
@@ -45,9 +49,73 @@ function formToProductInput(formData: FormData) {
     widthCm: formData.get("widthCm") || 0,
     heightCm: formData.get("heightCm") || 0,
     weightKg: formData.get("weightKg") || 0,
+    dimensionSource: formData.get("dimensionSource") || "carton",
+    pieceLengthCm: formData.get("pieceLengthCm") || 0,
+    pieceWidthCm: formData.get("pieceWidthCm") || 0,
+    pieceHeightCm: formData.get("pieceHeightCm") || 0,
+    pieceWeightKg: formData.get("pieceWeightKg") || 0,
+    packingAllowancePct: formData.get("packingAllowancePct") ?? 15,
     cbmOverride: formData.get("cbmOverride") || undefined,
     active: formData.get("active") === "on",
   });
+}
+
+type ProductInput = ReturnType<typeof formToProductInput>;
+
+/**
+ * The carton figures to store, whichever way the product was registered.
+ *
+ * Order calculations only ever read the carton columns, so piece-mode
+ * products are converted here and nothing downstream needs to know the
+ * difference. The piece values are kept alongside so the form round-trips and
+ * the estimate can be recalculated if pieces per carton changes.
+ */
+function resolveCartonFigures(data: ProductInput) {
+  if (data.dimensionSource === "piece") {
+    const piece = {
+      lengthCm: data.pieceLengthCm,
+      widthCm: data.pieceWidthCm,
+      heightCm: data.pieceHeightCm,
+    };
+    return {
+      // No carton was measured, so there are no carton dimensions to show.
+      lengthCm: 0,
+      widthCm: 0,
+      heightCm: 0,
+      weightKg: estimateCartonWeightKg(
+        data.pieceWeightKg,
+        data.qtyPerBox,
+        data.packingAllowancePct,
+      ),
+      cbm:
+        data.cbmOverride && data.cbmOverride > 0
+          ? data.cbmOverride
+          : estimateCartonCbm(piece, data.qtyPerBox, data.packingAllowancePct),
+      dimensionSource: "piece" as const,
+      pieceLengthCm: data.pieceLengthCm,
+      pieceWidthCm: data.pieceWidthCm,
+      pieceHeightCm: data.pieceHeightCm,
+      pieceWeightKg: data.pieceWeightKg,
+      packingAllowancePct: data.packingAllowancePct,
+    };
+  }
+
+  return {
+    lengthCm: data.lengthCm,
+    widthCm: data.widthCm,
+    heightCm: data.heightCm,
+    weightKg: data.weightKg,
+    cbm:
+      data.cbmOverride && data.cbmOverride > 0
+        ? data.cbmOverride
+        : computeCbm(data.lengthCm, data.widthCm, data.heightCm),
+    dimensionSource: "carton" as const,
+    pieceLengthCm: 0,
+    pieceWidthCm: 0,
+    pieceHeightCm: 0,
+    pieceWeightKg: 0,
+    packingAllowancePct: data.packingAllowancePct,
+  };
 }
 
 export async function createProduct(
@@ -63,10 +131,7 @@ export async function createProduct(
     return "invalid";
   }
 
-  const cbm =
-    data.cbmOverride && data.cbmOverride > 0
-      ? data.cbmOverride
-      : computeCbm(data.lengthCm, data.widthCm, data.heightCm);
+  const carton = resolveCartonFigures(data);
 
   let uploaded: string[];
   try {
@@ -87,11 +152,7 @@ export async function createProduct(
       currency: data.currency,
       moq: data.moq,
       qtyPerBox: data.qtyPerBox,
-      lengthCm: data.lengthCm,
-      widthCm: data.widthCm,
-      heightCm: data.heightCm,
-      weightKg: data.weightKg,
-      cbm,
+      ...carton,
       active: data.active,
       updatedAt: new Date().toISOString(),
     })
@@ -122,10 +183,7 @@ export async function updateProduct(
     return "invalid";
   }
 
-  const cbm =
-    data.cbmOverride && data.cbmOverride > 0
-      ? data.cbmOverride
-      : computeCbm(data.lengthCm, data.widthCm, data.heightCm);
+  const carton = resolveCartonFigures(data);
 
   const existing = db.select().from(products).where(eq(products.id, id)).get();
   if (!existing) return "not-found";
@@ -178,11 +236,7 @@ export async function updateProduct(
       currency: data.currency,
       moq: data.moq,
       qtyPerBox: data.qtyPerBox,
-      lengthCm: data.lengthCm,
-      widthCm: data.widthCm,
-      heightCm: data.heightCm,
-      weightKg: data.weightKg,
-      cbm,
+      ...carton,
       active: data.active,
       updatedAt: new Date().toISOString(),
     })

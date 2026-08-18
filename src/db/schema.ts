@@ -39,11 +39,27 @@ export const products = sqliteTable(
     currency: text("currency").notNull().default("USD"),
     moq: integer("moq").notNull().default(1),
     qtyPerBox: integer("qty_per_box").notNull().default(1),
+    // Carton figures. These are what every order calculation reads, whether
+    // they were measured or estimated from a single piece.
     lengthCm: real("length_cm").notNull().default(0),
     widthCm: real("width_cm").notNull().default(0),
     heightCm: real("height_cm").notNull().default(0),
     weightKg: real("weight_kg").notNull().default(0),
     cbm: real("cbm").notNull().default(0),
+    // Where the carton figures came from: "carton" when the supplier quoted
+    // the export carton, "piece" when only the product itself was known and
+    // the carton was estimated from it.
+    dimensionSource: text("dimension_source")
+      .$type<"carton" | "piece">()
+      .notNull()
+      .default("carton"),
+    // What was entered in piece mode, kept so the form round-trips and the
+    // estimate can be recalculated when pieces per carton changes.
+    pieceLengthCm: real("piece_length_cm").notNull().default(0),
+    pieceWidthCm: real("piece_width_cm").notNull().default(0),
+    pieceHeightCm: real("piece_height_cm").notNull().default(0),
+    pieceWeightKg: real("piece_weight_kg").notNull().default(0),
+    packingAllowancePct: real("packing_allowance_pct").notNull().default(15),
     active: integer("active", { mode: "boolean" }).notNull().default(true),
     createdAt: text("created_at")
       .notNull()

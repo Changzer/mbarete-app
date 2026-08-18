@@ -14,6 +14,10 @@ import {
   suggestedQuantity,
   UnknownCurrencyError,
   computeSnapshotTotals,
+  estimateCartonCbm,
+  estimateCartonWeightKg,
+  DEFAULT_PACKING_ALLOWANCE_PCT,
+  formatWeightKg,
 } from "./calculations";
 import type { SnapshotLine } from "./calculations";
 
@@ -311,4 +315,62 @@ test("snapshot totals flag a line below its saved MOQ", () => {
     RATES,
   );
   assert.equal(totals.hasMoqViolation, true);
+});
+
+// --- estimating a carton from a single piece ---------------------------------
+
+test("carton volume estimated from a piece scales with pieces per carton", () => {
+  const piece = { lengthCm: 10, widthCm: 10, heightCm: 10 }; // 0.001 m^3
+  // 24 pieces + 15% allowance
+  closeTo(estimateCartonCbm(piece, 24, 15), 0.001 * 24 * 1.15);
+  // Twice the pieces, twice the carton.
+  closeTo(estimateCartonCbm(piece, 48, 15), estimateCartonCbm(piece, 24, 15) * 2);
+});
+
+test("a zero allowance estimates the bare goods volume", () => {
+  const piece = { lengthCm: 10, widthCm: 10, heightCm: 10 };
+  closeTo(estimateCartonCbm(piece, 24, 0), 0.024);
+});
+
+test("the estimate is never smaller than the goods it contains", () => {
+  const piece = { lengthCm: 4, widthCm: 2, heightCm: 30 };
+  const bare = computeCbm(4, 2, 30) * 50;
+  assert.ok(estimateCartonCbm(piece, 50, DEFAULT_PACKING_ALLOWANCE_PCT) >= bare);
+});
+
+test("carton estimates are zero when pieces per carton is unset", () => {
+  const piece = { lengthCm: 10, widthCm: 10, heightCm: 10 };
+  assert.equal(estimateCartonCbm(piece, 0, 15), 0);
+  assert.equal(estimateCartonWeightKg(2, 0, 15), 0);
+});
+
+test("carton weight estimated from a piece includes the allowance", () => {
+  closeTo(estimateCartonWeightKg(0.3, 10, 15), 0.3 * 10 * 1.15);
+  closeTo(estimateCartonWeightKg(0.3, 10, 0), 3);
+});
+
+test("an estimated carton feeds order totals like a measured one", () => {
+  // A product registered from piece dimensions only: 10x10x10 cm, 24/carton.
+  const piece = { lengthCm: 10, widthCm: 10, heightCm: 10 };
+  const estimated = {
+    price: 5,
+    currency: "CNY",
+    moq: 1,
+    qtyPerBox: 24,
+    weightKg: estimateCartonWeightKg(0.2, 24),
+    cbm: estimateCartonCbm(piece, 24),
+  };
+  const totals = computeOrderTotals([{ product: estimated, quantity: 48 }], ["CNY"], RATES);
+  assert.equal(totals.totalCartons, 2);
+  closeTo(totals.totalCbm, estimated.cbm * 2);
+  closeTo(totals.totalWeightKg, estimated.weightKg * 2);
+});
+
+test("weights display without floating-point noise", () => {
+  // 0.2 x 24 x 1.15 lands on 5.5200000000000005 in binary floating point.
+  assert.equal(formatWeightKg(estimateCartonWeightKg(0.2, 24, 15)), "5.52");
+  // Hand-typed values are untouched.
+  assert.equal(formatWeightKg(0.3), "0.3");
+  assert.equal(formatWeightKg(5), "5");
+  assert.equal(formatWeightKg(0), "0");
 });

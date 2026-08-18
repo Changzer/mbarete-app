@@ -17,7 +17,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { deleteProduct } from "@/lib/actions/catalog";
-import { formatCbm } from "@/lib/calculations";
+import { formatCbm, formatWeightKg } from "@/lib/calculations";
 
 export type CatalogProduct = {
   id: number;
@@ -34,6 +34,10 @@ export type CatalogProduct = {
   heightCm: number;
   weightKg: number;
   cbm: number;
+  dimensionSource: "carton" | "piece";
+  pieceLengthCm: number;
+  pieceWidthCm: number;
+  pieceHeightCm: number;
   images: string[];
   active: boolean;
 };
@@ -45,6 +49,7 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
   const [zoom, setZoom] = useState(false);
   const [index, setIndex] = useState(0);
 
+  const estimated = product.dimensionSource === "piece";
   const count = product.images.length;
   const go = useCallback(
     (delta: number) => setIndex((i) => (i + delta + count) % count),
@@ -200,20 +205,47 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
               <dd className="font-medium text-neutral-900 dark:text-neutral-100">{product.qtyPerBox}</dd>
             </div>
             <div>
-              <dt className="text-neutral-500 dark:text-neutral-400">{t("size")}</dt>
+              <dt className="text-neutral-500 dark:text-neutral-400">
+                {estimated ? t("pieceSize") : t("size")}
+              </dt>
               <dd className="font-medium text-neutral-900 dark:text-neutral-100">
-                {product.lengthCm}×{product.widthCm}×{product.heightCm}
+                {estimated
+                  ? `${product.pieceLengthCm}×${product.pieceWidthCm}×${product.pieceHeightCm}`
+                  : `${product.lengthCm}×${product.widthCm}×${product.heightCm}`}
               </dd>
             </div>
             <div>
               <dt className="text-neutral-500 dark:text-neutral-400">{t("weight")}</dt>
-              <dd className="font-medium text-neutral-900 dark:text-neutral-100">{product.weightKg} kg</dd>
+              <dd className="font-medium text-neutral-900 dark:text-neutral-100">
+                {formatWeightKg(product.weightKg)} kg
+                {estimated ? (
+                  <span className="ml-1 text-xs font-normal text-amber-700 dark:text-amber-400">
+                    ({t("estimated")})
+                  </span>
+                ) : null}
+              </dd>
             </div>
             <div>
               <dt className="text-neutral-500 dark:text-neutral-400">{t("cbm")}</dt>
-              <dd className="font-medium text-neutral-900 dark:text-neutral-100">{formatCbm(product.cbm)} m³</dd>
+              <dd className="font-medium text-neutral-900 dark:text-neutral-100">
+                {formatCbm(product.cbm)} m³
+                {estimated ? (
+                  <span className="ml-1 text-xs font-normal text-amber-700 dark:text-amber-400">
+                    ({t("estimated")})
+                  </span>
+                ) : null}
+              </dd>
             </div>
           </dl>
+
+          {estimated ? (
+            <p
+              className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
+              data-testid="estimated-note"
+            >
+              {t("estimatedFromPiece")}
+            </p>
+          ) : null}
 
           {product.description ? (
             <div>
