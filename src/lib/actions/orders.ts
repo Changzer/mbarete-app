@@ -9,7 +9,13 @@ import { db } from "@/db";
 import { orders, orderItems, products } from "@/db/schema";
 import { eq, inArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
-import { isBelowMoq, lineCbm, lineWeightKg, lineTotal } from "@/lib/calculations";
+import {
+  isBelowMoq,
+  lineCbm,
+  lineWeightKg,
+  lineTotal,
+  fullCartons,
+} from "@/lib/calculations";
 import { nextOrderNumber, getExchangeRates } from "@/lib/queries/orders";
 
 const orderItemInput = z.object({
@@ -54,6 +60,7 @@ async function buildOrderItemRows(items: { productId: number; quantity: number }
       lineTotal: lineTotal(product, quantity),
       lineCbm: lineCbm(product, quantity),
       lineWeightKg: lineWeightKg(product, quantity),
+      cartonsSnapshot: fullCartons(product, quantity),
     };
   });
 

@@ -13,7 +13,9 @@ import {
   isPartialCarton,
   suggestedQuantity,
   UnknownCurrencyError,
+  computeSnapshotTotals,
 } from "./calculations";
+import type { SnapshotLine } from "./calculations";
 
 const RATES = { USD: 1, CNY: 0.14 };
 
@@ -221,4 +223,92 @@ test("exact carton quantities are unchanged by the whole-carton rule", () => {
   closeTo(lineCbm(boxed, 200), 0.12);
   assert.equal(fullCartons(boxed, 200), 4);
   closeTo(lineWeightKg(boxed, 200), 48);
+});
+
+// --- computeSnapshotTotals -------------------------------------------------
+
+const snapshotLine = (over: Partial<SnapshotLine> = {}): SnapshotLine => ({
+  quantity: 10,
+  unitPrice: 10,
+  currency: "CNY",
+  moq: 1,
+  lineCbm: 0.0024,
+  lineWeightKg: 3,
+  cartons: 10,
+  ...over,
+});
+
+test("snapshot totals sum stored cartons, not quantities", () => {
+  // The reported defect: an order of 10 pcs at 1/carton plus 5 pcs at
+  // 1280/carton reported 15 cartons — the two quantities added together —
+  // because the saved lines were pushed through computeOrderTotals with a
+  // synthetic qtyPerBox of 1, making every piece its own carton.
+  const totals = computeSnapshotTotals(
+    [
+      snapshotLine({ quantity: 10, cartons: 10 }),
+      snapshotLine({ quantity: 5, unitPrice: 1.7, cartons: 1, lineCbm: 0.0012, lineWeightKg: 0 }),
+    ],
+    ["CNY"],
+    RATES,
+  );
+  assert.equal(totals.totalCartons, 11);
+});
+
+test("snapshot totals sum stored volume and weight as-is", () => {
+  const totals = computeSnapshotTotals(
+    [
+      snapshotLine({ lineCbm: 0.0024, lineWeightKg: 3 }),
+      snapshotLine({ lineCbm: 0.0012, lineWeightKg: 0.5 }),
+    ],
+    ["CNY"],
+    RATES,
+  );
+  closeTo(totals.totalCbm, 0.0036);
+  closeTo(totals.totalWeightKg, 3.5);
+});
+
+test("snapshot totals convert and apply commission", () => {
+  const totals = computeSnapshotTotals(
+    [snapshotLine({ quantity: 10, unitPrice: 10, currency: "CNY" })],
+    ["CNY", "USD"],
+    RATES,
+    15,
+  );
+  closeTo(totals.goods.CNY, 100);
+  closeTo(totals.goods.USD, 14);
+  closeTo(totals.commission.CNY, 15);
+  closeTo(totals.grandTotal.CNY, 115);
+  closeTo(totals.grandTotal.USD, 16.1);
+});
+
+test("snapshot totals flag a currency with no rate instead of assuming 1:1", () => {
+  // What the deployed app hit: products priced in RMB, a rate table holding
+  // only USD and CNY, and every total rendering 0.00.
+  const totals = computeSnapshotTotals(
+    [snapshotLine({ currency: "RMB" })],
+    ["CNY"],
+    RATES,
+  );
+  assert.deepEqual(totals.missingRates, ["RMB"]);
+  assert.equal(totals.goods.CNY, 0);
+});
+
+test("snapshot totals price RMB once a rate exists", () => {
+  const totals = computeSnapshotTotals(
+    [snapshotLine({ quantity: 10, unitPrice: 10, currency: "RMB" })],
+    ["CNY", "USD"],
+    { ...RATES, RMB: 0.14 },
+  );
+  assert.deepEqual(totals.missingRates, []);
+  closeTo(totals.goods.CNY, 100);
+  closeTo(totals.goods.USD, 14);
+});
+
+test("snapshot totals flag a line below its saved MOQ", () => {
+  const totals = computeSnapshotTotals(
+    [snapshotLine({ quantity: 5, moq: 50 })],
+    ["CNY"],
+    RATES,
+  );
+  assert.equal(totals.hasMoqViolation, true);
 });

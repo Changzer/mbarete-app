@@ -1,0 +1,1 @@
+ALTER TABLE `order_items` ADD `cartons_snapshot` integer DEFAULT 0 NOT NULL;

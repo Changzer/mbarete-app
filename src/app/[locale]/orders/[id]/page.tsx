@@ -4,7 +4,7 @@ import { getOrderById, getExchangeRates } from "@/lib/queries/orders";
 import { getProducts } from "@/lib/queries/catalog";
 import { localizeField } from "@/lib/localize";
 import type { Locale } from "@/i18n/routing";
-import { computeOrderTotals, formatCbm } from "@/lib/calculations";
+import { computeSnapshotTotals, formatCbm } from "@/lib/calculations";
 import { Badge } from "@/components/ui/badge";
 import { OrderStatusActions } from "@/components/orders/order-status-actions";
 
@@ -35,14 +35,16 @@ export default async function OrderDetailPage({
   const productMap = new Map(products.map((p) => [p.id, p]));
 
   // Prefer the rates frozen when the order was saved, so a historical quote
-  // stays as quoted; fall back to live rates for orders saved before snapshots.
+  // stays as quoted. Live rates fill the gaps rather than replacing anything:
+  // an order saved before a currency had a rate would otherwise be stuck
+  // reporting a 0.00 total forever, even once the rate is added in Settings.
   let snapshot: Record<string, number> = {};
   try {
     snapshot = JSON.parse(order.ratesSnapshot || "{}");
   } catch {
     snapshot = {};
   }
-  const effectiveRates = Object.keys(snapshot).length > 0 ? snapshot : rates;
+  const effectiveRates = { ...rates, ...snapshot };
 
   const rows = items.map((item) => {
     const product = productMap.get(item.productId);
@@ -53,31 +55,36 @@ export default async function OrderDetailPage({
     // lineCbm was stored as the line's total volume; recover the carton count
     // from the product's current pack size where it is still available.
     const perCarton = product?.qtyPerBox ?? 0;
-    const cartons = perCarton > 0 ? Math.ceil(item.quantity / perCarton) : null;
+    // Orders saved before cartons were snapshotted carry 0; recover the count
+    // from the product's current pack size for those.
+    const cartons =
+      item.cartonsSnapshot > 0
+        ? item.cartonsSnapshot
+        : perCarton > 0
+          ? Math.ceil(item.quantity / perCarton)
+          : null;
     return { ...item, name, below, cartons, perCarton };
   });
 
   const targets = [...new Set([order.displayCurrency, order.secondaryCurrency])];
-  const totals = computeOrderTotals(
-    items.map((i) => ({
-      // reuse the snapshotted line values, not today's catalog prices
-      product: {
-        price: i.unitPriceSnapshot,
-        currency: i.currencySnapshot,
-        moq: i.moqSnapshot,
-        qtyPerBox: 1,
-        weightKg: i.lineWeightKg,
-        cbm: i.lineCbm,
-      },
-      quantity: i.quantity,
+  const totals = computeSnapshotTotals(
+    rows.map((r) => ({
+      // the values frozen at save time, not today's catalog
+      quantity: r.quantity,
+      unitPrice: r.unitPriceSnapshot,
+      currency: r.currencySnapshot,
+      moq: r.moqSnapshot,
+      lineCbm: r.lineCbm,
+      lineWeightKg: r.lineWeightKg,
+      cartons: r.cartons ?? 0,
     })),
     targets,
     effectiveRates,
     order.commissionPct,
   );
-  const totalCbm = rows.reduce((sum, r) => sum + r.lineCbm, 0);
-  const totalWeight = rows.reduce((sum, r) => sum + r.lineWeightKg, 0);
-  const hasMoqViolation = rows.some((r) => r.below);
+  const totalCbm = totals.totalCbm;
+  const totalWeight = totals.totalWeightKg;
+  const hasMoqViolation = totals.hasMoqViolation;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6">
