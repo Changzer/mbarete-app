@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import type { ContactActionResult } from "@/lib/actions/contacts";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,21 +26,27 @@ export function ContactForm({
   onSuccess,
 }: {
   type: "supplier" | "client";
-  action: (prevState: string | undefined, formData: FormData) => Promise<string | undefined>;
+  action: (
+    prevState: ContactActionResult | undefined,
+    formData: FormData,
+  ) => Promise<ContactActionResult>;
   defaultValues?: Partial<ContactFormValues>;
   submitLabel: string;
-  onSuccess?: () => void;
+  onSuccess?: (id?: number) => void;
 }) {
   const t = useTranslations("contacts");
   const common = useTranslations("common");
 
-  async function wrappedAction(prevState: string | undefined, formData: FormData) {
+  async function wrappedAction(
+    prevState: ContactActionResult | undefined,
+    formData: FormData,
+  ) {
     const result = await action(prevState, formData);
-    if (!result) onSuccess?.();
+    if (!result.error) onSuccess?.(result.id);
     return result;
   }
 
-  const [errorMessage, formAction, isPending] = useActionState(wrappedAction, undefined);
+  const [result, formAction, isPending] = useActionState(wrappedAction, undefined);
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -84,7 +91,7 @@ export function ContactForm({
         <Textarea id="notes" name="notes" defaultValue={defaultValues?.notes} />
       </div>
 
-      {errorMessage ? (
+      {result?.error ? (
         <p className="text-sm text-red-600">{common("required")}</p>
       ) : null}
 

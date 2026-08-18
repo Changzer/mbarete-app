@@ -133,7 +133,10 @@
     "cartons": "{count} cartons",
     "perCarton": "per carton",
     "partialCarton": "Part carton — ships as {cartons} ({perCarton}/carton)",
-    "roundTo": "Round to {qty}"
+    "roundTo": "Round to {qty}",
+    "newClient": "+ New client",
+    "editClient": "Edit client",
+    "noClientsYet": "No clients yet — add one to place this order."
   },
   "settings": {
     "exchangeRates": "Exchange Rates",
