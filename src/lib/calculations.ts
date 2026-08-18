@@ -197,3 +197,89 @@ export function computeOrderTotals(
     missingRates: [...missing],
   };
 }
+
+/**
+ * One order line as it was frozen when the order was saved.
+ *
+ * Volume, weight and carton count are stored per line at save time, so a
+ * historical order keeps the logistics it was quoted with even after the
+ * product's pack size or dimensions are edited in the catalog.
+ */
+export type SnapshotLine = {
+  quantity: number;
+  unitPrice: number;
+  currency: string;
+  moq: number;
+  lineCbm: number;
+  lineWeightKg: number;
+  cartons: number;
+};
+
+/**
+ * Totals for an order that has already been saved.
+ *
+ * Distinct from `computeOrderTotals`, which derives per-line volume, weight
+ * and cartons from a live product. Here those values are already stored, so
+ * they are summed as-is. Passing snapshot lines through `computeOrderTotals`
+ * by way of a synthetic product silently re-derives them and gets cartons and
+ * volume badly wrong.
+ */
+export function computeSnapshotTotals(
+  lines: SnapshotLine[],
+  targetCurrencies: string[],
+  rates: CurrencyRates,
+  commissionPct = 0,
+): OrderTotals {
+  const goods: Record<string, number> = {};
+  const commission: Record<string, number> = {};
+  const grandTotal: Record<string, number> = {};
+  const missing = new Set<string>();
+
+  let totalCbm = 0;
+  let totalWeightKg = 0;
+  let totalCartons = 0;
+  let hasMoqViolation = false;
+
+  for (const target of targetCurrencies) {
+    if (rates[target] === undefined) missing.add(target);
+    goods[target] = 0;
+  }
+
+  for (const line of lines) {
+    if (line.quantity <= 0) continue;
+
+    totalCbm += line.lineCbm;
+    totalWeightKg += line.lineWeightKg;
+    totalCartons += line.cartons;
+    if (isBelowMoq(line.quantity, line.moq)) hasMoqViolation = true;
+
+    const raw = line.unitPrice * line.quantity;
+    for (const target of targetCurrencies) {
+      try {
+        goods[target] += convert(raw, line.currency, target, rates);
+      } catch (err) {
+        if (err instanceof UnknownCurrencyError) {
+          missing.add(err.currency);
+        } else {
+          throw err;
+        }
+      }
+    }
+  }
+
+  for (const target of targetCurrencies) {
+    commission[target] = goods[target] * (commissionPct / 100);
+    grandTotal[target] = goods[target] + commission[target];
+  }
+
+  return {
+    goods,
+    commission,
+    grandTotal,
+    totalCbm,
+    totalWeightKg,
+    totalCartons,
+    hasMoqViolation,
+    missingRates: [...missing],
+  };
+}

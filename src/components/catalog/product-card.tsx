@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Maximize2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import {
@@ -42,6 +42,7 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
   const t = useTranslations("catalog");
   const common = useTranslations("common");
   const [open, setOpen] = useState(false);
+  const [zoom, setZoom] = useState(false);
   const [index, setIndex] = useState(0);
 
   const count = product.images.length;
@@ -54,6 +55,7 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
   // effect so the dialog does not render once at a stale index first.
   const openDialog = useCallback((next: boolean) => {
     if (next) setIndex(0);
+    else setZoom(false);
     setOpen(next);
   }, []);
 
@@ -118,13 +120,23 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
             <div className="flex flex-col gap-2">
               {/* object-contain so the whole photo is visible, never cropped */}
               <div className="relative h-72 w-full overflow-hidden rounded-md bg-neutral-100 dark:bg-neutral-800">
-                <Image
-                  src={product.images[index]}
-                  alt={`${product.name} ${index + 1}/${count}`}
-                  fill
-                  sizes="(max-width: 640px) 90vw, 512px"
-                  className="object-contain"
-                />
+                <button
+                  type="button"
+                  aria-label={common("enlarge")}
+                  onClick={() => setZoom(true)}
+                  className="absolute inset-0 cursor-zoom-in"
+                >
+                  <Image
+                    src={product.images[index]}
+                    alt={`${product.name} ${index + 1}/${count}`}
+                    fill
+                    sizes="(max-width: 640px) 90vw, 512px"
+                    className="object-contain"
+                  />
+                  <span className="absolute left-2 top-2 rounded-full bg-black/60 p-1.5 text-white opacity-80">
+                    <Maximize2 className="h-4 w-4" />
+                  </span>
+                </button>
 
                 {count > 1 ? (
                   <>
@@ -132,7 +144,7 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
                       type="button"
                       aria-label={common("previous")}
                       onClick={() => go(-1)}
-                      className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 dark:bg-neutral-900/90 p-1.5 text-neutral-900 dark:text-neutral-100 shadow hover:bg-white dark:hover:bg-neutral-900"
+                      className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/90 dark:bg-neutral-900/90 p-1.5 text-neutral-900 dark:text-neutral-100 shadow hover:bg-white dark:hover:bg-neutral-900"
                     >
                       <ChevronLeft className="h-5 w-5" />
                     </button>
@@ -140,11 +152,11 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
                       type="button"
                       aria-label={common("next")}
                       onClick={() => go(1)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 dark:bg-neutral-900/90 p-1.5 text-neutral-900 dark:text-neutral-100 shadow hover:bg-white dark:hover:bg-neutral-900"
+                      className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/90 dark:bg-neutral-900/90 p-1.5 text-neutral-900 dark:text-neutral-100 shadow hover:bg-white dark:hover:bg-neutral-900"
                     >
                       <ChevronRight className="h-5 w-5" />
                     </button>
-                    <span className="absolute bottom-2 right-2 rounded-full bg-black/60 px-2 py-0.5 text-xs text-white">
+                    <span className="absolute bottom-2 right-2 z-10 rounded-full bg-black/60 px-2 py-0.5 text-xs text-white">
                       {index + 1} / {count}
                     </span>
                   </>
@@ -230,6 +242,66 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
               <Link href={`/catalog/${product.id}/edit`}>{common("edit")}</Link>
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/*
+        Full-screen view of the photo currently selected in the detail dialog.
+        It shares `index` with the carousel, so paging here also moves the
+        carousel underneath, and the arrow-key handler above keeps working
+        because the detail dialog stays open behind this one.
+      */}
+      <Dialog open={zoom} onOpenChange={setZoom}>
+        <DialogContent className="flex h-[92vh] max-h-[92vh] w-[96vw] max-w-none flex-col overflow-hidden bg-white p-3 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+          <DialogTitle className="sr-only">{product.name}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {count > 1 ? `${index + 1} / ${count}` : product.sku}
+          </DialogDescription>
+
+          {count > 0 ? (
+            <div className="relative min-h-0 flex-1">
+              {/* Clicking the photo closes again, the usual lightbox gesture. */}
+              <button
+                type="button"
+                aria-label={common("close")}
+                onClick={() => setZoom(false)}
+                className="absolute inset-0 cursor-zoom-out"
+              >
+                <Image
+                  src={product.images[index]}
+                  alt={`${product.name} ${index + 1}/${count}`}
+                  fill
+                  sizes="96vw"
+                  className="object-contain"
+                  priority
+                />
+              </button>
+
+              {count > 1 ? (
+                <>
+                  <button
+                    type="button"
+                    aria-label={common("previous")}
+                    onClick={() => go(-1)}
+                    className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/90 dark:bg-neutral-900/90 p-2 text-neutral-900 dark:text-neutral-100 shadow hover:bg-white dark:hover:bg-neutral-900"
+                  >
+                    <ChevronLeft className="h-6 w-6" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={common("next")}
+                    onClick={() => go(1)}
+                    className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/90 dark:bg-neutral-900/90 p-2 text-neutral-900 dark:text-neutral-100 shadow hover:bg-white dark:hover:bg-neutral-900"
+                  >
+                    <ChevronRight className="h-6 w-6" />
+                  </button>
+                  <span className="absolute bottom-2 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-sm text-white">
+                    {index + 1} / {count}
+                  </span>
+                </>
+              ) : null}
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
     </>

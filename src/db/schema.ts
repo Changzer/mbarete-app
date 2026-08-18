@@ -158,6 +158,10 @@ export const orderItems = sqliteTable(
     lineTotal: real("line_total").notNull(),
     lineCbm: real("line_cbm").notNull(),
     lineWeightKg: real("line_weight_kg").notNull(),
+    // Cartons this line ships as, frozen at save time. Defaults to 0 for rows
+    // written before this column existed; readers fall back to the product's
+    // current pack size for those.
+    cartonsSnapshot: integer("cartons_snapshot").notNull().default(0),
   },
   (table) => [index("order_items_order_idx").on(table.orderId)],
 );

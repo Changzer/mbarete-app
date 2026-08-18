@@ -31,7 +31,8 @@
     "no": "No",
     "close": "Close",
     "previous": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "enlarge": "Enlarge"
   },
   "catalog": {
     "title": "Product Catalog",
