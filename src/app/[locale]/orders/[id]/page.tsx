@@ -8,6 +8,8 @@ import type { Locale } from "@/i18n/routing";
 import { computeSnapshotTotals, formatCbm } from "@/lib/calculations";
 import { Badge } from "@/components/ui/badge";
 import { OrderStatusActions } from "@/components/orders/order-status-actions";
+import { Button } from "@/components/ui/button";
+import { Link } from "@/i18n/navigation";
 
 const STATUS_VARIANT = {
   draft: "secondary",
@@ -24,6 +26,7 @@ export default async function OrderDetailPage({
   const { id, locale } = await params;
   const t = await getTranslations("orders");
   const catalogT = await getTranslations("catalog");
+  const proformaT = await getTranslations("proforma");
 
   const [data, rates, products, userNames] = await Promise.all([
     getOrderById(Number(id)),
@@ -111,6 +114,9 @@ export default async function OrderDetailPage({
             {t(`status${order.status.charAt(0).toUpperCase()}${order.status.slice(1)}` as "statusDraft")}
           </Badge>
           <OrderStatusActions orderId={order.id} status={order.status} />
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/orders/${order.id}/proforma`}>{proformaT("open")}</Link>
+          </Button>
         </div>
       </div>
 

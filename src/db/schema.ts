@@ -110,6 +110,36 @@ export const exchangeRates = sqliteTable("exchange_rates", {
     .default(sql`(current_timestamp)`),
 });
 
+/**
+ * Mbarete's own details, as they appear at the top of a proforma invoice.
+ *
+ * A single row, always id 1. A key/value table would be more flexible and
+ * worse to read: every field here is wanted at once, on one document.
+ */
+export const companyProfile = sqliteTable("company_profile", {
+  id: integer("id").primaryKey().default(1),
+  companyName: text("company_name").notNull().default(""),
+  addressLines: text("address_lines").notNull().default(""),
+  phone: text("phone").notNull().default(""),
+  email: text("email").notNull().default(""),
+  website: text("website").notNull().default(""),
+  taxId: text("tax_id").notNull().default(""),
+  // Payment details belong on a proforma: it is what the client pays against.
+  bankName: text("bank_name").notNull().default(""),
+  bankAccountName: text("bank_account_name").notNull().default(""),
+  bankAccountNumber: text("bank_account_number").notNull().default(""),
+  bankSwift: text("bank_swift").notNull().default(""),
+  bankAddress: text("bank_address").notNull().default(""),
+  // Defaults printed on every proforma unless the order says otherwise.
+  paymentTerms: text("payment_terms").notNull().default(""),
+  incoterms: text("incoterms").notNull().default(""),
+  validityDays: integer("validity_days").notNull().default(30),
+  footerNote: text("footer_note").notNull().default(""),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
 export const contacts = sqliteTable(
   "contacts",
   {

@@ -43,6 +43,13 @@
       "when": 1787058173311,
       "tag": "0005_overjoyed_norman_osborn",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1787066252871,
+      "tag": "0006_lowly_brother_voodoo",
+      "breakpoints": true
     }
   ]
 }
