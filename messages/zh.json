@@ -99,7 +99,8 @@
     "measurementsOptional": "如暂时没有数据可以留空，之后再补充。订单会标示仍缺少数据的产品。",
     "errorRequiredFields": "名称、价格、起订量和每箱数量为必填项。",
     "errorDuplicateSku": "该货号已被其他产品使用。",
-    "errorImage": "图片保存失败，请重试。"
+    "errorImage": "图片保存失败，请重试。",
+    "deleteOnOrders": "该产品已存在于订单中，无法删除——可取消勾选“启用”将其从目录中隐藏。"
   },
   "contacts": {
     "title": "联系人",
@@ -116,7 +117,8 @@
     "wechat": "微信",
     "notes": "备注",
     "noContacts": "暂无联系人。",
-    "deleteConfirm": "确定删除此联系人吗？"
+    "deleteConfirm": "确定删除此联系人吗？",
+    "deleteHasOrders": "该联系人名下已有订单，无法删除。"
   },
   "orders": {
     "title": "订单",

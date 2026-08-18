@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { contacts } from "@/db/schema";
+import { contacts, orders } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { contactSchema } from "@/lib/validators";
 import { auth } from "@/lib/auth";
@@ -67,8 +67,19 @@ export async function updateContact(
   return { id };
 }
 
-export async function deleteContact(id: number) {
+export async function deleteContact(id: number): Promise<string | undefined> {
   await requireSession();
+
+  // A client with orders is part of the books; deleting the row would tear
+  // the name off every one of them (and the foreign key blocks it anyway).
+  const hasOrders = db
+    .select({ id: orders.id })
+    .from(orders)
+    .where(eq(orders.clientId, id))
+    .get();
+  if (hasOrders) return "has-orders";
+
   db.delete(contacts).where(eq(contacts.id, id)).run();
   revalidatePath("/contacts");
+  return undefined;
 }

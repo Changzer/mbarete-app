@@ -5,7 +5,7 @@ import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
 import type { Locale } from "@/i18n/routing";
 import { db } from "@/db";
-import { products, categories, productImages } from "@/db/schema";
+import { products, categories, productImages, orderItems } from "@/db/schema";
 import { eq, and, ne } from "drizzle-orm";
 import { productSchema, categorySchema } from "@/lib/validators";
 import {
@@ -149,7 +149,9 @@ export async function createProduct(
     return "image-error";
   }
 
-  const inserted = db.insert(products)
+  let inserted;
+  try {
+    inserted = db.insert(products)
     .values({
       sku,
       nameEn: data.nameEn,
@@ -167,7 +169,12 @@ export async function createProduct(
       updatedBy: userId,
       updatedAt: new Date().toISOString(),
     })
-    .run();
+      .run();
+  } catch {
+    // Two saves racing onto the same auto-assigned SKU: the loser retries by hand.
+    for (const path of uploaded) await deleteUpload(path);
+    return "duplicate-sku";
+  }
 
   const newProductId = Number(inserted.lastInsertRowid);
   uploaded.forEach((path, i) => {
@@ -274,8 +281,18 @@ export async function updateProduct(
   redirect({ href: "/catalog", locale: (await getLocale()) as Locale });
 }
 
-export async function deleteProduct(id: number) {
+export async function deleteProduct(id: number): Promise<string | undefined> {
   await requireSession();
+
+  // A product on an order is history, not clutter: deleting it would strip
+  // the name and SKU off every order that bought it (and the foreign key
+  // blocks it anyway). Deactivating hides it from the catalog instead.
+  const onOrder = db
+    .select({ id: orderItems.id })
+    .from(orderItems)
+    .where(eq(orderItems.productId, id))
+    .get();
+  if (onOrder) return "on-orders";
 
   // Rows cascade, but the files on disk would be orphaned otherwise.
   const images = db
@@ -290,6 +307,7 @@ export async function deleteProduct(id: number) {
   }
 
   revalidatePath("/catalog");
+  return undefined;
 }
 
 export async function createCategory(

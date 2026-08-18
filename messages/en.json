@@ -99,7 +99,8 @@
     "measurementsOptional": "Leave these blank if you do not have them yet — you can add them later. Orders will flag any product still missing them.",
     "errorRequiredFields": "A name, price, MOQ and pieces per carton are required.",
     "errorDuplicateSku": "That SKU already belongs to another product.",
-    "errorImage": "The photos could not be saved. Try again."
+    "errorImage": "The photos could not be saved. Try again.",
+    "deleteOnOrders": "This product is on saved orders, so it cannot be deleted — untick Active instead to hide it from the catalog."
   },
   "contacts": {
     "title": "Contacts",
@@ -116,7 +117,8 @@
     "wechat": "WeChat",
     "notes": "Notes",
     "noContacts": "No contacts yet.",
-    "deleteConfirm": "Delete this contact?"
+    "deleteConfirm": "Delete this contact?",
+    "deleteHasOrders": "This contact has orders on file, so it cannot be deleted."
   },
   "orders": {
     "title": "Orders",

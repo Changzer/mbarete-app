@@ -1,11 +1,9 @@
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { getOrderById, getExchangeRates } from "@/lib/queries/orders";
-import { getProducts } from "@/lib/queries/catalog";
+import { getOrderView } from "@/lib/queries/order-view";
 import { getCompanyProfile } from "@/lib/queries/settings";
-import { localizeField } from "@/lib/localize";
 import type { Locale } from "@/i18n/routing";
-import { computeSnapshotTotals, formatCbm, formatWeightKg } from "@/lib/calculations";
+import { formatCbm, formatWeightKg } from "@/lib/calculations";
 import { PrintButton } from "@/components/orders/print-button";
 import { Link } from "@/i18n/navigation";
 
@@ -41,59 +39,12 @@ export default async function ProformaPage({
   const t = await getTranslations("proforma");
   const orderT = await getTranslations("orders");
 
-  const [data, rates, products, company] = await Promise.all([
-    getOrderById(Number(id)),
-    getExchangeRates(),
-    getProducts(),
+  const [view, company] = await Promise.all([
+    getOrderView(Number(id), locale as Locale),
     getCompanyProfile(),
   ]);
-
-  if (!data) notFound();
-  const { order, items, client } = data;
-  const productMap = new Map(products.map((p) => [p.id, p]));
-
-  let snapshot: Record<string, number> = {};
-  try {
-    snapshot = JSON.parse(order.ratesSnapshot || "{}");
-  } catch {
-    snapshot = {};
-  }
-  const effectiveRates = { ...rates, ...snapshot };
-
-  const rows = items.map((item) => {
-    const product = productMap.get(item.productId);
-    const perCarton = product?.qtyPerBox ?? 0;
-    const cartons =
-      item.cartonsSnapshot > 0
-        ? item.cartonsSnapshot
-        : perCarton > 0
-          ? Math.ceil(item.quantity / perCarton)
-          : 0;
-    return {
-      ...item,
-      sku: product?.sku ?? `#${item.productId}`,
-      name: product
-        ? localizeField(locale as Locale, product.nameEn, product.nameZh)
-        : `#${item.productId}`,
-      cartons,
-    };
-  });
-
-  const targets = [...new Set([order.displayCurrency, order.secondaryCurrency])];
-  const totals = computeSnapshotTotals(
-    rows.map((r) => ({
-      quantity: r.quantity,
-      unitPrice: r.unitPriceSnapshot,
-      currency: r.currencySnapshot,
-      moq: r.moqSnapshot,
-      lineCbm: r.lineCbm,
-      lineWeightKg: r.lineWeightKg,
-      cartons: r.cartons,
-    })),
-    targets,
-    effectiveRates,
-    order.commissionPct,
-  );
+  if (!view) notFound();
+  const { order, client, rows, targets, totals } = view;
 
   const quote = order.displayCurrency;
   const issued = new Date(order.createdAt);
@@ -209,7 +160,7 @@ export default async function ProformaPage({
                 <td className="py-2 pr-2">{r.name}</td>
                 <td className="py-2 pr-2 text-neutral-600">{r.sku}</td>
                 <td className="py-2 pr-2 text-right">{r.quantity}</td>
-                <td className="py-2 pr-2 text-right">{r.cartons}</td>
+                <td className="py-2 pr-2 text-right">{r.cartons ?? "—"}</td>
                 <td className="py-2 pr-2 text-right">
                   {money(r.unitPriceSnapshot)} {r.currencySnapshot}
                 </td>
