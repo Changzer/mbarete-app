@@ -170,7 +170,14 @@ export async function createProduct(
   });
 
   revalidatePath("/catalog");
-  redirect({ href: "/catalog", locale: (await getLocale()) as Locale });
+
+  // Entering a run of products from one supplier: straight back to a blank
+  // form, keeping the category so it does not have to be picked every time.
+  const locale = (await getLocale()) as Locale;
+  if (formData.get("andAnother")) {
+    redirect({ href: `/catalog/new?category=${data.categoryId}`, locale });
+  }
+  redirect({ href: "/catalog", locale });
 }
 
 export async function updateProduct(

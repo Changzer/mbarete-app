@@ -69,3 +69,22 @@ export async function getProductImages(productId: number) {
     .orderBy(asc(productImages.sortOrder), asc(productImages.id))
     .all();
 }
+
+/**
+ * The next unused numeric SKU, padded to the width already in use.
+ *
+ * Purely a suggestion for the form: SKUs stay free-form, and anything that is
+ * not a plain number is ignored when working out the next one.
+ */
+export async function suggestNextSku() {
+  const rows = await db.select({ sku: products.sku }).from(products).all();
+  const numeric = rows
+    .map((r) => r.sku.trim())
+    .filter((sku) => /^\d+$/.test(sku));
+
+  if (numeric.length === 0) return "000001";
+
+  const width = Math.max(...numeric.map((sku) => sku.length));
+  const next = Math.max(...numeric.map((sku) => Number(sku))) + 1;
+  return String(next).padStart(width, "0");
+}

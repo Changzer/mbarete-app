@@ -88,7 +88,11 @@
     "estimatedFromPiece": "根据单件尺寸估算——尚无实际外箱测量值。",
     "addedBy": "录入人",
     "updatedBy": "最后修改人",
-    "unknownUser": "—"
+    "unknownUser": "—",
+    "takePhoto": "拍照",
+    "choosePhotos": "选择照片",
+    "photosReady": "已选择 {count} 张照片，第一张将作为目录缩略图。",
+    "saveAndAddAnother": "保存并继续添加"
   },
   "contacts": {
     "title": "联系人",

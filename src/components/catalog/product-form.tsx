@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useState } from "react";
+import { PhotoPicker } from "@/components/catalog/photo-picker";
 import {
   computeCbm,
   estimateCartonCbm,
@@ -56,12 +57,15 @@ export function ProductForm({
   defaultValues,
   existingImages = [],
   submitLabel,
+  showAddAnother = false,
 }: {
   categories: Category[];
   action: (prevState: string | undefined, formData: FormData) => Promise<string | undefined>;
   defaultValues?: Partial<ProductFormValues>;
   existingImages?: ExistingImage[];
   submitLabel: string;
+  /** Only when registering: lets several products be entered in a row. */
+  showAddAnother?: boolean;
 }) {
   const t = useTranslations("catalog");
   const common = useTranslations("common");
@@ -102,7 +106,7 @@ export function ProductForm({
   const bareCbm = computeCbm(pieceDims.lengthCm, pieceDims.widthCm, pieceDims.heightCm) * perBox;
 
   return (
-    <form action={formAction} className="flex flex-col gap-5">
+    <form action={formAction} className="flex flex-col gap-5 pb-20 sm:pb-0">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="sku">{t("sku")}</Label>
@@ -157,6 +161,7 @@ export function ProductForm({
             id="price"
             name="price"
             type="number"
+            inputMode="decimal"
             step="0.01"
             min="0"
             defaultValue={defaultValues?.price}
@@ -179,6 +184,7 @@ export function ProductForm({
             id="moq"
             name="moq"
             type="number"
+            inputMode="numeric"
             min="1"
             defaultValue={defaultValues?.moq ?? 1}
             required
@@ -190,6 +196,7 @@ export function ProductForm({
             id="qtyPerBox"
             name="qtyPerBox"
             type="number"
+            inputMode="numeric"
             min="1"
             value={qtyPerBox}
             onChange={(e) => setQtyPerBox(e.target.value)}
@@ -231,6 +238,7 @@ export function ProductForm({
                 id="lengthCm"
                 name="lengthCm"
                 type="number"
+                inputMode="decimal"
                 step="0.01"
                 min="0"
                 defaultValue={defaultValues?.lengthCm ?? 0}
@@ -242,6 +250,7 @@ export function ProductForm({
                 id="widthCm"
                 name="widthCm"
                 type="number"
+                inputMode="decimal"
                 step="0.01"
                 min="0"
                 defaultValue={defaultValues?.widthCm ?? 0}
@@ -253,6 +262,7 @@ export function ProductForm({
                 id="heightCm"
                 name="heightCm"
                 type="number"
+                inputMode="decimal"
                 step="0.01"
                 min="0"
                 defaultValue={defaultValues?.heightCm ?? 0}
@@ -264,6 +274,7 @@ export function ProductForm({
                 id="weightKg"
                 name="weightKg"
                 type="number"
+                inputMode="decimal"
                 step="0.01"
                 min="0"
                 defaultValue={defaultValues?.weightKg ?? 0}
@@ -282,6 +293,7 @@ export function ProductForm({
                 id="pieceLengthCm"
                 name="pieceLengthCm"
                 type="number"
+                inputMode="decimal"
                 step="0.01"
                 min="0"
                 value={piece.lengthCm}
@@ -294,6 +306,7 @@ export function ProductForm({
                 id="pieceWidthCm"
                 name="pieceWidthCm"
                 type="number"
+                inputMode="decimal"
                 step="0.01"
                 min="0"
                 value={piece.widthCm}
@@ -306,6 +319,7 @@ export function ProductForm({
                 id="pieceHeightCm"
                 name="pieceHeightCm"
                 type="number"
+                inputMode="decimal"
                 step="0.01"
                 min="0"
                 value={piece.heightCm}
@@ -318,6 +332,7 @@ export function ProductForm({
                 id="pieceWeightKg"
                 name="pieceWeightKg"
                 type="number"
+                inputMode="decimal"
                 step="0.01"
                 min="0"
                 value={piece.weightKg}
@@ -330,6 +345,7 @@ export function ProductForm({
                 id="packingAllowancePct"
                 name="packingAllowancePct"
                 type="number"
+                inputMode="decimal"
                 step="1"
                 min="0"
                 max="200"
@@ -408,17 +424,7 @@ export function ProductForm({
             </div>
           ) : null}
 
-          <input
-            id="images"
-            name="images"
-            type="file"
-            multiple
-            accept="image/png,image/jpeg,image/webp,image/gif"
-            className="text-sm"
-          />
-          <p className="text-xs text-neutral-500 dark:text-neutral-400">
-            {t("imagesHelp")}
-          </p>
+          <PhotoPicker />
         </div>
 
         <div className="flex items-center gap-2">
@@ -437,10 +443,29 @@ export function ProductForm({
         <p className="text-sm text-red-600">{common("required")}</p>
       ) : null}
 
-      <div className="flex gap-2">
-        <Button type="submit" disabled={isPending}>
+      {/*
+        Pinned to the bottom of the screen on a phone so saving never means
+        scrolling back down a long form, and a normal row once there is room.
+        Fixed rather than sticky: as the form's last child it has nothing left
+        to stick within, so `sticky` would just sit off-screen at the end.
+      */}
+      <div className="fixed inset-x-0 bottom-0 z-30 flex gap-2 border-t border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-neutral-950 sm:static sm:z-auto sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 dark:sm:bg-transparent">
+        <Button type="submit" disabled={isPending} className="min-h-11 flex-1 sm:flex-none">
           {submitLabel}
         </Button>
+        {showAddAnother ? (
+          <Button
+            type="submit"
+            name="andAnother"
+            value="1"
+            variant="outline"
+            disabled={isPending}
+            data-testid="save-and-add-another"
+            className="min-h-11 flex-1 sm:flex-none"
+          >
+            {t("saveAndAddAnother")}
+          </Button>
+        ) : null}
       </div>
     </form>
   );
