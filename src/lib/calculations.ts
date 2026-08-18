@@ -345,3 +345,15 @@ export function estimateCartonWeightKg(
 export function formatWeightKg(value: number) {
   return String(Math.round(value * 1000) / 1000);
 }
+
+/**
+ * True when a product has no usable carton figures.
+ *
+ * Measurements are optional so a product can be registered at a supplier
+ * without them, which means an order can contain a line contributing nothing
+ * to volume or weight. That has to be visible: an under-reported CBM is the
+ * kind of error that only shows up as a freight bill.
+ */
+export function missingCartonFigures(product: { cbm: number; weightKg: number }) {
+  return product.cbm <= 0 || product.weightKg <= 0;
+}

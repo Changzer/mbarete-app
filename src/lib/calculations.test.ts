@@ -18,6 +18,7 @@ import {
   estimateCartonWeightKg,
   DEFAULT_PACKING_ALLOWANCE_PCT,
   formatWeightKg,
+  missingCartonFigures,
 } from "./calculations";
 import type { SnapshotLine } from "./calculations";
 
@@ -373,4 +374,12 @@ test("weights display without floating-point noise", () => {
   assert.equal(formatWeightKg(0.3), "0.3");
   assert.equal(formatWeightKg(5), "5");
   assert.equal(formatWeightKg(0), "0");
+});
+
+test("a product with no measurements is reported as missing them", () => {
+  assert.equal(missingCartonFigures({ cbm: 0, weightKg: 0 }), true);
+  // Half-entered counts as missing: either figure alone distorts a quote.
+  assert.equal(missingCartonFigures({ cbm: 0.024, weightKg: 0 }), true);
+  assert.equal(missingCartonFigures({ cbm: 0, weightKg: 5 }), true);
+  assert.equal(missingCartonFigures({ cbm: 0.024, weightKg: 5 }), false);
 });

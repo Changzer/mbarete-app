@@ -92,7 +92,14 @@
     "takePhoto": "Take photo",
     "choosePhotos": "Choose photos",
     "photosReady": "{count} photo(s) ready to upload. The first one becomes the catalog thumbnail.",
-    "saveAndAddAnother": "Save & add another"
+    "saveAndAddAnother": "Save & add another",
+    "notRecorded": "Not recorded yet",
+    "notMeasuredYet": "No carton measurements yet. Orders with this product will under-report volume and weight until they are added.",
+    "optionalPlaceholder": "Optional",
+    "measurementsOptional": "Leave these blank if you do not have them yet — you can add them later. Orders will flag any product still missing them.",
+    "errorRequiredFields": "A name, price, MOQ and pieces per carton are required.",
+    "errorDuplicateSku": "That SKU already belongs to another product.",
+    "errorImage": "The photos could not be saved. Try again."
   },
   "contacts": {
     "title": "Contacts",
@@ -164,7 +171,8 @@
     "estimatedCartonsIncluded": "Volume and weight include cartons estimated from piece sizes — confirm them with the supplier before quoting freight.",
     "filedBy": "Filed by",
     "updatedBy": "Last edited by",
-    "unknownUser": "—"
+    "unknownUser": "—",
+    "unmeasuredIncluded": "Some products have no carton measurements, so volume and weight are lower than the real shipment."
   },
   "settings": {
     "exchangeRates": "Exchange Rates",

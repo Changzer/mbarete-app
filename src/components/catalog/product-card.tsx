@@ -17,7 +17,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { deleteProduct } from "@/lib/actions/catalog";
-import { formatCbm, formatWeightKg } from "@/lib/calculations";
+import { formatCbm, formatWeightKg, missingCartonFigures } from "@/lib/calculations";
 
 export type CatalogProduct = {
   id: number;
@@ -52,6 +52,8 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
   const [index, setIndex] = useState(0);
 
   const estimated = product.dimensionSource === "piece";
+  // Registered without measurements — shown as unknown, never as zero.
+  const unmeasured = missingCartonFigures(product);
   const count = product.images.length;
   const go = useCallback(
     (delta: number) => setIndex((i) => (i + delta + count) % count),
@@ -211,15 +213,17 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
                 {estimated ? t("pieceSize") : t("size")}
               </dt>
               <dd className="font-medium text-neutral-900 dark:text-neutral-100">
-                {estimated
-                  ? `${product.pieceLengthCm}×${product.pieceWidthCm}×${product.pieceHeightCm}`
-                  : `${product.lengthCm}×${product.widthCm}×${product.heightCm}`}
+                {unmeasured && !estimated
+                  ? t("notRecorded")
+                  : estimated
+                    ? `${product.pieceLengthCm}×${product.pieceWidthCm}×${product.pieceHeightCm}`
+                    : `${product.lengthCm}×${product.widthCm}×${product.heightCm}`}
               </dd>
             </div>
             <div>
               <dt className="text-neutral-500 dark:text-neutral-400">{t("weight")}</dt>
               <dd className="font-medium text-neutral-900 dark:text-neutral-100">
-                {formatWeightKg(product.weightKg)} kg
+                {product.weightKg > 0 ? `${formatWeightKg(product.weightKg)} kg` : t("notRecorded")}
                 {estimated ? (
                   <span className="ml-1 text-xs font-normal text-amber-700 dark:text-amber-400">
                     ({t("estimated")})
@@ -230,7 +234,7 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
             <div>
               <dt className="text-neutral-500 dark:text-neutral-400">{t("cbm")}</dt>
               <dd className="font-medium text-neutral-900 dark:text-neutral-100">
-                {formatCbm(product.cbm)} m³
+                {product.cbm > 0 ? `${formatCbm(product.cbm)} m³` : t("notRecorded")}
                 {estimated ? (
                   <span className="ml-1 text-xs font-normal text-amber-700 dark:text-amber-400">
                     ({t("estimated")})
@@ -239,6 +243,15 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
               </dd>
             </div>
           </dl>
+
+          {unmeasured ? (
+            <p
+              className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
+              data-testid="unmeasured-note"
+            >
+              {t("notMeasuredYet")}
+            </p>
+          ) : null}
 
           {estimated ? (
             <p

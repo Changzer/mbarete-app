@@ -84,6 +84,8 @@ export default async function OrderDetailPage({
     effectiveRates,
     order.commissionPct,
   );
+  // Lines whose product had no measurements when the order was saved.
+  const hasUnmeasured = rows.some((r) => r.lineCbm <= 0 || r.lineWeightKg <= 0);
   const totalCbm = totals.totalCbm;
   const totalWeight = totals.totalWeightKg;
   const hasMoqViolation = totals.hasMoqViolation;
@@ -212,6 +214,14 @@ export default async function OrderDetailPage({
           <span className="text-neutral-500 dark:text-neutral-400">{t("totalWeight")}</span>
           <span className="font-semibold text-neutral-900 dark:text-neutral-100">{totalWeight.toFixed(2)} kg</span>
         </div>
+        {hasUnmeasured ? (
+          <p
+            className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
+            data-testid="order-unmeasured-note"
+          >
+            {t("unmeasuredIncluded")}
+          </p>
+        ) : null}
       </div>
 
       {order.notes ? (

@@ -92,7 +92,14 @@
     "takePhoto": "拍照",
     "choosePhotos": "选择照片",
     "photosReady": "已选择 {count} 张照片，第一张将作为目录缩略图。",
-    "saveAndAddAnother": "保存并继续添加"
+    "saveAndAddAnother": "保存并继续添加",
+    "notRecorded": "尚未填写",
+    "notMeasuredYet": "尚无外箱尺寸。在补充之前，包含此产品的订单其体积和重量会偏低。",
+    "optionalPlaceholder": "选填",
+    "measurementsOptional": "如暂时没有数据可以留空，之后再补充。订单会标示仍缺少数据的产品。",
+    "errorRequiredFields": "名称、价格、起订量和每箱数量为必填项。",
+    "errorDuplicateSku": "该货号已被其他产品使用。",
+    "errorImage": "图片保存失败，请重试。"
   },
   "contacts": {
     "title": "联系人",
@@ -164,7 +171,8 @@
     "estimatedCartonsIncluded": "体积和重量中包含根据单件尺寸估算的外箱——报运费前请与供应商确认。",
     "filedBy": "创建人",
     "updatedBy": "最后修改人",
-    "unknownUser": "—"
+    "unknownUser": "—",
+    "unmeasuredIncluded": "部分产品没有外箱尺寸，因此体积和重量低于实际出货量。"
   },
   "settings": {
     "exchangeRates": "汇率",
