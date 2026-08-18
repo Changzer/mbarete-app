@@ -43,6 +43,7 @@ export function ExchangeRateManager({ rates }: { rates: Rate[] }) {
                 id="rateToUsd"
                 name="rateToUsd"
                 type="number"
+                inputMode="decimal"
                 step="0.000001"
                 min="0"
                 placeholder="0.14"

@@ -262,6 +262,7 @@ export function OrderBuilder({
                 <div className="flex flex-wrap items-center gap-2">
                   <Input
                     type="number"
+                    inputMode="numeric"
                     min={0}
                     value={qty}
                     onChange={(e) => setQuantity(p.id, Number(e.target.value))}
@@ -379,6 +380,7 @@ export function OrderBuilder({
             <Input
               id="commissionPct"
               type="number"
+              inputMode="decimal"
               step="0.01"
               min="0"
               value={commissionPct}

@@ -88,7 +88,11 @@
     "estimatedFromPiece": "Estimated from the piece size — no carton measurement yet.",
     "addedBy": "Added by",
     "updatedBy": "Last edited by",
-    "unknownUser": "—"
+    "unknownUser": "—",
+    "takePhoto": "Take photo",
+    "choosePhotos": "Choose photos",
+    "photosReady": "{count} photo(s) ready to upload. The first one becomes the catalog thumbnail.",
+    "saveAndAddAnother": "Save & add another"
   },
   "contacts": {
     "title": "Contacts",
