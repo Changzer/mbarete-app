@@ -69,7 +69,22 @@
     "images": "Images",
     "imagesHelp": "You can select several photos at once — for example one per colour. The first is used as the catalog thumbnail.",
     "photos": "photos",
-    "cartonHelp": "Enter the dimensions and weight of the shipping carton, not of a single piece. Order CBM and weight are worked out from the number of cartons."
+    "cartonHelp": "Enter the dimensions and weight of the shipping carton, not of a single piece. Order CBM and weight are worked out from the number of cartons.",
+    "dimensionSource": "Which measurements do you have?",
+    "haveCartonSize": "I have the carton size",
+    "havePieceSizeOnly": "I only have the product size",
+    "pieceHelp": "Enter the dimensions of one piece. The carton is estimated from the pieces per carton plus a packing allowance — use it for planning, and replace it with the real carton size once the supplier confirms it.",
+    "pieceLength": "Piece length (cm)",
+    "pieceWidth": "Piece width (cm)",
+    "pieceHeight": "Piece height (cm)",
+    "pieceWeight": "Piece weight (kg)",
+    "packingAllowance": "Packing allowance (%)",
+    "packingAllowanceHelp": "Covers the gaps between pieces and the carton itself. 15% suits most goods; use more for irregular or fragile items, less for flat-packed ones.",
+    "estimatedCarton": "Estimated carton",
+    "estimateBreakdown": "{pieces} pieces × their own volume = {bare} m³, plus {allowance}% for packing.",
+    "estimated": "Estimated",
+    "pieceSize": "Piece size (L×W×H cm)",
+    "estimatedFromPiece": "Estimated from the piece size — no carton measurement yet."
   },
   "contacts": {
     "title": "Contacts",
@@ -137,7 +152,8 @@
     "roundTo": "Round to {qty}",
     "newClient": "+ New client",
     "editClient": "Edit client",
-    "noClientsYet": "No clients yet — add one to place this order."
+    "noClientsYet": "No clients yet — add one to place this order.",
+    "estimatedCartonsIncluded": "Volume and weight include cartons estimated from piece sizes — confirm them with the supplier before quoting freight."
   },
   "settings": {
     "exchangeRates": "Exchange Rates",

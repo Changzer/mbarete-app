@@ -47,6 +47,10 @@ export default async function CatalogPage({
       heightCm: p.heightCm,
       weightKg: p.weightKg,
       cbm: p.cbm,
+      dimensionSource: p.dimensionSource,
+      pieceLengthCm: p.pieceLengthCm,
+      pieceWidthCm: p.pieceWidthCm,
+      pieceHeightCm: p.pieceHeightCm,
       images: imagesByProduct.get(p.id) ?? [],
       active: p.active,
     };

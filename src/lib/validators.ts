@@ -15,6 +15,12 @@ export const productSchema = z.object({
   widthCm: z.coerce.number().nonnegative().default(0),
   heightCm: z.coerce.number().nonnegative().default(0),
   weightKg: z.coerce.number().nonnegative().default(0),
+  dimensionSource: z.enum(["carton", "piece"]).default("carton"),
+  pieceLengthCm: z.coerce.number().nonnegative().default(0),
+  pieceWidthCm: z.coerce.number().nonnegative().default(0),
+  pieceHeightCm: z.coerce.number().nonnegative().default(0),
+  pieceWeightKg: z.coerce.number().nonnegative().default(0),
+  packingAllowancePct: z.coerce.number().nonnegative().max(200).default(15),
   cbmOverride: z.coerce.number().nonnegative().optional(),
   active: z.coerce.boolean().default(true),
 });

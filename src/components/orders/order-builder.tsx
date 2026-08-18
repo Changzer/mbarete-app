@@ -47,6 +47,7 @@ export type BuilderProduct = {
   qtyPerBox: number;
   weightKg: number;
   cbm: number;
+  dimensionSource: "carton" | "piece";
 };
 
 type Client = {
@@ -172,6 +173,13 @@ export function OrderBuilder({
     [cartLines, targets, rates, commissionValue],
   );
 
+  // Volume and weight below are only as good as their source. Say so when any
+  // line's carton was estimated from a piece rather than measured.
+  const hasEstimatedCarton = useMemo(
+    () => cartLines.some((l) => l.product.dimensionSource === "piece"),
+    [cartLines],
+  );
+
   function setQuantity(productId: number, quantity: number) {
     setCart((prev) => ({ ...prev, [productId]: Math.max(0, Math.floor(quantity) || 0) }));
   }
@@ -242,6 +250,7 @@ export function OrderBuilder({
             return (
               <div
                 key={p.id}
+                data-testid={`picker-${p.sku}`}
                 className="flex flex-col gap-2 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3"
               >
                 <div>
@@ -483,6 +492,14 @@ export function OrderBuilder({
               <span className="text-neutral-500 dark:text-neutral-400">{t("totalWeight")}</span>
               <span className="font-semibold text-neutral-900 dark:text-neutral-100">{totals.totalWeightKg.toFixed(2)} kg</span>
             </div>
+            {hasEstimatedCarton ? (
+              <p
+                className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
+                data-testid="order-estimate-note"
+              >
+                {t("estimatedCartonsIncluded")}
+              </p>
+            ) : null}
           </div>
 
           <div className="flex flex-col gap-1.5">

@@ -14,6 +14,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useState } from "react";
+import {
+  computeCbm,
+  estimateCartonCbm,
+  estimateCartonWeightKg,
+  formatCbm,
+  DEFAULT_PACKING_ALLOWANCE_PCT,
+} from "@/lib/calculations";
 
 type Category = { id: number; nameEn: string; nameZh: string };
 
@@ -32,6 +39,12 @@ type ProductFormValues = {
   widthCm: number;
   heightCm: number;
   weightKg: number;
+  dimensionSource: "carton" | "piece";
+  pieceLengthCm: number;
+  pieceWidthCm: number;
+  pieceHeightCm: number;
+  pieceWeightKg: number;
+  packingAllowancePct: number;
   active: boolean;
 };
 
@@ -57,6 +70,36 @@ export function ProductForm({
   const [categoryId, setCategoryId] = useState(
     defaultValues?.categoryId ? String(defaultValues.categoryId) : categories[0] ? String(categories[0].id) : "",
   );
+
+  // Which figures the supplier actually gave us. Carton is the accurate path;
+  // piece estimates a carton when only the product itself has been quoted.
+  const [source, setSource] = useState<"carton" | "piece">(
+    defaultValues?.dimensionSource ?? "carton",
+  );
+
+  // Controlled so the estimate below updates as the numbers are typed.
+  const [qtyPerBox, setQtyPerBox] = useState(String(defaultValues?.qtyPerBox ?? 1));
+  const [piece, setPiece] = useState({
+    lengthCm: String(defaultValues?.pieceLengthCm ?? 0),
+    widthCm: String(defaultValues?.pieceWidthCm ?? 0),
+    heightCm: String(defaultValues?.pieceHeightCm ?? 0),
+    weightKg: String(defaultValues?.pieceWeightKg ?? 0),
+  });
+  const [allowance, setAllowance] = useState(
+    String(defaultValues?.packingAllowancePct ?? DEFAULT_PACKING_ALLOWANCE_PCT),
+  );
+
+  const num = (v: string) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const pieceDims = {
+    lengthCm: num(piece.lengthCm),
+    widthCm: num(piece.widthCm),
+    heightCm: num(piece.heightCm),
+  };
+  const perBox = num(qtyPerBox);
+  const allowancePct = num(allowance);
+  const estimatedCbm = estimateCartonCbm(pieceDims, perBox, allowancePct);
+  const estimatedWeight = estimateCartonWeightKg(num(piece.weightKg), perBox, allowancePct);
+  const bareCbm = computeCbm(pieceDims.lengthCm, pieceDims.widthCm, pieceDims.heightCm) * perBox;
 
   return (
     <form action={formAction} className="flex flex-col gap-5">
@@ -148,59 +191,183 @@ export function ProductForm({
             name="qtyPerBox"
             type="number"
             min="1"
-            defaultValue={defaultValues?.qtyPerBox ?? 1}
+            value={qtyPerBox}
+            onChange={(e) => setQtyPerBox(e.target.value)}
             required
           />
         </div>
 
-        <p className="sm:col-span-2 rounded-md bg-neutral-100 dark:bg-neutral-800 px-3 py-2 text-xs text-neutral-600 dark:text-neutral-400">
-          {t("cartonHelp")}
-        </p>
+        <div className="flex flex-col gap-2 sm:col-span-2">
+          <Label>{t("dimensionSource")}</Label>
+          <input type="hidden" name="dimensionSource" value={source} />
+          <div className="flex flex-wrap gap-2">
+            {(["carton", "piece"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                aria-pressed={source === mode}
+                onClick={() => setSource(mode)}
+                className={`rounded-md border px-3 py-2 text-sm transition-colors ${
+                  source === mode
+                    ? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900"
+                    : "border-neutral-300 text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                }`}
+              >
+                {mode === "carton" ? t("haveCartonSize") : t("havePieceSizeOnly")}
+              </button>
+            ))}
+          </div>
+        </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="lengthCm">{t("length")}</Label>
-          <Input
-            id="lengthCm"
-            name="lengthCm"
-            type="number"
-            step="0.01"
-            min="0"
-            defaultValue={defaultValues?.lengthCm ?? 0}
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="widthCm">{t("width")}</Label>
-          <Input
-            id="widthCm"
-            name="widthCm"
-            type="number"
-            step="0.01"
-            min="0"
-            defaultValue={defaultValues?.widthCm ?? 0}
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="heightCm">{t("height")}</Label>
-          <Input
-            id="heightCm"
-            name="heightCm"
-            type="number"
-            step="0.01"
-            min="0"
-            defaultValue={defaultValues?.heightCm ?? 0}
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="weightKg">{t("weight")}</Label>
-          <Input
-            id="weightKg"
-            name="weightKg"
-            type="number"
-            step="0.01"
-            min="0"
-            defaultValue={defaultValues?.weightKg ?? 0}
-          />
-        </div>
+        {source === "carton" ? (
+          <>
+            <p className="sm:col-span-2 rounded-md bg-neutral-100 dark:bg-neutral-800 px-3 py-2 text-xs text-neutral-600 dark:text-neutral-400">
+              {t("cartonHelp")}
+            </p>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="lengthCm">{t("length")}</Label>
+              <Input
+                id="lengthCm"
+                name="lengthCm"
+                type="number"
+                step="0.01"
+                min="0"
+                defaultValue={defaultValues?.lengthCm ?? 0}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="widthCm">{t("width")}</Label>
+              <Input
+                id="widthCm"
+                name="widthCm"
+                type="number"
+                step="0.01"
+                min="0"
+                defaultValue={defaultValues?.widthCm ?? 0}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="heightCm">{t("height")}</Label>
+              <Input
+                id="heightCm"
+                name="heightCm"
+                type="number"
+                step="0.01"
+                min="0"
+                defaultValue={defaultValues?.heightCm ?? 0}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="weightKg">{t("weight")}</Label>
+              <Input
+                id="weightKg"
+                name="weightKg"
+                type="number"
+                step="0.01"
+                min="0"
+                defaultValue={defaultValues?.weightKg ?? 0}
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="sm:col-span-2 rounded-md bg-neutral-100 dark:bg-neutral-800 px-3 py-2 text-xs text-neutral-600 dark:text-neutral-400">
+              {t("pieceHelp")}
+            </p>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="pieceLengthCm">{t("pieceLength")}</Label>
+              <Input
+                id="pieceLengthCm"
+                name="pieceLengthCm"
+                type="number"
+                step="0.01"
+                min="0"
+                value={piece.lengthCm}
+                onChange={(e) => setPiece((p) => ({ ...p, lengthCm: e.target.value }))}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="pieceWidthCm">{t("pieceWidth")}</Label>
+              <Input
+                id="pieceWidthCm"
+                name="pieceWidthCm"
+                type="number"
+                step="0.01"
+                min="0"
+                value={piece.widthCm}
+                onChange={(e) => setPiece((p) => ({ ...p, widthCm: e.target.value }))}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="pieceHeightCm">{t("pieceHeight")}</Label>
+              <Input
+                id="pieceHeightCm"
+                name="pieceHeightCm"
+                type="number"
+                step="0.01"
+                min="0"
+                value={piece.heightCm}
+                onChange={(e) => setPiece((p) => ({ ...p, heightCm: e.target.value }))}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="pieceWeightKg">{t("pieceWeight")}</Label>
+              <Input
+                id="pieceWeightKg"
+                name="pieceWeightKg"
+                type="number"
+                step="0.01"
+                min="0"
+                value={piece.weightKg}
+                onChange={(e) => setPiece((p) => ({ ...p, weightKg: e.target.value }))}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <Label htmlFor="packingAllowancePct">{t("packingAllowance")}</Label>
+              <Input
+                id="packingAllowancePct"
+                name="packingAllowancePct"
+                type="number"
+                step="1"
+                min="0"
+                max="200"
+                value={allowance}
+                onChange={(e) => setAllowance(e.target.value)}
+              />
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                {t("packingAllowanceHelp")}
+              </p>
+            </div>
+
+            <div
+              className="sm:col-span-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-3 text-sm dark:border-amber-900 dark:bg-amber-950"
+              data-testid="carton-estimate"
+            >
+              <p className="font-medium text-amber-900 dark:text-amber-200">
+                {t("estimatedCarton")}
+              </p>
+              <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-amber-900 dark:text-amber-200">
+                <dt>{t("cbm")}</dt>
+                <dd className="text-right font-medium" data-testid="estimated-cbm">
+                  {formatCbm(estimatedCbm)} m³
+                </dd>
+                <dt>{t("weight")}</dt>
+                <dd className="text-right font-medium" data-testid="estimated-weight">
+                  {estimatedWeight.toFixed(2)} kg
+                </dd>
+              </dl>
+              <p className="mt-2 text-xs text-amber-800 dark:text-amber-300">
+                {t("estimateBreakdown", {
+                  pieces: perBox,
+                  bare: formatCbm(bareCbm),
+                  allowance: allowancePct,
+                })}
+              </p>
+            </div>
+          </>
+        )}
 
         <div className="flex flex-col gap-2 sm:col-span-2">
           <Label htmlFor="images">{t("images")}</Label>
