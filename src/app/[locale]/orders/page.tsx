@@ -34,6 +34,7 @@ export default async function OrdersPage() {
                 <th className="px-4 py-2 font-medium">{t("orderNumber")}</th>
                 <th className="px-4 py-2 font-medium">{t("client")}</th>
                 <th className="px-4 py-2 font-medium">{t("status")}</th>
+                <th className="px-4 py-2 font-medium">{t("filedBy")}</th>
                 <th className="px-4 py-2 font-medium">{t("createdAt")}</th>
               </tr>
             </thead>
@@ -50,6 +51,12 @@ export default async function OrdersPage() {
                     <Badge variant={STATUS_VARIANT[o.status]}>
                       {t(`status${o.status.charAt(0).toUpperCase()}${o.status.slice(1)}` as "statusDraft")}
                     </Badge>
+                  </td>
+                  <td
+                    className="px-4 py-2 text-neutral-700 dark:text-neutral-300"
+                    data-testid={`order-filed-by-${o.id}`}
+                  >
+                    {o.createdByName ?? t("unknownUser")}
                   </td>
                   <td className="px-4 py-2 text-neutral-500 dark:text-neutral-400">
                     {new Date(o.createdAt).toLocaleDateString()}

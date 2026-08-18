@@ -5,7 +5,8 @@
     "contacts": "联系人",
     "signOut": "退出登录",
     "appName": "Mbarete",
-    "settings": "设置"
+    "settings": "设置",
+    "users": "用户"
   },
   "login": {
     "title": "登录",
@@ -84,7 +85,10 @@
     "estimateBreakdown": "{pieces} 件 × 单件体积 = {bare} m³，再加 {allowance}% 包装余量。",
     "estimated": "预估",
     "pieceSize": "单件尺寸 (长×宽×高 cm)",
-    "estimatedFromPiece": "根据单件尺寸估算——尚无实际外箱测量值。"
+    "estimatedFromPiece": "根据单件尺寸估算——尚无实际外箱测量值。",
+    "addedBy": "录入人",
+    "updatedBy": "最后修改人",
+    "unknownUser": "—"
   },
   "contacts": {
     "title": "联系人",
@@ -153,7 +157,10 @@
     "newClient": "+ 新建客户",
     "editClient": "编辑客户",
     "noClientsYet": "暂无客户——请先添加一个以创建此订单。",
-    "estimatedCartonsIncluded": "体积和重量中包含根据单件尺寸估算的外箱——报运费前请与供应商确认。"
+    "estimatedCartonsIncluded": "体积和重量中包含根据单件尺寸估算的外箱——报运费前请与供应商确认。",
+    "filedBy": "创建人",
+    "updatedBy": "最后修改人",
+    "unknownUser": "—"
   },
   "settings": {
     "exchangeRates": "汇率",
@@ -164,5 +171,29 @@
     "saveRate": "保存汇率",
     "baseCurrency": "基准货币",
     "deleteRateConfirm": "确定删除此货币汇率吗？"
+  },
+  "users": {
+    "title": "用户",
+    "help": "此处所有人权限相同——任何人都可以添加产品、创建订单并管理本列表。账号只会被停用而不会被删除，以便历史产品和订单仍能显示录入人。",
+    "name": "姓名",
+    "email": "邮箱",
+    "password": "密码",
+    "newPassword": "新密码",
+    "leaveBlankToKeep": "留空则保持原密码",
+    "passwordHelp": "至少 8 位字符。请转交本人，并建议其登录后自行修改。",
+    "addUser": "添加用户",
+    "editUser": "编辑用户",
+    "status": "状态",
+    "statusActive": "启用",
+    "statusInactive": "已停用",
+    "deactivate": "停用",
+    "reactivate": "重新启用",
+    "deactivateConfirm": "确定停用 {name} 吗？该账号将无法登录，但其录入的所有记录仍会保留其姓名。",
+    "you": "（本人）",
+    "errorInvalid": "请检查填写内容——需要姓名、有效邮箱，以及至少 8 位的密码。",
+    "errorDuplicateEmail": "该邮箱已被其他用户使用。",
+    "errorSelfDeactivate": "无法停用自己的账号。",
+    "errorLastUser": "这是最后一个启用的账号——停用后将无人可登录。",
+    "errorNotFound": "该用户已不存在。"
   }
 }

@@ -99,6 +99,7 @@ export async function createOrder(input: unknown): Promise<OrderActionResult> {
         ratesSnapshot,
         notes: data.notes,
         createdBy: Number(session!.user!.id),
+        updatedBy: Number(session!.user!.id),
         updatedAt: new Date().toISOString(),
       })
       .run();
@@ -133,9 +134,13 @@ export async function updateOrder(
 
   const ratesSnapshot = JSON.stringify(await getExchangeRates());
 
+  const session = await auth();
+  const userId = Number(session!.user!.id);
+
   db.transaction((tx) => {
     tx.update(orders)
       .set({
+        updatedBy: userId,
         clientId: data.clientId,
         status: data.status,
         displayCurrency: data.displayCurrency,

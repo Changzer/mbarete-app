@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { getCategories, getProducts, getImagesByProduct } from "@/lib/queries/catalog";
+import { getUserNames } from "@/lib/queries/users";
 import { localizeField } from "@/lib/localize";
 import type { Locale } from "@/i18n/routing";
 import { CatalogControls } from "@/components/catalog/catalog-controls";
@@ -26,6 +27,7 @@ export default async function CatalogPage({
   });
 
   const imagesByProduct = await getImagesByProduct(products.map((p) => p.id));
+  const userNames = await getUserNames();
   const categoryMap = new Map(categories.map((c) => [c.id, c]));
 
   const catalogProducts: CatalogProduct[] = products.map((p) => {
@@ -48,6 +50,8 @@ export default async function CatalogPage({
       weightKg: p.weightKg,
       cbm: p.cbm,
       dimensionSource: p.dimensionSource,
+      createdByName: p.createdBy ? userNames.get(p.createdBy) ?? null : null,
+      updatedByName: p.updatedBy ? userNames.get(p.updatedBy) ?? null : null,
       pieceLengthCm: p.pieceLengthCm,
       pieceWidthCm: p.pieceWidthCm,
       pieceHeightCm: p.pieceHeightCm,

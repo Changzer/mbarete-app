@@ -5,7 +5,8 @@
     "contacts": "Contacts",
     "signOut": "Sign out",
     "appName": "Mbarete",
-    "settings": "Settings"
+    "settings": "Settings",
+    "users": "Users"
   },
   "login": {
     "title": "Sign in",
@@ -84,7 +85,10 @@
     "estimateBreakdown": "{pieces} pieces × their own volume = {bare} m³, plus {allowance}% for packing.",
     "estimated": "Estimated",
     "pieceSize": "Piece size (L×W×H cm)",
-    "estimatedFromPiece": "Estimated from the piece size — no carton measurement yet."
+    "estimatedFromPiece": "Estimated from the piece size — no carton measurement yet.",
+    "addedBy": "Added by",
+    "updatedBy": "Last edited by",
+    "unknownUser": "—"
   },
   "contacts": {
     "title": "Contacts",
@@ -153,7 +157,10 @@
     "newClient": "+ New client",
     "editClient": "Edit client",
     "noClientsYet": "No clients yet — add one to place this order.",
-    "estimatedCartonsIncluded": "Volume and weight include cartons estimated from piece sizes — confirm them with the supplier before quoting freight."
+    "estimatedCartonsIncluded": "Volume and weight include cartons estimated from piece sizes — confirm them with the supplier before quoting freight.",
+    "filedBy": "Filed by",
+    "updatedBy": "Last edited by",
+    "unknownUser": "—"
   },
   "settings": {
     "exchangeRates": "Exchange Rates",
@@ -164,5 +171,29 @@
     "saveRate": "Save rate",
     "baseCurrency": "Base currency",
     "deleteRateConfirm": "Delete this currency rate?"
+  },
+  "users": {
+    "title": "Users",
+    "help": "Everyone here has the same access — anyone can add products, file orders and manage this list. Accounts are deactivated rather than deleted, so past products and orders keep showing who entered them.",
+    "name": "Name",
+    "email": "Email",
+    "password": "Password",
+    "newPassword": "New password",
+    "leaveBlankToKeep": "Leave blank to keep the current one",
+    "passwordHelp": "At least 8 characters. Share it with the person and have them change it after signing in.",
+    "addUser": "Add user",
+    "editUser": "Edit user",
+    "status": "Status",
+    "statusActive": "Active",
+    "statusInactive": "Deactivated",
+    "deactivate": "Deactivate",
+    "reactivate": "Reactivate",
+    "deactivateConfirm": "Deactivate {name}? They will not be able to sign in, but everything they entered keeps their name on it.",
+    "you": "(you)",
+    "errorInvalid": "Check the details — a name, a valid email and a password of at least 8 characters are required.",
+    "errorDuplicateEmail": "Another user already signs in with that email.",
+    "errorSelfDeactivate": "You cannot deactivate your own account.",
+    "errorLastUser": "This is the last active account — deactivating it would lock everyone out.",
+    "errorNotFound": "That user no longer exists."
   }
 }

@@ -35,6 +35,8 @@ export type CatalogProduct = {
   weightKg: number;
   cbm: number;
   dimensionSource: "carton" | "piece";
+  createdByName: string | null;
+  updatedByName: string | null;
   pieceLengthCm: number;
   pieceWidthCm: number;
   pieceHeightCm: number;
@@ -246,6 +248,27 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
               {t("estimatedFromPiece")}
             </p>
           ) : null}
+
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-neutral-200 pt-3 text-sm dark:border-neutral-800">
+            <div>
+              <dt className="text-neutral-500 dark:text-neutral-400">{t("addedBy")}</dt>
+              <dd
+                className="font-medium text-neutral-900 dark:text-neutral-100"
+                data-testid="product-added-by"
+              >
+                {product.createdByName ?? t("unknownUser")}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-neutral-500 dark:text-neutral-400">{t("updatedBy")}</dt>
+              <dd
+                className="font-medium text-neutral-900 dark:text-neutral-100"
+                data-testid="product-updated-by"
+              >
+                {product.updatedByName ?? t("unknownUser")}
+              </dd>
+            </div>
+          </dl>
 
           {product.description ? (
             <div>
