@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Camera, ImagePlus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { compressImage } from "@/lib/client/compress-image";
 
 /**
  * Photo input for registering a product, built for a phone at a supplier.
@@ -102,12 +103,17 @@ export function PhotoPicker({ name = "images" }: { name?: string }) {
     field.files = dt.files;
   }, [picked, supported]);
 
-  function add(input: HTMLInputElement | null) {
+  async function add(input: HTMLInputElement | null) {
     if (!input?.files?.length) return;
-    const added = Array.from(input.files).map((file) => ({ id: nextId++, file }));
-    setPicked((prev) => [...prev, ...added]);
+    const files = Array.from(input.files);
     // Cleared so picking the very same file again still fires a change event.
     input.value = "";
+    // Phone photos are shrunk before they ever touch the form — a full-size
+    // camera shot is a slow upload over Tailscale and more than the server
+    // accepts in one go.
+    const compressed = await Promise.all(files.map(compressImage));
+    const added = compressed.map((file) => ({ id: nextId++, file }));
+    setPicked((prev) => [...prev, ...added]);
   }
 
   function remove(id: number) {
@@ -142,10 +148,15 @@ export function PhotoPicker({ name = "images" }: { name?: string }) {
         className="hidden"
         onChange={() => add(cameraRef.current)}
       />
+      {/*
+        `image/*` rather than a format list: iPhones store HEIC, which the
+        compressor converts to JPEG on the way in. A narrow accept list would
+        make Safari transcode (slowly) or hide those photos entirely.
+      */}
       <input
         ref={libraryRef}
         type="file"
-        accept="image/png,image/jpeg,image/webp,image/gif"
+        accept="image/*"
         multiple
         className="hidden"
         onChange={() => add(libraryRef.current)}
