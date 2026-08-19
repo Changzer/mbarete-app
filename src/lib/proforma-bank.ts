@@ -28,6 +28,16 @@ export type LegacyBankFields = {
   bankAddress: string;
 };
 
+/** The account an order follows while it has no choice of its own. */
+export function defaultBankAccount<T extends { isDefault: boolean }>(
+  accounts: T[],
+): T | undefined {
+  return accounts.find((a) => a.isDefault) ?? accounts[0];
+}
+
+const hasContent = (b: ProformaBank) =>
+  Boolean(b.bankName || b.accountName || b.accountNumber || b.swift || b.bankAddress);
+
 export function resolveProformaBank(
   accounts: BankAccountLike[],
   selectedId: number | null,
@@ -35,11 +45,12 @@ export function resolveProformaBank(
 ): ProformaBank | null {
   const chosen =
     (selectedId !== null ? accounts.find((a) => a.id === selectedId) : undefined) ??
-    accounts.find((a) => a.isDefault) ??
-    accounts[0];
+    defaultBankAccount(accounts);
   if (chosen) {
     const { bankName, accountName, accountNumber, swift, bankAddress } = chosen;
-    return { bankName, accountName, accountNumber, swift, bankAddress };
+    const bank = { bankName, accountName, accountNumber, swift, bankAddress };
+    // A label-only account must not print an empty BANK DETAILS heading.
+    return hasContent(bank) ? bank : null;
   }
   if (legacy.bankName || legacy.bankAccountName || legacy.bankAccountNumber) {
     return {

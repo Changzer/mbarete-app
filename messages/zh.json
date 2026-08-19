@@ -187,7 +187,8 @@
     "supplierCost": "供应商成本",
     "grossMargin": "毛利（未扣费用）",
     "saveChanges": "保存修改",
-    "proformaBank": "发票银行"
+    "proformaBank": "发票银行",
+    "proformaBankDefault": "默认：{label}"
   },
   "settings": {
     "exchangeRates": "汇率",
@@ -252,6 +253,8 @@
     "bankDeleteConfirm": "删除“{label}”？使用该账户的订单将改用默认账户。",
     "bankAddTitle": "添加银行账户",
     "bankEditTitle": "编辑：{label}",
+    "bankInvalid": "无法保存——名称为必填项（最多 80 个字符），其他字段也有长度限制。",
+    "bankGone": "该账户已被删除——未保存任何内容。",
     "bankAccountName": "账户名称",
     "bankName": "开户银行",
     "bankAccountNumber": "账号 / IBAN",

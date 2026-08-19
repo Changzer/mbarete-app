@@ -187,7 +187,8 @@
     "supplierCost": "Supplier cost",
     "grossMargin": "Your margin (before expenses)",
     "saveChanges": "Save changes",
-    "proformaBank": "Bank on proforma"
+    "proformaBank": "Bank on proforma",
+    "proformaBankDefault": "Default: {label}"
   },
   "settings": {
     "exchangeRates": "Exchange Rates",
@@ -252,6 +253,8 @@
     "bankDeleteConfirm": "Delete \"{label}\"? Orders using it will fall back to the default account.",
     "bankAddTitle": "Add bank account",
     "bankEditTitle": "Editing: {label}",
+    "bankInvalid": "Could not save — the label is required (max 80 characters) and the other fields have length limits.",
+    "bankGone": "This account was deleted in the meantime — nothing was saved.",
     "bankAccountName": "Account name",
     "bankName": "Bank name",
     "bankAccountNumber": "Account number / IBAN",

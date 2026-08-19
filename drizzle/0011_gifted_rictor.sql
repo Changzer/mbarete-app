@@ -18,4 +18,7 @@ SELECT
 	`bank_name`, `bank_account_name`, `bank_account_number`, `bank_swift`, `bank_address`, 1
 FROM `company_profile`
 WHERE `id` = 1
-	AND (`bank_name` != '' OR `bank_account_name` != '' OR `bank_account_number` != '');
+	AND (`bank_name` != '' OR `bank_account_name` != '' OR `bank_account_number` != '');--> statement-breakpoint
+UPDATE `company_profile`
+SET `bank_name` = '', `bank_account_name` = '', `bank_account_number` = '', `bank_swift` = '', `bank_address` = ''
+WHERE `id` = 1;

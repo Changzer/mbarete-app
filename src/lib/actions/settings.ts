@@ -137,6 +137,13 @@ export async function saveBankAccount(
   const { id, ...data } = parsed.data;
 
   if (id) {
+    // The row may have been deleted from another tab; a silent no-op would
+    // close the form and discard what was typed as if it had been saved.
+    const target = db.select({ id: bankAccounts.id }).from(bankAccounts).where(eq(bankAccounts.id, id)).get();
+    if (!target) {
+      revalidatePath("/settings");
+      return "missing";
+    }
     db.update(bankAccounts).set(data).where(eq(bankAccounts.id, id)).run();
   } else {
     // The first account registered becomes the default automatically.
@@ -153,37 +160,42 @@ export async function saveBankAccount(
 
 export async function setDefaultBankAccount(id: number) {
   await requireSession();
-  const target = db.select().from(bankAccounts).where(eq(bankAccounts.id, id)).get();
-  if (!target) return;
-  db.update(bankAccounts).set({ isDefault: false }).run();
-  db.update(bankAccounts).set({ isDefault: true }).where(eq(bankAccounts.id, id)).run();
+  // One transaction: a crash between the two updates would leave no default.
+  db.transaction((tx) => {
+    const target = tx.select().from(bankAccounts).where(eq(bankAccounts.id, id)).get();
+    if (!target) return;
+    tx.update(bankAccounts).set({ isDefault: false }).run();
+    tx.update(bankAccounts).set({ isDefault: true }).where(eq(bankAccounts.id, id)).run();
+  });
   revalidatePath("/settings");
   revalidatePath("/orders");
 }
 
 export async function deleteBankAccount(id: number) {
   await requireSession();
-  const target = db.select().from(bankAccounts).where(eq(bankAccounts.id, id)).get();
-  if (!target) return;
+  db.transaction((tx) => {
+    const target = tx.select().from(bankAccounts).where(eq(bankAccounts.id, id)).get();
+    if (!target) return;
 
-  // Orders that pointed here fall back to the default account; done by hand
-  // because older databases may carry the FK without its SET NULL clause.
-  db.update(orders)
-    .set({ bankAccountId: null })
-    .where(eq(orders.bankAccountId, id))
-    .run();
-  db.delete(bankAccounts).where(eq(bankAccounts.id, id)).run();
+    // Orders that pointed here fall back to the default account; done by hand
+    // rather than trusting the FK's SET NULL, so it holds on any database.
+    tx.update(orders)
+      .set({ bankAccountId: null })
+      .where(eq(orders.bankAccountId, id))
+      .run();
+    tx.delete(bankAccounts).where(eq(bankAccounts.id, id)).run();
 
-  // Never leave the remaining accounts without a default.
-  if (target.isDefault) {
-    const next = db.select({ id: bankAccounts.id }).from(bankAccounts).all()[0];
-    if (next) {
-      db.update(bankAccounts)
-        .set({ isDefault: true })
-        .where(eq(bankAccounts.id, next.id))
-        .run();
+    // Never leave the remaining accounts without a default.
+    if (target.isDefault) {
+      const next = tx.select({ id: bankAccounts.id }).from(bankAccounts).all()[0];
+      if (next) {
+        tx.update(bankAccounts)
+          .set({ isDefault: true })
+          .where(eq(bankAccounts.id, next.id))
+          .run();
+      }
     }
-  }
+  });
 
   revalidatePath("/settings");
   revalidatePath("/orders");

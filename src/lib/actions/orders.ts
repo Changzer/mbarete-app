@@ -19,6 +19,7 @@ import {
 import { nextOrderNumber, getExchangeRates } from "@/lib/queries/orders";
 import { deleteUpload } from "@/lib/uploads";
 import { logOrderEvent, diffOrderEdit } from "@/lib/order-log";
+import { defaultBankAccount } from "@/lib/proforma-bank";
 import { contacts } from "@/db/schema";
 
 const orderItemInput = z.object({
@@ -93,6 +94,9 @@ export async function createOrder(input: unknown): Promise<OrderActionResult> {
 
   // Freeze the rates used, so a saved quote does not move when rates change.
   const ratesSnapshot = JSON.stringify(await getExchangeRates());
+  // Freeze the bank too: the proforma must keep printing the same account
+  // even if Settings later changes which one is the default.
+  const defaultBank = defaultBankAccount(db.select().from(bankAccounts).all());
 
   const orderId = db.transaction((tx) => {
     const inserted = tx
@@ -105,6 +109,7 @@ export async function createOrder(input: unknown): Promise<OrderActionResult> {
         secondaryCurrency: data.secondaryCurrency,
         commissionPct: data.commissionPct,
         ratesSnapshot,
+        bankAccountId: defaultBank?.id ?? null,
         notes: data.notes,
         createdBy: Number(session!.user!.id),
         updatedBy: Number(session!.user!.id),

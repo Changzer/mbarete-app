@@ -3,6 +3,7 @@
 import { useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { setOrderBankAccount } from "@/lib/actions/orders";
+import { defaultBankAccount } from "@/lib/proforma-bank";
 import { Label } from "@/components/ui/label";
 
 type Option = { id: number; label: string; currency: string; isDefault: boolean };
@@ -27,10 +28,10 @@ export function ProformaBankSelect({
 
   if (accounts.length === 0) return null;
 
-  const effective =
-    accounts.find((a) => a.id === selectedId) ??
-    accounts.find((a) => a.isDefault) ??
-    accounts[0];
+  const stored = accounts.find((a) => a.id === selectedId);
+  const fallback = defaultBankAccount(accounts);
+
+  const name = (a: Option) => `${a.label}${a.currency ? ` (${a.currency})` : ""}`;
 
   return (
     <div className="flex items-center gap-2">
@@ -41,17 +42,25 @@ export function ProformaBankSelect({
         id="proforma-bank"
         data-testid="proforma-bank"
         className="h-8 rounded-md border border-neutral-200 bg-white px-2 text-xs text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-        value={effective.id}
+        value={stored ? String(stored.id) : ""}
         disabled={isPending}
         onChange={(e) => {
           const id = Number(e.target.value);
+          if (!id) return;
           startTransition(() => setOrderBankAccount(orderId, id));
         }}
       >
+        {/*
+          Orders from before this feature stored no account and follow the
+          default. The placeholder says so — and because it is a distinct
+          value, explicitly choosing the default pins it on the order.
+        */}
+        {!stored && fallback ? (
+          <option value="">{t("proformaBankDefault", { label: name(fallback) })}</option>
+        ) : null}
         {accounts.map((a) => (
           <option key={a.id} value={a.id}>
-            {a.label}
-            {a.currency ? ` (${a.currency})` : ""}
+            {name(a)}
           </option>
         ))}
       </select>

@@ -188,7 +188,9 @@ export function BankAccountsManager({ accounts }: { accounts: BankAccount[] }) {
               />
             </div>
             {errorMessage ? (
-              <p className="text-sm text-red-600 dark:text-red-400">{common("required")}</p>
+              <p className="text-sm text-red-600 dark:text-red-400">
+                {errorMessage === "missing" ? t("bankGone") : t("bankInvalid")}
+              </p>
             ) : null}
             <div>
               <Button type="submit" disabled={isPending}>

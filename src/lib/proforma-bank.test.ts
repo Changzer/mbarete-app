@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { resolveProformaBank, type BankAccountLike } from "./proforma-bank";
+import {
+  resolveProformaBank,
+  defaultBankAccount,
+  type BankAccountLike,
+} from "./proforma-bank";
 
 const account = (over: Partial<BankAccountLike>): BankAccountLike => ({
   id: 1,
@@ -62,4 +66,26 @@ test("proforma bank: pre-migration installs print the legacy company fields", ()
 
 test("proforma bank: nothing anywhere means no bank block at all", () => {
   assert.equal(resolveProformaBank([], null, NO_LEGACY), null);
+});
+
+test("proforma bank: a label-only account prints no empty bank block", () => {
+  const empty = account({
+    id: 1,
+    bankName: "",
+    accountName: "",
+    accountNumber: "",
+    swift: "",
+    bankAddress: "",
+    isDefault: true,
+  });
+  assert.equal(resolveProformaBank([empty], null, NO_LEGACY), null);
+  assert.equal(resolveProformaBank([empty], 1, NO_LEGACY), null);
+});
+
+test("default account helper: flagged default wins, else the first row", () => {
+  const a = account({ id: 1, isDefault: false });
+  const b = account({ id: 2, isDefault: true });
+  assert.equal(defaultBankAccount([a, b])?.id, 2);
+  assert.equal(defaultBankAccount([a, account({ id: 3, isDefault: false })])?.id, 1);
+  assert.equal(defaultBankAccount([]), undefined);
 });
