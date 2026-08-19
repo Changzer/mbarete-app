@@ -6,7 +6,15 @@ import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
 import type { Locale } from "@/i18n/routing";
 import { db } from "@/db";
-import { orders, orderItems, products, orderDocuments, bankAccounts } from "@/db/schema";
+import {
+  orders,
+  orderItems,
+  products,
+  orderDocuments,
+  orderPayments,
+  orderExpenses,
+  bankAccounts,
+} from "@/db/schema";
 import { eq, inArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import {
@@ -296,24 +304,29 @@ export async function setOrderBankAccount(orderId: number, bankAccountId: number
     changes: [{ code: "bank", from: before?.label ?? "—", to: target.label }],
   });
 
-  revalidatePath(`/orders/${orderId}`);
-  revalidatePath(`/orders/${orderId}/proforma`);
+  // Pattern form — the real routes are locale-prefixed, so literal
+  // locale-less paths would name pages that do not exist.
+  revalidatePath("/[locale]/orders/[id]", "page");
+  revalidatePath("/[locale]/orders/[id]/proforma", "page");
 }
 
 export async function deleteOrder(id: number) {
   await requireSession();
 
-  // Document rows cascade with the order; the files would stay behind in the
-  // uploads volume forever if they were not removed here.
-  const documents = await db
-    .select()
-    .from(orderDocuments)
-    .where(eq(orderDocuments.orderId, id))
-    .all();
+  // Document and receipt rows cascade with the order; the files would stay
+  // behind in the uploads volume forever if they were not removed here.
+  const [documents, payments, expenses] = await Promise.all([
+    db.select().from(orderDocuments).where(eq(orderDocuments.orderId, id)).all(),
+    db.select().from(orderPayments).where(eq(orderPayments.orderId, id)).all(),
+    db.select().from(orderExpenses).where(eq(orderExpenses.orderId, id)).all(),
+  ]);
 
   db.delete(orders).where(eq(orders.id, id)).run();
   for (const doc of documents) {
     await deleteUpload(doc.path);
+  }
+  for (const row of [...payments, ...expenses]) {
+    if (row.receiptPath) await deleteUpload(row.receiptPath);
   }
 
   revalidatePath("/orders");
