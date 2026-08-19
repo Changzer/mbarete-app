@@ -77,6 +77,18 @@ export async function OrderResult({ fin, quote }: { fin: OrderFinance; quote: st
           <span className={label}>{t("expensesTotal")}</span>
           <span className={value} data-testid="fin-expenses">{money(fin.expensesTotal)}</span>
         </div>
+        {Math.abs(fin.fxGainLoss) > 0.005 ? (
+          <div className="flex justify-between">
+            <span className={label}>{t("fxGainLoss")}</span>
+            <span
+              className={fin.fxGainLoss < 0 ? "text-red-600 dark:text-red-400" : "text-green-700 dark:text-green-400"}
+              data-testid="fin-fx"
+            >
+              {fin.fxGainLoss > 0 ? "+" : ""}
+              {money(fin.fxGainLoss)}
+            </span>
+          </div>
+        ) : null}
         <div className="flex justify-between">
           <span className={label}>{t("netActual")}</span>
           <span

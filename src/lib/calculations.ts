@@ -397,7 +397,16 @@ export function missingCartonFigures(product: { cbm: number; weightKg: number })
 
 // --- order finance -----------------------------------------------------------
 
-export type MoneyEntry = { amount: number; currency: string };
+export type MoneyEntry = {
+  amount: number;
+  currency: string;
+  /**
+   * The rate table frozen the day this money moved. Absent on entries from
+   * before per-day rates existed; those convert at the shared rates, which
+   * reproduces exactly what they showed before.
+   */
+  rates?: CurrencyRates;
+};
 
 export type OrderFinanceInput = {
   /** What the client is billed: goods + commission, in the quote currency. */
@@ -419,6 +428,13 @@ export type OrderFinance = {
   supplierOutstanding: number;
   /** received − paidOut − expenses: cash actually kept so far. */
   netActual: number;
+  /**
+   * What rate movement between the quote and the money actually moving has
+   * done to this order so far, in the quote currency. Positive: rates moved
+   * in Mbarete's favour. Zero when every movement was in the quote currency
+   * or predates per-day rates.
+   */
+  fxGainLoss: number;
   /** expectedRevenue − expectedCost − expenses: where the order lands. */
   netExpected: number;
   /** netExpected as a share of expectedRevenue, null when revenue is 0. */
@@ -443,11 +459,15 @@ export function computeOrderFinance(
 ): OrderFinance {
   const missing = new Set<string>();
 
-  const sum = (entries: MoneyEntry[]) => {
+  // Each entry converts at the rates of its own day where it has them; the
+  // quote-rate sum alongside is what the same money would have been worth at
+  // the rates the order was priced with — the gap is the FX effect.
+  const sum = (entries: MoneyEntry[], atQuoteRates: boolean) => {
     let total = 0;
     for (const e of entries) {
       try {
-        total += convert(e.amount, e.currency, quoteCurrency, rates);
+        const useRates = !atQuoteRates && e.rates ? e.rates : rates;
+        total += convert(e.amount, e.currency, quoteCurrency, useRates);
       } catch (err) {
         if (err instanceof UnknownCurrencyError) missing.add(err.currency);
         else throw err;
@@ -456,9 +476,14 @@ export function computeOrderFinance(
     return total;
   };
 
-  const received = sum(input.paymentsIn);
-  const paidOut = sum(input.paymentsOut);
-  const expensesTotal = sum(input.expenses);
+  const received = sum(input.paymentsIn, false);
+  const paidOut = sum(input.paymentsOut, false);
+  const expensesTotal = sum(input.expenses, false);
+  const fxGainLoss =
+    received -
+    sum(input.paymentsIn, true) -
+    (paidOut - sum(input.paymentsOut, true)) -
+    (expensesTotal - sum(input.expenses, true));
 
   const netExpected = input.expectedRevenue - input.expectedCost - expensesTotal;
   return {
@@ -468,6 +493,7 @@ export function computeOrderFinance(
     clientOutstanding: input.expectedRevenue - received,
     supplierOutstanding: input.expectedCost - paidOut,
     netActual: received - paidOut - expensesTotal,
+    fxGainLoss,
     netExpected,
     marginPct:
       input.expectedRevenue > 0 ? (netExpected / input.expectedRevenue) * 100 : null,

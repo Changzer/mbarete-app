@@ -105,3 +105,18 @@ export async function saveCompanyProfile(
   revalidatePath("/orders");
   return undefined;
 }
+
+/** Pull today's rates now, rather than waiting for the six-hour cycle. */
+export async function refreshRatesNow(): Promise<
+  { ok: true; source: string } | { ok: false; error: string }
+> {
+  await requireSession();
+  const { refreshExchangeRates } = await import("@/lib/forex");
+  const result = await refreshExchangeRates();
+  if (result.ok) {
+    revalidatePath("/settings");
+    revalidatePath("/orders");
+    return { ok: true, source: result.source };
+  }
+  return { ok: false, error: result.error };
+}

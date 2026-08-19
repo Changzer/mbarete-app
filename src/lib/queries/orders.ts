@@ -73,3 +73,15 @@ export async function getOrderFinanceRows(orderId: number) {
   ]);
   return { payments, expenses, documents };
 }
+
+/** A stored rates snapshot, or undefined when the row predates them. */
+export function parseRatesSnapshot(json: string): Record<string, number> | undefined {
+  try {
+    const parsed = JSON.parse(json || "{}");
+    return parsed && typeof parsed === "object" && Object.keys(parsed).length > 0
+      ? parsed
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}

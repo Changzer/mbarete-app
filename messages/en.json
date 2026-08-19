@@ -196,7 +196,15 @@
     "example": "Example",
     "saveRate": "Save rate",
     "baseCurrency": "Base currency",
-    "deleteRateConfirm": "Delete this currency rate?"
+    "deleteRateConfirm": "Delete this currency rate?",
+    "autoHelp": "USD, CNY, RMB and BRL refresh automatically every six hours; a hand-typed rate applies until the next refresh. Any other currency you add stays manual.",
+    "refreshNow": "Refresh rates now",
+    "refreshOk": "Rates updated from {source}.",
+    "refreshFailed": "No rate provider reachable — the current rates stay in force. You can still edit them by hand.",
+    "lastAutoUpdate": "Last automatic update: {when}",
+    "neverAutoUpdated": "No automatic update yet — using seeded/manual rates.",
+    "sourceAuto": "auto",
+    "sourceManual": "manual"
   },
   "users": {
     "title": "Users",
@@ -320,7 +328,12 @@
     "expensesTotal": "Expenses",
     "netActual": "Net cash so far",
     "netExpected": "Net revenue when settled",
-    "netHelp": "Net cash is money received minus money paid out so far — negative is normal while the supplier is paid before the client settles. Net revenue is where the order lands once both sides pay in full."
+    "netHelp": "Net cash is money received minus money paid out so far — negative is normal while the supplier is paid before the client settles. Net revenue is where the order lands once both sides pay in full.",
+    "account": "Account",
+    "accountRmb": "RMB account",
+    "accountUsd": "USD account",
+    "accountOther": "Other / none",
+    "fxGainLoss": "FX gain/loss so far"
   },
   "financeReport": {
     "title": "Finance",

@@ -43,6 +43,7 @@ export async function seed() {
     { currencyCode: "USD", rateToUsd: 1 },
     { currencyCode: "CNY", rateToUsd: 0.14 },
     { currencyCode: "RMB", rateToUsd: 0.14 },
+    { currencyCode: "BRL", rateToUsd: 0.18 },
   ];
   const existingRates = new Set(
     db.select().from(exchangeRates).all().map((r) => r.currencyCode),

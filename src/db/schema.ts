@@ -5,6 +5,7 @@ import {
   integer,
   real,
   index,
+  primaryKey,
 } from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("users", {
@@ -108,10 +109,31 @@ export const productImages = sqliteTable(
 export const exchangeRates = sqliteTable("exchange_rates", {
   currencyCode: text("currency_code").primaryKey(),
   rateToUsd: real("rate_to_usd").notNull(),
+  /** "auto" rows are refreshed daily from the provider; "manual" rows were typed. */
+  source: text("source", { enum: ["manual", "auto"] })
+    .notNull()
+    .default("manual"),
   updatedAt: text("updated_at")
     .notNull()
     .default(sql`(current_timestamp)`),
 });
+
+/**
+ * One row per currency per day, written whenever the auto-fetch succeeds.
+ * The daily record backs "what was the rate when this happened" questions
+ * and keeps FX history even after the live table moves on.
+ */
+export const exchangeRateHistory = sqliteTable(
+  "exchange_rate_history",
+  {
+    /** ISO date, YYYY-MM-DD. */
+    day: text("day").notNull(),
+    currencyCode: text("currency_code").notNull(),
+    rateToUsd: real("rate_to_usd").notNull(),
+    source: text("source").notNull().default("auto"),
+  },
+  (table) => [primaryKey({ columns: [table.day, table.currencyCode] })],
+);
 
 /**
  * Mbarete's own details, as they appear at the top of a proforma invoice.
@@ -274,6 +296,15 @@ export const orderPayments = sqliteTable(
     currency: text("currency").notNull(),
     /** ISO date the money moved, not the date the row was typed in. */
     paidOn: text("paid_on").notNull(),
+    /**
+     * The rate table as it stood when this payment was recorded — the same
+     * freezing orders do. What a client's dollars were worth on the day they
+     * arrived must not drift when rates move later. Empty on legacy rows,
+     * which fall back to the order's own snapshot.
+     */
+    ratesSnapshot: text("rates_snapshot").notNull().default("{}"),
+    /** Which bank account the money touched, e.g. "USD" or "RMB". */
+    account: text("account").notNull().default(""),
     note: text("note").notNull().default(""),
     createdBy: integer("created_by").references(() => users.id),
     createdAt: text("created_at")
@@ -299,6 +330,8 @@ export const orderExpenses = sqliteTable(
     amount: real("amount").notNull(),
     currency: text("currency").notNull(),
     spentOn: text("spent_on").notNull(),
+    /** Same freezing as payments; see order_payments.rates_snapshot. */
+    ratesSnapshot: text("rates_snapshot").notNull().default("{}"),
     note: text("note").notNull().default(""),
     createdBy: integer("created_by").references(() => users.id),
     createdAt: text("created_at")

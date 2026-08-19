@@ -26,8 +26,21 @@ export type FinanceOrderInput = {
   expectedRevenue: number;
   /** goods alone — what the supplier charges — in the quote currency. */
   expectedCost: number;
-  payments: { direction: "in" | "out"; amount: number; currency: string; paidOn: string }[];
-  expenses: { category: string; amount: number; currency: string; spentOn: string }[];
+  payments: {
+    direction: "in" | "out";
+    amount: number;
+    currency: string;
+    paidOn: string;
+    /** the rate table frozen when the payment was recorded, when present */
+    rates?: CurrencyRates;
+  }[];
+  expenses: {
+    category: string;
+    amount: number;
+    currency: string;
+    spentOn: string;
+    rates?: CurrencyRates;
+  }[];
 };
 
 export type MonthRow = {
@@ -94,9 +107,13 @@ export function computeFinanceReport(
   rates: CurrencyRates,
 ): FinanceReport {
   const missing = new Set<string>();
-  const conv = (amount: number, from: string) => {
+  const conv = (amount: number, from: string, own?: CurrencyRates) => {
     try {
-      return convert(amount, from, reportCurrency, rates);
+      // Money that recorded its own day's rates is valued at them; the
+      // report currency leg still needs today's table when the snapshot
+      // does not carry the report currency.
+      const table = own && own[reportCurrency] !== undefined ? own : rates;
+      return convert(amount, from, reportCurrency, table);
     } catch (err) {
       if (err instanceof UnknownCurrencyError) {
         missing.add(err.currency);
@@ -140,7 +157,7 @@ export function computeFinanceReport(
     let received = 0;
     let paidOut = 0;
     for (const p of order.payments) {
-      const amount = conv(p.amount, p.currency);
+      const amount = conv(p.amount, p.currency, p.rates);
       const m = monthRow(month(p.paidOn));
       if (p.direction === "in") {
         received += amount;
@@ -154,7 +171,7 @@ export function computeFinanceReport(
     }
     let orderExpenses = 0;
     for (const e of order.expenses) {
-      const amount = conv(e.amount, e.currency);
+      const amount = conv(e.amount, e.currency, e.rates);
       orderExpenses += amount;
       totals.expensesTotal += amount;
       byCategory.set(e.category, (byCategory.get(e.category) ?? 0) + amount);

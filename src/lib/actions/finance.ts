@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { saveUploadedDocument, deleteUpload } from "@/lib/uploads";
 import { logOrderEvent } from "@/lib/order-log";
+import { getExchangeRates } from "@/lib/queries/orders";
 
 async function requireSession() {
   const session = await auth();
@@ -36,6 +37,7 @@ const paymentSchema = z.object({
   amount: z.coerce.number().positive(),
   currency: z.string().trim().min(1).max(8).transform((s) => s.toUpperCase()),
   paidOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  account: z.string().trim().max(32).default(""),
   note: z.string().default(""),
 });
 
@@ -50,8 +52,12 @@ export async function addPayment(
   const parsed = paymentSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "invalid" };
 
+  // Freeze today's rates onto the payment: what this money was worth the day
+  // it was recorded must not drift when rates move later.
+  const ratesSnapshot = JSON.stringify(await getExchangeRates());
+
   db.insert(orderPayments)
-    .values({ orderId, createdBy: userId, ...parsed.data })
+    .values({ orderId, createdBy: userId, ratesSnapshot, ...parsed.data })
     .run();
   logOrderEvent(orderId, userId, "payment_added", parsed.data);
   refresh(orderId);
@@ -106,8 +112,10 @@ export async function addExpense(
   const parsed = expenseSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "invalid" };
 
+  const ratesSnapshot = JSON.stringify(await getExchangeRates());
+
   db.insert(orderExpenses)
-    .values({ orderId, createdBy: userId, ...parsed.data })
+    .values({ orderId, createdBy: userId, ratesSnapshot, ...parsed.data })
     .run();
   logOrderEvent(orderId, userId, "expense_added", parsed.data);
   refresh(orderId);

@@ -20,10 +20,12 @@ export default async function FinancePage({
 
   const { orders, rates } = await getFinanceData();
   const codes = Object.keys(rates).sort();
+  // RMB is the functional currency: costs are RMB, so profit is real in RMB.
+  const fallback = rates["RMB"] !== undefined ? "RMB" : "USD";
   const reportCurrency =
     currency && rates[currency.toUpperCase()] !== undefined
       ? currency.toUpperCase()
-      : "USD";
+      : fallback;
   const report = computeFinanceReport(orders, reportCurrency, rates);
 
   const money = (n: number) =>

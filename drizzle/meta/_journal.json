@@ -71,6 +71,13 @@
       "when": 1787102939549,
       "tag": "0009_mature_purifiers",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1787103806199,
+      "tag": "0010_exotic_magdalene",
+      "breakpoints": true
     }
   ]
 }

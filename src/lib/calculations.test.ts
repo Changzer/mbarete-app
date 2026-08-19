@@ -510,3 +510,75 @@ test("snapshot lines without a sell price behave exactly as before", () => {
   closeTo(totals.goods.CNY, 100);
   closeTo(totals.cost.CNY, 100);
 });
+
+// --- per-day rates and FX ----------------------------------------------------
+
+test("a payment converts at the rates of its own day", () => {
+  // Quote priced at CNY 0.14; the client's 7140 CNY arrived on a day when
+  // CNY was worth 0.135 — the money banked is 963.90 USD, not 999.60.
+  const fin = computeOrderFinance(
+    {
+      expectedRevenue: 999.6,
+      expectedCost: 800,
+      paymentsIn: [{ amount: 7140, currency: "CNY", rates: { USD: 1, CNY: 0.135 } }],
+      paymentsOut: [],
+      expenses: [],
+    },
+    "USD",
+    RATES,
+  );
+  closeTo(fin.received, 963.9);
+  // The shortfall stays visible as outstanding, and the FX line names it.
+  closeTo(fin.clientOutstanding, 999.6 - 963.9);
+  closeTo(fin.fxGainLoss, 963.9 - 999.6);
+});
+
+test("FX nets across directions: losing on receipts, gaining on payouts", () => {
+  const fin = computeOrderFinance(
+    {
+      expectedRevenue: 1000,
+      expectedCost: 700,
+      paymentsIn: [{ amount: 7140, currency: "CNY", rates: { USD: 1, CNY: 0.135 } }],
+      // Paying the supplier when CNY was cheap costs fewer USD than quoted.
+      paymentsOut: [{ amount: 5000, currency: "CNY", rates: { USD: 1, CNY: 0.135 } }],
+      expenses: [],
+    },
+    "USD",
+    RATES,
+  );
+  // in: 963.90 vs 999.60 → −35.70 ; out: 675 vs 700 → saved 25 → net −10.70
+  closeTo(fin.fxGainLoss, -35.7 + 25);
+});
+
+test("entries without their own rates behave exactly as before", () => {
+  const fin = computeOrderFinance(
+    {
+      expectedRevenue: 1000,
+      expectedCost: 800,
+      paymentsIn: [{ amount: 300, currency: "USD" }],
+      paymentsOut: [{ amount: 5714.29, currency: "CNY" }],
+      expenses: [{ amount: 50, currency: "USD" }],
+    },
+    "USD",
+    RATES,
+  );
+  closeTo(fin.fxGainLoss, 0);
+});
+
+test("the identity holds with per-day rates: actual + outstandings = expected", () => {
+  const fin = computeOrderFinance(
+    {
+      expectedRevenue: 1000,
+      expectedCost: 700,
+      paymentsIn: [{ amount: 2000, currency: "BRL", rates: { USD: 1, BRL: 0.19 } }],
+      paymentsOut: [{ amount: 3000, currency: "CNY", rates: { USD: 1, CNY: 0.142 } }],
+      expenses: [{ amount: 100, currency: "CNY", rates: { USD: 1, CNY: 0.138 } }],
+    },
+    "USD",
+    { USD: 1, CNY: 0.14, BRL: 0.18 },
+  );
+  closeTo(
+    fin.netActual + fin.clientOutstanding - fin.supplierOutstanding,
+    fin.netExpected,
+  );
+});

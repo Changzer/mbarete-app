@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getOrderView } from "@/lib/queries/order-view";
-import { getOrderFinanceRows } from "@/lib/queries/orders";
+import { getOrderFinanceRows, parseRatesSnapshot } from "@/lib/queries/orders";
 import { getUserNames } from "@/lib/queries/users";
 import type { Locale } from "@/i18n/routing";
 import { computeOrderFinance, formatCbm } from "@/lib/calculations";
@@ -45,9 +45,16 @@ export default async function OrderDetailPage({
     {
       expectedRevenue: totals.grandTotal[quote] ?? 0,
       expectedCost: totals.cost[quote] ?? 0,
-      paymentsIn: finance.payments.filter((p) => p.direction === "in"),
-      paymentsOut: finance.payments.filter((p) => p.direction === "out"),
-      expenses: finance.expenses,
+      paymentsIn: finance.payments
+        .filter((p) => p.direction === "in")
+        .map((p) => ({ ...p, rates: parseRatesSnapshot(p.ratesSnapshot) })),
+      paymentsOut: finance.payments
+        .filter((p) => p.direction === "out")
+        .map((p) => ({ ...p, rates: parseRatesSnapshot(p.ratesSnapshot) })),
+      expenses: finance.expenses.map((e) => ({
+        ...e,
+        rates: parseRatesSnapshot(e.ratesSnapshot),
+      })),
     },
     quote,
     effectiveRates,
