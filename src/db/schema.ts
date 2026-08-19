@@ -165,6 +165,29 @@ export const companyProfile = sqliteTable("company_profile", {
     .default(sql`(current_timestamp)`),
 });
 
+/**
+ * Beneficiary accounts a proforma can be paid into. Different clients pay
+ * through different rails — a Brazilian client wires USD, a local one
+ * transfers RMB — so each order picks which of these prints on its invoice.
+ * The default row is what a proforma shows when the order never chose.
+ */
+export const bankAccounts = sqliteTable("bank_accounts", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  /** Short name shown in dropdowns, e.g. "Tailong Bank — RMB". */
+  label: text("label").notNull(),
+  bankName: text("bank_name").notNull().default(""),
+  accountName: text("account_name").notNull().default(""),
+  accountNumber: text("account_number").notNull().default(""),
+  swift: text("swift").notNull().default(""),
+  bankAddress: text("bank_address").notNull().default(""),
+  /** Which currency this account receives, informational only. */
+  currency: text("currency").notNull().default(""),
+  isDefault: integer("is_default", { mode: "boolean" }).notNull().default(false),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
 export const contacts = sqliteTable(
   "contacts",
   {
@@ -206,6 +229,11 @@ export const orders = sqliteTable(
     // Rates in force when the order was saved, so a stored quote does not move
     // when the rate table is later edited. JSON: {"CNY":0.14,"USD":1}
     ratesSnapshot: text("rates_snapshot").notNull().default("{}"),
+    // Which bank account the proforma shows. Null means "the default one",
+    // so orders that never chose keep following whatever Settings says.
+    bankAccountId: integer("bank_account_id").references(() => bankAccounts.id, {
+      onDelete: "set null",
+    }),
     notes: text("notes").notNull().default(""),
     createdBy: integer("created_by")
       .notNull()

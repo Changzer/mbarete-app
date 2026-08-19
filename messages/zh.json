@@ -186,7 +186,9 @@
     "lineMarkup": "加价 {pct}%",
     "supplierCost": "供应商成本",
     "grossMargin": "毛利（未扣费用）",
-    "saveChanges": "保存修改"
+    "saveChanges": "保存修改",
+    "proformaBank": "发票银行",
+    "proformaBankDefault": "默认：{label}"
   },
   "settings": {
     "exchangeRates": "汇率",
@@ -232,14 +234,27 @@
   },
   "company": {
     "title": "公司信息",
-    "help": "将作为卖方抬头打印在每张形式发票顶部，并附上收款银行信息。",
+    "help": "打印在每张形式发票顶部的卖方信息栏。",
     "companyName": "公司名称",
     "taxId": "税号 / 营业执照号",
     "address": "地址",
     "phone": "电话",
     "email": "邮箱",
     "website": "网站",
-    "bankSection": "收款银行信息",
+    "banksTitle": "银行账户",
+    "banksHelp": "登记客户可以付款的所有账户。每个订单可选择在形式发票上显示哪个账户；未选择时使用默认账户。",
+    "banksEmpty": "还没有银行账户。请在下方添加第一个账户，它将成为形式发票上显示的默认账户。",
+    "bankLabel": "名称",
+    "bankLabelHint": "在订单下拉框中的显示方式，例如“泰隆银行 — 人民币”。",
+    "bankCurrency": "币种",
+    "bankCurrencyHint": "选填，例如 USD 或 RMB。",
+    "bankDefault": "默认",
+    "bankMakeDefault": "设为默认",
+    "bankDeleteConfirm": "删除“{label}”？使用该账户的订单将改用默认账户。",
+    "bankAddTitle": "添加银行账户",
+    "bankEditTitle": "编辑：{label}",
+    "bankInvalid": "无法保存——名称为必填项（最多 80 个字符），其他字段也有长度限制。",
+    "bankGone": "该账户已被删除——未保存任何内容。",
     "bankAccountName": "账户名称",
     "bankName": "开户银行",
     "bankAccountNumber": "账号 / IBAN",
@@ -390,6 +405,7 @@
     "changeLineAdded": "新增 {sku} × {qty}",
     "changeLineRemoved": "移除 {sku}",
     "changeLineQty": "{sku}：数量 {from} → {to}",
-    "changeLinePrice": "{sku}：售价 {from} → {to}"
+    "changeLinePrice": "{sku}：售价 {from} → {to}",
+    "changeBank": "形式发票银行账户：{from} → {to}"
   }
 }
