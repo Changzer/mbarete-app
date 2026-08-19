@@ -11,6 +11,7 @@ import { Link } from "@/i18n/navigation";
 import { OrderStatusActions } from "@/components/orders/order-status-actions";
 import { OrderFinance } from "@/components/orders/order-finance";
 import { OrderResult } from "@/components/orders/order-result";
+import { OrderChangelog } from "@/components/orders/order-changelog";
 
 const STATUS_VARIANT = {
   draft: "secondary",
@@ -221,6 +222,8 @@ export default async function OrderDetailPage({
       </div>
 
       <OrderResult fin={fin} quote={quote} />
+
+      <OrderChangelog orderId={order.id} locale={locale} />
     </div>
   );
 }

@@ -51,6 +51,9 @@ export function OrderStatusActions({
         ) : null}
         {status === "confirmed" ? (
           <>
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/orders/${orderId}/edit`}>{common("edit")}</Link>
+            </Button>
             <Button size="sm" disabled={isPending} onClick={() => transition("shipped")}>
               {t("markShipped")}
             </Button>

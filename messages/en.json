@@ -185,7 +185,8 @@
     "lineCost": "Cost",
     "lineMarkup": "Markup {pct}%",
     "supplierCost": "Supplier cost",
-    "grossMargin": "Your margin (before expenses)"
+    "grossMargin": "Your margin (before expenses)",
+    "saveChanges": "Save changes"
   },
   "settings": {
     "exchangeRates": "Exchange Rates",
@@ -348,5 +349,31 @@
     "margin": "Margin",
     "outstanding": "Owes",
     "noData": "Nothing recorded yet."
+  },
+  "orderLog": {
+    "title": "History",
+    "empty": "No history yet. Changes to this order will be recorded here.",
+    "created": "Created the order.",
+    "edited": "Edited the order:",
+    "statusChanged": "Changed the status from {from} to {to}.",
+    "status_draft": "Draft",
+    "status_confirmed": "Confirmed",
+    "status_shipped": "Shipped",
+    "status_cancelled": "Cancelled",
+    "paymentInAdded": "Recorded a client payment of {amount} {currency}.",
+    "paymentOutAdded": "Recorded a supplier payment of {amount} {currency}.",
+    "paymentRemoved": "Removed a payment of {amount} {currency}.",
+    "expenseAdded": "Added a {category} expense of {amount} {currency}.",
+    "expenseRemoved": "Removed a {category} expense of {amount} {currency}.",
+    "documentAdded": "Uploaded {name}.",
+    "documentRemoved": "Deleted {name}.",
+    "changeClient": "Client: {from} → {to}",
+    "changeCommission": "Commission: {from}% → {to}%",
+    "changeCurrency": "Quote currency: {from} → {to}",
+    "changeNotes": "Notes updated",
+    "changeLineAdded": "Added {sku} × {qty}",
+    "changeLineRemoved": "Removed {sku}",
+    "changeLineQty": "{sku}: quantity {from} → {to}",
+    "changeLinePrice": "{sku}: sell price {from} → {to}"
   }
 }

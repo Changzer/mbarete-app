@@ -307,3 +307,41 @@ export const orderExpenses = sqliteTable(
   },
   (table) => [index("order_expenses_order_idx").on(table.orderId)],
 );
+
+/**
+ * The order's history: who did what to it, and when.
+ *
+ * Events store structured payloads rather than prose, so the changelog can be
+ * rendered in whichever language the reader is using. Display values (names,
+ * codes, amounts) are captured at write time — a later rename or deletion
+ * must not rewrite what the log says happened.
+ */
+export const orderEvents = sqliteTable(
+  "order_events",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    orderId: integer("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    userId: integer("user_id").references(() => users.id),
+    kind: text("kind", {
+      enum: [
+        "created",
+        "edited",
+        "status",
+        "payment_added",
+        "payment_removed",
+        "expense_added",
+        "expense_removed",
+        "document_added",
+        "document_removed",
+      ],
+    }).notNull(),
+    /** JSON payload; shape depends on kind. See src/lib/order-log.ts. */
+    payload: text("payload").notNull().default("{}"),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
+  },
+  (table) => [index("order_events_order_idx").on(table.orderId)],
+);

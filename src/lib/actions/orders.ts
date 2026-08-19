@@ -18,6 +18,8 @@ import {
 } from "@/lib/calculations";
 import { nextOrderNumber, getExchangeRates } from "@/lib/queries/orders";
 import { deleteUpload } from "@/lib/uploads";
+import { logOrderEvent, diffOrderEdit } from "@/lib/order-log";
+import { contacts } from "@/db/schema";
 
 const orderItemInput = z.object({
   productId: z.number().int().positive(),
@@ -119,6 +121,8 @@ export async function createOrder(input: unknown): Promise<OrderActionResult> {
     return newOrderId;
   });
 
+  logOrderEvent(orderId, Number(session!.user!.id), "created", {});
+
   revalidatePath("/orders");
   return redirect({ href: `/orders/${orderId}`, locale: (await getLocale()) as Locale });
 }
@@ -142,6 +146,14 @@ export async function updateOrder(
 
   const session = await auth();
   const userId = Number(session!.user!.id);
+
+  // The state being replaced, captured for the changelog before it is gone.
+  const before = db.select().from(orders).where(eq(orders.id, id)).get();
+  const beforeItems = await db
+    .select()
+    .from(orderItems)
+    .where(eq(orderItems.orderId, id))
+    .all();
 
   db.transaction((tx) => {
     tx.update(orders)
@@ -167,6 +179,45 @@ export async function updateOrder(
     }
   });
 
+  if (before) {
+    const productIds = [
+      ...new Set([...beforeItems.map((i) => i.productId), ...rows.map((r) => r.productId)]),
+    ];
+    const productRows = productIds.length
+      ? await db.select().from(products).where(inArray(products.id, productIds)).all()
+      : [];
+    const skuById = new Map(productRows.map((p) => [p.id, p.sku]));
+    const clientIds = [...new Set([before.clientId, data.clientId])];
+    const clientRows = await db
+      .select()
+      .from(contacts)
+      .where(inArray(contacts.id, clientIds))
+      .all();
+    const clientById = new Map(clientRows.map((c) => [c.id, c.companyName]));
+
+    const changes = diffOrderEdit(
+      before,
+      beforeItems.map((i) => ({
+        productId: i.productId,
+        quantity: i.quantity,
+        // What was effectively charged: pre-sell-price rows store 0.
+        sellPrice: i.sellPriceSnapshot > 0 ? i.sellPriceSnapshot : i.unitPriceSnapshot,
+      })),
+      data,
+      rows.map((r) => ({
+        productId: r.productId,
+        quantity: r.quantity,
+        sellPrice: r.sellPriceSnapshot,
+      })),
+      (pid) => skuById.get(pid) ?? `#${pid}`,
+      (cid) => clientById.get(cid) ?? `#${cid}`,
+    );
+    // An edit that changed nothing is not history worth keeping.
+    if (changes.length > 0) {
+      logOrderEvent(id, userId, "edited", { changes });
+    }
+  }
+
   revalidatePath("/orders");
   revalidatePath(`/orders/${id}`);
   return redirect({ href: `/orders/${id}`, locale: (await getLocale()) as Locale });
@@ -188,10 +239,21 @@ export async function setOrderStatus(
     if (hasMoqViolation) return { error: "moq" };
   }
 
+  const current = db.select().from(orders).where(eq(orders.id, id)).get();
+  if (!current) return { error: "not-found" };
+
   db.update(orders)
     .set({ status, updatedAt: new Date().toISOString() })
     .where(eq(orders.id, id))
     .run();
+
+  if (current.status !== status) {
+    const session = await auth();
+    logOrderEvent(id, Number(session?.user?.id ?? 0) || null, "status", {
+      from: current.status,
+      to: status,
+    });
+  }
 
   revalidatePath("/orders");
   revalidatePath(`/orders/${id}`);

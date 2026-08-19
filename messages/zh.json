@@ -185,7 +185,8 @@
     "lineCost": "成本",
     "lineMarkup": "加价 {pct}%",
     "supplierCost": "供应商成本",
-    "grossMargin": "毛利（未扣费用）"
+    "grossMargin": "毛利（未扣费用）",
+    "saveChanges": "保存修改"
   },
   "settings": {
     "exchangeRates": "汇率",
@@ -348,5 +349,31 @@
     "margin": "利润率",
     "outstanding": "未付",
     "noData": "暂无记录。"
+  },
+  "orderLog": {
+    "title": "变更记录",
+    "empty": "暂无记录。此订单的所有变更都会记录在这里。",
+    "created": "创建了订单。",
+    "edited": "修改了订单：",
+    "statusChanged": "将状态从「{from}」改为「{to}」。",
+    "status_draft": "草稿",
+    "status_confirmed": "已确认",
+    "status_shipped": "已发货",
+    "status_cancelled": "已取消",
+    "paymentInAdded": "记录了一笔客户付款 {amount} {currency}。",
+    "paymentOutAdded": "记录了一笔供应商付款 {amount} {currency}。",
+    "paymentRemoved": "删除了一笔付款 {amount} {currency}。",
+    "expenseAdded": "添加了一笔{category}费用 {amount} {currency}。",
+    "expenseRemoved": "删除了一笔{category}费用 {amount} {currency}。",
+    "documentAdded": "上传了 {name}。",
+    "documentRemoved": "删除了 {name}。",
+    "changeClient": "客户：{from} → {to}",
+    "changeCommission": "佣金：{from}% → {to}%",
+    "changeCurrency": "报价货币：{from} → {to}",
+    "changeNotes": "备注已更新",
+    "changeLineAdded": "新增 {sku} × {qty}",
+    "changeLineRemoved": "移除 {sku}",
+    "changeLineQty": "{sku}：数量 {from} → {to}",
+    "changeLinePrice": "{sku}：售价 {from} → {to}"
   }
 }
