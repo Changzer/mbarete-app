@@ -20,6 +20,7 @@ import {
   formatWeightKg,
   missingCartonFigures,
   computeOrderFinance,
+  sellUnitPrice,
 } from "./calculations";
 import type { SnapshotLine } from "./calculations";
 
@@ -458,4 +459,54 @@ test("order finance: margin is null rather than dividing by zero", () => {
     RATES,
   );
   assert.equal(fin.marginPct, null);
+});
+
+// --- selling prices ----------------------------------------------------------
+
+test("a product with no selling price sells at cost", () => {
+  assert.equal(sellUnitPrice({ price: 1.5 }), 1.5);
+  assert.equal(sellUnitPrice({ price: 1.5, sellPrice: 0 }), 1.5);
+  assert.equal(sellUnitPrice({ price: 1.5, sellPrice: 1.8 }), 1.8);
+});
+
+test("per-line markup flows into goods, and commission stacks on top of it", () => {
+  // Buy at 1.5, invoice at 1.8, 1000 pcs: cost 1500, goods 1800.
+  const marked = { ...chicken, price: 1.5, sellPrice: 1.8, qtyPerBox: 100, moq: 1 };
+  const totals = computeOrderTotals([{ product: marked, quantity: 1000 }], ["CNY"], RATES, 10);
+  closeTo(totals.cost.CNY, 1500);
+  closeTo(totals.goods.CNY, 1800);
+  // 10% commission on the invoiced 1800, not on the 1500 cost.
+  closeTo(totals.commission.CNY, 180);
+  closeTo(totals.grandTotal.CNY, 1980);
+});
+
+test("without selling prices, cost equals goods and nothing else moves", () => {
+  // The exact behaviour of every order saved before selling prices existed.
+  const totals = computeOrderTotals([{ product: chicken, quantity: 10 }], ["CNY"], RATES, 10);
+  closeTo(totals.cost.CNY, totals.goods.CNY);
+  closeTo(totals.goods.CNY, 100);
+  closeTo(totals.grandTotal.CNY, 110);
+});
+
+test("snapshot totals honour the frozen sell price and keep cost apart", () => {
+  const totals = computeSnapshotTotals(
+    [snapshotLine({ quantity: 100, unitPrice: 1.5, sellPrice: 1.8, currency: "CNY" })],
+    ["CNY", "USD"],
+    RATES,
+    10,
+  );
+  closeTo(totals.cost.CNY, 150);
+  closeTo(totals.goods.CNY, 180);
+  closeTo(totals.grandTotal.CNY, 198);
+  closeTo(totals.goods.USD, 25.2);
+});
+
+test("snapshot lines without a sell price behave exactly as before", () => {
+  const totals = computeSnapshotTotals(
+    [snapshotLine({ quantity: 10, unitPrice: 10, sellPrice: 0, currency: "CNY" })],
+    ["CNY"],
+    RATES,
+  );
+  closeTo(totals.goods.CNY, 100);
+  closeTo(totals.cost.CNY, 100);
 });

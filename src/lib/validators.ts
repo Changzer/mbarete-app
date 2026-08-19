@@ -19,6 +19,7 @@ export const productSchema = z
     descriptionEn: z.string().default(""),
     descriptionZh: z.string().default(""),
     price: z.coerce.number().nonnegative(),
+    sellPrice: z.coerce.number().nonnegative().default(0),
     currency: z.string().min(1),
     moq: z.coerce.number().int().positive(),
     qtyPerBox: z.coerce.number().int().positive(),

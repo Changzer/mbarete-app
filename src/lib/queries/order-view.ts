@@ -11,6 +11,9 @@ export type OrderViewRow = {
   name: string;
   quantity: number;
   unitPriceSnapshot: number;
+  /** the invoiced price per unit; equals the cost on pre-sell-price orders */
+  sellPrice: number;
+  sellTotal: number;
   currencySnapshot: string;
   moqSnapshot: number;
   lineTotal: number;
@@ -70,6 +73,11 @@ export async function getOrderView(orderId: number, locale: Locale) {
         : `#${item.productId}`,
       quantity: item.quantity,
       unitPriceSnapshot: item.unitPriceSnapshot,
+      sellPrice:
+        item.sellPriceSnapshot > 0 ? item.sellPriceSnapshot : item.unitPriceSnapshot,
+      sellTotal:
+        (item.sellPriceSnapshot > 0 ? item.sellPriceSnapshot : item.unitPriceSnapshot) *
+        item.quantity,
       currencySnapshot: item.currencySnapshot,
       moqSnapshot: item.moqSnapshot,
       lineTotal: item.lineTotal,
@@ -86,6 +94,7 @@ export async function getOrderView(orderId: number, locale: Locale) {
     rows.map((r) => ({
       quantity: r.quantity,
       unitPrice: r.unitPriceSnapshot,
+      sellPrice: r.sellPrice,
       currency: r.currencySnapshot,
       moq: r.moqSnapshot,
       lineCbm: r.lineCbm,

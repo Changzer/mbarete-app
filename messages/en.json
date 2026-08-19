@@ -101,7 +101,11 @@
     "errorRequiredFields": "A name, price, MOQ and pieces per carton are required.",
     "errorDuplicateSku": "That SKU already belongs to another product.",
     "errorImage": "The photos could not be saved. Try again.",
-    "deleteOnOrders": "This product is on saved orders, so it cannot be deleted — untick Active instead to hide it from the catalog."
+    "deleteOnOrders": "This product is on saved orders, so it cannot be deleted — untick Active instead to hide it from the catalog.",
+    "costPrice": "Supplier price (cost)",
+    "sellPrice": "Selling price",
+    "sellPriceHelp": "What the client is invoiced per unit. Leave blank to invoice at the supplier price; you can always change it per order.",
+    "sellsAtCost": "At cost — not set"
   },
   "contacts": {
     "title": "Contacts",
@@ -175,7 +179,13 @@
     "filedBy": "Filed by",
     "updatedBy": "Last edited by",
     "unknownUser": "—",
-    "unmeasuredIncluded": "Some products have no carton measurements, so volume and weight are lower than the real shipment."
+    "unmeasuredIncluded": "Some products have no carton measurements, so volume and weight are lower than the real shipment.",
+    "unitCost": "Unit cost",
+    "sellPriceLabel": "Sell at",
+    "lineCost": "Cost",
+    "lineMarkup": "Markup {pct}%",
+    "supplierCost": "Supplier cost",
+    "grossMargin": "Your margin (before expenses)"
   },
   "settings": {
     "exchangeRates": "Exchange Rates",

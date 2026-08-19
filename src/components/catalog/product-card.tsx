@@ -26,6 +26,7 @@ export type CatalogProduct = {
   description: string;
   categoryName: string;
   price: number;
+  sellPrice: number;
   currency: string;
   moq: number;
   qtyPerBox: number;
@@ -195,9 +196,17 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
 
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
             <div>
-              <dt className="text-neutral-500 dark:text-neutral-400">{t("price")}</dt>
+              <dt className="text-neutral-500 dark:text-neutral-400">{t("costPrice")}</dt>
               <dd className="font-medium text-neutral-900 dark:text-neutral-100">
                 {product.price.toFixed(2)} {product.currency}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-neutral-500 dark:text-neutral-400">{t("sellPrice")}</dt>
+              <dd className="font-medium text-neutral-900 dark:text-neutral-100" data-testid="card-sell-price">
+                {product.sellPrice > 0
+                  ? `${product.sellPrice.toFixed(2)} ${product.currency}`
+                  : t("sellsAtCost")}
               </dd>
             </div>
             <div>

@@ -25,6 +25,8 @@ import {
   lineTotal,
   type CurrencyRates,
   missingCartonFigures,
+  sellUnitPrice,
+  lineSellTotal,
 } from "@/lib/calculations";
 import { createOrder, updateOrder, type OrderActionResult } from "@/lib/actions/orders";
 import { createContact, updateContact } from "@/lib/actions/contacts";
@@ -49,6 +51,8 @@ export type BuilderProduct = {
   weightKg: number;
   cbm: number;
   dimensionSource: "carton" | "piece";
+  /** default selling price; 0 = none set, sells at the supplier price */
+  sellPrice: number;
 };
 
 type Client = {
@@ -84,7 +88,7 @@ export function OrderBuilder({
     secondaryCurrency: string;
     commissionPct: number;
     notes: string;
-    items: { productId: number; quantity: number }[];
+    items: { productId: number; quantity: number; sellPrice: number }[];
   };
 }) {
   const t = useTranslations("orders");
@@ -104,10 +108,12 @@ export function OrderBuilder({
     initial?.commissionPct !== undefined ? String(initial.commissionPct) : "0",
   );
   const [notes, setNotes] = useState(initial?.notes ?? "");
-  const [cart, setCart] = useState<Record<number, number>>(() => {
-    const map: Record<number, number> = {};
+  // Each line owns its quantity and the price the client will be invoiced.
+  // The sell price is text while being edited so a half-typed "1." survives.
+  const [cart, setCart] = useState<Record<number, { qty: number; sellPrice: string }>>(() => {
+    const map: Record<number, { qty: number; sellPrice: string }> = {};
     initial?.items.forEach((i) => {
-      map[i.productId] = i.quantity;
+      map[i.productId] = { qty: i.quantity, sellPrice: String(i.sellPrice) };
     });
     return map;
   });
@@ -154,12 +160,17 @@ export function OrderBuilder({
 
   const cartLines = useMemo(() => {
     return Object.entries(cart)
-      .filter(([, qty]) => qty > 0)
-      .map(([productId, quantity]) => ({
-        product: productMap.get(Number(productId))!,
-        quantity,
-      }))
-      .filter((l) => l.product);
+      .filter(([, entry]) => entry.qty > 0)
+      .map(([productId, entry]) => {
+        const product = productMap.get(Number(productId))!;
+        if (!product) return null;
+        // The chosen sell price rides inside the product the maths reads, so
+        // computeOrderTotals needs no special order-builder path.
+        const chosen = Number(entry.sellPrice);
+        const sellPrice = Number.isFinite(chosen) && chosen > 0 ? chosen : sellUnitPrice(product);
+        return { product: { ...product, sellPrice }, quantity: entry.qty };
+      })
+      .filter((l): l is NonNullable<typeof l> => l !== null);
   }, [cart, productMap]);
 
   // Both currencies are shown side by side: cost is usually quoted by the
@@ -189,7 +200,27 @@ export function OrderBuilder({
   );
 
   function setQuantity(productId: number, quantity: number) {
-    setCart((prev) => ({ ...prev, [productId]: Math.max(0, Math.floor(quantity) || 0) }));
+    const qty = Math.max(0, Math.floor(quantity) || 0);
+    setCart((prev) => {
+      const existing = prev[productId];
+      const product = productMap.get(productId);
+      return {
+        ...prev,
+        [productId]: {
+          qty,
+          // First touch pre-fills the product's own selling price (or cost).
+          sellPrice:
+            existing?.sellPrice ?? String(product ? sellUnitPrice(product) : ""),
+        },
+      };
+    });
+  }
+
+  function setSellPrice(productId: number, value: string) {
+    setCart((prev) => ({
+      ...prev,
+      [productId]: { qty: prev[productId]?.qty ?? 0, sellPrice: value },
+    }));
   }
 
   async function handleSubmit(status: "draft" | "confirmed") {
@@ -210,7 +241,11 @@ export function OrderBuilder({
       commissionPct: commissionValue,
       notes,
       status,
-      items: cartLines.map((l) => ({ productId: l.product.id, quantity: l.quantity })),
+      items: cartLines.map((l) => ({
+        productId: l.product.id,
+        quantity: l.quantity,
+        sellPrice: l.product.sellPrice,
+      })),
     };
 
     startTransition(async () => {
@@ -251,7 +286,7 @@ export function OrderBuilder({
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {filteredProducts.map((p) => {
-            const qty = cart[p.id] ?? 0;
+            const qty = cart[p.id]?.qty ?? 0;
             const below = isBelowMoq(qty, p.moq);
             const partial = isPartialCarton(p, qty);
             const suggestion = suggestedQuantity(p, qty);
@@ -412,12 +447,45 @@ export function OrderBuilder({
                       {t("removeLine")}
                     </button>
                   </div>
-                  <div className="flex items-center justify-between text-neutral-500 dark:text-neutral-400">
+                  <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
                     <span>
-                      {quantity} × {product.price.toFixed(2)} {product.currency}
+                      {t("lineCost")}: {quantity} × {product.price.toFixed(2)} {product.currency}
                     </span>
                     <span>{lineTotal(product, quantity).toFixed(2)} {product.currency}</span>
                   </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <label className="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400">
+                      {t("sellPriceLabel")}
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        step="0.01"
+                        min="0"
+                        value={cart[product.id]?.sellPrice ?? ""}
+                        onChange={(e) => setSellPrice(product.id, e.target.value)}
+                        className="h-7 w-24 text-sm"
+                        data-testid={`sell-price-${product.sku}`}
+                      />
+                      {product.currency}
+                    </label>
+                    <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                      {lineSellTotal(product, quantity).toFixed(2)} {product.currency}
+                    </span>
+                  </div>
+                  {product.price > 0 ? (
+                    <span
+                      className={`w-fit text-xs ${
+                        product.sellPrice && product.sellPrice < product.price
+                          ? "font-medium text-red-600 dark:text-red-400"
+                          : "text-neutral-500 dark:text-neutral-400"
+                      }`}
+                      data-testid={`line-markup-${product.sku}`}
+                    >
+                      {t("lineMarkup", {
+                        pct: (((sellUnitPrice(product) - product.price) / product.price) * 100).toFixed(1),
+                      })}
+                    </span>
+                  ) : null}
                   <div className="flex items-center justify-between text-xs text-neutral-400 dark:text-neutral-500">
                     <span>{t("cartons", { count: fullCartons(product, quantity) })}</span>
                     <span>{quantity} / {product.qtyPerBox} {t("perCarton")}</span>
@@ -485,6 +553,27 @@ export function OrderBuilder({
                   </span>
                 </div>
               ))}
+            </div>
+            <div className="flex flex-col gap-1 border-t border-neutral-200 dark:border-neutral-800 pt-2">
+              <div className="flex justify-between text-xs">
+                <span className="text-neutral-500 dark:text-neutral-400">{t("supplierCost")}</span>
+                <span className="text-neutral-700 dark:text-neutral-300" data-testid="builder-cost">
+                  {(totals.cost[displayCurrency] ?? 0).toFixed(2)} {displayCurrency}
+                </span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-neutral-500 dark:text-neutral-400">{t("grossMargin")}</span>
+                <span
+                  className={`font-medium ${
+                    (totals.grandTotal[displayCurrency] ?? 0) - (totals.cost[displayCurrency] ?? 0) < 0
+                      ? "text-red-600 dark:text-red-400"
+                      : "text-neutral-900 dark:text-neutral-100"
+                  }`}
+                  data-testid="builder-margin"
+                >
+                  {((totals.grandTotal[displayCurrency] ?? 0) - (totals.cost[displayCurrency] ?? 0)).toFixed(2)} {displayCurrency}
+                </span>
+              </div>
             </div>
             <div className="flex justify-between">
               <span className="text-neutral-500 dark:text-neutral-400">{t("totalCartons")}</span>

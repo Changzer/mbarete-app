@@ -1,11 +1,24 @@
 export type ProductForCalc = {
+  /** What the supplier charges per unit — the cost side. */
   price: number;
+  /**
+   * What the client is invoiced per unit — Mbarete's own pricing. Zero or
+   * absent means no selling price has been set, and the line sells at cost;
+   * commission is then the only margin, which is exactly how every order
+   * before selling prices existed already behaved.
+   */
+  sellPrice?: number;
   currency: string;
   moq: number;
   qtyPerBox: number;
   weightKg: number;
   cbm: number;
 };
+
+/** The per-unit price the client pays for this product. */
+export function sellUnitPrice(product: Pick<ProductForCalc, "price" | "sellPrice">) {
+  return product.sellPrice && product.sellPrice > 0 ? product.sellPrice : product.price;
+}
 
 /** Volume of one carton in m^3, from its outer dimensions in cm. */
 export function computeCbm(lengthCm: number, widthCm: number, heightCm: number) {
@@ -76,8 +89,14 @@ export function lineWeightKg(product: ProductForCalc, quantity: number) {
   return (quantity / product.qtyPerBox) * product.weightKg;
 }
 
+/** What the supplier charges for this line. */
 export function lineTotal(product: ProductForCalc, quantity: number) {
   return product.price * quantity;
+}
+
+/** What the client is invoiced for this line. */
+export function lineSellTotal(product: ProductForCalc, quantity: number) {
+  return sellUnitPrice(product) * quantity;
 }
 
 /** currency code -> how many USD one unit is worth (e.g. CNY: 0.14) */
@@ -117,8 +136,10 @@ export type OrderLineInput = {
 };
 
 export type OrderTotals = {
-  /** goods subtotal, keyed by target currency */
+  /** what the client is invoiced for the goods, keyed by target currency */
   goods: Record<string, number>;
+  /** what the supplier charges for the same goods — the internal cost side */
+  cost: Record<string, number>;
   /** commission amount, keyed by target currency */
   commission: Record<string, number>;
   /** goods + commission, keyed by target currency */
@@ -145,6 +166,7 @@ export function computeOrderTotals(
   commissionPct = 0,
 ): OrderTotals {
   const goods: Record<string, number> = {};
+  const cost: Record<string, number> = {};
   const commission: Record<string, number> = {};
   const grandTotal: Record<string, number> = {};
   const missing = new Set<string>();
@@ -157,6 +179,7 @@ export function computeOrderTotals(
   for (const target of targetCurrencies) {
     if (rates[target] === undefined) missing.add(target);
     goods[target] = 0;
+    cost[target] = 0;
   }
 
   for (const { product, quantity } of lines) {
@@ -167,10 +190,12 @@ export function computeOrderTotals(
     totalCartons += fullCartons(product, quantity);
     if (isBelowMoq(quantity, product.moq)) hasMoqViolation = true;
 
-    const raw = lineTotal(product, quantity);
+    const rawSell = lineSellTotal(product, quantity);
+    const rawCost = lineTotal(product, quantity);
     for (const target of targetCurrencies) {
       try {
-        goods[target] += convert(raw, product.currency, target, rates);
+        goods[target] += convert(rawSell, product.currency, target, rates);
+        cost[target] += convert(rawCost, product.currency, target, rates);
       } catch (err) {
         if (err instanceof UnknownCurrencyError) {
           missing.add(err.currency);
@@ -181,6 +206,8 @@ export function computeOrderTotals(
     }
   }
 
+  // Commission is charged on what the client is invoiced, so it stacks on
+  // top of any per-line markup rather than replacing it.
   for (const target of targetCurrencies) {
     commission[target] = goods[target] * (commissionPct / 100);
     grandTotal[target] = goods[target] + commission[target];
@@ -188,6 +215,7 @@ export function computeOrderTotals(
 
   return {
     goods,
+    cost,
     commission,
     grandTotal,
     totalCbm,
@@ -207,7 +235,10 @@ export function computeOrderTotals(
  */
 export type SnapshotLine = {
   quantity: number;
+  /** the supplier's price per unit, frozen when the order was saved */
   unitPrice: number;
+  /** the invoiced price per unit; 0 on orders saved before selling prices */
+  sellPrice?: number;
   currency: string;
   moq: number;
   lineCbm: number;
@@ -231,6 +262,7 @@ export function computeSnapshotTotals(
   commissionPct = 0,
 ): OrderTotals {
   const goods: Record<string, number> = {};
+  const cost: Record<string, number> = {};
   const commission: Record<string, number> = {};
   const grandTotal: Record<string, number> = {};
   const missing = new Set<string>();
@@ -243,6 +275,7 @@ export function computeSnapshotTotals(
   for (const target of targetCurrencies) {
     if (rates[target] === undefined) missing.add(target);
     goods[target] = 0;
+    cost[target] = 0;
   }
 
   for (const line of lines) {
@@ -253,10 +286,13 @@ export function computeSnapshotTotals(
     totalCartons += line.cartons;
     if (isBelowMoq(line.quantity, line.moq)) hasMoqViolation = true;
 
-    const raw = line.unitPrice * line.quantity;
+    const sellUnit = line.sellPrice && line.sellPrice > 0 ? line.sellPrice : line.unitPrice;
+    const rawSell = sellUnit * line.quantity;
+    const rawCost = line.unitPrice * line.quantity;
     for (const target of targetCurrencies) {
       try {
-        goods[target] += convert(raw, line.currency, target, rates);
+        goods[target] += convert(rawSell, line.currency, target, rates);
+        cost[target] += convert(rawCost, line.currency, target, rates);
       } catch (err) {
         if (err instanceof UnknownCurrencyError) {
           missing.add(err.currency);
@@ -274,6 +310,7 @@ export function computeSnapshotTotals(
 
   return {
     goods,
+    cost,
     commission,
     grandTotal,
     totalCbm,

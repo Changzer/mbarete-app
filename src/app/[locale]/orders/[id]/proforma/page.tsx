@@ -162,10 +162,10 @@ export default async function ProformaPage({
                 <td className="py-2 pr-2 text-right">{r.quantity}</td>
                 <td className="py-2 pr-2 text-right">{r.cartons ?? "—"}</td>
                 <td className="py-2 pr-2 text-right">
-                  {money(r.unitPriceSnapshot)} {r.currencySnapshot}
+                  {money(r.sellPrice)} {r.currencySnapshot}
                 </td>
                 <td className="py-2 text-right">
-                  {money(r.lineTotal)} {r.currencySnapshot}
+                  {money(r.sellTotal)} {r.currencySnapshot}
                 </td>
               </tr>
             ))}

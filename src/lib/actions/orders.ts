@@ -22,6 +22,8 @@ import { deleteUpload } from "@/lib/uploads";
 const orderItemInput = z.object({
   productId: z.number().int().positive(),
   quantity: z.number().int().positive(),
+  /** the invoiced price per unit, chosen on the order line */
+  sellPrice: z.number().positive(),
 });
 
 const orderInput = z.object({
@@ -40,7 +42,9 @@ async function requireSession() {
   return session;
 }
 
-async function buildOrderItemRows(items: { productId: number; quantity: number }[]) {
+async function buildOrderItemRows(
+  items: { productId: number; quantity: number; sellPrice: number }[],
+) {
   const productIds = items.map((i) => i.productId);
   const productRows = await db
     .select()
@@ -49,13 +53,14 @@ async function buildOrderItemRows(items: { productId: number; quantity: number }
     .all();
   const productMap = new Map(productRows.map((p) => [p.id, p]));
 
-  const rows = items.map(({ productId, quantity }) => {
+  const rows = items.map(({ productId, quantity, sellPrice }) => {
     const product = productMap.get(productId);
     if (!product) throw new Error(`product ${productId} not found`);
     return {
       productId,
       quantity,
       unitPriceSnapshot: product.price,
+      sellPriceSnapshot: sellPrice,
       currencySnapshot: product.currency,
       moqSnapshot: product.moq,
       lineTotal: lineTotal(product, quantity),

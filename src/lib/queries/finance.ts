@@ -77,6 +77,7 @@ export async function getFinanceData(): Promise<{
       items.map((i) => ({
         quantity: i.quantity,
         unitPrice: i.unitPriceSnapshot,
+        sellPrice: i.sellPriceSnapshot,
         currency: i.currencySnapshot,
         moq: i.moqSnapshot,
         lineCbm: i.lineCbm,
@@ -96,7 +97,7 @@ export async function getFinanceData(): Promise<{
       createdAt: order.createdAt,
       quoteCurrency: quote,
       expectedRevenue: totals.grandTotal[quote] ?? 0,
-      expectedCost: totals.goods[quote] ?? 0,
+      expectedCost: totals.cost[quote] ?? 0,
       payments: (paymentsByOrder.get(order.id) ?? []).map((p) => ({
         direction: p.direction,
         amount: p.amount,

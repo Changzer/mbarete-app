@@ -37,6 +37,7 @@ type ProductFormValues = {
   descriptionEn: string;
   descriptionZh: string;
   price: number;
+  sellPrice: number;
   currency: string;
   moq: number;
   qtyPerBox: number;
@@ -160,7 +161,7 @@ export function ProductForm({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="price">{t("price")}</Label>
+          <Label htmlFor="price">{t("costPrice")}</Label>
           <Input
             id="price"
             name="price"
@@ -171,6 +172,20 @@ export function ProductForm({
             defaultValue={defaultValues?.price}
             required
           />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="sellPrice">{t("sellPrice")}</Label>
+          <Input
+            id="sellPrice"
+            name="sellPrice"
+            type="number"
+            inputMode="decimal"
+            step="0.01"
+            min="0"
+            placeholder={t("optionalPlaceholder")}
+            defaultValue={defaultValues?.sellPrice ? defaultValues.sellPrice : ""}
+          />
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">{t("sellPriceHelp")}</p>
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="currency">{t("currency")}</Label>
