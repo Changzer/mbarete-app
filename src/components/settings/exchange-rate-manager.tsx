@@ -2,13 +2,16 @@
 
 import { useActionState } from "react";
 import { useTranslations } from "next-intl";
-import { upsertExchangeRate, deleteExchangeRate } from "@/lib/actions/settings";
+import { upsertExchangeRate, deleteExchangeRate, refreshRatesNow } from "@/lib/actions/settings";
+import { useState, useTransition } from "react";
+import { Badge } from "@/components/ui/badge";
+import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 
-type Rate = { currencyCode: string; rateToUsd: number; updatedAt: string };
+type Rate = { currencyCode: string; rateToUsd: number; source: string; updatedAt: string };
 
 export function ExchangeRateManager({ rates }: { rates: Rate[] }) {
   const t = useTranslations("settings");
@@ -17,12 +20,55 @@ export function ExchangeRateManager({ rates }: { rates: Rate[] }) {
     upsertExchangeRate,
     undefined,
   );
+  const [refreshing, startRefresh] = useTransition();
+  const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
+
+  // The freshest auto row tells the story: where rates come from and when.
+  const newestAuto = rates
+    .filter((r) => r.source === "auto")
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+
+  function refresh() {
+    setRefreshMessage(null);
+    startRefresh(async () => {
+      const result = await refreshRatesNow();
+      setRefreshMessage(
+        result.ok ? t("refreshOk", { source: result.source }) : t("refreshFailed"),
+      );
+    });
+  }
 
   return (
     <div className="flex flex-col gap-6">
       <p className="text-sm text-neutral-500 dark:text-neutral-400">
-        {t("ratesHelp")}
+        {t("ratesHelp")} {t("autoHelp")}
       </p>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={refreshing}
+          onClick={refresh}
+          data-testid="refresh-rates"
+        >
+          <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+          {t("refreshNow")}
+        </Button>
+        <span className="text-xs text-neutral-500 dark:text-neutral-400" data-testid="rates-freshness">
+          {newestAuto
+            ? t("lastAutoUpdate", {
+                when: new Date(newestAuto.updatedAt).toLocaleString(),
+              })
+            : t("neverAutoUpdated")}
+        </span>
+        {refreshMessage ? (
+          <span className="text-xs text-neutral-600 dark:text-neutral-300" data-testid="refresh-result">
+            {refreshMessage}
+          </span>
+        ) : null}
+      </div>
 
       <Card>
         <CardContent className="p-4">
@@ -78,6 +124,12 @@ export function ExchangeRateManager({ rates }: { rates: Rate[] }) {
               <tr key={r.currencyCode}>
                 <td className="px-4 py-2 font-medium text-neutral-900 dark:text-neutral-100">
                   {r.currencyCode}
+                  <Badge
+                    variant={r.source === "auto" ? "success" : "secondary"}
+                    className="ml-2"
+                  >
+                    {r.source === "auto" ? t("sourceAuto") : t("sourceManual")}
+                  </Badge>
                 </td>
                 <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">
                   {r.rateToUsd}

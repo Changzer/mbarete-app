@@ -29,6 +29,7 @@ export type PaymentRow = {
   amount: number;
   currency: string;
   paidOn: string;
+  account: string;
   note: string;
 };
 
@@ -127,6 +128,19 @@ function PaymentForm({
         <Label className="text-xs">{t("date")}</Label>
         <Input name="paidOn" type="date" defaultValue={today()} required className="w-36" />
       </div>
+      <div className="flex flex-col gap-1">
+        <Label className="text-xs">{t("account")}</Label>
+        <select
+          name="account"
+          defaultValue={defaultCurrency === "USD" ? "USD" : "RMB"}
+          className="flex h-9 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+          data-testid={`account-${direction}`}
+        >
+          <option value="RMB">{t("accountRmb")}</option>
+          <option value="USD">{t("accountUsd")}</option>
+          <option value="">{t("accountOther")}</option>
+        </select>
+      </div>
       <div className="flex min-w-32 flex-1 flex-col gap-1">
         <Label className="text-xs">{t("note")}</Label>
         <Input name="note" placeholder={t("notePlaceholder")} />
@@ -160,6 +174,11 @@ function PaymentList({
           <span className="font-medium text-neutral-900 dark:text-neutral-100">
             {money(p.amount)} {p.currency}
           </span>
+          {p.account ? (
+            <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-medium text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+              {p.account}
+            </span>
+          ) : null}
           <span className="min-w-0 flex-1 truncate text-neutral-500 dark:text-neutral-400">
             {p.note}
           </span>

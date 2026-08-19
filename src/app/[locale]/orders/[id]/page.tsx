@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getOrderView } from "@/lib/queries/order-view";
-import { getOrderFinanceRows } from "@/lib/queries/orders";
+import { getOrderFinanceRows, parseRatesSnapshot } from "@/lib/queries/orders";
 import { getUserNames } from "@/lib/queries/users";
 import type { Locale } from "@/i18n/routing";
 import { computeOrderFinance, formatCbm } from "@/lib/calculations";
@@ -11,6 +11,7 @@ import { Link } from "@/i18n/navigation";
 import { OrderStatusActions } from "@/components/orders/order-status-actions";
 import { OrderFinance } from "@/components/orders/order-finance";
 import { OrderResult } from "@/components/orders/order-result";
+import { OrderChangelog } from "@/components/orders/order-changelog";
 
 const STATUS_VARIANT = {
   draft: "secondary",
@@ -44,9 +45,16 @@ export default async function OrderDetailPage({
     {
       expectedRevenue: totals.grandTotal[quote] ?? 0,
       expectedCost: totals.cost[quote] ?? 0,
-      paymentsIn: finance.payments.filter((p) => p.direction === "in"),
-      paymentsOut: finance.payments.filter((p) => p.direction === "out"),
-      expenses: finance.expenses,
+      paymentsIn: finance.payments
+        .filter((p) => p.direction === "in")
+        .map((p) => ({ ...p, rates: parseRatesSnapshot(p.ratesSnapshot) })),
+      paymentsOut: finance.payments
+        .filter((p) => p.direction === "out")
+        .map((p) => ({ ...p, rates: parseRatesSnapshot(p.ratesSnapshot) })),
+      expenses: finance.expenses.map((e) => ({
+        ...e,
+        rates: parseRatesSnapshot(e.ratesSnapshot),
+      })),
     },
     quote,
     effectiveRates,
@@ -221,6 +229,8 @@ export default async function OrderDetailPage({
       </div>
 
       <OrderResult fin={fin} quote={quote} />
+
+      <OrderChangelog orderId={order.id} locale={locale} />
     </div>
   );
 }

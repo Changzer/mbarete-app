@@ -83,6 +83,7 @@ export function OrderBuilder({
   mode: "create" | "edit";
   orderId?: number;
   initial?: {
+    status?: "draft" | "confirmed";
     clientId: number;
     displayCurrency: string;
     secondaryCurrency: string;
@@ -628,21 +629,36 @@ export function OrderBuilder({
           ) : null}
 
           <div className="flex flex-col gap-2">
-            <Button
-              variant="outline"
-              disabled={isPending}
-              onClick={() => handleSubmit("draft")}
-              type="button"
-            >
-              {t("saveDraft")}
-            </Button>
-            <Button
-              disabled={isPending || totals.hasMoqViolation}
-              onClick={() => handleSubmit("confirmed")}
-              type="button"
-            >
-              {t("confirmOrder")}
-            </Button>
+            {mode === "edit" && initial?.status === "confirmed" ? (
+              /* A confirmed order stays confirmed through an edit — offering
+                 "save as draft" here would silently demote it. */
+              <Button
+                disabled={isPending || totals.hasMoqViolation}
+                onClick={() => handleSubmit("confirmed")}
+                type="button"
+                data-testid="save-changes"
+              >
+                {t("saveChanges")}
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  disabled={isPending}
+                  onClick={() => handleSubmit("draft")}
+                  type="button"
+                >
+                  {t("saveDraft")}
+                </Button>
+                <Button
+                  disabled={isPending || totals.hasMoqViolation}
+                  onClick={() => handleSubmit("confirmed")}
+                  type="button"
+                >
+                  {t("confirmOrder")}
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </div>

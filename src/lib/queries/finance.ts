@@ -7,7 +7,7 @@ import {
   contacts,
 } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { getExchangeRates } from "@/lib/queries/orders";
+import { getExchangeRates, parseRatesSnapshot } from "@/lib/queries/orders";
 import { computeSnapshotTotals } from "@/lib/calculations";
 import type { FinanceOrderInput } from "@/lib/finance-report";
 
@@ -103,12 +103,14 @@ export async function getFinanceData(): Promise<{
         amount: p.amount,
         currency: p.currency,
         paidOn: p.paidOn,
+        rates: parseRatesSnapshot(p.ratesSnapshot),
       })),
       expenses: (expensesByOrder.get(order.id) ?? []).map((e) => ({
         category: e.category,
         amount: e.amount,
         currency: e.currency,
         spentOn: e.spentOn,
+        rates: parseRatesSnapshot(e.ratesSnapshot),
       })),
     };
   });

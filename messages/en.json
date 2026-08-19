@@ -185,7 +185,8 @@
     "lineCost": "Cost",
     "lineMarkup": "Markup {pct}%",
     "supplierCost": "Supplier cost",
-    "grossMargin": "Your margin (before expenses)"
+    "grossMargin": "Your margin (before expenses)",
+    "saveChanges": "Save changes"
   },
   "settings": {
     "exchangeRates": "Exchange Rates",
@@ -195,7 +196,15 @@
     "example": "Example",
     "saveRate": "Save rate",
     "baseCurrency": "Base currency",
-    "deleteRateConfirm": "Delete this currency rate?"
+    "deleteRateConfirm": "Delete this currency rate?",
+    "autoHelp": "USD, CNY, RMB and BRL refresh automatically every six hours; a hand-typed rate applies until the next refresh. Any other currency you add stays manual.",
+    "refreshNow": "Refresh rates now",
+    "refreshOk": "Rates updated from {source}.",
+    "refreshFailed": "No rate provider reachable — the current rates stay in force. You can still edit them by hand.",
+    "lastAutoUpdate": "Last automatic update: {when}",
+    "neverAutoUpdated": "No automatic update yet — using seeded/manual rates.",
+    "sourceAuto": "auto",
+    "sourceManual": "manual"
   },
   "users": {
     "title": "Users",
@@ -319,7 +328,12 @@
     "expensesTotal": "Expenses",
     "netActual": "Net cash so far",
     "netExpected": "Net revenue when settled",
-    "netHelp": "Net cash is money received minus money paid out so far — negative is normal while the supplier is paid before the client settles. Net revenue is where the order lands once both sides pay in full."
+    "netHelp": "Net cash is money received minus money paid out so far — negative is normal while the supplier is paid before the client settles. Net revenue is where the order lands once both sides pay in full.",
+    "account": "Account",
+    "accountRmb": "RMB account",
+    "accountUsd": "USD account",
+    "accountOther": "Other / none",
+    "fxGainLoss": "FX gain/loss so far"
   },
   "financeReport": {
     "title": "Finance",
@@ -348,5 +362,31 @@
     "margin": "Margin",
     "outstanding": "Owes",
     "noData": "Nothing recorded yet."
+  },
+  "orderLog": {
+    "title": "History",
+    "empty": "No history yet. Changes to this order will be recorded here.",
+    "created": "Created the order.",
+    "edited": "Edited the order:",
+    "statusChanged": "Changed the status from {from} to {to}.",
+    "status_draft": "Draft",
+    "status_confirmed": "Confirmed",
+    "status_shipped": "Shipped",
+    "status_cancelled": "Cancelled",
+    "paymentInAdded": "Recorded a client payment of {amount} {currency}.",
+    "paymentOutAdded": "Recorded a supplier payment of {amount} {currency}.",
+    "paymentRemoved": "Removed a payment of {amount} {currency}.",
+    "expenseAdded": "Added a {category} expense of {amount} {currency}.",
+    "expenseRemoved": "Removed a {category} expense of {amount} {currency}.",
+    "documentAdded": "Uploaded {name}.",
+    "documentRemoved": "Deleted {name}.",
+    "changeClient": "Client: {from} → {to}",
+    "changeCommission": "Commission: {from}% → {to}%",
+    "changeCurrency": "Quote currency: {from} → {to}",
+    "changeNotes": "Notes updated",
+    "changeLineAdded": "Added {sku} × {qty}",
+    "changeLineRemoved": "Removed {sku}",
+    "changeLineQty": "{sku}: quantity {from} → {to}",
+    "changeLinePrice": "{sku}: sell price {from} → {to}"
   }
 }

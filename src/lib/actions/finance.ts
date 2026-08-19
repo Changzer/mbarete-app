@@ -7,6 +7,8 @@ import { orders, orderPayments, orderExpenses, orderDocuments } from "@/db/schem
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { saveUploadedDocument, deleteUpload } from "@/lib/uploads";
+import { logOrderEvent } from "@/lib/order-log";
+import { getExchangeRates } from "@/lib/queries/orders";
 
 async function requireSession() {
   const session = await auth();
@@ -35,6 +37,7 @@ const paymentSchema = z.object({
   amount: z.coerce.number().positive(),
   currency: z.string().trim().min(1).max(8).transform((s) => s.toUpperCase()),
   paidOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  account: z.string().trim().max(32).default(""),
   note: z.string().default(""),
 });
 
@@ -49,9 +52,14 @@ export async function addPayment(
   const parsed = paymentSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "invalid" };
 
+  // Freeze today's rates onto the payment: what this money was worth the day
+  // it was recorded must not drift when rates move later.
+  const ratesSnapshot = JSON.stringify(await getExchangeRates());
+
   db.insert(orderPayments)
-    .values({ orderId, createdBy: userId, ...parsed.data })
+    .values({ orderId, createdBy: userId, ratesSnapshot, ...parsed.data })
     .run();
+  logOrderEvent(orderId, userId, "payment_added", parsed.data);
   refresh(orderId);
   return {};
 }
@@ -66,6 +74,13 @@ export async function deletePayment(orderId: number, paymentId: number) {
   // The orderId comes from the page; the row's own parent is what counts.
   if (!row || row.orderId !== orderId) return;
   db.delete(orderPayments).where(eq(orderPayments.id, paymentId)).run();
+  const session = await auth();
+  logOrderEvent(orderId, Number(session?.user?.id ?? 0) || null, "payment_removed", {
+    direction: row.direction,
+    amount: row.amount,
+    currency: row.currency,
+    paidOn: row.paidOn,
+  });
   refresh(orderId);
 }
 
@@ -97,9 +112,12 @@ export async function addExpense(
   const parsed = expenseSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "invalid" };
 
+  const ratesSnapshot = JSON.stringify(await getExchangeRates());
+
   db.insert(orderExpenses)
-    .values({ orderId, createdBy: userId, ...parsed.data })
+    .values({ orderId, createdBy: userId, ratesSnapshot, ...parsed.data })
     .run();
+  logOrderEvent(orderId, userId, "expense_added", parsed.data);
   refresh(orderId);
   return {};
 }
@@ -113,6 +131,12 @@ export async function deleteExpense(orderId: number, expenseId: number) {
     .get();
   if (!row || row.orderId !== orderId) return;
   db.delete(orderExpenses).where(eq(orderExpenses.id, expenseId)).run();
+  const session = await auth();
+  logOrderEvent(orderId, Number(session?.user?.id ?? 0) || null, "expense_removed", {
+    category: row.category,
+    amount: row.amount,
+    currency: row.currency,
+  });
   refresh(orderId);
 }
 
@@ -157,6 +181,10 @@ export async function uploadOrderDocument(
       uploadedBy: userId,
     })
     .run();
+  logOrderEvent(orderId, userId, "document_added", {
+    kind: kind.data,
+    name: file.name || "document",
+  });
   refresh(orderId);
   return {};
 }
@@ -172,5 +200,10 @@ export async function deleteOrderDocument(orderId: number, documentId: number) {
   db.delete(orderDocuments).where(eq(orderDocuments.id, documentId)).run();
   // The DB row is the record; the file goes with it or it leaks in the volume.
   await deleteUpload(row.path);
+  const session = await auth();
+  logOrderEvent(orderId, Number(session?.user?.id ?? 0) || null, "document_removed", {
+    kind: row.kind,
+    name: row.originalName,
+  });
   refresh(orderId);
 }

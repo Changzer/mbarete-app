@@ -185,7 +185,8 @@
     "lineCost": "成本",
     "lineMarkup": "加价 {pct}%",
     "supplierCost": "供应商成本",
-    "grossMargin": "毛利（未扣费用）"
+    "grossMargin": "毛利（未扣费用）",
+    "saveChanges": "保存修改"
   },
   "settings": {
     "exchangeRates": "汇率",
@@ -195,7 +196,15 @@
     "example": "示例",
     "saveRate": "保存汇率",
     "baseCurrency": "基准货币",
-    "deleteRateConfirm": "确定删除此货币汇率吗？"
+    "deleteRateConfirm": "确定删除此货币汇率吗？",
+    "autoHelp": "USD、CNY、RMB 和 BRL 每六小时自动刷新；手动填写的汇率在下次刷新前有效。其他自行添加的货币保持手动。",
+    "refreshNow": "立即刷新汇率",
+    "refreshOk": "已从 {source} 更新汇率。",
+    "refreshFailed": "无法连接汇率服务——当前汇率继续有效，也可手动修改。",
+    "lastAutoUpdate": "上次自动更新：{when}",
+    "neverAutoUpdated": "尚未自动更新——正在使用初始/手动汇率。",
+    "sourceAuto": "自动",
+    "sourceManual": "手动"
   },
   "users": {
     "title": "用户",
@@ -319,7 +328,12 @@
     "expensesTotal": "费用合计",
     "netActual": "当前净现金",
     "netExpected": "结清后净收入",
-    "netHelp": "净现金 = 已收款 − 已付款 − 费用；在客户结清之前为负数是正常的。净收入是双方全部结清后本订单的最终结果。"
+    "netHelp": "净现金 = 已收款 − 已付款 − 费用；在客户结清之前为负数是正常的。净收入是双方全部结清后本订单的最终结果。",
+    "account": "账户",
+    "accountRmb": "人民币账户",
+    "accountUsd": "美元账户",
+    "accountOther": "其他 / 无",
+    "fxGainLoss": "汇率损益（至今）"
   },
   "financeReport": {
     "title": "财务",
@@ -348,5 +362,31 @@
     "margin": "利润率",
     "outstanding": "未付",
     "noData": "暂无记录。"
+  },
+  "orderLog": {
+    "title": "变更记录",
+    "empty": "暂无记录。此订单的所有变更都会记录在这里。",
+    "created": "创建了订单。",
+    "edited": "修改了订单：",
+    "statusChanged": "将状态从「{from}」改为「{to}」。",
+    "status_draft": "草稿",
+    "status_confirmed": "已确认",
+    "status_shipped": "已发货",
+    "status_cancelled": "已取消",
+    "paymentInAdded": "记录了一笔客户付款 {amount} {currency}。",
+    "paymentOutAdded": "记录了一笔供应商付款 {amount} {currency}。",
+    "paymentRemoved": "删除了一笔付款 {amount} {currency}。",
+    "expenseAdded": "添加了一笔{category}费用 {amount} {currency}。",
+    "expenseRemoved": "删除了一笔{category}费用 {amount} {currency}。",
+    "documentAdded": "上传了 {name}。",
+    "documentRemoved": "删除了 {name}。",
+    "changeClient": "客户：{from} → {to}",
+    "changeCommission": "佣金：{from}% → {to}%",
+    "changeCurrency": "报价货币：{from} → {to}",
+    "changeNotes": "备注已更新",
+    "changeLineAdded": "新增 {sku} × {qty}",
+    "changeLineRemoved": "移除 {sku}",
+    "changeLineQty": "{sku}：数量 {from} → {to}",
+    "changeLinePrice": "{sku}：售价 {from} → {to}"
   }
 }

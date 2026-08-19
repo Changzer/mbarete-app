@@ -24,5 +24,7 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|uploads).*)"],
+  // logo.png must stay out of the middleware: the i18n router would rewrite
+  // the request to /en/logo.png and 404 it, real file or not.
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|logo.png|uploads).*)"],
 };

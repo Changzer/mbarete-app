@@ -65,6 +65,7 @@ export default async function EditOrderPage({
         clients={clients}
         rates={rates}
         initial={{
+          status: order.status === "confirmed" ? "confirmed" : "draft",
           clientId: order.clientId,
           displayCurrency: order.displayCurrency,
           secondaryCurrency: order.secondaryCurrency,
