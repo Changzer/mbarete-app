@@ -333,6 +333,12 @@ export const orderPayments = sqliteTable(
     ratesSnapshot: text("rates_snapshot").notNull().default("{}"),
     /** Which bank account the money touched, e.g. "USD" or "RMB". */
     account: text("account").notNull().default(""),
+    /**
+     * The payment slip: a photo or PDF of the transfer receipt, stored in the
+     * uploads volume under a session-gated name. Empty when none was attached.
+     */
+    receiptPath: text("receipt_path").notNull().default(""),
+    receiptName: text("receipt_name").notNull().default(""),
     note: text("note").notNull().default(""),
     createdBy: integer("created_by").references(() => users.id),
     createdAt: text("created_at")
@@ -360,6 +366,9 @@ export const orderExpenses = sqliteTable(
     spentOn: text("spent_on").notNull(),
     /** Same freezing as payments; see order_payments.rates_snapshot. */
     ratesSnapshot: text("rates_snapshot").notNull().default("{}"),
+    /** Receipt for the expense, same shape as order_payments.receipt_path. */
+    receiptPath: text("receipt_path").notNull().default(""),
+    receiptName: text("receipt_name").notNull().default(""),
     note: text("note").notNull().default(""),
     createdBy: integer("created_by").references(() => users.id),
     createdAt: text("created_at")

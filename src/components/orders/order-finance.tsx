@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useState } from "react";
+import { Paperclip } from "lucide-react";
 
 export type PaymentRow = {
   id: number;
@@ -30,6 +31,8 @@ export type PaymentRow = {
   currency: string;
   paidOn: string;
   account: string;
+  receiptPath: string;
+  receiptName: string;
   note: string;
 };
 
@@ -39,6 +42,8 @@ export type ExpenseRow = {
   amount: number;
   currency: string;
   spentOn: string;
+  receiptPath: string;
+  receiptName: string;
   note: string;
 };
 
@@ -79,6 +84,62 @@ function money(n: number) {
   return n.toFixed(2);
 }
 
+/** Maps an action's error code to the sentence shown under the form. */
+function useErrorText() {
+  const t = useTranslations("finance");
+  return (code: string | undefined) => {
+    switch (code) {
+      case "receiptType":
+        return t("badReceipt");
+      case "receiptSize":
+      case "size":
+        return t("fileTooLarge");
+      case "file":
+        return t("badFile");
+      default:
+        return t("invalid");
+    }
+  };
+}
+
+/**
+ * The slip field on payments and expenses. `image/*` keeps the phone's
+ * "take photo" option available — the whole point is snapping the bank
+ * receipt right when the money moves.
+ */
+function ReceiptField({ testid }: { testid: string }) {
+  const t = useTranslations("finance");
+  return (
+    <div className="flex min-w-40 flex-col gap-1">
+      <Label className="text-xs">{t("receipt")}</Label>
+      <input
+        name="receipt"
+        type="file"
+        accept="image/*,.pdf"
+        className="text-sm"
+        data-testid={testid}
+      />
+    </div>
+  );
+}
+
+/** The link a recorded slip renders as, opening in its own tab. */
+function ReceiptLink({ path, name }: { path: string; name: string }) {
+  const t = useTranslations("finance");
+  return (
+    <a
+      href={path}
+      target="_blank"
+      rel="noreferrer"
+      title={name}
+      className="flex shrink-0 items-center gap-1 text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
+    >
+      <Paperclip className="h-3.5 w-3.5" />
+      {t("viewReceipt")}
+    </a>
+  );
+}
+
 // --- payments ---------------------------------------------------------------
 
 function PaymentForm({
@@ -91,6 +152,7 @@ function PaymentForm({
   defaultCurrency: string;
 }) {
   const t = useTranslations("finance");
+  const errorText = useErrorText();
   const formRef = useRef<HTMLFormElement>(null);
 
   async function action(prev: FinanceActionResult | undefined, formData: FormData) {
@@ -145,11 +207,12 @@ function PaymentForm({
         <Label className="text-xs">{t("note")}</Label>
         <Input name="note" placeholder={t("notePlaceholder")} />
       </div>
+      <ReceiptField testid={`receipt-${direction}`} />
       <Button type="submit" size="sm" disabled={isPending}>
         {t("add")}
       </Button>
       {result?.error ? (
-        <p className="w-full text-xs text-red-600 dark:text-red-400">{t("invalid")}</p>
+        <p className="w-full text-xs text-red-600 dark:text-red-400">{errorText(result.error)}</p>
       ) : null}
     </form>
   );
@@ -182,6 +245,7 @@ function PaymentList({
           <span className="min-w-0 flex-1 truncate text-neutral-500 dark:text-neutral-400">
             {p.note}
           </span>
+          {p.receiptPath ? <ReceiptLink path={p.receiptPath} name={p.receiptName} /> : null}
           <button
             type="button"
             onClick={() => deletePayment(orderId, p.id)}
@@ -207,6 +271,7 @@ function ExpenseSection({
   defaultCurrency: string;
 }) {
   const t = useTranslations("finance");
+  const errorText = useErrorText();
   const formRef = useRef<HTMLFormElement>(null);
   const [category, setCategory] = useState<string>("freight");
 
@@ -265,11 +330,14 @@ function ExpenseSection({
           <Label className="text-xs">{t("note")}</Label>
           <Input name="note" />
         </div>
+        <ReceiptField testid="receipt-expense" />
         <Button type="submit" size="sm" disabled={isPending}>
           {t("add")}
         </Button>
         {result?.error ? (
-          <p className="w-full text-xs text-red-600 dark:text-red-400">{t("invalid")}</p>
+          <p className="w-full text-xs text-red-600 dark:text-red-400">
+            {errorText(result.error)}
+          </p>
         ) : null}
       </form>
 
@@ -294,6 +362,7 @@ function ExpenseSection({
               <span className="min-w-0 flex-1 truncate text-neutral-500 dark:text-neutral-400">
                 {e.note}
               </span>
+              {e.receiptPath ? <ReceiptLink path={e.receiptPath} name={e.receiptName} /> : null}
               <button
                 type="button"
                 onClick={() => deleteExpense(orderId, e.id)}
@@ -319,6 +388,7 @@ function DocumentSection({
   rows: DocumentRow[];
 }) {
   const t = useTranslations("finance");
+  const errorText = useErrorText();
   const formRef = useRef<HTMLFormElement>(null);
   const [kind, setKind] = useState<string>("supplier_invoice");
 
@@ -368,7 +438,7 @@ function DocumentSection({
         </Button>
         {result?.error ? (
           <p className="w-full text-xs text-red-600 dark:text-red-400">
-            {result.error === "file" ? t("badFile") : t("invalid")}
+            {errorText(result.error)}
           </p>
         ) : null}
       </form>
