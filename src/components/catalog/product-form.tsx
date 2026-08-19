@@ -37,6 +37,7 @@ type ProductFormValues = {
   descriptionEn: string;
   descriptionZh: string;
   price: number;
+  sellPrice: number;
   currency: string;
   moq: number;
   qtyPerBox: number;
@@ -160,7 +161,7 @@ export function ProductForm({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="price">{t("price")}</Label>
+          <Label htmlFor="price">{t("costPrice")}</Label>
           <Input
             id="price"
             name="price"
@@ -171,6 +172,20 @@ export function ProductForm({
             defaultValue={defaultValues?.price}
             required
           />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="sellPrice">{t("sellPrice")}</Label>
+          <Input
+            id="sellPrice"
+            name="sellPrice"
+            type="number"
+            inputMode="decimal"
+            step="0.01"
+            min="0"
+            placeholder={t("optionalPlaceholder")}
+            defaultValue={defaultValues?.sellPrice ? defaultValues.sellPrice : ""}
+          />
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">{t("sellPriceHelp")}</p>
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="currency">{t("currency")}</Label>
@@ -463,7 +478,7 @@ export function ProductForm({
         Fixed rather than sticky: as the form's last child it has nothing left
         to stick within, so `sticky` would just sit off-screen at the end.
       */}
-      <div className="fixed inset-x-0 bottom-0 z-30 flex gap-2 border-t border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-neutral-950 sm:static sm:z-auto sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 dark:sm:bg-transparent">
+      <div className="fixed inset-x-0 bottom-14 z-30 flex gap-2 border-t border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-neutral-950 sm:static sm:z-auto sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 dark:sm:bg-transparent">
         <Button type="submit" disabled={isPending} className="min-h-11 flex-1 sm:flex-none">
           {submitLabel}
         </Button>

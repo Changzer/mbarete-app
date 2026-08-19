@@ -43,7 +43,7 @@ export default async function OrderDetailPage({
   const fin = computeOrderFinance(
     {
       expectedRevenue: totals.grandTotal[quote] ?? 0,
-      expectedCost: totals.goods[quote] ?? 0,
+      expectedCost: totals.cost[quote] ?? 0,
       paymentsIn: finance.payments.filter((p) => p.direction === "in"),
       paymentsOut: finance.payments.filter((p) => p.direction === "out"),
       expenses: finance.expenses,
@@ -90,6 +90,7 @@ export default async function OrderDetailPage({
               <th className="px-4 py-2 font-medium">{catalogT("title")}</th>
               <th className="px-4 py-2 font-medium">{t("quantity")}</th>
               <th className="px-4 py-2 font-medium">{t("totalCartons")}</th>
+              <th className="px-4 py-2 font-medium">{t("unitCost")}</th>
               <th className="px-4 py-2 font-medium">{t("unitPrice")}</th>
               <th className="px-4 py-2 font-medium">{t("lineTotal")}</th>
             </tr>
@@ -109,11 +110,14 @@ export default async function OrderDetailPage({
                 <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">
                   {r.cartons !== null ? `${r.cartons} × ${r.perCarton}` : "—"}
                 </td>
-                <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">
+                <td className="px-4 py-2 text-neutral-500 dark:text-neutral-400">
                   {r.unitPriceSnapshot.toFixed(2)} {r.currencySnapshot}
                 </td>
                 <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">
-                  {r.lineTotal.toFixed(2)} {r.currencySnapshot}
+                  {r.sellPrice.toFixed(2)} {r.currencySnapshot}
+                </td>
+                <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">
+                  {r.sellTotal.toFixed(2)} {r.currencySnapshot}
                 </td>
               </tr>
             ))}

@@ -26,6 +26,7 @@ export type CatalogProduct = {
   description: string;
   categoryName: string;
   price: number;
+  sellPrice: number;
   currency: string;
   moq: number;
   qtyPerBox: number;
@@ -82,7 +83,7 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
   return (
     <>
       <Card
-        className="cursor-pointer overflow-hidden transition-shadow hover:shadow-md"
+        className="group cursor-pointer overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-600/40 hover:shadow-lg dark:hover:border-brand-500/40"
         onClick={() => openDialog(true)}
       >
         <div className="relative aspect-square w-full bg-neutral-100 dark:bg-neutral-800">
@@ -92,7 +93,7 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
               alt={product.name}
               fill
               sizes="(max-width: 768px) 50vw, 25vw"
-              className="object-cover"
+              className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-sm text-neutral-400 dark:text-neutral-500">
@@ -195,9 +196,17 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
 
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
             <div>
-              <dt className="text-neutral-500 dark:text-neutral-400">{t("price")}</dt>
+              <dt className="text-neutral-500 dark:text-neutral-400">{t("costPrice")}</dt>
               <dd className="font-medium text-neutral-900 dark:text-neutral-100">
                 {product.price.toFixed(2)} {product.currency}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-neutral-500 dark:text-neutral-400">{t("sellPrice")}</dt>
+              <dd className="font-medium text-neutral-900 dark:text-neutral-100" data-testid="card-sell-price">
+                {product.sellPrice > 0
+                  ? `${product.sellPrice.toFixed(2)} ${product.currency}`
+                  : t("sellsAtCost")}
               </dd>
             </div>
             <div>

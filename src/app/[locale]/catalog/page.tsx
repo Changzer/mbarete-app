@@ -41,6 +41,7 @@ export default async function CatalogPage({
         ? localizeField(locale as Locale, cat.nameEn, cat.nameZh)
         : "",
       price: p.price,
+      sellPrice: p.sellPrice,
       currency: p.currency,
       moq: p.moq,
       qtyPerBox: p.qtyPerBox,

@@ -101,7 +101,11 @@
     "errorRequiredFields": "名称、价格、起订量和每箱数量为必填项。",
     "errorDuplicateSku": "该货号已被其他产品使用。",
     "errorImage": "图片保存失败，请重试。",
-    "deleteOnOrders": "该产品已存在于订单中，无法删除——可取消勾选“启用”将其从目录中隐藏。"
+    "deleteOnOrders": "该产品已存在于订单中，无法删除——可取消勾选“启用”将其从目录中隐藏。",
+    "costPrice": "供应商价格（成本）",
+    "sellPrice": "销售价格",
+    "sellPriceHelp": "开给客户的单价。留空则按供应商价格开票；也可在每个订单中单独修改。",
+    "sellsAtCost": "按成本价——未设置"
   },
   "contacts": {
     "title": "联系人",
@@ -175,7 +179,13 @@
     "filedBy": "创建人",
     "updatedBy": "最后修改人",
     "unknownUser": "—",
-    "unmeasuredIncluded": "部分产品没有外箱尺寸，因此体积和重量低于实际出货量。"
+    "unmeasuredIncluded": "部分产品没有外箱尺寸，因此体积和重量低于实际出货量。",
+    "unitCost": "成本单价",
+    "sellPriceLabel": "售价",
+    "lineCost": "成本",
+    "lineMarkup": "加价 {pct}%",
+    "supplierCost": "供应商成本",
+    "grossMargin": "毛利（未扣费用）"
   },
   "settings": {
     "exchangeRates": "汇率",

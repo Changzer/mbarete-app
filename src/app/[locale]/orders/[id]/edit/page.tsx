@@ -37,6 +37,7 @@ export default async function EditOrderPage({
       categoryId: p.categoryId,
       categoryName: cat ? localizeField(locale as Locale, cat.nameEn, cat.nameZh) : "",
       price: p.price,
+      sellPrice: p.sellPrice,
       currency: p.currency,
       moq: p.moq,
       qtyPerBox: p.qtyPerBox,
@@ -69,7 +70,13 @@ export default async function EditOrderPage({
           secondaryCurrency: order.secondaryCurrency,
           commissionPct: order.commissionPct,
           notes: order.notes,
-          items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+          items: items.map((i) => ({
+            productId: i.productId,
+            quantity: i.quantity,
+            // Orders saved before selling prices carry 0: they sold at cost.
+            sellPrice:
+              i.sellPriceSnapshot > 0 ? i.sellPriceSnapshot : i.unitPriceSnapshot,
+          })),
         }}
       />
     </div>

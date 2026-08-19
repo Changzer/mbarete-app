@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { LoginForm } from "@/components/login-form";
+import { Brand } from "@/components/brand";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 export default async function LoginPage({
@@ -14,8 +15,14 @@ export default async function LoginPage({
   const { callbackUrl } = await searchParams;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-neutral-50 dark:bg-neutral-950 px-4">
-      <Card className="w-full max-w-sm">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-neutral-50 px-4 dark:bg-neutral-950">
+      {/* A soft brand glow behind the card, so the door feels like the logo. */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 top-0 h-64 bg-gradient-to-b from-brand-600/10 to-transparent"
+      />
+      <Brand size="hero" />
+      <Card className="w-full max-w-sm border-t-4 border-t-brand-600">
         <CardHeader>
           <CardTitle className="text-xl">{t("title")}</CardTitle>
           <CardDescription>{t("subtitle")}</CardDescription>

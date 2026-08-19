@@ -40,6 +40,9 @@ export const products = sqliteTable(
     descriptionEn: text("description_en").notNull().default(""),
     descriptionZh: text("description_zh").notNull().default(""),
     price: real("price").notNull(),
+    // Default selling price for order lines. 0 means none set: the product
+    // sells at the supplier price until a price is typed on the order.
+    sellPrice: real("sell_price").notNull().default(0),
     currency: text("currency").notNull().default("USD"),
     moq: integer("moq").notNull().default(1),
     qtyPerBox: integer("qty_per_box").notNull().default(1),
@@ -208,6 +211,9 @@ export const orderItems = sqliteTable(
       .references(() => products.id),
     quantity: integer("quantity").notNull(),
     unitPriceSnapshot: real("unit_price_snapshot").notNull(),
+    // The invoiced price per unit, frozen with the rest of the line. 0 on
+    // rows saved before selling prices existed, which read as "at cost".
+    sellPriceSnapshot: real("sell_price_snapshot").notNull().default(0),
     currencySnapshot: text("currency_snapshot").notNull(),
     moqSnapshot: integer("moq_snapshot").notNull(),
     lineTotal: real("line_total").notNull(),

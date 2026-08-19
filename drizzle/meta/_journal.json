@@ -57,6 +57,13 @@
       "when": 1787067202253,
       "tag": "0007_cool_spot",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1787101406590,
+      "tag": "0008_parched_xorn",
+      "breakpoints": true
     }
   ]
 }
