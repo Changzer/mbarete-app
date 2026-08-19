@@ -478,7 +478,7 @@ export function ProductForm({
         Fixed rather than sticky: as the form's last child it has nothing left
         to stick within, so `sticky` would just sit off-screen at the end.
       */}
-      <div className="fixed inset-x-0 bottom-0 z-30 flex gap-2 border-t border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-neutral-950 sm:static sm:z-auto sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 dark:sm:bg-transparent">
+      <div className="fixed inset-x-0 bottom-14 z-30 flex gap-2 border-t border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-neutral-950 sm:static sm:z-auto sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 dark:sm:bg-transparent">
         <Button type="submit" disabled={isPending} className="min-h-11 flex-1 sm:flex-none">
           {submitLabel}
         </Button>

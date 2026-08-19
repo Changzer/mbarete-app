@@ -5,6 +5,7 @@ import { getCompanyProfile } from "@/lib/queries/settings";
 import type { Locale } from "@/i18n/routing";
 import { formatCbm, formatWeightKg } from "@/lib/calculations";
 import { PrintButton } from "@/components/orders/print-button";
+import { Brand } from "@/components/brand";
 import { Link } from "@/i18n/navigation";
 
 /** Blank lines are dropped so an unfilled address does not leave gaps. */
@@ -87,8 +88,11 @@ export default async function ProformaPage({
 
       {/* --- the document itself --- */}
       <div className="rounded-lg border border-neutral-200 bg-white p-8 text-sm print:rounded-none print:border-0 print:p-0">
+        <div className="mb-6 border-t-[6px] border-brand-600" />
         <div className="flex items-start justify-between gap-8 border-b border-neutral-300 pb-6">
-          <div>
+          <div className="flex items-start gap-4">
+            <Brand size="hero" />
+            <div>
             <div className="text-xl font-bold" data-testid="vendor-name">
               {company.companyName || t("yourCompany")}
             </div>
@@ -98,6 +102,7 @@ export default async function ProformaPage({
               <Row label={t("email")} value={company.email} />
               <Row label={t("website")} value={company.website} />
               <Row label={t("taxId")} value={company.taxId} />
+            </div>
             </div>
           </div>
           <div className="text-right">

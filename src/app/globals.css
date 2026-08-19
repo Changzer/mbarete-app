@@ -1,7 +1,8 @@
+@import "@fontsource-variable/inter";
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* Keep this file minimal on purpose.
+/* Keep unlayered rules minimal on purpose.
  *
  * Tailwind v4 emits its utilities inside `@layer utilities`, and unlayered CSS
  * outranks layered CSS in the cascade. A plain `body { background; color }`
@@ -13,11 +14,37 @@
  * explicit `dark:` variants. Only put things here that utilities cannot express.
  */
 
+@theme {
+  /* Mbarete brand red, sampled from the logo, with a usable scale around it. */
+  --color-brand-50: #fcf3f1;
+  --color-brand-100: #f9e4e0;
+  --color-brand-200: #f2c6bf;
+  --color-brand-300: #e79f93;
+  --color-brand-400: #d96f5e;
+  --color-brand-500: #c94733;
+  --color-brand-600: #c13a2b;
+  --color-brand-700: #a02f23;
+  --color-brand-800: #84291f;
+  --color-brand-900: #6e251d;
+  --color-brand-950: #3b110d;
+
+  /* Inter ships in the image via npm; Chinese falls through to system faces. */
+  --font-sans:
+    "Inter Variable", ui-sans-serif, system-ui, -apple-system, "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+}
+
 :root {
   /* Lets native UI (form controls, scrollbars) follow the active scheme. */
   color-scheme: light dark;
 }
 
 body {
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+/* Text selection in the brand colour — a small tell that this is one product. */
+::selection {
+  background: #c13a2b;
+  color: #fff;
 }

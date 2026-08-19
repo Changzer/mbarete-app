@@ -83,7 +83,7 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
   return (
     <>
       <Card
-        className="cursor-pointer overflow-hidden transition-shadow hover:shadow-md"
+        className="group cursor-pointer overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-600/40 hover:shadow-lg dark:hover:border-brand-500/40"
         onClick={() => openDialog(true)}
       >
         <div className="relative aspect-square w-full bg-neutral-100 dark:bg-neutral-800">
@@ -93,7 +93,7 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
               alt={product.name}
               fill
               sizes="(max-width: 768px) 50vw, 25vw"
-              className="object-cover"
+              className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-sm text-neutral-400 dark:text-neutral-500">
