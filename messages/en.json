@@ -34,7 +34,9 @@
     "close": "Close",
     "previous": "Previous",
     "next": "Next",
-    "enlarge": "Enlarge"
+    "enlarge": "Enlarge",
+    "selectFile": "Select file",
+    "noFileSelected": "No file selected"
   },
   "catalog": {
     "title": "Product Catalog",
