@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import {
   addPayment,
@@ -103,6 +103,70 @@ function useErrorText() {
 }
 
 /**
+ * A file field drawn as a real button.
+ *
+ * The native control's label comes from the browser's own language
+ * ("Escolher ficheiro…" on a Portuguese browser) and does not look
+ * clickable in this design. The input stays in the form — visually hidden,
+ * not display:none, so `required` validation can still focus it — and the
+ * button next to it opens the picker. The chosen filename echoes beside the
+ * button and clears when the form resets after a successful submit.
+ */
+function FileButton({
+  name,
+  accept,
+  required,
+  testid,
+}: {
+  name: string;
+  accept: string;
+  required?: boolean;
+  testid?: string;
+}) {
+  const common = useTranslations("common");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [fileName, setFileName] = useState("");
+
+  useEffect(() => {
+    const form = inputRef.current?.form;
+    if (!form) return;
+    const onReset = () => setFileName("");
+    form.addEventListener("reset", onReset);
+    return () => form.removeEventListener("reset", onReset);
+  }, []);
+
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        ref={inputRef}
+        name={name}
+        type="file"
+        accept={accept}
+        required={required}
+        className="sr-only"
+        data-testid={testid}
+        onChange={(e) => setFileName(e.target.files?.[0]?.name ?? "")}
+      />
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => inputRef.current?.click()}
+      >
+        <Paperclip className="h-4 w-4" />
+        {common("selectFile")}
+      </Button>
+      <span
+        className="max-w-44 truncate text-xs text-neutral-500 dark:text-neutral-400"
+        title={fileName || undefined}
+      >
+        {fileName || common("noFileSelected")}
+      </span>
+    </div>
+  );
+}
+
+/**
  * The slip field on payments and expenses. `image/*` keeps the phone's
  * "take photo" option available — the whole point is snapping the bank
  * receipt right when the money moves.
@@ -112,13 +176,7 @@ function ReceiptField({ testid }: { testid: string }) {
   return (
     <div className="flex min-w-40 flex-col gap-1">
       <Label className="text-xs">{t("receipt")}</Label>
-      <input
-        name="receipt"
-        type="file"
-        accept="image/*,.pdf"
-        className="text-sm"
-        data-testid={testid}
-      />
+      <FileButton name="receipt" accept="image/*,.pdf" testid={testid} />
     </div>
   );
 }
@@ -425,12 +483,10 @@ function DocumentSection({
         </div>
         <div className="flex min-w-48 flex-1 flex-col gap-1">
           <Label className="text-xs">{t("file")}</Label>
-          <input
+          <FileButton
             name="file"
-            type="file"
             required
             accept=".pdf,.xlsx,.xls,.docx,image/png,image/jpeg,image/webp"
-            className="text-sm"
           />
         </div>
         <Button type="submit" size="sm" disabled={isPending}>
