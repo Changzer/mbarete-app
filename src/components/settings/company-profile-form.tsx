@@ -68,27 +68,6 @@ export function CompanyProfileForm({ profile }: { profile: CompanyProfile }) {
 
           <div className="border-t border-neutral-200 pt-4 dark:border-neutral-800">
             <h3 className="mb-3 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-              {t("bankSection")}
-            </h3>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field name="bankAccountName" label={t("bankAccountName")} defaultValue={profile.bankAccountName} />
-              <Field name="bankName" label={t("bankName")} defaultValue={profile.bankName} />
-              <Field name="bankAccountNumber" label={t("bankAccountNumber")} defaultValue={profile.bankAccountNumber} />
-              <Field name="bankSwift" label={t("bankSwift")} defaultValue={profile.bankSwift} />
-            </div>
-            <div className="mt-4 flex flex-col gap-1.5">
-              <Label htmlFor="bankAddress">{t("bankAddress")}</Label>
-              <Textarea
-                id="bankAddress"
-                name="bankAddress"
-                rows={2}
-                defaultValue={profile.bankAddress}
-              />
-            </div>
-          </div>
-
-          <div className="border-t border-neutral-200 pt-4 dark:border-neutral-800">
-            <h3 className="mb-3 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
               {t("termsSection")}
             </h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

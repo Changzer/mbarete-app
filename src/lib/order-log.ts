@@ -27,6 +27,7 @@ export type OrderChange =
   | { code: "commission"; from: number; to: number }
   | { code: "currency"; from: string; to: string }
   | { code: "notes" }
+  | { code: "bank"; from: string; to: string }
   | { code: "line_added"; sku: string; qty: number }
   | { code: "line_removed"; sku: string }
   | { code: "line_qty"; sku: string; from: number; to: number }

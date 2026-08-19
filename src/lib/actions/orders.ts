@@ -6,7 +6,7 @@ import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
 import type { Locale } from "@/i18n/routing";
 import { db } from "@/db";
-import { orders, orderItems, products, orderDocuments } from "@/db/schema";
+import { orders, orderItems, products, orderDocuments, bankAccounts } from "@/db/schema";
 import { eq, inArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import {
@@ -258,6 +258,41 @@ export async function setOrderStatus(
   revalidatePath("/orders");
   revalidatePath(`/orders/${id}`);
   return {};
+}
+
+/**
+ * Which bank account the order's proforma prints. Logged like any other
+ * edit: the client is told where to pay, so switching accounts is a change
+ * worth remembering.
+ */
+export async function setOrderBankAccount(orderId: number, bankAccountId: number) {
+  await requireSession();
+
+  const current = db.select().from(orders).where(eq(orders.id, orderId)).get();
+  if (!current) return;
+  const target = db
+    .select()
+    .from(bankAccounts)
+    .where(eq(bankAccounts.id, bankAccountId))
+    .get();
+  if (!target || current.bankAccountId === bankAccountId) return;
+
+  const before = current.bankAccountId
+    ? db.select().from(bankAccounts).where(eq(bankAccounts.id, current.bankAccountId)).get()
+    : undefined;
+
+  db.update(orders)
+    .set({ bankAccountId, updatedAt: new Date().toISOString() })
+    .where(eq(orders.id, orderId))
+    .run();
+
+  const session = await auth();
+  logOrderEvent(orderId, Number(session?.user?.id ?? 0) || null, "edited", {
+    changes: [{ code: "bank", from: before?.label ?? "—", to: target.label }],
+  });
+
+  revalidatePath(`/orders/${orderId}`);
+  revalidatePath(`/orders/${orderId}/proforma`);
 }
 
 export async function deleteOrder(id: number) {

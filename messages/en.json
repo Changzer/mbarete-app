@@ -186,7 +186,8 @@
     "lineMarkup": "Markup {pct}%",
     "supplierCost": "Supplier cost",
     "grossMargin": "Your margin (before expenses)",
-    "saveChanges": "Save changes"
+    "saveChanges": "Save changes",
+    "proformaBank": "Bank on proforma"
   },
   "settings": {
     "exchangeRates": "Exchange Rates",
@@ -232,14 +233,25 @@
   },
   "company": {
     "title": "Company details",
-    "help": "Printed as the vendor block at the top of every proforma invoice, along with your bank details for payment.",
+    "help": "Printed as the vendor block at the top of every proforma invoice.",
     "companyName": "Company name",
     "taxId": "Tax ID / Business licence",
     "address": "Address",
     "phone": "Phone",
     "email": "Email",
     "website": "Website",
-    "bankSection": "Bank details for payment",
+    "banksTitle": "Bank accounts",
+    "banksHelp": "Register every account clients can pay into. Each order picks which one prints on its proforma invoice; the default is used when an order never chose.",
+    "banksEmpty": "No bank accounts yet. Add the first one below — it becomes the default shown on proforma invoices.",
+    "bankLabel": "Label",
+    "bankLabelHint": "How it appears in the order dropdown, e.g. \"Tailong Bank — RMB\".",
+    "bankCurrency": "Currency",
+    "bankCurrencyHint": "Optional, e.g. USD or RMB.",
+    "bankDefault": "Default",
+    "bankMakeDefault": "Make default",
+    "bankDeleteConfirm": "Delete \"{label}\"? Orders using it will fall back to the default account.",
+    "bankAddTitle": "Add bank account",
+    "bankEditTitle": "Editing: {label}",
     "bankAccountName": "Account name",
     "bankName": "Bank name",
     "bankAccountNumber": "Account number / IBAN",
@@ -390,6 +402,7 @@
     "changeLineAdded": "Added {sku} × {qty}",
     "changeLineRemoved": "Removed {sku}",
     "changeLineQty": "{sku}: quantity {from} → {to}",
-    "changeLinePrice": "{sku}: sell price {from} → {to}"
+    "changeLinePrice": "{sku}: sell price {from} → {to}",
+    "changeBank": "Proforma bank account: {from} → {to}"
   }
 }

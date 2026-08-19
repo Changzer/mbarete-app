@@ -35,6 +35,8 @@ function describeChange(change: OrderChange, t: T): string {
       return t("changeCurrency", { from: change.from, to: change.to });
     case "notes":
       return t("changeNotes");
+    case "bank":
+      return t("changeBank", { from: change.from, to: change.to });
     case "line_added":
       return t("changeLineAdded", { sku: change.sku, qty: change.qty });
     case "line_removed":

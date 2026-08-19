@@ -2,17 +2,19 @@ import { getTranslations } from "next-intl/server";
 import { db } from "@/db";
 import { exchangeRates } from "@/db/schema";
 import { asc } from "drizzle-orm";
-import { getCompanyProfile } from "@/lib/queries/settings";
+import { getCompanyProfile, getBankAccounts } from "@/lib/queries/settings";
 import { ExchangeRateManager } from "@/components/settings/exchange-rate-manager";
 import { CompanyProfileForm } from "@/components/settings/company-profile-form";
+import { BankAccountsManager } from "@/components/settings/bank-accounts-manager";
 
 export default async function SettingsPage() {
   const t = await getTranslations("settings");
   const companyT = await getTranslations("company");
 
-  const [rates, profile] = await Promise.all([
+  const [rates, profile, banks] = await Promise.all([
     db.select().from(exchangeRates).orderBy(asc(exchangeRates.currencyCode)).all(),
     getCompanyProfile(),
+    getBankAccounts(),
   ]);
 
   return (
@@ -22,6 +24,13 @@ export default async function SettingsPage() {
           {companyT("title")}
         </h1>
         <CompanyProfileForm profile={profile} />
+      </section>
+
+      <section>
+        <h2 className="mb-6 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
+          {companyT("banksTitle")}
+        </h2>
+        <BankAccountsManager accounts={banks} />
       </section>
 
       <section>

@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { getOrderView } from "@/lib/queries/order-view";
 import { getOrderFinanceRows, parseRatesSnapshot } from "@/lib/queries/orders";
 import { getUserNames } from "@/lib/queries/users";
+import { getBankAccounts } from "@/lib/queries/settings";
 import type { Locale } from "@/i18n/routing";
 import { computeOrderFinance, formatCbm } from "@/lib/calculations";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +13,7 @@ import { OrderStatusActions } from "@/components/orders/order-status-actions";
 import { OrderFinance } from "@/components/orders/order-finance";
 import { OrderResult } from "@/components/orders/order-result";
 import { OrderChangelog } from "@/components/orders/order-changelog";
+import { ProformaBankSelect } from "@/components/orders/proforma-bank-select";
 
 const STATUS_VARIANT = {
   draft: "secondary",
@@ -30,10 +32,11 @@ export default async function OrderDetailPage({
   const catalogT = await getTranslations("catalog");
   const proformaT = await getTranslations("proforma");
 
-  const [view, userNames, finance] = await Promise.all([
+  const [view, userNames, finance, bankAccounts] = await Promise.all([
     getOrderView(Number(id), locale as Locale),
     getUserNames(),
     getOrderFinanceRows(Number(id)),
+    getBankAccounts(),
   ]);
   if (!view) notFound();
   const { order, client, rows, targets, totals, effectiveRates } = view;
@@ -85,6 +88,16 @@ export default async function OrderDetailPage({
             {t(`status${order.status.charAt(0).toUpperCase()}${order.status.slice(1)}` as "statusDraft")}
           </Badge>
           <OrderStatusActions orderId={order.id} status={order.status} />
+          <ProformaBankSelect
+            orderId={order.id}
+            accounts={bankAccounts.map((a) => ({
+              id: a.id,
+              label: a.label,
+              currency: a.currency,
+              isDefault: a.isDefault,
+            }))}
+            selectedId={order.bankAccountId}
+          />
           <Button asChild variant="outline" size="sm">
             <Link href={`/orders/${order.id}/proforma`}>{proformaT("open")}</Link>
           </Button>

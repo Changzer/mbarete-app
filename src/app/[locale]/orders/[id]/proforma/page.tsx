@@ -1,7 +1,11 @@
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getOrderView } from "@/lib/queries/order-view";
-import { getCompanyProfile } from "@/lib/queries/settings";
+import {
+  getCompanyProfile,
+  getBankAccounts,
+  resolveProformaBank,
+} from "@/lib/queries/settings";
 import type { Locale } from "@/i18n/routing";
 import { formatCbm, formatWeightKg } from "@/lib/calculations";
 import { PrintButton } from "@/components/orders/print-button";
@@ -40,12 +44,17 @@ export default async function ProformaPage({
   const t = await getTranslations("proforma");
   const orderT = await getTranslations("orders");
 
-  const [view, company] = await Promise.all([
+  const [view, company, accounts] = await Promise.all([
     getOrderView(Number(id), locale as Locale),
     getCompanyProfile(),
+    getBankAccounts(),
   ]);
   if (!view) notFound();
   const { order, client, rows, targets, totals } = view;
+
+  // The order's chosen account, the default one, or the pre-multi-account
+  // company fields — in that order.
+  const bank = resolveProformaBank(accounts, order.bankAccountId, company);
 
   const quote = order.displayCurrency;
   const issued = new Date(order.createdAt);
@@ -214,18 +223,18 @@ export default async function ProformaPage({
           </div>
         </div>
 
-        {company.bankAccountName || company.bankName || company.bankAccountNumber ? (
-          <div className="mt-8 border-t border-neutral-300 pt-4">
+        {bank ? (
+          <div className="mt-8 border-t border-neutral-300 pt-4" data-testid="proforma-bank-details">
             <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-neutral-500">
               {t("bankDetails")}
             </div>
             <div className="text-neutral-700">
-              <Row label={t("bankAccountName")} value={company.bankAccountName} />
-              <Row label={t("bankName")} value={company.bankName} />
-              <Row label={t("bankAccountNumber")} value={company.bankAccountNumber} />
-              <Row label={t("bankSwift")} value={company.bankSwift} />
+              <Row label={t("bankAccountName")} value={bank.accountName} />
+              <Row label={t("bankName")} value={bank.bankName} />
+              <Row label={t("bankAccountNumber")} value={bank.accountNumber} />
+              <Row label={t("bankSwift")} value={bank.swift} />
             </div>
-            <Lines text={company.bankAddress} className="text-neutral-700" />
+            <Lines text={bank.bankAddress} className="text-neutral-700" />
           </div>
         ) : null}
 
