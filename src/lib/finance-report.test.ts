@@ -187,3 +187,63 @@ test("report: unknown currencies are flagged and excluded, not zeroed silently",
   assert.deepEqual(r.missingRates, ["GBP"]);
   closeTo(r.totals.cashIn, 0);
 });
+
+test("report: XTransfer settlements split by where the money landed", () => {
+  // One client paid 1000 USD that stayed USD; another settlement arrived
+  // already converted: 7100 RMB into the RMB account, on a USD-quoted order.
+  const r = computeFinanceReport(
+    [
+      order({
+        payments: [
+          { direction: "in", amount: 1000, currency: "USD", paidOn: "2026-03-01", account: "USD" },
+          { direction: "in", amount: 7100, currency: "RMB", paidOn: "2026-03-05", account: "RMB" },
+        ],
+      }),
+    ],
+    "USD",
+    { USD: 1, CNY: 0.14, RMB: 0.14 },
+  );
+  assert.equal(r.receivedByAccount.length, 2);
+  // 7100 RMB = 994 USD > 1000 USD? No: 994 < 1000 — USD bucket first.
+  assert.equal(r.receivedByAccount[0].key, "USD");
+  assert.deepEqual(r.receivedByAccount[0].native, { USD: 1000 });
+  const rmb = r.receivedByAccount[1];
+  assert.equal(rmb.key, "RMB");
+  assert.deepEqual(rmb.native, { RMB: 7100 });
+  closeTo(rmb.value, 994, 1e-9);
+  closeTo(rmb.pct + r.receivedByAccount[0].pct, 100, 1e-9);
+});
+
+test("report: untagged payments land under their own currency", () => {
+  const r = computeFinanceReport(
+    [
+      order({
+        payments: [
+          { direction: "in", amount: 500, currency: "BRL", paidOn: "2026-03-01" },
+        ],
+      }),
+    ],
+    "USD",
+    { USD: 1, CNY: 0.14, BRL: 0.18 },
+  );
+  assert.equal(r.receivedByAccount[0].key, "BRL");
+  closeTo(r.receivedByAccount[0].value, 90, 1e-9);
+});
+
+test("report: a converted settlement counts once, in its landed form only", () => {
+  // The RMB that arrived is the same money the client sent as USD — it must
+  // not appear under both.
+  const r = computeFinanceReport(
+    [
+      order({
+        payments: [
+          { direction: "in", amount: 7100, currency: "RMB", paidOn: "2026-03-05", account: "RMB" },
+        ],
+      }),
+    ],
+    "USD",
+    { USD: 1, RMB: 0.14 },
+  );
+  assert.equal(r.receivedByAccount.length, 1);
+  closeTo(r.totals.cashIn, 994, 1e-9);
+});

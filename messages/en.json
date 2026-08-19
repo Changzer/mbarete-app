@@ -333,7 +333,8 @@
     "accountRmb": "RMB account",
     "accountUsd": "USD account",
     "accountOther": "Other / none",
-    "fxGainLoss": "FX gain/loss so far"
+    "fxGainLoss": "FX gain/loss so far",
+    "gatewayHint": "Record what actually landed in the bank. If the gateway (e.g. XTransfer) converted on arrival, enter the RMB amount received and tag the RMB account — not the amount the client sent."
   },
   "financeReport": {
     "title": "Finance",
@@ -361,7 +362,9 @@
     "client": "Client",
     "margin": "Margin",
     "outstanding": "Owes",
-    "noData": "Nothing recorded yet."
+    "noData": "Nothing recorded yet.",
+    "byAccount": "Client money by landing account",
+    "byAccountHelp": "Grouped by the account each payment was tagged with — untagged payments count under their own currency. When a gateway settlement arrives already converted, record what actually landed and this shows how much became RMB and how much stayed USD."
   },
   "orderLog": {
     "title": "History",
