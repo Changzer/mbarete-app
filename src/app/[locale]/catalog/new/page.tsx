@@ -1,6 +1,8 @@
 import { getTranslations } from "next-intl/server";
 import { getCategories, suggestNextSku } from "@/lib/queries/catalog";
 import { createProduct } from "@/lib/actions/catalog";
+import { transcribeProduct } from "@/lib/actions/transcribe";
+import { isTranscriptionEnabled } from "@/lib/transcribe-product";
 import { ProductForm } from "@/components/catalog/product-form";
 
 export default async function NewProductPage({
@@ -27,6 +29,7 @@ export default async function NewProductPage({
         action={createProduct}
         submitLabel={common("save")}
         showAddAnother
+        transcribe={isTranscriptionEnabled() ? transcribeProduct : undefined}
         defaultValues={{
           sku: nextSku,
           ...(Number.isFinite(categoryId) && categoryId > 0 ? { categoryId } : {}),

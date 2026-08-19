@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,8 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useState } from "react";
 import { PhotoPicker } from "@/components/catalog/photo-picker";
+import type { TranscribeResult, TranscribedFields } from "@/lib/transcribe-product";
 import {
   computeCbm,
   estimateCartonCbm,
@@ -63,6 +64,7 @@ export function ProductForm({
   existingImages = [],
   submitLabel,
   showAddAnother = false,
+  transcribe,
 }: {
   categories: Category[];
   action: (prevState: string | undefined, formData: FormData) => Promise<string | undefined>;
@@ -71,6 +73,8 @@ export function ProductForm({
   submitLabel: string;
   /** Only when registering: lets several products be entered in a row. */
   showAddAnother?: boolean;
+  /** Reads the picked photos into draft field values; absent when no AI key is set. */
+  transcribe?: (formData: FormData) => Promise<TranscribeResult>;
 }) {
   const t = useTranslations("catalog");
   const common = useTranslations("common");
@@ -79,6 +83,13 @@ export function ProductForm({
   const [categoryId, setCategoryId] = useState(
     defaultValues?.categoryId ? String(defaultValues.categoryId) : categories[0] ? String(categories[0].id) : "",
   );
+
+  const formRef = useRef<HTMLFormElement>(null);
+  // What the category started as, so a suggestion never overrides a manual pick.
+  const initialCategoryId = useRef(categoryId);
+  const [aiPending, setAiPending] = useState(false);
+  const [aiError, setAiError] = useState<"no-photos" | "failed" | null>(null);
+  const [aiNotes, setAiNotes] = useState<string | null>(null);
 
   // Which figures the supplier actually gave us. Carton is the accurate path;
   // piece estimates a carton when only the product itself has been quoted.
@@ -98,6 +109,75 @@ export function ProductForm({
     String(defaultValues?.packingAllowancePct ?? DEFAULT_PACKING_ALLOWANCE_PCT),
   );
 
+  /**
+   * Fills fields the user has not touched: empty ones, plus those still on
+   * their pristine defaults (currency USD, MOQ 1, 1 per box, the initial
+   * category). Anything already typed is theirs and stays.
+   */
+  function applyTranscription(fields: TranscribedFields) {
+    const form = formRef.current;
+    if (!form) return;
+
+    const setIfUntouched = (
+      name: string,
+      value: string | number | undefined,
+      pristine: string[] = [],
+    ) => {
+      if (value === undefined) return;
+      const el = form.elements.namedItem(name);
+      if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return;
+      if (el.value.trim() !== "" && !pristine.includes(el.value.trim())) return;
+      el.value = String(value);
+    };
+
+    setIfUntouched("nameEn", fields.nameEn);
+    setIfUntouched("nameZh", fields.nameZh);
+    setIfUntouched("descriptionEn", fields.descriptionEn);
+    setIfUntouched("descriptionZh", fields.descriptionZh);
+    setIfUntouched("price", fields.price);
+    setIfUntouched("currency", fields.currency, ["USD"]);
+    setIfUntouched("moq", fields.moq, ["1"]);
+    if (fields.qtyPerBox !== undefined) {
+      setQtyPerBox((prev) => (prev === "" || prev === "1" ? String(fields.qtyPerBox) : prev));
+    }
+    if (fields.categoryId !== undefined && categories.some((c) => c.id === fields.categoryId)) {
+      setCategoryId((prev) =>
+        prev === initialCategoryId.current ? String(fields.categoryId) : prev,
+      );
+    }
+  }
+
+  async function handleTranscribe() {
+    if (!transcribe) return;
+    const input = formRef.current?.elements.namedItem("images");
+    const files = input instanceof HTMLInputElement ? Array.from(input.files ?? []) : [];
+    if (files.length === 0) {
+      setAiError("no-photos");
+      return;
+    }
+
+    setAiError(null);
+    setAiNotes(null);
+    setAiPending(true);
+    try {
+      const data = new FormData();
+      for (const file of files) data.append("images", file);
+      const result = await transcribe(data);
+      if (result.ok) {
+        applyTranscription(result.fields);
+        setAiNotes(result.notes);
+      } else if (result.error === "no-photos") {
+        setAiError("no-photos");
+      } else {
+        setAiError("failed");
+      }
+    } catch {
+      setAiError("failed");
+    } finally {
+      setAiPending(false);
+    }
+  }
+
   const num = (v: string) => (Number.isFinite(Number(v)) ? Number(v) : 0);
   const pieceDims = {
     lengthCm: num(piece.lengthCm),
@@ -111,7 +191,7 @@ export function ProductForm({
   const bareCbm = computeCbm(pieceDims.lengthCm, pieceDims.widthCm, pieceDims.heightCm) * perBox;
 
   return (
-    <form action={formAction} className="flex flex-col gap-5 pb-20 sm:pb-0">
+    <form ref={formRef} action={formAction} className="flex flex-col gap-5 pb-20 sm:pb-0">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="sku">{t("sku")}</Label>
@@ -448,6 +528,40 @@ export function ProductForm({
           ) : null}
 
           <PhotoPicker />
+
+          {transcribe ? (
+            <div className="flex flex-col gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={aiPending}
+                onClick={handleTranscribe}
+                data-testid="fill-from-photos"
+                className="min-h-11 justify-center gap-2"
+              >
+                {aiPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                {aiPending ? t("aiFilling") : t("aiFill")}
+              </Button>
+              {aiError ? (
+                <p className="text-sm text-red-600" data-testid="ai-error">
+                  {aiError === "no-photos" ? t("aiErrorNoPhotos") : t("aiErrorFailed")}
+                </p>
+              ) : aiNotes ? (
+                <p
+                  className="rounded-md bg-neutral-100 px-3 py-2 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400"
+                  data-testid="ai-notes"
+                >
+                  {t("aiNotes")}: {aiNotes}
+                </p>
+              ) : (
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">{t("aiFillHelp")}</p>
+              )}
+            </div>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-2">

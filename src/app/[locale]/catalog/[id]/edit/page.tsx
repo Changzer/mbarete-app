@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getCategories, getProductById, getProductImages } from "@/lib/queries/catalog";
 import { updateProduct } from "@/lib/actions/catalog";
+import { transcribeProduct } from "@/lib/actions/transcribe";
+import { isTranscriptionEnabled } from "@/lib/transcribe-product";
 import { ProductForm } from "@/components/catalog/product-form";
 
 export default async function EditProductPage({
@@ -35,6 +37,7 @@ export default async function EditProductPage({
         defaultValues={product}
         existingImages={images.map((i) => ({ id: i.id, path: i.path }))}
         submitLabel={common("save")}
+        transcribe={isTranscriptionEnabled() ? transcribeProduct : undefined}
       />
     </div>
   );

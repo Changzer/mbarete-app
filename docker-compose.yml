@@ -15,6 +15,9 @@ services:
       # Optional: comma-separated forex provider URLs, tried in order.
       # Leave unset for the defaults (open.er-api.com, frankfurter.dev).
       FOREX_PROVIDERS: ${FOREX_PROVIDERS:-}
+      # Optional: enables "Fill from photos" (AI transcription) on the product
+      # form. Leave unset to hide the feature.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     volumes:
       - mbarete-data:/app/data
       # Same volume as before, remounted: uploads moved out of public/ because
