@@ -198,6 +198,46 @@ export default async function FinancePage({
         )}
       </div>
 
+      {/* --- where client money landed: XTransfer converts some on arrival --- */}
+      <div className={box} data-testid="landing-breakdown">
+        <h2 className={heading}>{t("byAccount")}</h2>
+        {report.receivedByAccount.length === 0 ? (
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">{t("noData")}</p>
+        ) : (
+          <ul className="flex flex-col gap-2 text-sm">
+            {report.receivedByAccount.map((row) => (
+              <li key={row.key} className="flex flex-col gap-1">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="font-medium text-neutral-900 dark:text-neutral-100">
+                    {row.key === "RMB"
+                      ? financeT("accountRmb")
+                      : row.key === "USD"
+                        ? financeT("accountUsd")
+                        : row.key}
+                  </span>
+                  <span className="tabular-nums text-neutral-900 dark:text-neutral-100">
+                    {Object.entries(row.native)
+                      .map(([code, amount]) =>
+                        `${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${code}`)
+                      .join(" + ")}
+                    <span className="ml-2 text-xs text-neutral-500 dark:text-neutral-400">
+                      ≈ {money(row.value)} · {row.pct.toFixed(0)}%
+                    </span>
+                  </span>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-neutral-100 dark:bg-neutral-800">
+                  <div
+                    className="h-1.5 rounded-full bg-brand-600 dark:bg-brand-500"
+                    style={{ width: `${Math.max(2, row.pct)}%` }}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400">{t("byAccountHelp")}</p>
+      </div>
+
       {/* --- expenses and clients --- */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className={box} data-testid="expense-breakdown">

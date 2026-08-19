@@ -103,6 +103,7 @@ export async function getFinanceData(): Promise<{
         amount: p.amount,
         currency: p.currency,
         paidOn: p.paidOn,
+        account: p.account,
         rates: parseRatesSnapshot(p.ratesSnapshot),
       })),
       expenses: (expensesByOrder.get(order.id) ?? []).map((e) => ({

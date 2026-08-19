@@ -333,7 +333,8 @@
     "accountRmb": "人民币账户",
     "accountUsd": "美元账户",
     "accountOther": "其他 / 无",
-    "fxGainLoss": "汇率损益（至今）"
+    "fxGainLoss": "汇率损益（至今）",
+    "gatewayHint": "请按实际到账金额记录。若支付平台（如 XTransfer）到账时已结汇，请填写实际收到的人民币金额并标记人民币账户——而不是客户汇出的金额。"
   },
   "financeReport": {
     "title": "财务",
@@ -361,7 +362,9 @@
     "client": "客户",
     "margin": "利润率",
     "outstanding": "未付",
-    "noData": "暂无记录。"
+    "noData": "暂无记录。",
+    "byAccount": "客户款项按到账账户",
+    "byAccountHelp": "按付款记录的账户标签分组——未标记的按其自身货币计。若支付平台到账时已结汇，请按实际到账记录，此处即可看到多少已转为人民币、多少仍为美元。"
   },
   "orderLog": {
     "title": "变更记录",

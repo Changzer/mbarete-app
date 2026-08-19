@@ -31,6 +31,8 @@ export type FinanceOrderInput = {
     amount: number;
     currency: string;
     paidOn: string;
+    /** which bank account the money touched, e.g. "RMB" or "USD" */
+    account?: string;
     /** the rate table frozen when the payment was recorded, when present */
     rates?: CurrencyRates;
   }[];
@@ -62,6 +64,22 @@ export type ClientRow = {
   outstanding: number;
 };
 
+/**
+ * Where client money actually landed. XTransfer settlements often arrive
+ * already converted to RMB; this is the view that says how much did, and how
+ * much stayed in USD (or anything else).
+ */
+export type LandingRow = {
+  /** the account tag, falling back to the payment's own currency */
+  key: string;
+  /** native sums per currency inside this bucket, e.g. { RMB: 7100 } */
+  native: Record<string, number>;
+  /** the bucket valued in the report currency */
+  value: number;
+  /** share of everything received */
+  pct: number;
+};
+
 export type OpenBalance = {
   orderId: number;
   orderNumber: string;
@@ -86,6 +104,7 @@ export type FinanceReport = {
   months: MonthRow[];
   expensesByCategory: { category: string; amount: number; pct: number }[];
   clients: ClientRow[];
+  receivedByAccount: LandingRow[];
   receivablesList: OpenBalance[];
   payablesList: OpenBalance[];
   missingRates: string[];
@@ -136,6 +155,7 @@ export function computeFinanceReport(
     netCash: 0,
   };
   const months = new Map<string, MonthRow>();
+  const landing = new Map<string, { native: Record<string, number>; value: number }>();
   const clients = new Map<string, ClientRow>();
   const byCategory = new Map<string, number>();
   const receivablesList: OpenBalance[] = [];
@@ -163,6 +183,16 @@ export function computeFinanceReport(
         received += amount;
         m.cashIn += amount;
         totals.cashIn += amount;
+
+        // An untagged payment landed wherever its own currency says.
+        const key = p.account?.trim() || p.currency;
+        let bucket = landing.get(key);
+        if (!bucket) {
+          bucket = { native: {}, value: 0 };
+          landing.set(key, bucket);
+        }
+        bucket.native[p.currency] = (bucket.native[p.currency] ?? 0) + p.amount;
+        bucket.value += amount;
       } else {
         paidOut += amount;
         m.cashOut += amount;
@@ -257,9 +287,19 @@ export function computeFinanceReport(
     }))
     .sort((a, b) => b.amount - a.amount);
 
+  const receivedByAccount: LandingRow[] = [...landing.entries()]
+    .map(([key, bucket]) => ({
+      key,
+      native: bucket.native,
+      value: bucket.value,
+      pct: totals.cashIn > 0 ? (bucket.value / totals.cashIn) * 100 : 0,
+    }))
+    .sort((a, b) => b.value - a.value);
+
   return {
     currency: reportCurrency,
     totals,
+    receivedByAccount,
     months: [...months.values()].sort((a, b) => b.month.localeCompare(a.month)),
     expensesByCategory,
     clients: [...clients.values()].sort((a, b) => b.expectedRevenue - a.expectedRevenue),

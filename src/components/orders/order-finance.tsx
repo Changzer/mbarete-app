@@ -449,6 +449,7 @@ export function OrderFinance({
         <div className={box} data-testid="section-payments-in">
           <h2 className={heading}>{t("paymentsIn")}</h2>
           <div className="flex flex-col gap-3">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">{t("gatewayHint")}</p>
             <PaymentForm orderId={orderId} direction="in" defaultCurrency={quoteCurrency} />
             <PaymentList orderId={orderId} rows={paymentsIn} />
           </div>
