@@ -28,6 +28,16 @@ type ContactFormValues = {
 
 export type ExistingCardImage = { id: number; path: string; kind: "card" | "qr" };
 
+/**
+ * Identifies a picked photo well enough to tell "already scanned" from "new".
+ * Deliberately not `lastModified`: the compressor stamps every File it returns
+ * with the current time, so that would make each photo look new on every
+ * change and rescan the whole list — restoring a crop the user just deleted.
+ */
+function fileKey(file: File) {
+  return `${file.name}:${file.size}`;
+}
+
 export function ContactForm({
   type,
   action,
@@ -143,6 +153,7 @@ export function ContactForm({
   // form (hidden file input) and is shown next to the WeChat field — the QR
   // itself is the contact method; no model can turn it into an ID.
   const [qr, setQr] = useState<{ file: File; url: string } | null>(null);
+  const [qrScan, setQrScan] = useState<"idle" | "scanning" | "found" | "none">("idle");
   const qrInputRef = useRef<HTMLInputElement>(null);
   const qrScanned = useRef(new Set<string>());
   // Tracks the live object URL so unmount revokes the CURRENT one: an effect
@@ -153,11 +164,33 @@ export function ContactForm({
   }, []);
 
   function detectQr(files: File[]) {
+    // Scanning is remembered per photo so that adding a second photo does not
+    // rescan the first — but only for as long as that photo is still picked.
+    // Forgetting the ones that are gone is what makes a retry work: removing a
+    // blurry shot and taking it again is deliberate, and the compressor is
+    // deterministic, so the retry would otherwise carry the same key and be
+    // skipped for good. Deleting only the crop, with the photo still picked,
+    // stays deleted — the key survives, so nothing scans it back in.
+    const present = new Set(files.map(fileKey));
+    for (const key of qrScanned.current) {
+      if (!present.has(key)) qrScanned.current.delete(key);
+    }
+
+    if (files.length === 0) {
+      setQrScan("idle");
+      return;
+    }
+
     void (async () => {
+      let scannedAny = false;
       for (const file of files) {
-        const seen = `${file.name}:${file.size}`;
+        const seen = fileKey(file);
         if (qrScanned.current.has(seen)) continue;
         qrScanned.current.add(seen);
+        if (!scannedAny) {
+          scannedAny = true;
+          setQrScan("scanning");
+        }
         const found = await extractQrFromImage(file);
         if (!found) continue;
         setQr((prev) => {
@@ -176,8 +209,13 @@ export function ContactForm({
             // Old browser: the full card photo remains the scannable fallback.
           }
         }
-        break;
+        setQrScan("found");
+        return;
       }
+      // Nothing found in this round. Saying so beats a silent no-op: without
+      // it there is no way to tell a card that carries no QR from a feature
+      // that has stopped working.
+      if (scannedAny) setQrScan("none");
     })();
   }
 
@@ -187,6 +225,9 @@ export function ContactForm({
       return null;
     });
     qrUrlRef.current = null;
+    // Back to silent: the scan did find one, the user threw it away, and
+    // saying "no QR found" about a card that plainly has one would be a lie.
+    setQrScan("idle");
     if (qrInputRef.current) qrInputRef.current.value = "";
   }
 
@@ -345,6 +386,14 @@ export function ContactForm({
           <Input id="wechat" name="wechat" defaultValue={defaultValues?.wechat} />
           {/* Uploads the cropped QR alongside the card photos. */}
           <input ref={qrInputRef} name="qrImage" type="file" className="hidden" />
+          {!qr && (qrScan === "scanning" || qrScan === "none") ? (
+            <p
+              className="text-xs text-neutral-500 dark:text-neutral-400"
+              data-testid="qr-scan-status"
+            >
+              {qrScan === "scanning" ? t("wechatQrScanning") : t("wechatQrNone")}
+            </p>
+          ) : null}
           {qr ? (
             <div className="flex items-center gap-2" data-testid="wechat-qr">
               {/* eslint-disable-next-line @next/next/no-img-element */}

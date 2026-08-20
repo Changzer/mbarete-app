@@ -156,6 +156,8 @@
     "aiErrorFailed": "无法识别照片——请手动填写，稍后再试。",
     "aiNotes": "AI 备注",
     "wechatQrHelp": "识别自名片的微信二维码——用微信扫一扫即可添加对方。",
+    "wechatQrScanning": "正在照片中查找微信二维码……",
+    "wechatQrNone": "这些照片中未找到微信二维码。名片照片本身仍可扫描。",
     "similarExists": "已存在相似联系人：{name}",
     "useExisting": "使用现有",
     "errorImage": "有照片保存失败，请重试或删除该照片。"
