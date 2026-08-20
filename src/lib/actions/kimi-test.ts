@@ -28,6 +28,7 @@ export type KimiTestResult =
       ok: true;
       baseUrl: string;
       model: string;
+      instant: boolean;
       keyCheck: KimiStep;
       extraction: KimiStep | null;
     };
@@ -59,6 +60,11 @@ export async function runKimiTest(formData: FormData): Promise<KimiTestResult> {
     "",
   );
   const model = process.env.MOONSHOT_MODEL || "kimi-latest";
+  // "Instant mode": ask the model not to spend time reasoning before it
+  // answers. Opt-in, because a model that does not know the field rejects the
+  // whole request (as kimi-k3 did with temperature) — so a bad guess here
+  // must not be able to break a working configuration.
+  const instant = process.env.MOONSHOT_DISABLE_THINKING === "1";
 
   const keyCheck = await step(async () => {
     const res = await fetch(`${baseUrl}/models`, {
@@ -106,12 +112,13 @@ export async function runKimiTest(formData: FormData): Promise<KimiTestResult> {
           "Content-Type": "application/json",
         },
         signal: AbortSignal.timeout(90_000),
-        // No temperature: some Moonshot models (kimi-k3) reject anything but
-        // their own default. Generous max_tokens for reasoning-style models
-        // that spend tokens thinking before the JSON comes out.
+        // Deliberately no temperature/top_p/penalties: Moonshot models fix
+        // these and reject any override. Generous max_tokens for
+        // reasoning-style models that spend tokens before the JSON comes out.
         body: JSON.stringify({
           model,
-          max_tokens: 2000,
+          max_tokens: 4000,
+          ...(instant ? { thinking: { type: "disabled" } } : {}),
           response_format: { type: "json_object" },
           messages: [
             { role: "system", content: SYSTEM_PROMPT },
@@ -137,5 +144,5 @@ export async function runKimiTest(formData: FormData): Promise<KimiTestResult> {
     });
   }
 
-  return { ok: true, baseUrl, model, keyCheck, extraction };
+  return { ok: true, baseUrl, model, instant, keyCheck, extraction };
 }

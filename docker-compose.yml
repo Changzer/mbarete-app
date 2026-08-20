@@ -22,6 +22,7 @@ services:
       MOONSHOT_API_KEY: ${MOONSHOT_API_KEY:-}
       MOONSHOT_BASE_URL: ${MOONSHOT_BASE_URL:-}
       MOONSHOT_MODEL: ${MOONSHOT_MODEL:-}
+      MOONSHOT_DISABLE_THINKING: ${MOONSHOT_DISABLE_THINKING:-}
     volumes:
       - mbarete-data:/app/data
       # Same volume as before, remounted: uploads moved out of public/ because
