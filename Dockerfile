@@ -59,6 +59,12 @@ COPY --from=builder /app/drizzle ./drizzle
 COPY --from=deps /app/node_modules/tsx ./node_modules/tsx
 COPY --from=deps /app/node_modules/esbuild ./node_modules/esbuild
 COPY --from=deps /app/node_modules/@esbuild ./node_modules/@esbuild
+# drizzle-orm and bcryptjs are production dependencies, but they are absent
+# from the standalone node_modules all the same: only better-sqlite3 is in
+# serverExternalPackages (next.config.ts), so Next bundles the other two into
+# the server chunks — which tsx, running the raw sources, cannot resolve from.
+COPY --from=deps /app/node_modules/drizzle-orm ./node_modules/drizzle-orm
+COPY --from=deps /app/node_modules/bcryptjs ./node_modules/bcryptjs
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
 RUN mkdir -p node_modules/.bin && ln -sf ../tsx/dist/cli.mjs node_modules/.bin/tsx
