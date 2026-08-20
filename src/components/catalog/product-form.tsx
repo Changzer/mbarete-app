@@ -33,6 +33,7 @@ import {
   formatCbm,
   DEFAULT_PACKING_ALLOWANCE_PCT,
 } from "@/lib/calculations";
+import { normalizeDecimalInput } from "@/lib/decimal-input";
 
 type Category = { id: number; nameEn: string; nameZh: string };
 
@@ -76,6 +77,7 @@ type ProductFormValues = {
   pieceHeightCm: number;
   pieceWeightKg: number;
   packingAllowancePct: number;
+  cbmOverride: number;
   supplierId: number;
   duplicatedFromId: number;
   active: boolean;
@@ -209,6 +211,13 @@ export function ProductForm({
     setIfUntouched("price", fields.price);
     setIfUntouched("currency", fields.currency, ["USD"]);
     setIfUntouched("moq", fields.moq, ["1"]);
+    // Carton figures off the board. These inputs only exist in carton mode;
+    // in piece mode namedItem() finds nothing and the values are skipped.
+    setIfUntouched("lengthCm", fields.lengthCm);
+    setIfUntouched("widthCm", fields.widthCm);
+    setIfUntouched("heightCm", fields.heightCm);
+    setIfUntouched("weightKg", fields.weightKg);
+    setIfUntouched("cbmOverride", fields.cbm);
     if (fields.qtyPerBox !== undefined) {
       setQtyPerBox((prev) => (prev === "" || prev === "1" ? String(fields.qtyPerBox) : prev));
     }
@@ -223,15 +232,22 @@ export function ProductForm({
     }
   }
 
-  async function handleTranscribe() {
+  // Which transcription request is current: a photo added mid-flight starts a
+  // newer run, and the stale response must not land after (or between) it.
+  const aiRun = useRef(0);
+  const aiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  async function handleTranscribe(auto = false) {
     if (!transcribe) return;
     const input = formRef.current?.elements.namedItem("images");
     const files = input instanceof HTMLInputElement ? Array.from(input.files ?? []) : [];
     if (files.length === 0) {
-      setAiError("no-photos");
+      // Auto runs fire from photo-set changes; an emptied set is not an error.
+      if (!auto) setAiError("no-photos");
       return;
     }
 
+    const run = ++aiRun.current;
     setAiError(null);
     setAiNotes(null);
     setAiPending(true);
@@ -239,6 +255,7 @@ export function ProductForm({
       const data = new FormData();
       for (const file of files) data.append("images", file);
       const result = await transcribe(data);
+      if (run !== aiRun.current) return; // superseded by a newer run
       if (result.ok) {
         applyTranscription(result.fields);
         setAiNotes(result.notes);
@@ -248,13 +265,29 @@ export function ProductForm({
         setAiError("failed");
       }
     } catch {
-      setAiError("failed");
+      if (run === aiRun.current) setAiError("failed");
     } finally {
-      setAiPending(false);
+      if (run === aiRun.current) setAiPending(false);
     }
   }
 
-  const num = (v: string) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  /**
+   * Reads start on their own as soon as photos are added — the fields fill
+   * while the user keeps working on the rest of the form. Debounced so that
+   * product photo + price board taken back-to-back become one request.
+   */
+  function schedulePhotoTranscribe(files: File[]) {
+    if (!transcribe || files.length === 0) return;
+    if (aiTimer.current) clearTimeout(aiTimer.current);
+    aiTimer.current = setTimeout(() => {
+      void handleTranscribe(true);
+    }, 1500);
+  }
+
+  const num = (v: string) => {
+    const n = Number(normalizeDecimalInput(v));
+    return Number.isFinite(n) ? n : 0;
+  };
   const pieceDims = {
     lengthCm: num(piece.lengthCm),
     widthCm: num(piece.widthCm),
@@ -356,10 +389,8 @@ export function ProductForm({
           <Input
             id="price"
             name="price"
-            type="number"
+            type="text"
             inputMode="decimal"
-            step="0.01"
-            min="0"
             defaultValue={defaultValues?.price}
             required
           />
@@ -369,10 +400,8 @@ export function ProductForm({
           <Input
             id="sellPrice"
             name="sellPrice"
-            type="number"
+            type="text"
             inputMode="decimal"
-            step="0.01"
-            min="0"
             placeholder={t("optionalPlaceholder")}
             defaultValue={defaultValues?.sellPrice ? defaultValues.sellPrice : ""}
           />
@@ -448,10 +477,8 @@ export function ProductForm({
                 id="lengthCm"
                 name="lengthCm"
                 placeholder={t("optionalPlaceholder")}
-                type="number"
+                type="text"
                 inputMode="decimal"
-                step="0.01"
-                min="0"
                 defaultValue={blankIfZero(defaultValues?.lengthCm)}
               />
             </div>
@@ -461,10 +488,8 @@ export function ProductForm({
                 id="widthCm"
                 name="widthCm"
                 placeholder={t("optionalPlaceholder")}
-                type="number"
+                type="text"
                 inputMode="decimal"
-                step="0.01"
-                min="0"
                 defaultValue={blankIfZero(defaultValues?.widthCm)}
               />
             </div>
@@ -474,10 +499,8 @@ export function ProductForm({
                 id="heightCm"
                 name="heightCm"
                 placeholder={t("optionalPlaceholder")}
-                type="number"
+                type="text"
                 inputMode="decimal"
-                step="0.01"
-                min="0"
                 defaultValue={blankIfZero(defaultValues?.heightCm)}
               />
             </div>
@@ -487,12 +510,24 @@ export function ProductForm({
                 id="weightKg"
                 name="weightKg"
                 placeholder={t("optionalPlaceholder")}
-                type="number"
+                type="text"
                 inputMode="decimal"
-                step="0.01"
-                min="0"
                 defaultValue={blankIfZero(defaultValues?.weightKg)}
               />
+            </div>
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <Label htmlFor="cbmOverride">{t("cbmOverride")}</Label>
+              <Input
+                id="cbmOverride"
+                name="cbmOverride"
+                placeholder={t("optionalPlaceholder")}
+                type="text"
+                inputMode="decimal"
+                defaultValue={blankIfZero(defaultValues?.cbmOverride)}
+              />
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                {t("cbmOverrideHelp")}
+              </p>
             </div>
           </>
         ) : (
@@ -506,10 +541,8 @@ export function ProductForm({
               <Input
                 id="pieceLengthCm"
                 name="pieceLengthCm"
-                type="number"
+                type="text"
                 inputMode="decimal"
-                step="0.01"
-                min="0"
                 value={piece.lengthCm}
                 onChange={(e) => setPiece((p) => ({ ...p, lengthCm: e.target.value }))}
               />
@@ -519,10 +552,8 @@ export function ProductForm({
               <Input
                 id="pieceWidthCm"
                 name="pieceWidthCm"
-                type="number"
+                type="text"
                 inputMode="decimal"
-                step="0.01"
-                min="0"
                 value={piece.widthCm}
                 onChange={(e) => setPiece((p) => ({ ...p, widthCm: e.target.value }))}
               />
@@ -532,10 +563,8 @@ export function ProductForm({
               <Input
                 id="pieceHeightCm"
                 name="pieceHeightCm"
-                type="number"
+                type="text"
                 inputMode="decimal"
-                step="0.01"
-                min="0"
                 value={piece.heightCm}
                 onChange={(e) => setPiece((p) => ({ ...p, heightCm: e.target.value }))}
               />
@@ -545,10 +574,8 @@ export function ProductForm({
               <Input
                 id="pieceWeightKg"
                 name="pieceWeightKg"
-                type="number"
+                type="text"
                 inputMode="decimal"
-                step="0.01"
-                min="0"
                 value={piece.weightKg}
                 onChange={(e) => setPiece((p) => ({ ...p, weightKg: e.target.value }))}
               />
@@ -558,11 +585,8 @@ export function ProductForm({
               <Input
                 id="packingAllowancePct"
                 name="packingAllowancePct"
-                type="number"
+                type="text"
                 inputMode="decimal"
-                step="1"
-                min="0"
-                max="200"
                 value={allowance}
                 onChange={(e) => setAllowance(e.target.value)}
               />
@@ -638,7 +662,7 @@ export function ProductForm({
             </div>
           ) : null}
 
-          <PhotoPicker />
+          <PhotoPicker onFilesChanged={schedulePhotoTranscribe} />
 
           {transcribe ? (
             <div className="flex flex-col gap-2">
@@ -646,7 +670,7 @@ export function ProductForm({
                 type="button"
                 variant="outline"
                 disabled={aiPending}
-                onClick={handleTranscribe}
+                onClick={() => handleTranscribe()}
                 data-testid="fill-from-photos"
                 className="min-h-11 justify-center gap-2"
               >

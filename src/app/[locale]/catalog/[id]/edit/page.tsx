@@ -6,6 +6,7 @@ import { updateProduct } from "@/lib/actions/catalog";
 import { transcribeProduct, transcribeCard } from "@/lib/actions/transcribe";
 import { isTranscriptionEnabled } from "@/lib/transcribe-product";
 import { ProductForm } from "@/components/catalog/product-form";
+import { computeCbm } from "@/lib/calculations";
 
 export default async function EditProductPage({
   params,
@@ -40,6 +41,14 @@ export default async function EditProductPage({
         action={boundUpdate}
         defaultValues={{
           ...product,
+          // A stored CBM the dimensions cannot explain was quoted by the
+          // vendor (cbmOverride); surface it so saving the edit keeps it.
+          cbmOverride:
+            product.dimensionSource === "carton" &&
+            product.cbm > 0 &&
+            computeCbm(product.lengthCm, product.widthCm, product.heightCm) === 0
+              ? product.cbm
+              : undefined,
           supplierId: product.supplierId ?? undefined,
           // Lineage is not editable; the update action leaves it untouched.
           duplicatedFromId: undefined,

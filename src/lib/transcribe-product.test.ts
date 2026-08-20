@@ -14,6 +14,11 @@ const raw = (overrides: Partial<RawTranscription>): RawTranscription => ({
   moq: null,
   qtyPerBox: null,
   categoryId: null,
+  lengthCm: null,
+  widthCm: null,
+  heightCm: null,
+  weightKg: null,
+  cbm: null,
   notes: null,
   ...overrides,
 });
@@ -53,6 +58,11 @@ test("nulls become absent fields, not empty strings or zeros", () => {
     moq: undefined,
     qtyPerBox: undefined,
     categoryId: undefined,
+    lengthCm: undefined,
+    widthCm: undefined,
+    heightCm: undefined,
+    weightKg: undefined,
+    cbm: undefined,
   });
   assert.equal(notes, null);
 });
@@ -105,4 +115,19 @@ test("a category id outside the list is rejected", () => {
     sanitizeTranscription(raw({ categoryId: 3 }), CATEGORY_IDS).fields.categoryId,
     3,
   );
+});
+
+test("carton figures pass through when positive, drop otherwise", () => {
+  const { fields } = sanitizeTranscription(
+    raw({ lengthCm: 60, widthCm: 40.5, heightCm: 50, weightKg: 12.345, cbm: 0.02 }),
+    CATEGORY_IDS,
+  );
+  assert.equal(fields.lengthCm, 60);
+  assert.equal(fields.widthCm, 40.5);
+  assert.equal(fields.weightKg, 12.35);
+  assert.equal(fields.cbm, 0.02);
+
+  const dropped = sanitizeTranscription(raw({ weightKg: 0, cbm: -1 }), CATEGORY_IDS).fields;
+  assert.equal(dropped.weightKg, undefined);
+  assert.equal(dropped.cbm, undefined);
 });

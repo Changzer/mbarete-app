@@ -1,7 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
-import { TRANSCRIBE_MODEL, type TranscribeImage } from "@/lib/transcribe-product";
+import { extractJson, type VisionImage } from "@/lib/vision";
 
 /**
  * Reads photos of a vendor's business card (front and back) into a draft
@@ -43,6 +41,10 @@ const cardSchema = z.object({
   notes: z.string().nullable(),
 });
 
+// Keep in sync with cardSchema — what the JSON-mode backend is told to return.
+const JSON_SPEC =
+  '{"companyNameEn": string|null, "companyNameZh": string|null, "contactPerson": string|null, "phone": string|null, "email": string|null, "whatsapp": string|null, "wechat": string|null, "boothLocation": string|null, "bankInfo": string|null, "notes": string|null}';
+
 export type RawCardTranscription = z.infer<typeof cardSchema>;
 
 const SYSTEM_PROMPT = `You transcribe photos of a supplier's business card (front and/or back, taken at a Chinese wholesale market) into a contact record for a sourcing company whose staff read English, not Chinese.
@@ -55,43 +57,23 @@ Rules:
 - wechat: ONLY an explicitly printed WeChat ID, or the phone number when the card says 微信同号 (WeChat = phone). A QR code is NOT a WeChat ID — never invent one from a QR; mention the QR in notes instead.
 - boothLocation: the market booth/shop address, English first when the card prints both, with the Chinese original after it, e.g. "No.4642, Street 9, Area C, 2/F, District 1, Yiwu International Trade City (义乌国际商贸城一区2楼C区9街4642店)". A separate factory address (厂址) goes in notes, not here.
 - bankInfo: bank accounts from the card, one per line as "Bank — account holder — account number" (e.g. "工商银行 — 陈云娟 — 6222 0312 0800 2746 705"). Keep the printed digit grouping. Transcribe the account holder exactly — it is often a different person than the contact. Never guess a digit: if any digit is unclear, leave that whole account out and say so in notes.
-- notes: one or two short lines in English for anything else useful — a factory address, "WeChat QR on card back", an unreadable digit you skipped. Null when there is nothing.
+- notes: at most 15 words, in English — a factory address, "WeChat QR on card back", a skipped unreadable digit. Null when there is nothing.
 - Use null for anything not clearly readable.`;
 
 export async function transcribeBusinessCard(
-  images: TranscribeImage[],
+  images: VisionImage[],
 ): Promise<CardTranscribeResult> {
-  const client = new Anthropic();
-
-  const response = await client.messages.parse({
-    model: TRANSCRIBE_MODEL,
-    max_tokens: 4000,
+  const raw = await extractJson({
     system: SYSTEM_PROMPT,
-    messages: [
-      {
-        role: "user",
-        content: [
-          ...images.map(
-            (image) =>
-              ({
-                type: "image",
-                source: {
-                  type: "base64",
-                  media_type: image.mediaType,
-                  data: image.data,
-                },
-              }) as const,
-          ),
-          { type: "text", text: "Transcribe this business card." },
-        ],
-      },
-    ],
-    output_config: { format: zodOutputFormat(cardSchema) },
+    userText: "Transcribe this business card.",
+    images,
+    schema: cardSchema,
+    jsonSpec: JSON_SPEC,
   });
 
-  if (!response.parsed_output) return { ok: false, error: "failed" };
+  if (!raw) return { ok: false, error: "failed" };
 
-  return { ok: true, ...sanitizeCardTranscription(response.parsed_output) };
+  return { ok: true, ...sanitizeCardTranscription(raw) };
 }
 
 /** Trims everything; a malformed value degrades to an empty field. */
