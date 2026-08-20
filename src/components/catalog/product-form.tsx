@@ -87,6 +87,7 @@ export function ProductForm({
   transcribe,
   suppliers = [],
   transcribeCard,
+  lockCategory = false,
 }: {
   categories: Category[];
   action: (prevState: string | undefined, formData: FormData) => Promise<string | undefined>;
@@ -101,6 +102,14 @@ export function ProductForm({
   suppliers?: SupplierOption[];
   /** Card transcription for the inline new-supplier dialog. */
   transcribeCard?: (formData: FormData) => Promise<CardTranscribeResult>;
+  /**
+   * Keep the given category no matter what the photos say. True when the
+   * category is real data (editing a product, or duplicating one). False for
+   * the sticky category carried by "save & add another", which is only a
+   * convenience default: the next item at the same booth is often a different
+   * kind of product, so the photos should be allowed to change it.
+   */
+  lockCategory?: boolean;
 }) {
   const t = useTranslations("catalog");
   const common = useTranslations("common");
@@ -120,9 +129,7 @@ export function ProductForm({
   const formRef = useRef<HTMLFormElement>(null);
   // What the category started as, so a suggestion never overrides a manual pick.
   const initialCategoryId = useRef(categoryId);
-  // A category that arrived in defaultValues (edit, duplicate, sticky "add
-  // another") is deliberate data — the AI suggestion must not replace it.
-  const categoryLocked = useRef(Boolean(defaultValues?.categoryId));
+
   const [aiPending, setAiPending] = useState(false);
   const [aiError, setAiError] = useState<"no-photos" | "failed" | null>(null);
   const [aiNotes, setAiNotes] = useState<string | null>(null);
@@ -193,7 +200,7 @@ export function ProductForm({
    * their pristine defaults (currency USD, MOQ 1, 1 per box, the initial
    * category). Anything already typed is theirs and stays.
    */
-  function applyTranscription(fields: TranscribedFields) {
+  function applyTranscription(fields: TranscribedFields, justCreated?: Category) {
     const form = formRef.current;
     if (!form) return;
 
@@ -226,10 +233,15 @@ export function ProductForm({
     if (fields.qtyPerBox !== undefined) {
       setQtyPerBox((prev) => (prev === "" || prev === "1" ? String(fields.qtyPerBox) : prev));
     }
+    // `justCreated` is passed explicitly because setCreatedCategories has not
+    // re-rendered yet when this runs: `allCategories` is still the array from
+    // the render that started the request, so a brand-new category would fail
+    // the check and the select would keep its old value.
+    const selectable = justCreated ? [...allCategories, justCreated] : allCategories;
     if (
-      !categoryLocked.current &&
+      !lockCategory &&
       fields.categoryId !== undefined &&
-      allCategories.some((c) => c.id === fields.categoryId)
+      selectable.some((c) => c.id === fields.categoryId)
     ) {
       setCategoryId((prev) =>
         prev === initialCategoryId.current ? String(fields.categoryId) : prev,
@@ -269,7 +281,7 @@ export function ProductForm({
             prev.some((c) => c.id === created.id) ? prev : [...prev, created],
           );
         }
-        applyTranscription(result.fields);
+        applyTranscription(result.fields, result.newCategory);
         setAiNotes(result.notes);
       } else if (result.error === "no-photos") {
         setAiError("no-photos");

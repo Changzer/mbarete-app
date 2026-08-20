@@ -71,6 +71,10 @@ export default async function NewProductPage({
         action={createProduct}
         submitLabel={common("save")}
         showAddAnother
+        // Duplicating carries the source product's category, which is real
+        // data. The sticky category from "save & add another" is only a
+        // default and must stay overridable by the photos.
+        lockCategory={Boolean(source)}
         transcribe={aiEnabled ? transcribeProduct : undefined}
         transcribeCard={aiEnabled ? transcribeCard : undefined}
         defaultValues={{
