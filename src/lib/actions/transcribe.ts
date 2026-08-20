@@ -1,6 +1,8 @@
 "use server";
 
 import { auth } from "@/lib/auth";
+import { db } from "@/db";
+import { categories as categoriesTable } from "@/db/schema";
 import { getCategories } from "@/lib/queries/catalog";
 import {
   isTranscriptionEnabled,
@@ -50,8 +52,9 @@ export async function transcribeProduct(formData: FormData): Promise<TranscribeR
 
   const categories = await getCategories();
 
+  let result: TranscribeResult;
   try {
-    return await transcribeProductPhotos(
+    result = await transcribeProductPhotos(
       images,
       categories.map((c) => ({ id: c.id, nameEn: c.nameEn, nameZh: c.nameZh })),
     );
@@ -60,6 +63,33 @@ export async function transcribeProduct(formData: FormData): Promise<TranscribeR
     // works by hand, so every failure collapses to one retryable message.
     return { ok: false, error: "failed" };
   }
+
+  // The model proposed a category the list was missing. Match it against the
+  // existing names first (case-insensitive, either language) so re-scans never
+  // multiply categories; create it only when genuinely new. Creating a
+  // category is the one write transcription makes — it is cheap, visible on
+  // the categories page, and deletable there.
+  if (result.ok && result.fields.categoryId === undefined && result.proposedCategory) {
+    const proposal = result.proposedCategory;
+    const existing = categories.find(
+      (c) =>
+        c.nameEn.trim().toLowerCase() === proposal.nameEn.toLowerCase() ||
+        c.nameZh.trim() === proposal.nameZh,
+    );
+    if (existing) {
+      result.fields.categoryId = existing.id;
+    } else {
+      const inserted = db
+        .insert(categoriesTable)
+        .values({ nameEn: proposal.nameEn, nameZh: proposal.nameZh })
+        .run();
+      const id = Number(inserted.lastInsertRowid);
+      result.fields.categoryId = id;
+      result.newCategory = { id, nameEn: proposal.nameEn, nameZh: proposal.nameZh };
+    }
+  }
+
+  return result;
 }
 
 /** Reads the business-card photos picked in the contact form into draft fields. */

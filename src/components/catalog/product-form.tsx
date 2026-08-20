@@ -21,6 +21,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { PhotoPicker } from "@/components/catalog/photo-picker";
+import {
+  SupplierPicker,
+  type SupplierOption,
+} from "@/components/catalog/supplier-picker";
 import { ContactForm } from "@/components/contacts/contact-form";
 import { createContact, type ContactActionResult } from "@/lib/actions/contacts";
 import type { TranscribeResult, TranscribedFields } from "@/lib/transcribe-product";
@@ -37,22 +41,7 @@ import { normalizeDecimalInput } from "@/lib/decimal-input";
 
 type Category = { id: number; nameEn: string; nameZh: string };
 
-export type SupplierOption = {
-  id: number;
-  companyName: string;
-  companyNameZh: string;
-  phone: string;
-  boothLocation: string;
-};
-
-/**
- * How a supplier reads in the picker: just the company name (whichever
- * language exists). Booth and details stay on the contacts page and the
- * product card — a long label overflows the select trigger on a phone.
- */
-function supplierLabel(s: SupplierOption) {
-  return s.companyName || s.companyNameZh;
-}
+export type { SupplierOption } from "@/components/catalog/supplier-picker";
 
 /** Unmeasured fields show empty rather than a 0 nobody entered. */
 const blankIfZero = (v: number | undefined) => (v ? String(v) : "");
@@ -120,6 +109,13 @@ export function ProductForm({
   const [categoryId, setCategoryId] = useState(
     defaultValues?.categoryId ? String(defaultValues.categoryId) : categories[0] ? String(categories[0].id) : "",
   );
+  // Categories the AI created during this registration, deduped against the
+  // server list for the same reason as suppliers below.
+  const [createdCategories, setCreatedCategories] = useState<Category[]>([]);
+  const allCategories = [
+    ...categories,
+    ...createdCategories.filter((c) => !categories.some((p) => p.id === c.id)),
+  ];
 
   const formRef = useRef<HTMLFormElement>(null);
   // What the category started as, so a suggestion never overrides a manual pick.
@@ -139,7 +135,13 @@ export function ProductForm({
   // vendor just photographed is the one about to be picked.
   const [createdSuppliers, setCreatedSuppliers] = useState<SupplierOption[]>([]);
   const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
-  const allSuppliers = [...createdSuppliers, ...suppliers];
+  // Deduped by id: a supplier created inline is also delivered by the server
+  // re-render that follows the create action, and the same id twice renders
+  // as two checked entries with doubled trigger text.
+  const allSuppliers = [
+    ...createdSuppliers,
+    ...suppliers.filter((s) => !createdSuppliers.some((c) => c.id === s.id)),
+  ];
 
   /** Wraps createContact so the new supplier lands in the picker, selected. */
   async function createSupplierInline(
@@ -227,7 +229,7 @@ export function ProductForm({
     if (
       !categoryLocked.current &&
       fields.categoryId !== undefined &&
-      categories.some((c) => c.id === fields.categoryId)
+      allCategories.some((c) => c.id === fields.categoryId)
     ) {
       setCategoryId((prev) =>
         prev === initialCategoryId.current ? String(fields.categoryId) : prev,
@@ -260,6 +262,13 @@ export function ProductForm({
       const result = await transcribe(data);
       if (run !== aiRun.current) return; // superseded by a newer run
       if (result.ok) {
+        if (result.newCategory) {
+          // Must be in the list before the select can show it.
+          const created = result.newCategory;
+          setCreatedCategories((prev) =>
+            prev.some((c) => c.id === created.id) ? prev : [...prev, created],
+          );
+        }
         applyTranscription(result.fields);
         setAiNotes(result.notes);
       } else if (result.error === "no-photos") {
@@ -317,7 +326,7 @@ export function ProductForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {categories.map((c) => (
+              {allCategories.map((c) => (
                 <SelectItem key={c.id} value={String(c.id)}>
                   {c.nameEn} / {c.nameZh}
                 </SelectItem>
@@ -337,19 +346,11 @@ export function ProductForm({
             <input type="hidden" name="duplicatedFromId" value={defaultValues.duplicatedFromId} />
           ) : null}
           <div className="flex gap-2">
-            <Select value={supplierId} onValueChange={setSupplierId}>
-              <SelectTrigger id="supplierId" className="min-w-0 flex-1 [&>span]:truncate">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="0">{t("noSupplier")}</SelectItem>
-                {allSuppliers.map((s) => (
-                  <SelectItem key={s.id} value={String(s.id)}>
-                    {supplierLabel(s)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SupplierPicker
+              suppliers={allSuppliers}
+              value={supplierId}
+              onChange={setSupplierId}
+            />
             <Button
               type="button"
               variant="outline"
@@ -359,6 +360,82 @@ export function ProductForm({
               {t("newSupplier")}
             </Button>
           </div>
+        </div>
+
+        <div className="flex flex-col gap-2 sm:col-span-2">
+          <Label htmlFor="images">{t("images")}</Label>
+
+          {existingImages.length > 0 ? (
+            <div className="flex flex-wrap gap-3">
+              {existingImages.map((img) => {
+                const isRemoved = removed.includes(img.id);
+                return (
+                  <div key={img.id} className="flex flex-col items-center gap-1">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={img.path}
+                      alt=""
+                      className={`h-24 w-24 rounded-md border border-neutral-200 dark:border-neutral-800 object-contain bg-neutral-100 dark:bg-neutral-800 ${
+                        isRemoved ? "opacity-30" : ""
+                      }`}
+                    />
+                    {isRemoved ? (
+                      <input type="hidden" name="removeImageIds" value={img.id} />
+                    ) : null}
+                    <button
+                      type="button"
+                      className="text-xs text-neutral-500 dark:text-neutral-400 hover:text-red-600 dark:hover:text-red-400"
+                      onClick={() =>
+                        setRemoved((prev) =>
+                          prev.includes(img.id)
+                            ? prev.filter((v) => v !== img.id)
+                            : [...prev, img.id],
+                        )
+                      }
+                    >
+                      {isRemoved ? common("cancel") : common("delete")}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+
+          <PhotoPicker onFilesChanged={schedulePhotoTranscribe} />
+
+          {transcribe ? (
+            <div className="flex flex-col gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={aiPending}
+                onClick={() => handleTranscribe()}
+                data-testid="fill-from-photos"
+                className="min-h-11 justify-center gap-2"
+              >
+                {aiPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                {aiPending ? t("aiFilling") : t("aiFill")}
+              </Button>
+              {aiError ? (
+                <p className="text-sm text-red-600" data-testid="ai-error">
+                  {aiError === "no-photos" ? t("aiErrorNoPhotos") : t("aiErrorFailed")}
+                </p>
+              ) : aiNotes ? (
+                <p
+                  className="rounded-md bg-neutral-100 px-3 py-2 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400"
+                  data-testid="ai-notes"
+                >
+                  {t("aiNotes")}: {aiNotes}
+                </p>
+              ) : (
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">{t("aiFillHelp")}</p>
+              )}
+            </div>
+          ) : null}
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -625,82 +702,6 @@ export function ProductForm({
             </div>
           </>
         )}
-
-        <div className="flex flex-col gap-2 sm:col-span-2">
-          <Label htmlFor="images">{t("images")}</Label>
-
-          {existingImages.length > 0 ? (
-            <div className="flex flex-wrap gap-3">
-              {existingImages.map((img) => {
-                const isRemoved = removed.includes(img.id);
-                return (
-                  <div key={img.id} className="flex flex-col items-center gap-1">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={img.path}
-                      alt=""
-                      className={`h-24 w-24 rounded-md border border-neutral-200 dark:border-neutral-800 object-contain bg-neutral-100 dark:bg-neutral-800 ${
-                        isRemoved ? "opacity-30" : ""
-                      }`}
-                    />
-                    {isRemoved ? (
-                      <input type="hidden" name="removeImageIds" value={img.id} />
-                    ) : null}
-                    <button
-                      type="button"
-                      className="text-xs text-neutral-500 dark:text-neutral-400 hover:text-red-600 dark:hover:text-red-400"
-                      onClick={() =>
-                        setRemoved((prev) =>
-                          prev.includes(img.id)
-                            ? prev.filter((v) => v !== img.id)
-                            : [...prev, img.id],
-                        )
-                      }
-                    >
-                      {isRemoved ? common("cancel") : common("delete")}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
-
-          <PhotoPicker onFilesChanged={schedulePhotoTranscribe} />
-
-          {transcribe ? (
-            <div className="flex flex-col gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={aiPending}
-                onClick={() => handleTranscribe()}
-                data-testid="fill-from-photos"
-                className="min-h-11 justify-center gap-2"
-              >
-                {aiPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4" />
-                )}
-                {aiPending ? t("aiFilling") : t("aiFill")}
-              </Button>
-              {aiError ? (
-                <p className="text-sm text-red-600" data-testid="ai-error">
-                  {aiError === "no-photos" ? t("aiErrorNoPhotos") : t("aiErrorFailed")}
-                </p>
-              ) : aiNotes ? (
-                <p
-                  className="rounded-md bg-neutral-100 px-3 py-2 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400"
-                  data-testid="ai-notes"
-                >
-                  {t("aiNotes")}: {aiNotes}
-                </p>
-              ) : (
-                <p className="text-xs text-neutral-500 dark:text-neutral-400">{t("aiFillHelp")}</p>
-              )}
-            </div>
-          ) : null}
-        </div>
 
         <div className="flex items-center gap-2">
           <input

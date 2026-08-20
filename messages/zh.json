@@ -105,6 +105,7 @@
     "cbmOverrideHelp": "选填。如供应商直接报出每箱 CBM，请填在这里——将优先于按尺寸计算的结果。",
     "supplier": "供应商",
     "noSupplier": "无供应商",
+    "noSupplierMatches": "没有匹配的供应商。",
     "newSupplier": "新供应商",
     "duplicate": "复制",
     "duplicateProduct": "复制产品",

@@ -105,6 +105,7 @@
     "cbmOverrideHelp": "Optional. If the vendor quotes the carton CBM directly, enter it here — it is used instead of computing from the dimensions.",
     "supplier": "Supplier",
     "noSupplier": "No supplier",
+    "noSupplierMatches": "No suppliers match.",
     "newSupplier": "New supplier",
     "duplicate": "Duplicate",
     "duplicateProduct": "Duplicate Product",
