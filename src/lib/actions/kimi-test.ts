@@ -117,7 +117,7 @@ export async function runKimiTest(formData: FormData): Promise<KimiTestResult> {
         // reasoning-style models that spend tokens before the JSON comes out.
         body: JSON.stringify({
           model,
-          max_tokens: 2000,
+          max_tokens: 4000,
           ...(instant ? { thinking: { type: "disabled" } } : {}),
           response_format: { type: "json_object" },
           messages: [
