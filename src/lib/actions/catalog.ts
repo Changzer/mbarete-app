@@ -380,8 +380,20 @@ export async function createCategory(
   return undefined;
 }
 
-export async function deleteCategory(id: number) {
+export async function deleteCategory(id: number): Promise<string | undefined> {
   await requireSession();
+
+  // Products carry a required category, so the foreign key would reject this
+  // with a raw constraint error. Check first and say what is actually wrong:
+  // move those products to another category, then delete this one.
+  const inUse = db
+    .select({ id: products.id })
+    .from(products)
+    .where(eq(products.categoryId, id))
+    .get();
+  if (inUse) return "has-products";
+
   db.delete(categories).where(eq(categories.id, id)).run();
   revalidatePath("/catalog");
+  return undefined;
 }

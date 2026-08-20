@@ -117,6 +117,7 @@
     "errorRequiredFields": "A name, price, MOQ and pieces per carton are required.",
     "errorDuplicateSku": "That SKU already belongs to another product.",
     "errorImage": "The photos could not be saved. Try again.",
+    "deleteCategoryInUse": "Products still use this category. Move them to another category first, then delete it.",
     "deleteOnOrders": "This product is on saved orders, so it cannot be deleted — untick Active instead to hide it from the catalog.",
     "costPrice": "Supplier price (cost)",
     "sellPrice": "Selling price",
