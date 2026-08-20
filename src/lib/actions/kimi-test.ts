@@ -106,10 +106,12 @@ export async function runKimiTest(formData: FormData): Promise<KimiTestResult> {
           "Content-Type": "application/json",
         },
         signal: AbortSignal.timeout(90_000),
+        // No temperature: some Moonshot models (kimi-k3) reject anything but
+        // their own default. Generous max_tokens for reasoning-style models
+        // that spend tokens thinking before the JSON comes out.
         body: JSON.stringify({
           model,
-          temperature: 0.2,
-          max_tokens: 800,
+          max_tokens: 2000,
           response_format: { type: "json_object" },
           messages: [
             { role: "system", content: SYSTEM_PROMPT },
