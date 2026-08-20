@@ -116,7 +116,9 @@ export function ContactManager({
                   </td>
                   <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">{c.contactPerson}</td>
                   <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">{c.phone}</td>
-                  <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">{c.wechat}</td>
+                  <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">
+                    <WechatCell contact={c} scanHint={t("wechatQrHelp")} />
+                  </td>
                   <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">
                     {type === "supplier" ? c.boothLocation : c.email}
                   </td>
@@ -146,6 +148,30 @@ export function ContactManager({
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * The WeChat column: the QR cropped from the vendor's card when there is one,
+ * the printed id when the card gave one, or nothing. The QR is the contact
+ * method itself — tapping opens it full size, which is what gets scanned.
+ */
+function WechatCell({ contact, scanHint }: { contact: Contact; scanHint: string }) {
+  const qr = contact.images.find((img) => img.kind === "qr");
+  if (!qr) return <>{contact.wechat}</>;
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <a href={qr.path} target="_blank" rel="noreferrer" title={scanHint}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={qr.path}
+          alt="WeChat QR"
+          className="h-16 w-16 rounded border border-neutral-200 bg-white object-contain dark:border-neutral-800"
+          data-testid="wechat-qr-cell"
+        />
+      </a>
+      {contact.wechat ? <span>{contact.wechat}</span> : null}
     </div>
   );
 }
