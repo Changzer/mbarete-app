@@ -43,6 +43,7 @@
     "addProduct": "Add Product",
     "editProduct": "Edit Product",
     "allCategories": "All Categories",
+    "allSuppliers": "All Suppliers",
     "category": "Category",
     "sortBy": "Sort by",
     "sortPriceAsc": "Price: Low to High",
@@ -155,6 +156,8 @@
     "aiErrorFailed": "Could not read the photos — please fill the form manually and try again later.",
     "aiNotes": "AI notes",
     "wechatQrHelp": "WeChat QR from the card — scan it with WeChat to add this vendor.",
+    "wechatQrScanning": "Looking for a WeChat QR in the photos…",
+    "wechatQrNone": "No WeChat QR found in these photos. The card photo itself stays scannable.",
     "similarExists": "A similar contact already exists: {name}",
     "useExisting": "Use existing",
     "errorImage": "One of the photos could not be saved. Try again or remove it."

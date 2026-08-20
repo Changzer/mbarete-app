@@ -1,6 +1,11 @@
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import { getCategories, getProducts, getImagesByProduct } from "@/lib/queries/catalog";
+import {
+  getCategories,
+  getProducts,
+  getImagesByProduct,
+  getSupplierIdsInCatalog,
+} from "@/lib/queries/catalog";
 import { getSuppliersForPicker } from "@/lib/queries/contacts";
 import { getUserNames } from "@/lib/queries/users";
 import { localizeField } from "@/lib/localize";
@@ -9,21 +14,29 @@ import { CatalogControls } from "@/components/catalog/catalog-controls";
 import { ProductCard, type CatalogProduct } from "@/components/catalog/product-card";
 import { Button } from "@/components/ui/button";
 
+/** A search param that must be a real row id, or nothing. */
+function positiveId(value: string | undefined) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
 export default async function CatalogPage({
   params,
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ category?: string; sort?: string }>;
+  searchParams: Promise<{ category?: string; supplier?: string; sort?: string }>;
 }) {
   const { locale } = await params;
-  const { category, sort } = await searchParams;
+  const { category, supplier, sort } = await searchParams;
   const t = await getTranslations("catalog");
 
   const categories = await getCategories();
   const categoryId = category ? Number(category) : undefined;
+  const supplierId = positiveId(supplier);
   const products = await getProducts({
     categoryId,
+    supplierId,
     sort: sort === "price-asc" ? "price-asc" : "default",
   });
 
@@ -32,6 +45,14 @@ export default async function CatalogPage({
   const categoryMap = new Map(categories.map((c) => [c.id, c]));
   const suppliers = await getSuppliersForPicker();
   const supplierMap = new Map(suppliers.map((s) => [s.id, s]));
+
+  // The filter offers only suppliers that have products — plus whichever one is
+  // currently selected, so a filter that has gone empty still names itself
+  // rather than silently reading "all suppliers".
+  const supplierIdsInCatalog = await getSupplierIdsInCatalog();
+  const filterSuppliers = suppliers.filter(
+    (s) => supplierIdsInCatalog.has(s.id) || s.id === supplierId,
+  );
 
   const catalogProducts: CatalogProduct[] = products.map((p) => {
     const cat = categoryMap.get(p.categoryId);
@@ -88,7 +109,11 @@ export default async function CatalogPage({
       </div>
 
       <div className="mb-6">
-        <CatalogControls categories={categories} locale={locale} />
+        <CatalogControls
+          categories={categories}
+          suppliers={filterSuppliers}
+          locale={locale}
+        />
       </div>
 
       {catalogProducts.length === 0 ? (

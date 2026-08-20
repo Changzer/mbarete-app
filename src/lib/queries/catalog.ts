@@ -12,6 +12,7 @@ export async function getCategoryById(id: number) {
 
 export type ProductFilters = {
   categoryId?: number;
+  supplierId?: number;
   sort?: "price-asc" | "default";
   activeOnly?: boolean;
 };
@@ -20,6 +21,9 @@ export async function getProducts(filters: ProductFilters = {}) {
   const conditions = [];
   if (filters.categoryId) {
     conditions.push(eq(products.categoryId, filters.categoryId));
+  }
+  if (filters.supplierId) {
+    conditions.push(eq(products.supplierId, filters.supplierId));
   }
   if (filters.activeOnly) {
     conditions.push(eq(products.active, true));
@@ -35,6 +39,21 @@ export async function getProducts(filters: ProductFilters = {}) {
     : await query.orderBy(asc(products.nameEn)).all();
 
   return rows;
+}
+
+/**
+ * Ids of suppliers that actually have products in the catalog, so the filter
+ * only ever offers a supplier that can return something. Suppliers registered
+ * at a booth whose products were never saved would otherwise be dead ends.
+ */
+export async function getSupplierIdsInCatalog() {
+  const rows = await db
+    .selectDistinct({ supplierId: products.supplierId })
+    .from(products)
+    .all();
+  return new Set(
+    rows.map((r) => r.supplierId).filter((id): id is number => id !== null),
+  );
 }
 
 export async function getProductById(id: number) {

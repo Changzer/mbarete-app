@@ -9,14 +9,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  SupplierPicker,
+  type SupplierOption,
+} from "@/components/catalog/supplier-picker";
 
 type Category = { id: number; nameEn: string; nameZh: string };
 
 export function CatalogControls({
   categories,
+  suppliers,
   locale,
 }: {
   categories: Category[];
+  suppliers: SupplierOption[];
   locale: string;
 }) {
   const t = useTranslations("catalog");
@@ -25,6 +31,7 @@ export function CatalogControls({
   const searchParams = useSearchParams();
 
   const currentCategory = searchParams.get("category") ?? "all";
+  const currentSupplier = searchParams.get("supplier") ?? "all";
   const currentSort = searchParams.get("sort") ?? "default";
 
   function updateParam(key: string, value: string) {
@@ -52,6 +59,18 @@ export function CatalogControls({
           ))}
         </SelectContent>
       </Select>
+
+      {/* Same searchable dialog as the product form — a market run registers
+          far too many booths for a plain select to stay usable. */}
+      <SupplierPicker
+        suppliers={suppliers}
+        value={currentSupplier}
+        onChange={(v) => updateParam("supplier", v)}
+        emptyValue="all"
+        emptyLabel={t("allSuppliers")}
+        className="w-48 flex-none"
+        data-testid="supplier-filter"
+      />
 
       <Select value={currentSort} onValueChange={(v) => updateParam("sort", v)}>
         <SelectTrigger className="w-48">
