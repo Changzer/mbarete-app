@@ -55,6 +55,7 @@ export default async function EditProductPage({
         }}
         existingImages={images.map((i) => ({ id: i.id, path: i.path }))}
         submitLabel={common("save")}
+        lockCategory
         transcribe={aiEnabled ? transcribeProduct : undefined}
         transcribeCard={aiEnabled ? transcribeCard : undefined}
       />
