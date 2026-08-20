@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { contacts, contactImages, orders, products } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { contactSchema } from "@/lib/validators";
 import { saveUploadedImage, deleteUpload } from "@/lib/uploads";
 import { auth } from "@/lib/auth";
@@ -41,6 +41,13 @@ async function saveCardImages(formData: FormData) {
   return paths;
 }
 
+/** The WeChat QR cropped out of a card in the browser, if one was found. */
+async function saveQrImage(formData: FormData) {
+  const file = formData.get("qrImage");
+  if (!(file instanceof File) || file.size === 0) return null;
+  return saveUploadedImage(file);
+}
+
 /** `id` is returned so a caller can immediately select what it just created. */
 export type ContactActionResult = { error?: string; id?: number };
 
@@ -64,11 +71,21 @@ export async function createContact(
     return { error: "image-error" };
   }
 
+  let qrPath: string | null;
+  try {
+    qrPath = await saveQrImage(formData);
+  } catch {
+    return { error: "image-error" };
+  }
+
   const inserted = db.insert(contacts).values(data).run();
   const contactId = Number(inserted.lastInsertRowid);
   uploaded.forEach((path, i) => {
     db.insert(contactImages).values({ contactId, path, sortOrder: i }).run();
   });
+  if (qrPath) {
+    db.insert(contactImages).values({ contactId, path: qrPath, kind: "qr" }).run();
+  }
 
   revalidatePath("/contacts");
   revalidatePath("/orders");
@@ -111,6 +128,26 @@ export async function updateContact(
     uploaded = await saveCardImages(formData);
   } catch {
     return { error: "image-error" };
+  }
+
+  let qrPath: string | null;
+  try {
+    qrPath = await saveQrImage(formData);
+  } catch {
+    return { error: "image-error" };
+  }
+  if (qrPath) {
+    // A contact has one current QR: a re-scan replaces the previous crop.
+    const oldQrs = db
+      .select()
+      .from(contactImages)
+      .where(and(eq(contactImages.contactId, id), eq(contactImages.kind, "qr")))
+      .all();
+    for (const old of oldQrs) {
+      db.delete(contactImages).where(eq(contactImages.id, old.id)).run();
+      await deleteUpload(old.path);
+    }
+    db.insert(contactImages).values({ contactId: id, path: qrPath, kind: "qr" }).run();
   }
 
   const remaining = db
