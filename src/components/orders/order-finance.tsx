@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import {
   addPayment,
@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useState } from "react";
+import { Paperclip } from "lucide-react";
 
 export type PaymentRow = {
   id: number;
@@ -30,6 +31,8 @@ export type PaymentRow = {
   currency: string;
   paidOn: string;
   account: string;
+  receiptPath: string;
+  receiptName: string;
   note: string;
 };
 
@@ -39,6 +42,8 @@ export type ExpenseRow = {
   amount: number;
   currency: string;
   spentOn: string;
+  receiptPath: string;
+  receiptName: string;
   note: string;
 };
 
@@ -79,6 +84,120 @@ function money(n: number) {
   return n.toFixed(2);
 }
 
+/** Maps an action's error code to the sentence shown under the form. */
+function useErrorText() {
+  const t = useTranslations("finance");
+  return (code: string | undefined) => {
+    switch (code) {
+      case "receiptType":
+        return t("badReceipt");
+      case "receiptSize":
+      case "size":
+        return t("fileTooLarge");
+      case "file":
+        return t("badFile");
+      default:
+        return t("invalid");
+    }
+  };
+}
+
+/**
+ * A file field drawn as a real button.
+ *
+ * The native control's label comes from the browser's own language
+ * ("Escolher ficheiro…" on a Portuguese browser) and does not look
+ * clickable in this design. The input stays in the form — visually hidden,
+ * not display:none, so `required` validation can still focus it — and the
+ * button next to it opens the picker. The chosen filename echoes beside the
+ * button and clears when the form resets after a successful submit.
+ */
+function FileButton({
+  name,
+  accept,
+  required,
+  testid,
+}: {
+  name: string;
+  accept: string;
+  required?: boolean;
+  testid?: string;
+}) {
+  const common = useTranslations("common");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [fileName, setFileName] = useState("");
+
+  useEffect(() => {
+    const form = inputRef.current?.form;
+    if (!form) return;
+    const onReset = () => setFileName("");
+    form.addEventListener("reset", onReset);
+    return () => form.removeEventListener("reset", onReset);
+  }, []);
+
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        ref={inputRef}
+        name={name}
+        type="file"
+        accept={accept}
+        required={required}
+        className="sr-only"
+        data-testid={testid}
+        onChange={(e) => setFileName(e.target.files?.[0]?.name ?? "")}
+      />
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => inputRef.current?.click()}
+      >
+        <Paperclip className="h-4 w-4" />
+        {common("selectFile")}
+      </Button>
+      <span
+        className="max-w-44 truncate text-xs text-neutral-500 dark:text-neutral-400"
+        title={fileName || undefined}
+      >
+        {fileName || common("noFileSelected")}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * The slip field on payments and expenses. `image/*` keeps the phone's
+ * "take photo" option available — the whole point is snapping the bank
+ * receipt right when the money moves.
+ */
+function ReceiptField({ testid }: { testid: string }) {
+  const t = useTranslations("finance");
+  return (
+    <div className="flex min-w-40 flex-col gap-1">
+      <Label className="text-xs">{t("receipt")}</Label>
+      <FileButton name="receipt" accept="image/*,.pdf" testid={testid} />
+    </div>
+  );
+}
+
+/** The link a recorded slip renders as, opening in its own tab. */
+function ReceiptLink({ path, name }: { path: string; name: string }) {
+  const t = useTranslations("finance");
+  return (
+    <a
+      href={path}
+      target="_blank"
+      rel="noreferrer"
+      title={name}
+      className="flex shrink-0 items-center gap-1 text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
+    >
+      <Paperclip className="h-3.5 w-3.5" />
+      {t("viewReceipt")}
+    </a>
+  );
+}
+
 // --- payments ---------------------------------------------------------------
 
 function PaymentForm({
@@ -91,6 +210,7 @@ function PaymentForm({
   defaultCurrency: string;
 }) {
   const t = useTranslations("finance");
+  const errorText = useErrorText();
   const formRef = useRef<HTMLFormElement>(null);
 
   async function action(prev: FinanceActionResult | undefined, formData: FormData) {
@@ -145,11 +265,12 @@ function PaymentForm({
         <Label className="text-xs">{t("note")}</Label>
         <Input name="note" placeholder={t("notePlaceholder")} />
       </div>
+      <ReceiptField testid={`receipt-${direction}`} />
       <Button type="submit" size="sm" disabled={isPending}>
         {t("add")}
       </Button>
       {result?.error ? (
-        <p className="w-full text-xs text-red-600 dark:text-red-400">{t("invalid")}</p>
+        <p className="w-full text-xs text-red-600 dark:text-red-400">{errorText(result.error)}</p>
       ) : null}
     </form>
   );
@@ -182,6 +303,7 @@ function PaymentList({
           <span className="min-w-0 flex-1 truncate text-neutral-500 dark:text-neutral-400">
             {p.note}
           </span>
+          {p.receiptPath ? <ReceiptLink path={p.receiptPath} name={p.receiptName} /> : null}
           <button
             type="button"
             onClick={() => deletePayment(orderId, p.id)}
@@ -207,6 +329,7 @@ function ExpenseSection({
   defaultCurrency: string;
 }) {
   const t = useTranslations("finance");
+  const errorText = useErrorText();
   const formRef = useRef<HTMLFormElement>(null);
   const [category, setCategory] = useState<string>("freight");
 
@@ -265,11 +388,14 @@ function ExpenseSection({
           <Label className="text-xs">{t("note")}</Label>
           <Input name="note" />
         </div>
+        <ReceiptField testid="receipt-expense" />
         <Button type="submit" size="sm" disabled={isPending}>
           {t("add")}
         </Button>
         {result?.error ? (
-          <p className="w-full text-xs text-red-600 dark:text-red-400">{t("invalid")}</p>
+          <p className="w-full text-xs text-red-600 dark:text-red-400">
+            {errorText(result.error)}
+          </p>
         ) : null}
       </form>
 
@@ -294,6 +420,7 @@ function ExpenseSection({
               <span className="min-w-0 flex-1 truncate text-neutral-500 dark:text-neutral-400">
                 {e.note}
               </span>
+              {e.receiptPath ? <ReceiptLink path={e.receiptPath} name={e.receiptName} /> : null}
               <button
                 type="button"
                 onClick={() => deleteExpense(orderId, e.id)}
@@ -319,6 +446,7 @@ function DocumentSection({
   rows: DocumentRow[];
 }) {
   const t = useTranslations("finance");
+  const errorText = useErrorText();
   const formRef = useRef<HTMLFormElement>(null);
   const [kind, setKind] = useState<string>("supplier_invoice");
 
@@ -355,12 +483,10 @@ function DocumentSection({
         </div>
         <div className="flex min-w-48 flex-1 flex-col gap-1">
           <Label className="text-xs">{t("file")}</Label>
-          <input
+          <FileButton
             name="file"
-            type="file"
             required
             accept=".pdf,.xlsx,.xls,.docx,image/png,image/jpeg,image/webp"
-            className="text-sm"
           />
         </div>
         <Button type="submit" size="sm" disabled={isPending}>
@@ -368,7 +494,7 @@ function DocumentSection({
         </Button>
         {result?.error ? (
           <p className="w-full text-xs text-red-600 dark:text-red-400">
-            {result.error === "file" ? t("badFile") : t("invalid")}
+            {errorText(result.error)}
           </p>
         ) : null}
       </form>

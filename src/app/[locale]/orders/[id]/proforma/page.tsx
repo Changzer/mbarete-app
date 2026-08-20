@@ -9,6 +9,7 @@ import {
 import type { Locale } from "@/i18n/routing";
 import { formatCbm, formatWeightKg } from "@/lib/calculations";
 import { PrintButton } from "@/components/orders/print-button";
+import { FreshOnRestore } from "@/components/fresh-on-restore";
 import { Brand } from "@/components/brand";
 import { Link } from "@/i18n/navigation";
 
@@ -64,6 +65,8 @@ export default async function ProformaPage({
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 text-neutral-900 print:max-w-none print:p-0 print:text-black">
+      {/* A back-gesture must never show yesterday's bank details. */}
+      <FreshOnRestore />
       {/*
         Printed on A4 with the browser's own margins turned down, and the app
         chrome removed. `print:` utilities handle the rest.

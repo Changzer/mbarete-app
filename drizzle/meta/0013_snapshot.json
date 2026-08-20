@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "f2c97c64-5679-41eb-bf9d-d498240c053b",
-  "prevId": "86e1e399-c1db-4f53-aba5-390eff9f266f",
+  "id": "905c4710-5c36-402b-93d4-d971eaa2b3bf",
+  "prevId": "f2c97c64-5679-41eb-bf9d-d498240c053b",
   "tables": {
     "bank_accounts": {
       "name": "bank_accounts",
@@ -269,6 +269,75 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "contact_images": {
+      "name": "contact_images",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "contact_id": {
+          "name": "contact_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "path": {
+          "name": "path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(current_timestamp)"
+        }
+      },
+      "indexes": {
+        "contact_images_contact_idx": {
+          "name": "contact_images_contact_idx",
+          "columns": [
+            "contact_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "contact_images_contact_id_contacts_id_fk": {
+          "name": "contact_images_contact_id_contacts_id_fk",
+          "tableFrom": "contact_images",
+          "tableTo": "contacts",
+          "columnsFrom": [
+            "contact_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "contacts": {
       "name": "contacts",
       "columns": {
@@ -292,6 +361,14 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "company_name_zh": {
+          "name": "company_name_zh",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
         },
         "contact_person": {
           "name": "contact_person",
@@ -327,6 +404,22 @@
         },
         "wechat": {
           "name": "wechat",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "booth_location": {
+          "name": "booth_location",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "bank_info": {
+          "name": "bank_info",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -1486,6 +1579,20 @@
           "autoincrement": false,
           "default": 15
         },
+        "supplier_id": {
+          "name": "supplier_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "duplicated_from_id": {
+          "name": "duplicated_from_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "active": {
           "name": "active",
           "type": "integer",
@@ -1546,6 +1653,13 @@
             "active"
           ],
           "isUnique": false
+        },
+        "products_supplier_idx": {
+          "name": "products_supplier_idx",
+          "columns": [
+            "supplier_id"
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -1560,6 +1674,32 @@
             "id"
           ],
           "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "products_supplier_id_contacts_id_fk": {
+          "name": "products_supplier_id_contacts_id_fk",
+          "tableFrom": "products",
+          "tableTo": "contacts",
+          "columnsFrom": [
+            "supplier_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "products_duplicated_from_id_products_id_fk": {
+          "name": "products_duplicated_from_id_products_id_fk",
+          "tableFrom": "products",
+          "tableTo": "products",
+          "columnsFrom": [
+            "duplicated_from_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         },
         "products_created_by_users_id_fk": {

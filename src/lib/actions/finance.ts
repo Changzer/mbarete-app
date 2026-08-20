@@ -6,7 +6,13 @@ import { db } from "@/db";
 import { orders, orderPayments, orderExpenses, orderDocuments } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
-import { saveUploadedDocument, deleteUpload } from "@/lib/uploads";
+import {
+  saveUploadedDocument,
+  saveUploadedReceipt,
+  deleteUpload,
+  UnsupportedFileTypeError,
+  FileTooLargeError,
+} from "@/lib/uploads";
 import { logOrderEvent } from "@/lib/order-log";
 import { getExchangeRates } from "@/lib/queries/orders";
 
@@ -24,11 +30,40 @@ function requireOrder(orderId: number) {
 }
 
 function refresh(orderId: number) {
-  revalidatePath(`/orders/${orderId}`);
-  revalidatePath("/orders");
+  // Pattern form: routes live under /[locale]/…, so a literal locale-less
+  // path would name a page that does not exist.
+  revalidatePath("/[locale]/orders/[id]", "page");
+  revalidatePath("/[locale]/orders/[id]/proforma", "page");
+  revalidatePath("/[locale]/orders", "page");
+  void orderId;
 }
 
 export type FinanceActionResult = { error?: string };
+
+/**
+ * The optional slip attached to money movements. Absent file → empty fields;
+ * a bad file refuses the whole submission so a payment is never silently
+ * recorded without the slip the user attached.
+ */
+async function readReceipt(
+  formData: FormData,
+): Promise<
+  | { receiptPath: string; receiptName: string }
+  | { error: "receiptType" | "receiptSize" }
+> {
+  const file = formData.get("receipt");
+  if (!(file instanceof File) || file.size === 0) {
+    return { receiptPath: "", receiptName: "" };
+  }
+  try {
+    const receiptPath = await saveUploadedReceipt(file);
+    return { receiptPath, receiptName: file.name || "receipt" };
+  } catch (err) {
+    if (err instanceof FileTooLargeError) return { error: "receiptSize" };
+    if (err instanceof UnsupportedFileTypeError) return { error: "receiptType" };
+    throw err;
+  }
+}
 
 // --- payments ----------------------------------------------------------------
 
@@ -52,12 +87,15 @@ export async function addPayment(
   const parsed = paymentSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "invalid" };
 
+  const receipt = await readReceipt(formData);
+  if ("error" in receipt) return { error: receipt.error };
+
   // Freeze today's rates onto the payment: what this money was worth the day
   // it was recorded must not drift when rates move later.
   const ratesSnapshot = JSON.stringify(await getExchangeRates());
 
   db.insert(orderPayments)
-    .values({ orderId, createdBy: userId, ratesSnapshot, ...parsed.data })
+    .values({ orderId, createdBy: userId, ratesSnapshot, ...receipt, ...parsed.data })
     .run();
   logOrderEvent(orderId, userId, "payment_added", parsed.data);
   refresh(orderId);
@@ -74,6 +112,7 @@ export async function deletePayment(orderId: number, paymentId: number) {
   // The orderId comes from the page; the row's own parent is what counts.
   if (!row || row.orderId !== orderId) return;
   db.delete(orderPayments).where(eq(orderPayments.id, paymentId)).run();
+  if (row.receiptPath) await deleteUpload(row.receiptPath);
   const session = await auth();
   logOrderEvent(orderId, Number(session?.user?.id ?? 0) || null, "payment_removed", {
     direction: row.direction,
@@ -112,10 +151,13 @@ export async function addExpense(
   const parsed = expenseSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "invalid" };
 
+  const receipt = await readReceipt(formData);
+  if ("error" in receipt) return { error: receipt.error };
+
   const ratesSnapshot = JSON.stringify(await getExchangeRates());
 
   db.insert(orderExpenses)
-    .values({ orderId, createdBy: userId, ratesSnapshot, ...parsed.data })
+    .values({ orderId, createdBy: userId, ratesSnapshot, ...receipt, ...parsed.data })
     .run();
   logOrderEvent(orderId, userId, "expense_added", parsed.data);
   refresh(orderId);
@@ -131,6 +173,7 @@ export async function deleteExpense(orderId: number, expenseId: number) {
     .get();
   if (!row || row.orderId !== orderId) return;
   db.delete(orderExpenses).where(eq(orderExpenses.id, expenseId)).run();
+  if (row.receiptPath) await deleteUpload(row.receiptPath);
   const session = await auth();
   logOrderEvent(orderId, Number(session?.user?.id ?? 0) || null, "expense_removed", {
     category: row.category,
@@ -167,8 +210,12 @@ export async function uploadOrderDocument(
   let path: string;
   try {
     path = await saveUploadedDocument(file);
-  } catch {
-    return { error: "file" };
+  } catch (err) {
+    // Which rule refused it matters: "too large" and "wrong format" call
+    // for different next moves at the user's end.
+    if (err instanceof FileTooLargeError) return { error: "size" };
+    if (err instanceof UnsupportedFileTypeError) return { error: "file" };
+    throw err;
   }
 
   db.insert(orderDocuments)

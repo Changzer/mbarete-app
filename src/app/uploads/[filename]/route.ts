@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import path from "node:path";
 import fs from "node:fs/promises";
-import { uploadsDir, isSafeUploadName, CONTENT_TYPES } from "@/lib/uploads";
+import {
+  uploadsDir,
+  isSafeUploadName,
+  isReceiptUploadName,
+  CONTENT_TYPES,
+} from "@/lib/uploads";
 import { auth } from "@/lib/auth";
 
 // Anything that is not a product photo is an order document — supplier
@@ -26,7 +31,9 @@ export async function GET(
 
   const ext = filename.split(".").pop()!;
 
-  if (DOCUMENT_EXTENSIONS.has(ext)) {
+  // Payment slips are photos as often as PDFs, so they are gated by their
+  // name prefix rather than by extension like other documents.
+  if (DOCUMENT_EXTENSIONS.has(ext) || isReceiptUploadName(filename)) {
     const session = await auth();
     if (!session?.user) {
       return new NextResponse("unauthorized", { status: 401 });
