@@ -235,11 +235,21 @@ Important notes:
 - **No quotes** around the values.
 - `ADMIN_EMAIL` and `ADMIN_PASSWORD` are what you'll use to log into the app. Pick a real password you'll remember — this is your login.
 
-Optional fifth line — AI photo transcription. If you add an Anthropic API key
-(from https://console.anthropic.com), the product form gets a "Fill from
-photos" button that reads the product and price board from your market photos
-and pre-fills the fields for you to check. Skip it and the app simply works
-without that button:
+Optional extra lines — AI photo transcription. With a provider key set, the
+product form reads market photos (product + handwritten price board) and the
+contact form reads business cards, pre-filling the fields for you to check.
+Skip them and the app simply works without those features.
+
+Moonshot/Kimi (recommended when the server runs in mainland China; key from
+https://platform.moonshot.cn):
+
+```
+MOONSHOT_API_KEY=sk-your-key-here
+MOONSHOT_MODEL=kimi-k2.6
+```
+
+Or Anthropic/Claude (works anywhere with access to api.anthropic.com; key
+from https://console.anthropic.com):
 
 ```
 ANTHROPIC_API_KEY=sk-ant-your-key-here

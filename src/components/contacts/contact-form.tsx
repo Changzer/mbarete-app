@@ -88,15 +88,20 @@ export function ContactForm({
     }
   }
 
-  async function handleTranscribe() {
+  // Which transcription request is current; a newer photo set supersedes it.
+  const aiRun = useRef(0);
+  const aiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  async function handleTranscribe(auto = false) {
     if (!transcribe) return;
     const input = formRef.current?.elements.namedItem("cardImages");
     const files = input instanceof HTMLInputElement ? Array.from(input.files ?? []) : [];
     if (files.length === 0) {
-      setAiError("no-photos");
+      if (!auto) setAiError("no-photos");
       return;
     }
 
+    const run = ++aiRun.current;
     setAiError(null);
     setAiNotes(null);
     setSimilar(null);
@@ -105,6 +110,7 @@ export function ContactForm({
       const data = new FormData();
       for (const file of files) data.append("cardImages", file);
       const result = await transcribe(data);
+      if (run !== aiRun.current) return; // superseded by a newer run
       if (result.ok) {
         applyTranscription(result.fields);
         setAiNotes(result.notes);
@@ -117,10 +123,19 @@ export function ContactForm({
         setAiError("failed");
       }
     } catch {
-      setAiError("failed");
+      if (run === aiRun.current) setAiError("failed");
     } finally {
-      setAiPending(false);
+      if (run === aiRun.current) setAiPending(false);
     }
+  }
+
+  /** Card front + back taken back-to-back become one request after a pause. */
+  function scheduleCardTranscribe(files: File[]) {
+    if (!transcribe || files.length === 0) return;
+    if (aiTimer.current) clearTimeout(aiTimer.current);
+    aiTimer.current = setTimeout(() => {
+      void handleTranscribe(true);
+    }, 1500);
   }
 
   return (
@@ -170,7 +185,7 @@ export function ContactForm({
           </div>
         ) : null}
 
-        <PhotoPicker name="cardImages" />
+        <PhotoPicker name="cardImages" onFilesChanged={scheduleCardTranscribe} />
 
         {transcribe ? (
           <div className="flex flex-col gap-2">
@@ -178,7 +193,7 @@ export function ContactForm({
               type="button"
               variant="outline"
               disabled={aiPending}
-              onClick={handleTranscribe}
+              onClick={() => handleTranscribe()}
               data-testid="fill-from-card"
               className="min-h-11 justify-center gap-2"
             >

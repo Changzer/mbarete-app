@@ -76,11 +76,25 @@ function Preview({
   );
 }
 
-export function PhotoPicker({ name = "images" }: { name?: string }) {
+export function PhotoPicker({
+  name = "images",
+  onFilesChanged,
+}: {
+  name?: string;
+  /** Fires whenever the picked set changes — lets a form auto-transcribe. */
+  onFilesChanged?: (files: File[]) => void;
+}) {
   const t = useTranslations("catalog");
   const common = useTranslations("common");
 
   const [picked, setPicked] = useState<Picked[]>([]);
+
+  // Latest-callback ref, so the mirror effect below never has to depend on a
+  // function identity that changes every parent render.
+  const onFilesChangedRef = useRef(onFilesChanged);
+  useEffect(() => {
+    onFilesChangedRef.current = onFilesChanged;
+  }, [onFilesChanged]);
 
   const cameraRef = useRef<HTMLInputElement>(null);
   const libraryRef = useRef<HTMLInputElement>(null);
@@ -101,6 +115,7 @@ export function PhotoPicker({ name = "images" }: { name?: string }) {
     const dt = new DataTransfer();
     for (const p of picked) dt.items.add(p.file);
     field.files = dt.files;
+    onFilesChangedRef.current?.(picked.map((p) => p.file));
   }, [picked, supported]);
 
   async function add(input: HTMLInputElement | null) {
@@ -130,6 +145,7 @@ export function PhotoPicker({ name = "images" }: { name?: string }) {
         multiple
         accept="image/png,image/jpeg,image/webp,image/gif"
         className="text-sm"
+        onChange={(e) => onFilesChanged?.(Array.from(e.currentTarget.files ?? []))}
       />
     );
   }

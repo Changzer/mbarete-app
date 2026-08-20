@@ -14,6 +14,7 @@ import {
   estimateCartonWeightKg,
 } from "@/lib/calculations";
 import { saveUploadedImage, deleteUpload } from "@/lib/uploads";
+import { normalizeDecimalInput } from "@/lib/decimal-input";
 import { suggestNextSku } from "@/lib/queries/catalog";
 
 /** Saves every non-empty file under `images`, preserving the chosen order. */
@@ -37,6 +38,10 @@ async function requireSession() {
 }
 
 function formToProductInput(formData: FormData) {
+  // Decimal fields are text inputs (comma-locale keyboards), normalized here
+  // before validation: "10,20" -> "10.20", "1,200" -> "1200".
+  const dec = (v: FormDataEntryValue | null) =>
+    typeof v === "string" ? normalizeDecimalInput(v) : v;
   return productSchema.parse({
     sku: formData.get("sku"),
     nameEn: formData.get("nameEn"),
@@ -44,22 +49,22 @@ function formToProductInput(formData: FormData) {
     categoryId: formData.get("categoryId"),
     descriptionEn: formData.get("descriptionEn") ?? "",
     descriptionZh: formData.get("descriptionZh") ?? "",
-    price: formData.get("price"),
-    sellPrice: formData.get("sellPrice") || 0,
+    price: dec(formData.get("price")),
+    sellPrice: dec(formData.get("sellPrice")) || 0,
     currency: formData.get("currency"),
     moq: formData.get("moq"),
     qtyPerBox: formData.get("qtyPerBox"),
-    lengthCm: formData.get("lengthCm") || 0,
-    widthCm: formData.get("widthCm") || 0,
-    heightCm: formData.get("heightCm") || 0,
-    weightKg: formData.get("weightKg") || 0,
+    lengthCm: dec(formData.get("lengthCm")) || 0,
+    widthCm: dec(formData.get("widthCm")) || 0,
+    heightCm: dec(formData.get("heightCm")) || 0,
+    weightKg: dec(formData.get("weightKg")) || 0,
     dimensionSource: formData.get("dimensionSource") || "carton",
-    pieceLengthCm: formData.get("pieceLengthCm") || 0,
-    pieceWidthCm: formData.get("pieceWidthCm") || 0,
-    pieceHeightCm: formData.get("pieceHeightCm") || 0,
-    pieceWeightKg: formData.get("pieceWeightKg") || 0,
-    packingAllowancePct: formData.get("packingAllowancePct") ?? 15,
-    cbmOverride: formData.get("cbmOverride") || undefined,
+    pieceLengthCm: dec(formData.get("pieceLengthCm")) || 0,
+    pieceWidthCm: dec(formData.get("pieceWidthCm")) || 0,
+    pieceHeightCm: dec(formData.get("pieceHeightCm")) || 0,
+    pieceWeightKg: dec(formData.get("pieceWeightKg")) || 0,
+    packingAllowancePct: dec(formData.get("packingAllowancePct")) ?? 15,
+    cbmOverride: dec(formData.get("cbmOverride")) || undefined,
     supplierId: formData.get("supplierId") || undefined,
     duplicatedFromId: formData.get("duplicatedFromId") || undefined,
     active: formData.get("active") === "on",
