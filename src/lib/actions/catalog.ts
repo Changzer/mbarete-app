@@ -5,7 +5,7 @@ import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
 import type { Locale } from "@/i18n/routing";
 import { db } from "@/db";
-import { products, categories, productImages, orderItems } from "@/db/schema";
+import { products, categories, productImages, orderItems, contacts } from "@/db/schema";
 import { eq, and, ne } from "drizzle-orm";
 import { productSchema, categorySchema } from "@/lib/validators";
 import {
@@ -60,8 +60,36 @@ function formToProductInput(formData: FormData) {
     pieceWeightKg: formData.get("pieceWeightKg") || 0,
     packingAllowancePct: formData.get("packingAllowancePct") ?? 15,
     cbmOverride: formData.get("cbmOverride") || undefined,
+    supplierId: formData.get("supplierId") || undefined,
+    duplicatedFromId: formData.get("duplicatedFromId") || undefined,
     active: formData.get("active") === "on",
   });
+}
+
+/**
+ * The posted supplier id, verified against the database — a form can post any
+ * number, so it must point at a real supplier contact before it is stored.
+ * Returns null for "no supplier", undefined when the id doesn't check out.
+ */
+function resolveSupplierId(supplierId: number | undefined) {
+  if (!supplierId) return null;
+  const row = db
+    .select({ id: contacts.id })
+    .from(contacts)
+    .where(and(eq(contacts.id, supplierId), eq(contacts.type, "supplier")))
+    .get();
+  return row ? row.id : undefined;
+}
+
+/** Lineage is best-effort: a stale source product just means no link. */
+function resolveDuplicatedFromId(duplicatedFromId: number | undefined) {
+  if (!duplicatedFromId) return null;
+  const row = db
+    .select({ id: products.id })
+    .from(products)
+    .where(eq(products.id, duplicatedFromId))
+    .get();
+  return row ? row.id : null;
 }
 
 type ProductInput = ReturnType<typeof formToProductInput>;
@@ -137,6 +165,9 @@ export async function createProduct(
 
   const carton = resolveCartonFigures(data);
 
+  const supplierId = resolveSupplierId(data.supplierId);
+  if (supplierId === undefined) return "invalid";
+
   // Left blank on purpose, or cleared while entering products in a hurry.
   const sku = data.sku || (await suggestNextSku());
   if (db.select().from(products).where(eq(products.sku, sku)).get()) {
@@ -166,6 +197,8 @@ export async function createProduct(
       moq: data.moq,
       qtyPerBox: data.qtyPerBox,
       ...carton,
+      supplierId,
+      duplicatedFromId: resolveDuplicatedFromId(data.duplicatedFromId),
       active: data.active,
       createdBy: userId,
       updatedBy: userId,
@@ -188,10 +221,12 @@ export async function createProduct(
   revalidatePath("/catalog");
 
   // Entering a run of products from one supplier: straight back to a blank
-  // form, keeping the category so it does not have to be picked every time.
+  // form, keeping the category — and the supplier, so a whole booth can be
+  // registered without re-picking the vendor on every item.
   const locale = (await getLocale()) as Locale;
   if (formData.get("andAnother")) {
-    redirect({ href: `/catalog/new?category=${data.categoryId}`, locale });
+    const sticky = supplierId ? `&supplier=${supplierId}` : "";
+    redirect({ href: `/catalog/new?category=${data.categoryId}${sticky}`, locale });
   }
   redirect({ href: "/catalog", locale });
 }
@@ -211,6 +246,9 @@ export async function updateProduct(
   }
 
   const carton = resolveCartonFigures(data);
+
+  const supplierId = resolveSupplierId(data.supplierId);
+  if (supplierId === undefined) return "invalid";
 
   const existing = db.select().from(products).where(eq(products.id, id)).get();
   if (!existing) return "not-found";
@@ -273,6 +311,9 @@ export async function updateProduct(
       moq: data.moq,
       qtyPerBox: data.qtyPerBox,
       ...carton,
+      // Lineage (duplicatedFromId) is deliberately not editable here: it
+      // records where a row came from, not something to maintain by hand.
+      supplierId,
       active: data.active,
       updatedBy: userId,
       updatedAt: new Date().toISOString(),

@@ -14,8 +14,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { PhotoPicker } from "@/components/catalog/photo-picker";
+import { ContactForm } from "@/components/contacts/contact-form";
+import { createContact, type ContactActionResult } from "@/lib/actions/contacts";
 import type { TranscribeResult, TranscribedFields } from "@/lib/transcribe-product";
+import type { CardTranscribeResult } from "@/lib/transcribe-card";
+import type { MatchCandidate } from "@/lib/contact-match";
 import {
   computeCbm,
   estimateCartonCbm,
@@ -25,6 +35,20 @@ import {
 } from "@/lib/calculations";
 
 type Category = { id: number; nameEn: string; nameZh: string };
+
+export type SupplierOption = {
+  id: number;
+  companyName: string;
+  companyNameZh: string;
+  phone: string;
+  boothLocation: string;
+};
+
+/** How a supplier reads in the picker: name in whichever language exists, plus the booth. */
+function supplierLabel(s: SupplierOption) {
+  const name = s.companyName || s.companyNameZh;
+  return s.boothLocation ? `${name} · ${s.boothLocation}` : name;
+}
 
 /** Unmeasured fields show empty rather than a 0 nobody entered. */
 const blankIfZero = (v: number | undefined) => (v ? String(v) : "");
@@ -52,6 +76,8 @@ type ProductFormValues = {
   pieceHeightCm: number;
   pieceWeightKg: number;
   packingAllowancePct: number;
+  supplierId: number;
+  duplicatedFromId: number;
   active: boolean;
 };
 
@@ -65,6 +91,8 @@ export function ProductForm({
   submitLabel,
   showAddAnother = false,
   transcribe,
+  suppliers = [],
+  transcribeCard,
 }: {
   categories: Category[];
   action: (prevState: string | undefined, formData: FormData) => Promise<string | undefined>;
@@ -75,6 +103,10 @@ export function ProductForm({
   showAddAnother?: boolean;
   /** Reads the picked photos into draft field values; absent when no AI key is set. */
   transcribe?: (formData: FormData) => Promise<TranscribeResult>;
+  /** Suppliers to pick from, newest first. */
+  suppliers?: SupplierOption[];
+  /** Card transcription for the inline new-supplier dialog. */
+  transcribeCard?: (formData: FormData) => Promise<CardTranscribeResult>;
 }) {
   const t = useTranslations("catalog");
   const common = useTranslations("common");
@@ -87,9 +119,49 @@ export function ProductForm({
   const formRef = useRef<HTMLFormElement>(null);
   // What the category started as, so a suggestion never overrides a manual pick.
   const initialCategoryId = useRef(categoryId);
+  // A category that arrived in defaultValues (edit, duplicate, sticky "add
+  // another") is deliberate data — the AI suggestion must not replace it.
+  const categoryLocked = useRef(Boolean(defaultValues?.categoryId));
   const [aiPending, setAiPending] = useState(false);
   const [aiError, setAiError] = useState<"no-photos" | "failed" | null>(null);
   const [aiNotes, setAiNotes] = useState<string | null>(null);
+
+  // "0" is the no-supplier option: Radix Select items cannot carry an empty value.
+  const [supplierId, setSupplierId] = useState(
+    defaultValues?.supplierId ? String(defaultValues.supplierId) : "0",
+  );
+  // Suppliers registered from this very form, shown first: at the market the
+  // vendor just photographed is the one about to be picked.
+  const [createdSuppliers, setCreatedSuppliers] = useState<SupplierOption[]>([]);
+  const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
+  const allSuppliers = [...createdSuppliers, ...suppliers];
+
+  /** Wraps createContact so the new supplier lands in the picker, selected. */
+  async function createSupplierInline(
+    prevState: ContactActionResult | undefined,
+    formData: FormData,
+  ): Promise<ContactActionResult> {
+    const result = await createContact(prevState, formData);
+    if (!result.error && result.id) {
+      const created: SupplierOption = {
+        id: result.id,
+        companyName: String(formData.get("companyName") ?? ""),
+        companyNameZh: String(formData.get("companyNameZh") ?? ""),
+        phone: String(formData.get("phone") ?? ""),
+        boothLocation: String(formData.get("boothLocation") ?? ""),
+      };
+      setCreatedSuppliers((prev) => [created, ...prev]);
+      setSupplierId(String(created.id));
+      setSupplierDialogOpen(false);
+    }
+    return result;
+  }
+
+  /** The card matched a vendor already on file: pick them instead of duplicating. */
+  function useExistingSupplier(candidate: MatchCandidate) {
+    setSupplierId(String(candidate.id));
+    setSupplierDialogOpen(false);
+  }
 
   // Which figures the supplier actually gave us. Carton is the accurate path;
   // piece estimates a carton when only the product itself has been quoted.
@@ -140,7 +212,11 @@ export function ProductForm({
     if (fields.qtyPerBox !== undefined) {
       setQtyPerBox((prev) => (prev === "" || prev === "1" ? String(fields.qtyPerBox) : prev));
     }
-    if (fields.categoryId !== undefined && categories.some((c) => c.id === fields.categoryId)) {
+    if (
+      !categoryLocked.current &&
+      fields.categoryId !== undefined &&
+      categories.some((c) => c.id === fields.categoryId)
+    ) {
       setCategoryId((prev) =>
         prev === initialCategoryId.current ? String(fields.categoryId) : prev,
       );
@@ -212,6 +288,41 @@ export function ProductForm({
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        <div className="flex flex-col gap-1.5 sm:col-span-2">
+          <Label htmlFor="supplierId">{t("supplier")}</Label>
+          <input
+            type="hidden"
+            name="supplierId"
+            value={supplierId === "0" ? "" : supplierId}
+          />
+          {defaultValues?.duplicatedFromId ? (
+            <input type="hidden" name="duplicatedFromId" value={defaultValues.duplicatedFromId} />
+          ) : null}
+          <div className="flex gap-2">
+            <Select value={supplierId} onValueChange={setSupplierId}>
+              <SelectTrigger id="supplierId" className="min-w-0 flex-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0">{t("noSupplier")}</SelectItem>
+                {allSuppliers.map((s) => (
+                  <SelectItem key={s.id} value={String(s.id)}>
+                    {supplierLabel(s)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSupplierDialogOpen(true)}
+              data-testid="new-supplier"
+            >
+              {t("newSupplier")}
+            </Button>
+          </div>
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -610,6 +721,30 @@ export function ProductForm({
           </Button>
         ) : null}
       </div>
+
+      {/* Registering the vendor without leaving the product: photograph the
+          business card, proofread, save — the new supplier arrives selected.
+          The dialog portals out of the DOM, so the forms never nest. */}
+      <Dialog open={supplierDialogOpen} onOpenChange={setSupplierDialogOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t("newSupplier")}</DialogTitle>
+          </DialogHeader>
+          <ContactForm
+            type="supplier"
+            action={createSupplierInline}
+            submitLabel={common("save")}
+            transcribe={transcribeCard}
+            candidates={allSuppliers.map((s) => ({
+              id: s.id,
+              companyName: s.companyName,
+              companyNameZh: s.companyNameZh,
+              phone: s.phone,
+            }))}
+            onUseExisting={useExistingSupplier}
+          />
+        </DialogContent>
+      </Dialog>
     </form>
   );
 }

@@ -6,6 +6,7 @@ import {
   real,
   index,
   primaryKey,
+  type AnySQLiteColumn,
 } from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("users", {
@@ -68,6 +69,18 @@ export const products = sqliteTable(
     pieceHeightCm: real("piece_height_cm").notNull().default(0),
     pieceWeightKg: real("piece_weight_kg").notNull().default(0),
     packingAllowancePct: real("packing_allowance_pct").notNull().default(15),
+    // Which vendor sells this. Nullable: products registered before suppliers
+    // existed have none, and a product can be catalogued before the card is.
+    // Deleting a referenced contact is blocked in the action, mirroring how
+    // clients with orders are protected.
+    supplierId: integer("supplier_id").references(() => contacts.id),
+    // The product this one was duplicated from when comparison-shopping the
+    // same item across booths. Write-only lineage for now: it lets offers for
+    // one item be grouped later without re-entering anything.
+    duplicatedFromId: integer("duplicated_from_id").references(
+      (): AnySQLiteColumn => products.id,
+      { onDelete: "set null" },
+    ),
     active: integer("active", { mode: "boolean" }).notNull().default(true),
     // Who entered this product and who last changed it. Nullable because rows
     // written before attribution existed have nobody to credit.
@@ -83,6 +96,7 @@ export const products = sqliteTable(
   (table) => [
     index("products_category_idx").on(table.categoryId),
     index("products_active_idx").on(table.active),
+    index("products_supplier_idx").on(table.supplierId),
   ],
 );
 
@@ -193,18 +207,50 @@ export const contacts = sqliteTable(
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
     type: text("type", { enum: ["supplier", "client"] }).notNull(),
+    /** English (or latin-script) name — what the team reads day to day. */
     companyName: text("company_name").notNull(),
+    /** As printed on the business card; empty when the card is latin-only. */
+    companyNameZh: text("company_name_zh").notNull().default(""),
     contactPerson: text("contact_person").notNull().default(""),
     phone: text("phone").notNull().default(""),
     email: text("email").notNull().default(""),
     whatsapp: text("whatsapp").notNull().default(""),
     wechat: text("wechat").notNull().default(""),
+    // Where to physically find the vendor again — for market suppliers the
+    // booth ("一区2楼C区9街4642店"), its own field because it is the retrieval
+    // key on a revisit, not a footnote.
+    boothLocation: text("booth_location").notNull().default(""),
+    // Bank accounts as read off the card back. Free text, one account per
+    // line. Always treated as unverified: finance checks the digits against
+    // the stored card photo before any payment goes out.
+    bankInfo: text("bank_info").notNull().default(""),
     notes: text("notes").notNull().default(""),
     createdAt: text("created_at")
       .notNull()
       .default(sql`(current_timestamp)`),
   },
   (table) => [index("contacts_type_idx").on(table.type)],
+);
+
+/**
+ * Business-card photos attached to a contact. The photos are the system of
+ * record: the WeChat QR on a card back can only be scanned from the image,
+ * and bank digits are re-checked against it before paying.
+ */
+export const contactImages = sqliteTable(
+  "contact_images",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    contactId: integer("contact_id")
+      .notNull()
+      .references(() => contacts.id, { onDelete: "cascade" }),
+    path: text("path").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
+  },
+  (table) => [index("contact_images_contact_idx").on(table.contactId)],
 );
 
 export const orders = sqliteTable(

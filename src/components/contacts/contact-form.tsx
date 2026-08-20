@@ -1,29 +1,42 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef, useState } from "react";
 import type { ContactActionResult } from "@/lib/actions/contacts";
+import type { CardTranscribeResult, TranscribedContactFields } from "@/lib/transcribe-card";
+import { findSimilarContact, type MatchCandidate } from "@/lib/contact-match";
 import { useTranslations } from "next-intl";
+import { Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { PhotoPicker } from "@/components/catalog/photo-picker";
 
 type ContactFormValues = {
   companyName: string;
+  companyNameZh: string;
   contactPerson: string;
   phone: string;
   email: string;
   whatsapp: string;
   wechat: string;
+  boothLocation: string;
+  bankInfo: string;
   notes: string;
 };
+
+export type ExistingCardImage = { id: number; path: string };
 
 export function ContactForm({
   type,
   action,
   defaultValues,
+  existingImages = [],
   submitLabel,
   onSuccess,
+  transcribe,
+  candidates = [],
+  onUseExisting,
 }: {
   type: "supplier" | "client";
   action: (
@@ -31,8 +44,15 @@ export function ContactForm({
     formData: FormData,
   ) => Promise<ContactActionResult>;
   defaultValues?: Partial<ContactFormValues>;
+  existingImages?: ExistingCardImage[];
   submitLabel: string;
   onSuccess?: (id?: number) => void;
+  /** Reads picked card photos into draft field values; absent when no AI key is set. */
+  transcribe?: (formData: FormData) => Promise<CardTranscribeResult>;
+  /** Existing contacts of this type, for the duplicate warning after a card scan. */
+  candidates?: MatchCandidate[];
+  /** In the product form's dialog: lets a detected duplicate be picked instead. */
+  onUseExisting?: (candidate: MatchCandidate) => void;
 }) {
   const t = useTranslations("contacts");
   const common = useTranslations("common");
@@ -48,16 +68,183 @@ export function ContactForm({
 
   const [result, formAction, isPending] = useActionState(wrappedAction, undefined);
 
+  const formRef = useRef<HTMLFormElement>(null);
+  const [removed, setRemoved] = useState<number[]>([]);
+  const [aiPending, setAiPending] = useState(false);
+  const [aiError, setAiError] = useState<"no-photos" | "failed" | null>(null);
+  const [aiNotes, setAiNotes] = useState<string | null>(null);
+  const [similar, setSimilar] = useState<MatchCandidate | null>(null);
+
+  /** Fills only fields still empty, so anything already typed is kept. */
+  function applyTranscription(fields: TranscribedContactFields) {
+    const form = formRef.current;
+    if (!form) return;
+    for (const [name, value] of Object.entries(fields)) {
+      if (value === undefined) continue;
+      const el = form.elements.namedItem(name);
+      if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) continue;
+      if (el.value.trim() !== "") continue;
+      el.value = value;
+    }
+  }
+
+  async function handleTranscribe() {
+    if (!transcribe) return;
+    const input = formRef.current?.elements.namedItem("cardImages");
+    const files = input instanceof HTMLInputElement ? Array.from(input.files ?? []) : [];
+    if (files.length === 0) {
+      setAiError("no-photos");
+      return;
+    }
+
+    setAiError(null);
+    setAiNotes(null);
+    setSimilar(null);
+    setAiPending(true);
+    try {
+      const data = new FormData();
+      for (const file of files) data.append("cardImages", file);
+      const result = await transcribe(data);
+      if (result.ok) {
+        applyTranscription(result.fields);
+        setAiNotes(result.notes);
+        // The same vendor photographed twice is inevitable across dozens of
+        // cards — warn, never block: the person decides.
+        setSimilar(findSimilarContact(candidates, result.fields) ?? null);
+      } else if (result.error === "no-photos") {
+        setAiError("no-photos");
+      } else {
+        setAiError("failed");
+      }
+    } catch {
+      setAiError("failed");
+    } finally {
+      setAiPending(false);
+    }
+  }
+
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form ref={formRef} action={formAction} className="flex flex-col gap-4">
       <input type="hidden" name="type" value={type} />
+
+      <div className="flex flex-col gap-2">
+        <Label>{t("cardPhotos")}</Label>
+
+        {existingImages.length > 0 ? (
+          <div className="flex flex-wrap gap-3">
+            {existingImages.map((img) => {
+              const isRemoved = removed.includes(img.id);
+              return (
+                <div key={img.id} className="flex flex-col items-center gap-1">
+                  {/* Plain link to the full-size photo: that is where the
+                      WeChat QR gets scanned and bank digits get re-checked. */}
+                  <a href={img.path} target="_blank" rel="noreferrer">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={img.path}
+                      alt=""
+                      className={`h-24 w-24 rounded-md border border-neutral-200 dark:border-neutral-800 object-contain bg-neutral-100 dark:bg-neutral-800 ${
+                        isRemoved ? "opacity-30" : ""
+                      }`}
+                    />
+                  </a>
+                  {isRemoved ? (
+                    <input type="hidden" name="removeImageIds" value={img.id} />
+                  ) : null}
+                  <button
+                    type="button"
+                    className="text-xs text-neutral-500 dark:text-neutral-400 hover:text-red-600 dark:hover:text-red-400"
+                    onClick={() =>
+                      setRemoved((prev) =>
+                        prev.includes(img.id)
+                          ? prev.filter((v) => v !== img.id)
+                          : [...prev, img.id],
+                      )
+                    }
+                  >
+                    {isRemoved ? common("cancel") : common("delete")}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+
+        <PhotoPicker name="cardImages" />
+
+        {transcribe ? (
+          <div className="flex flex-col gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={aiPending}
+              onClick={handleTranscribe}
+              data-testid="fill-from-card"
+              className="min-h-11 justify-center gap-2"
+            >
+              {aiPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              {aiPending ? t("aiFilling") : t("aiFillCard")}
+            </Button>
+            {aiError ? (
+              <p className="text-sm text-red-600" data-testid="card-ai-error">
+                {aiError === "no-photos" ? t("aiErrorNoPhotos") : t("aiErrorFailed")}
+              </p>
+            ) : aiNotes ? (
+              <p
+                className="rounded-md bg-neutral-100 px-3 py-2 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400"
+                data-testid="card-ai-notes"
+              >
+                {t("aiNotes")}: {aiNotes}
+              </p>
+            ) : (
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">{t("aiFillCardHelp")}</p>
+            )}
+          </div>
+        ) : null}
+
+        {similar ? (
+          <div
+            className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
+            data-testid="similar-contact"
+          >
+            <span>
+              {t("similarExists", {
+                name: similar.companyName || similar.companyNameZh,
+              })}
+            </span>
+            {onUseExisting ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => onUseExisting(similar)}
+              >
+                {t("useExisting")}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="companyName">{t("companyName")}</Label>
+        <Label htmlFor="companyName">{t("companyNameEn")}</Label>
         <Input
           id="companyName"
           name="companyName"
           defaultValue={defaultValues?.companyName}
           required
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="companyNameZh">{t("companyNameZh")}</Label>
+        <Input
+          id="companyNameZh"
+          name="companyNameZh"
+          defaultValue={defaultValues?.companyNameZh}
         />
       </div>
       <div className="flex flex-col gap-1.5">
@@ -87,12 +274,27 @@ export function ContactForm({
         </div>
       </div>
       <div className="flex flex-col gap-1.5">
+        <Label htmlFor="boothLocation">{t("boothLocation")}</Label>
+        <Input
+          id="boothLocation"
+          name="boothLocation"
+          defaultValue={defaultValues?.boothLocation}
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="bankInfo">{t("bankInfo")}</Label>
+        <Textarea id="bankInfo" name="bankInfo" defaultValue={defaultValues?.bankInfo} />
+        <p className="text-xs text-neutral-500 dark:text-neutral-400">{t("bankInfoHelp")}</p>
+      </div>
+      <div className="flex flex-col gap-1.5">
         <Label htmlFor="notes">{t("notes")}</Label>
         <Textarea id="notes" name="notes" defaultValue={defaultValues?.notes} />
       </div>
 
       {result?.error ? (
-        <p className="text-sm text-red-600">{common("required")}</p>
+        <p className="text-sm text-red-600">
+          {result.error === "image-error" ? t("errorImage") : common("required")}
+        </p>
       ) : null}
 
       <Button type="submit" disabled={isPending}>

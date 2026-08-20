@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { getCategories, getProducts, getImagesByProduct } from "@/lib/queries/catalog";
+import { getSuppliersForPicker } from "@/lib/queries/contacts";
 import { getUserNames } from "@/lib/queries/users";
 import { localizeField } from "@/lib/localize";
 import type { Locale } from "@/i18n/routing";
@@ -29,6 +30,8 @@ export default async function CatalogPage({
   const imagesByProduct = await getImagesByProduct(products.map((p) => p.id));
   const userNames = await getUserNames();
   const categoryMap = new Map(categories.map((c) => [c.id, c]));
+  const suppliers = await getSuppliersForPicker();
+  const supplierMap = new Map(suppliers.map((s) => [s.id, s]));
 
   const catalogProducts: CatalogProduct[] = products.map((p) => {
     const cat = categoryMap.get(p.categoryId);
@@ -58,6 +61,15 @@ export default async function CatalogPage({
       pieceHeightCm: p.pieceHeightCm,
       images: imagesByProduct.get(p.id) ?? [],
       active: p.active,
+      supplierName: p.supplierId
+        ? (() => {
+            const s = supplierMap.get(p.supplierId);
+            return s ? s.companyName || s.companyNameZh : null;
+          })()
+        : null,
+      supplierBooth: p.supplierId
+        ? supplierMap.get(p.supplierId)?.boothLocation || null
+        : null,
     };
   });
 
