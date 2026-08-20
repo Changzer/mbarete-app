@@ -36,6 +36,8 @@ export const productSchema = z
     pieceWeightKg: z.coerce.number().nonnegative().default(0),
     packingAllowancePct: z.coerce.number().nonnegative().max(200).default(15),
     cbmOverride: z.coerce.number().nonnegative().optional(),
+    supplierId: z.coerce.number().int().positive().optional(),
+    duplicatedFromId: z.coerce.number().int().positive().optional(),
     active: z.coerce.boolean().default(true),
   })
   .refine((p) => p.nameEn.length > 0 || p.nameZh.length > 0, {
@@ -51,10 +53,13 @@ export const categorySchema = z.object({
 export const contactSchema = z.object({
   type: z.enum(["supplier", "client"]),
   companyName: z.string().min(1),
+  companyNameZh: z.string().default(""),
   contactPerson: z.string().default(""),
   phone: z.string().default(""),
   email: z.string().default(""),
   whatsapp: z.string().default(""),
   wechat: z.string().default(""),
+  boothLocation: z.string().default(""),
+  bankInfo: z.string().default(""),
   notes: z.string().default(""),
 });

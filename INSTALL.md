@@ -235,6 +235,16 @@ Important notes:
 - **No quotes** around the values.
 - `ADMIN_EMAIL` and `ADMIN_PASSWORD` are what you'll use to log into the app. Pick a real password you'll remember — this is your login.
 
+Optional fifth line — AI photo transcription. If you add an Anthropic API key
+(from https://console.anthropic.com), the product form gets a "Fill from
+photos" button that reads the product and price board from your market photos
+and pre-fills the fields for you to check. Skip it and the app simply works
+without that button:
+
+```
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+```
+
 To save and close:
 1. Press `Ctrl + O` (the letter O), then Enter — this saves.
 2. Press `Ctrl + X` — this exits.
