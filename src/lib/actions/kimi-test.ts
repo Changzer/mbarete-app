@@ -52,11 +52,13 @@ export async function runKimiTest(formData: FormData): Promise<KimiTestResult> {
   const apiKey = process.env.MOONSHOT_API_KEY;
   if (!apiKey) return { ok: false, error: "not-configured" };
 
-  const baseUrl = (process.env.MOONSHOT_BASE_URL ?? "https://api.moonshot.cn/v1").replace(
+  // `||`, not `??`: docker-compose passes these through as EMPTY STRINGS when
+  // they are not set in .env, and an empty base URL breaks fetch entirely.
+  const baseUrl = (process.env.MOONSHOT_BASE_URL || "https://api.moonshot.cn/v1").replace(
     /\/+$/,
     "",
   );
-  const model = process.env.MOONSHOT_MODEL ?? "kimi-latest";
+  const model = process.env.MOONSHOT_MODEL || "kimi-latest";
 
   const keyCheck = await step(async () => {
     const res = await fetch(`${baseUrl}/models`, {
