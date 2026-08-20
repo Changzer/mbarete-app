@@ -145,9 +145,11 @@ export function ContactForm({
   const [qr, setQr] = useState<{ file: File; url: string } | null>(null);
   const qrInputRef = useRef<HTMLInputElement>(null);
   const qrScanned = useRef(new Set<string>());
+  // Tracks the live object URL so unmount revokes the CURRENT one: an effect
+  // closing over `qr` with empty deps would only ever see the initial null.
+  const qrUrlRef = useRef<string | null>(null);
   useEffect(() => () => {
-    if (qr) URL.revokeObjectURL(qr.url);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (qrUrlRef.current) URL.revokeObjectURL(qrUrlRef.current);
   }, []);
 
   function detectQr(files: File[]) {
@@ -160,7 +162,9 @@ export function ContactForm({
         if (!found) continue;
         setQr((prev) => {
           if (prev) URL.revokeObjectURL(prev.url);
-          return { file: found, url: URL.createObjectURL(found) };
+          const url = URL.createObjectURL(found);
+          qrUrlRef.current = url;
+          return { file: found, url };
         });
         const input = qrInputRef.current;
         if (input && typeof DataTransfer !== "undefined") {
@@ -182,6 +186,7 @@ export function ContactForm({
       if (prev) URL.revokeObjectURL(prev.url);
       return null;
     });
+    qrUrlRef.current = null;
     if (qrInputRef.current) qrInputRef.current.value = "";
   }
 

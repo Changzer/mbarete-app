@@ -14,6 +14,8 @@ const raw = (overrides: Partial<RawTranscription>): RawTranscription => ({
   moq: null,
   qtyPerBox: null,
   categoryId: null,
+  newCategoryEn: null,
+  newCategoryZh: null,
   lengthCm: null,
   widthCm: null,
   heightCm: null,
@@ -130,4 +132,24 @@ test("carton figures pass through when positive, drop otherwise", () => {
   const dropped = sanitizeTranscription(raw({ weightKg: 0, cbm: -1 }), CATEGORY_IDS).fields;
   assert.equal(dropped.weightKg, undefined);
   assert.equal(dropped.cbm, undefined);
+});
+
+test("a category proposal only survives when nothing matched and both names exist", () => {
+  const both = sanitizeTranscription(
+    raw({ newCategoryEn: "Stationery", newCategoryZh: "文具" }),
+    CATEGORY_IDS,
+  );
+  assert.deepEqual(both.proposedCategory, { nameEn: "Stationery", nameZh: "文具" });
+
+  // A matched existing category wins over any proposal.
+  const matched = sanitizeTranscription(
+    raw({ categoryId: 2, newCategoryEn: "Stationery", newCategoryZh: "文具" }),
+    CATEGORY_IDS,
+  );
+  assert.equal(matched.fields.categoryId, 2);
+  assert.equal(matched.proposedCategory, null);
+
+  // Half a proposal is no proposal: the categories table needs both languages.
+  const half = sanitizeTranscription(raw({ newCategoryEn: "Stationery" }), CATEGORY_IDS);
+  assert.equal(half.proposedCategory, null);
 });

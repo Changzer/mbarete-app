@@ -27,6 +27,8 @@ const transcriptionSchema = z.object({
   moq: z.number().nullable(),
   qtyPerBox: z.number().nullable(),
   categoryId: z.number().nullable(),
+  newCategoryEn: z.string().nullable(),
+  newCategoryZh: z.string().nullable(),
   lengthCm: z.number().nullable(),
   widthCm: z.number().nullable(),
   heightCm: z.number().nullable(),
@@ -38,7 +40,7 @@ const transcriptionSchema = z.object({
 // Keep in sync with transcriptionSchema — this is what the JSON-mode backend
 // is told to return.
 const JSON_SPEC =
-  '{"nameEn": string|null, "nameZh": string|null, "descriptionEn": string|null, "descriptionZh": string|null, "price": number|null, "currency": string|null, "moq": number|null, "qtyPerBox": number|null, "categoryId": number|null, "lengthCm": number|null, "widthCm": number|null, "heightCm": number|null, "weightKg": number|null, "cbm": number|null, "notes": string|null}';
+  '{"nameEn": string|null, "nameZh": string|null, "descriptionEn": string|null, "descriptionZh": string|null, "price": number|null, "currency": string|null, "moq": number|null, "qtyPerBox": number|null, "categoryId": number|null, "newCategoryEn": string|null, "newCategoryZh": string|null, "lengthCm": number|null, "widthCm": number|null, "heightCm": number|null, "weightKg": number|null, "cbm": number|null, "notes": string|null}';
 
 export type RawTranscription = z.infer<typeof transcriptionSchema>;
 
@@ -61,7 +63,16 @@ export type TranscribedFields = {
 };
 
 export type TranscribeResult =
-  | { ok: true; fields: TranscribedFields; notes: string | null }
+  | {
+      ok: true;
+      fields: TranscribedFields;
+      notes: string | null;
+      /** Category names proposed when nothing in the list fit; the server
+       *  action resolves this into a real category (matching or creating). */
+      proposedCategory: { nameEn: string; nameZh: string } | null;
+      /** Set by the server action when the proposal became a real category. */
+      newCategory?: { id: number; nameEn: string; nameZh: string };
+    }
   | { ok: false; error: "no-photos" | "not-configured" | "failed" };
 
 const SYSTEM_PROMPT = `You transcribe supplier-booth photos into catalog entries for a sourcing company that buys wholesale goods at Chinese markets.
@@ -76,7 +87,7 @@ Rules:
 - lengthCm, widthCm, heightCm, weightKg and cbm are CARTON figures, and only when actually written on the board or packaging (e.g. "60x40x50", "KG 12", "CBM 0.02"). Never estimate them from how the product looks.
 - nameEn and nameZh are short catalog names: product type plus the key specs visible (count, size, material). Fill BOTH languages, translating whichever direction is needed. Never include the price in a name.
 - Descriptions are one or two short sentences of facts visible in the photos; null when the name already says everything.
-- categoryId must be an id from the category list you are given, or null when none fits. Never invent an id.
+- categoryId must be an id from the category list you are given, or null when none fits. Never invent an id. When it is null but the product clearly belongs to a category the list is missing, propose one via newCategoryEn and newCategoryZh — a short, general product-type name in BOTH languages (e.g. "Stationery" / "文具", "Beauty Tools" / "美妆工具"), never a name as specific as the product itself. Both null when an existing category fits.
 - Use null for anything not clearly readable — never guess a number.
 - notes: at most 15 words, in English, only for uncertain readings or board info that has no field. Null when there is nothing to flag.`;
 
@@ -117,7 +128,11 @@ const CURRENCY_ALIASES: Record<string, string> = {
 export function sanitizeTranscription(
   raw: RawTranscription,
   validCategoryIds: Set<number>,
-): { fields: TranscribedFields; notes: string | null } {
+): {
+  fields: TranscribedFields;
+  notes: string | null;
+  proposedCategory: { nameEn: string; nameZh: string } | null;
+} {
   const text = (v: string | null) => {
     const trimmed = v?.trim();
     return trimmed ? trimmed : undefined;
@@ -145,6 +160,13 @@ export function sanitizeTranscription(
       ? raw.categoryId
       : undefined;
 
+  // A proposal only counts when no existing category matched and both names
+  // are present — the categories table requires a name in each language.
+  const newEn = text(raw.newCategoryEn);
+  const newZh = text(raw.newCategoryZh);
+  const proposedCategory =
+    categoryId === undefined && newEn && newZh ? { nameEn: newEn, nameZh: newZh } : null;
+
   return {
     fields: {
       nameEn: text(raw.nameEn),
@@ -163,5 +185,6 @@ export function sanitizeTranscription(
       cbm: measure(raw.cbm, 4),
     },
     notes: text(raw.notes) ?? null,
+    proposedCategory,
   };
 }
