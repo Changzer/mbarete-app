@@ -36,7 +36,7 @@ export async function getSuppliersForPicker() {
 
 /** All card photos for the given contacts, grouped by contact id and ordered. */
 export async function getImagesByContact(contactIds: number[]) {
-  const grouped = new Map<number, { id: number; path: string }[]>();
+  const grouped = new Map<number, { id: number; path: string; kind: "card" | "qr" }[]>();
   if (contactIds.length === 0) return grouped;
 
   const rows = db
@@ -48,7 +48,7 @@ export async function getImagesByContact(contactIds: number[]) {
 
   for (const row of rows) {
     const list = grouped.get(row.contactId) ?? [];
-    list.push({ id: row.id, path: row.path });
+    list.push({ id: row.id, path: row.path, kind: row.kind });
     grouped.set(row.contactId, list);
   }
   return grouped;

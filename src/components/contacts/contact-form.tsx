@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import type { ContactActionResult } from "@/lib/actions/contacts";
 import type { CardTranscribeResult, TranscribedContactFields } from "@/lib/transcribe-card";
 import { findSimilarContact, type MatchCandidate } from "@/lib/contact-match";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PhotoPicker } from "@/components/catalog/photo-picker";
+import { extractQrFromImage } from "@/lib/client/extract-qr";
 
 type ContactFormValues = {
   companyName: string;
@@ -25,7 +26,7 @@ type ContactFormValues = {
   notes: string;
 };
 
-export type ExistingCardImage = { id: number; path: string };
+export type ExistingCardImage = { id: number; path: string; kind: "card" | "qr" };
 
 export function ContactForm({
   type,
@@ -138,6 +139,57 @@ export function ContactForm({
     }, 1500);
   }
 
+  // WeChat QR found on the card, cropped in the browser. It uploads with the
+  // form (hidden file input) and is shown next to the WeChat field — the QR
+  // itself is the contact method; no model can turn it into an ID.
+  const [qr, setQr] = useState<{ file: File; url: string } | null>(null);
+  const qrInputRef = useRef<HTMLInputElement>(null);
+  const qrScanned = useRef(new Set<string>());
+  useEffect(() => () => {
+    if (qr) URL.revokeObjectURL(qr.url);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function detectQr(files: File[]) {
+    void (async () => {
+      for (const file of files) {
+        const seen = `${file.name}:${file.size}`;
+        if (qrScanned.current.has(seen)) continue;
+        qrScanned.current.add(seen);
+        const found = await extractQrFromImage(file);
+        if (!found) continue;
+        setQr((prev) => {
+          if (prev) URL.revokeObjectURL(prev.url);
+          return { file: found, url: URL.createObjectURL(found) };
+        });
+        const input = qrInputRef.current;
+        if (input && typeof DataTransfer !== "undefined") {
+          try {
+            const dt = new DataTransfer();
+            dt.items.add(found);
+            input.files = dt.files;
+          } catch {
+            // Old browser: the full card photo remains the scannable fallback.
+          }
+        }
+        break;
+      }
+    })();
+  }
+
+  function removeQr() {
+    setQr((prev) => {
+      if (prev) URL.revokeObjectURL(prev.url);
+      return null;
+    });
+    if (qrInputRef.current) qrInputRef.current.value = "";
+  }
+
+  function onCardPhotosChanged(files: File[]) {
+    scheduleCardTranscribe(files);
+    detectQr(files);
+  }
+
   return (
     <form ref={formRef} action={formAction} className="flex flex-col gap-4">
       <input type="hidden" name="type" value={type} />
@@ -145,9 +197,9 @@ export function ContactForm({
       <div className="flex flex-col gap-2">
         <Label>{t("cardPhotos")}</Label>
 
-        {existingImages.length > 0 ? (
+        {existingImages.filter((img) => img.kind === "card").length > 0 ? (
           <div className="flex flex-wrap gap-3">
-            {existingImages.map((img) => {
+            {existingImages.filter((img) => img.kind === "card").map((img) => {
               const isRemoved = removed.includes(img.id);
               return (
                 <div key={img.id} className="flex flex-col items-center gap-1">
@@ -185,7 +237,7 @@ export function ContactForm({
           </div>
         ) : null}
 
-        <PhotoPicker name="cardImages" onFilesChanged={scheduleCardTranscribe} />
+        <PhotoPicker name="cardImages" onFilesChanged={onCardPhotosChanged} />
 
         {transcribe ? (
           <div className="flex flex-col gap-2">
@@ -286,6 +338,71 @@ export function ContactForm({
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="wechat">{t("wechat")}</Label>
           <Input id="wechat" name="wechat" defaultValue={defaultValues?.wechat} />
+          {/* Uploads the cropped QR alongside the card photos. */}
+          <input ref={qrInputRef} name="qrImage" type="file" className="hidden" />
+          {qr ? (
+            <div className="flex items-center gap-2" data-testid="wechat-qr">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={qr.url}
+                alt="WeChat QR"
+                className="h-24 w-24 rounded-md border border-neutral-200 bg-white object-contain dark:border-neutral-800"
+              />
+              <div className="flex flex-col gap-1">
+                <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                  {t("wechatQrHelp")}
+                </span>
+                <button
+                  type="button"
+                  onClick={removeQr}
+                  className="self-start text-xs text-neutral-500 hover:text-red-600 dark:text-neutral-400 dark:hover:text-red-400"
+                >
+                  {common("delete")}
+                </button>
+              </div>
+            </div>
+          ) : (
+            existingImages
+              .filter((img) => img.kind === "qr")
+              .map((img) => {
+                const isRemoved = removed.includes(img.id);
+                return (
+                  <div key={img.id} className="flex items-center gap-2" data-testid="wechat-qr">
+                    <a href={img.path} target="_blank" rel="noreferrer">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={img.path}
+                        alt="WeChat QR"
+                        className={`h-24 w-24 rounded-md border border-neutral-200 bg-white object-contain dark:border-neutral-800 ${
+                          isRemoved ? "opacity-30" : ""
+                        }`}
+                      />
+                    </a>
+                    {isRemoved ? (
+                      <input type="hidden" name="removeImageIds" value={img.id} />
+                    ) : null}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                        {t("wechatQrHelp")}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setRemoved((prev) =>
+                            prev.includes(img.id)
+                              ? prev.filter((v) => v !== img.id)
+                              : [...prev, img.id],
+                          )
+                        }
+                        className="self-start text-xs text-neutral-500 hover:text-red-600 dark:text-neutral-400 dark:hover:text-red-400"
+                      >
+                        {isRemoved ? common("cancel") : common("delete")}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+          )}
         </div>
       </div>
       <div className="flex flex-col gap-1.5">

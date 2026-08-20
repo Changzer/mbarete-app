@@ -244,6 +244,9 @@ export const contactImages = sqliteTable(
     contactId: integer("contact_id")
       .notNull()
       .references(() => contacts.id, { onDelete: "cascade" }),
+    // "card": a business-card photo. "qr": the WeChat QR cropped out of one,
+    // shown next to the WeChat field so it can be scanned straight away.
+    kind: text("kind", { enum: ["card", "qr"] }).notNull().default("card"),
     path: text("path").notNull(),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: text("created_at")

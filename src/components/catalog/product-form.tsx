@@ -45,10 +45,13 @@ export type SupplierOption = {
   boothLocation: string;
 };
 
-/** How a supplier reads in the picker: name in whichever language exists, plus the booth. */
+/**
+ * How a supplier reads in the picker: just the company name (whichever
+ * language exists). Booth and details stay on the contacts page and the
+ * product card — a long label overflows the select trigger on a phone.
+ */
 function supplierLabel(s: SupplierOption) {
-  const name = s.companyName || s.companyNameZh;
-  return s.boothLocation ? `${name} · ${s.boothLocation}` : name;
+  return s.companyName || s.companyNameZh;
 }
 
 /** Unmeasured fields show empty rather than a 0 nobody entered. */
@@ -335,7 +338,7 @@ export function ProductForm({
           ) : null}
           <div className="flex gap-2">
             <Select value={supplierId} onValueChange={setSupplierId}>
-              <SelectTrigger id="supplierId" className="min-w-0 flex-1">
+              <SelectTrigger id="supplierId" className="min-w-0 flex-1 [&>span]:truncate">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

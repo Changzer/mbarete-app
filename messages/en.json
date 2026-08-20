@@ -152,6 +152,7 @@
     "aiErrorNoPhotos": "Add at least one photo first.",
     "aiErrorFailed": "Could not read the photos — please fill the form manually and try again later.",
     "aiNotes": "AI notes",
+    "wechatQrHelp": "WeChat QR from the card — scan it with WeChat to add this vendor.",
     "similarExists": "A similar contact already exists: {name}",
     "useExisting": "Use existing",
     "errorImage": "One of the photos could not be saved. Try again or remove it."
