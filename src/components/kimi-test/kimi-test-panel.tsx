@@ -83,7 +83,8 @@ export function KimiTestPanel() {
       {result?.ok ? (
         <div className="flex flex-col gap-3">
           <p className="text-xs text-neutral-500 dark:text-neutral-400">
-            Endpoint: {result.baseUrl} · Model: {result.model}
+            Endpoint: {result.baseUrl} · Model: {result.model} · Thinking:{" "}
+            {result.instant ? "disabled (instant)" : "default"}
           </p>
           <StepResult title="Connection & key" step={result.keyCheck} />
           {result.extraction ? (
