@@ -18,6 +18,10 @@ services:
       # Optional: enables "Fill from photos" (AI transcription) on the product
       # form. Leave unset to hide the feature.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # Optional, temporary: powers the /kimi-test diagnostic page only.
+      MOONSHOT_API_KEY: ${MOONSHOT_API_KEY:-}
+      MOONSHOT_BASE_URL: ${MOONSHOT_BASE_URL:-}
+      MOONSHOT_MODEL: ${MOONSHOT_MODEL:-}
     volumes:
       - mbarete-data:/app/data
       # Same volume as before, remounted: uploads moved out of public/ because
