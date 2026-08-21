@@ -2,6 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { getOpenDrafts } from "@/lib/queries/drafts";
 import { isTranscriptionEnabled } from "@/lib/transcribe-product";
 import { DraftList } from "@/components/catalog/draft-list";
+import { requireUser } from "@/lib/authz";
 
 /**
  * Captures delivered from phones, waiting to be reviewed into the catalog or
@@ -11,7 +12,8 @@ import { DraftList } from "@/components/catalog/draft-list";
  */
 export default async function DraftsPage() {
   const t = await getTranslations("drafts");
-  const drafts = await getOpenDrafts();
+  const { companyId } = await requireUser();
+  const drafts = await getOpenDrafts(companyId);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">

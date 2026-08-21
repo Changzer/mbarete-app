@@ -6,24 +6,26 @@ import { getContactsByType } from "@/lib/queries/contacts";
 import { localizeField } from "@/lib/localize";
 import type { Locale } from "@/i18n/routing";
 import { OrderBuilder, type BuilderProduct } from "@/components/orders/order-builder";
+import { requireUser } from "@/lib/authz";
 
 export default async function EditOrderPage({
   params,
 }: {
   params: Promise<{ id: string; locale: string }>;
 }) {
+  const { companyId } = await requireUser();
   const { id, locale } = await params;
   const t = await getTranslations("orders");
 
-  const data = await getOrderById(Number(id));
+  const data = await getOrderById(companyId, Number(id));
   if (!data) notFound();
   const { order, items } = data;
 
   const [products, categories, clients, rates] = await Promise.all([
-    getProducts({ activeOnly: true }),
-    getCategories(),
-    getContactsByType("client"),
-    getExchangeRates(),
+    getProducts(companyId, { activeOnly: true }),
+    getCategories(companyId),
+    getContactsByType(companyId, "client"),
+    getExchangeRates(companyId),
   ]);
 
   const categoryMap = new Map(categories.map((c) => [c.id, c]));

@@ -16,7 +16,7 @@ export default async function UsersPage() {
   const t = await getTranslations("users");
   const session = await auth();
 
-  const rows = await db.select().from(users).orderBy(asc(users.name)).all();
+  const rows = await db.select().from(users).orderBy(asc(users.name));
   const teamUsers: TeamUser[] = rows.map((u) => ({
     id: u.id,
     name: u.name,

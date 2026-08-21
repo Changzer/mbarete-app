@@ -1,10 +1,12 @@
 import { getTranslations } from "next-intl/server";
 import { getCategories } from "@/lib/queries/catalog";
 import { CategoryManager } from "@/components/catalog/category-manager";
+import { requireUser } from "@/lib/authz";
 
 export default async function CategoriesPage() {
   const t = await getTranslations("catalog");
-  const categories = await getCategories();
+  const { companyId } = await requireUser();
+  const categories = await getCategories(companyId);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">

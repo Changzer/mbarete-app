@@ -21,17 +21,18 @@ export const OFFER_BASIS = "RMB";
  * product that has appeared on an order counts as proven. It is a coarse
  * signal deliberately, and it becomes exact the moment lines carry offers.
  */
-async function orderedProductIds(): Promise<Set<number>> {
+async function orderedProductIds(companyId: number): Promise<Set<number>> {
   const rows = await db
     .selectDistinct({ productId: orderItems.productId })
     .from(orderItems)
     .innerJoin(orders, eq(orderItems.orderId, orders.id))
-    .all();
+    .where(eq(orders.companyId, companyId));
   return new Set(rows.map((r) => r.productId));
 }
 
 /** Every offer for the given products, grouped by product, best first. */
 export async function getOffersByProduct(
+  companyId: number,
   productIds: number[],
 ): Promise<Map<number, OfferRow[]>> {
   const grouped = new Map<number, OfferRow[]>();
@@ -46,10 +47,9 @@ export async function getOffersByProduct(
       .from(productSuppliers)
       .leftJoin(contacts, eq(productSuppliers.supplierId, contacts.id))
       .where(inArray(productSuppliers.productId, productIds))
-      .orderBy(asc(productSuppliers.id))
-      .all(),
-    getExchangeRates(),
-    orderedProductIds(),
+      .orderBy(asc(productSuppliers.id)),
+    getExchangeRates(companyId),
+    orderedProductIds(companyId),
   ]);
 
   for (const row of rows) {
@@ -75,8 +75,11 @@ export async function getOffersByProduct(
   return grouped;
 }
 
-export async function getOffersForProduct(productId: number): Promise<OfferRow[]> {
-  return (await getOffersByProduct([productId])).get(productId) ?? [];
+export async function getOffersForProduct(
+  companyId: number,
+  productId: number,
+): Promise<OfferRow[]> {
+  return (await getOffersByProduct(companyId, [productId])).get(productId) ?? [];
 }
 
 /**
@@ -85,18 +88,20 @@ export async function getOffersForProduct(productId: number): Promise<OfferRow[]
  * off — otherwise a deactivated quote is indistinguishable from a deleted
  * one and can never be brought back.
  */
-export async function getAllOffersForProduct(productId: number): Promise<OfferRow[]> {
+export async function getAllOffersForProduct(
+  companyId: number,
+  productId: number,
+): Promise<OfferRow[]> {
   const [rows, rates] = await Promise.all([
     db
       .select({ offer: productSuppliers, supplierName: contacts.companyName })
       .from(productSuppliers)
       .leftJoin(contacts, eq(productSuppliers.supplierId, contacts.id))
       .where(eq(productSuppliers.productId, productId))
-      .orderBy(asc(productSuppliers.id))
-      .all(),
-    getExchangeRates(),
+      .orderBy(asc(productSuppliers.id)),
+    getExchangeRates(companyId),
   ]);
-  const ordered = await orderedProductIds();
+  const ordered = await orderedProductIds(companyId);
   const all: OfferRow[] = rows.map((row) => ({
     ...row.offer,
     supplierName: row.supplierName,
@@ -116,8 +121,8 @@ export async function getAllOffersForProduct(productId: number): Promise<OfferRo
 }
 
 /** The spread across one product's suppliers, for the compare view. */
-export async function getOfferSpread(offers: Offer[]) {
-  const rates = await getExchangeRates();
+export async function getOfferSpread(companyId: number, offers: Offer[]) {
+  const rates = await getExchangeRates(companyId);
   return offerSpread(offers, { basis: OFFER_BASIS, rates });
 }
 
@@ -131,19 +136,18 @@ export async function getOfferSpread(offers: Offer[]) {
  * which offer leads. A product whose last offer was deactivated keeps its
  * final known price rather than dropping to zero and pretending it is free.
  */
-export async function syncProductFromOffers(productId: number) {
+export async function syncProductFromOffers(companyId: number, productId: number) {
   const [offers, rates] = await Promise.all([
     db
       .select()
       .from(productSuppliers)
-      .where(eq(productSuppliers.productId, productId))
-      .all(),
-    getExchangeRates(),
+      .where(eq(productSuppliers.productId, productId)),
+    getExchangeRates(companyId),
   ]);
   const winner = pickPrimaryOffer(offers, { basis: OFFER_BASIS, rates });
   if (!winner) return;
 
-  db.update(products)
+  await db.update(products)
     .set({
       price: winner.price,
       currency: winner.currency,
@@ -152,6 +156,5 @@ export async function syncProductFromOffers(productId: number) {
       // product would actually be bought from today.
       supplierId: winner.supplierId,
     })
-    .where(eq(products.id, productId))
-    .run();
+    .where(eq(products.id, productId));
 }

@@ -794,3 +794,27 @@ on the NAS" into "safe on the internet".
    bank details, so treat a leaked photo URL like a leaked document: it's
    only reachable by someone who was given the exact link. PDFs, spreadsheets
    and payment slips are stricter — those always require a signed-in session.
+
+
+## Upgrading a SQLite-era install to Postgres
+
+The app now stores its data in Postgres (bundled in docker-compose as the
+`mbarete-db` service). An install that has been running on SQLite upgrades in
+three steps, and the old file is never modified:
+
+```sh
+cd /volume1/docker/mbarete/mbarete-app     # wherever the app lives
+git pull
+docker compose up -d --build               # starts Postgres, migrates the empty schema
+docker compose exec mbarete-app npm run db:import-sqlite
+```
+
+The import copies every table — users, products, photos, contacts, orders,
+payments, history — preserving ids, so image links and order numbers survive
+unchanged. It refuses to run twice, and the old `mbarete.db` stays in the data
+volume as a backup. Sign in afterwards and spot-check the catalog and an
+order before deleting anything.
+
+Two new `.env` values (see `.env.example`): `DB_PASSWORD` for the bundled
+database, and `COMPANY_NAME` for the install's company. Defaults work on a
+private NAS; set both properly before any public deployment.

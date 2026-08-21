@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
 import type { Locale } from "@/i18n/routing";
-import { db } from "@/db";
+import { db, one } from "@/db";
 import {
   orders,
   orderItems,
@@ -15,7 +15,7 @@ import {
   orderExpenses,
   bankAccounts,
 } from "@/db/schema";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { requireUser, requireAdmin } from "@/lib/authz";
 import {
@@ -49,21 +49,18 @@ const orderInput = z.object({
 });
 
 async function requireSession() {
-  await requireUser();
-  const session = await auth();
-  if (!session?.user) throw new Error("unauthorized");
-  return session;
+  return await requireUser();
 }
 
 async function buildOrderItemRows(
+  companyId: number,
   items: { productId: number; quantity: number; sellPrice: number }[],
 ) {
   const productIds = items.map((i) => i.productId);
   const productRows = await db
     .select()
     .from(products)
-    .where(inArray(products.id, productIds))
-    .all();
+    .where(and(eq(products.companyId, companyId), inArray(products.id, productIds)));
   const productMap = new Map(productRows.map((p) => [p.id, p]));
 
   const rows = items.map(({ productId, quantity, sellPrice }) => {
@@ -90,28 +87,41 @@ async function buildOrderItemRows(
 export type OrderActionResult = { error?: string };
 
 export async function createOrder(input: unknown): Promise<OrderActionResult> {
-  await requireSession();
-  const session = await auth();
+  const user = await requireSession();
 
   const parsed = orderInput.safeParse(input);
   if (!parsed.success) return { error: "invalid" };
   const data = parsed.data;
 
-  const { rows, hasMoqViolation } = await buildOrderItemRows(data.items);
+  // The client must be this company's contact — a form can post any id.
+  const client = await db
+    .select({ id: contacts.id })
+    .from(contacts)
+    .where(and(eq(contacts.companyId, user.companyId), eq(contacts.id, data.clientId)))
+    .limit(1)
+    .then(one);
+  if (!client) return { error: "invalid" };
+
+  const { rows, hasMoqViolation } = await buildOrderItemRows(user.companyId, data.items);
   if (data.status === "confirmed" && hasMoqViolation) {
     return { error: "moq" };
   }
 
   // Freeze the rates used, so a saved quote does not move when rates change.
-  const ratesSnapshot = JSON.stringify(await getExchangeRates());
+  const ratesSnapshot = JSON.stringify(await getExchangeRates(user.companyId));
   // Freeze the bank too: the proforma must keep printing the same account
   // even if Settings later changes which one is the default.
-  const defaultBank = defaultBankAccount(db.select().from(bankAccounts).all());
+  const companyBanks = await db
+    .select()
+    .from(bankAccounts)
+    .where(eq(bankAccounts.companyId, user.companyId));
+  const defaultBank = defaultBankAccount(companyBanks);
 
-  const orderId = db.transaction((tx) => {
-    const inserted = tx
+  const orderId = await db.transaction(async (tx) => {
+    const [inserted] = await tx
       .insert(orders)
       .values({
+        companyId: user.companyId,
         orderNumber: nextOrderNumber(),
         clientId: data.clientId,
         status: data.status,
@@ -121,22 +131,19 @@ export async function createOrder(input: unknown): Promise<OrderActionResult> {
         ratesSnapshot,
         bankAccountId: defaultBank?.id ?? null,
         notes: data.notes,
-        createdBy: Number(session!.user!.id),
-        updatedBy: Number(session!.user!.id),
+        createdBy: user.id,
+        updatedBy: user.id,
         updatedAt: new Date().toISOString(),
       })
-      .run();
-    const newOrderId = Number(inserted.lastInsertRowid);
+      .returning({ id: orders.id });
 
     for (const row of rows) {
-      tx.insert(orderItems)
-        .values({ orderId: newOrderId, ...row })
-        .run();
+      await tx.insert(orderItems).values({ orderId: inserted.id, ...row });
     }
-    return newOrderId;
+    return inserted.id;
   });
 
-  logOrderEvent(orderId, Number(session!.user!.id), "created", {});
+  await logOrderEvent(orderId, user.id, "created", {});
 
   revalidatePath("/orders");
   return redirect({ href: `/orders/${orderId}`, locale: (await getLocale()) as Locale });
@@ -146,32 +153,37 @@ export async function updateOrder(
   id: number,
   input: unknown,
 ): Promise<OrderActionResult> {
-  await requireSession();
+  const user = await requireSession();
+  const userId = user.id;
 
   const parsed = orderInput.safeParse(input);
   if (!parsed.success) return { error: "invalid" };
   const data = parsed.data;
 
-  const { rows, hasMoqViolation } = await buildOrderItemRows(data.items);
+  const { rows, hasMoqViolation } = await buildOrderItemRows(user.companyId, data.items);
   if (data.status === "confirmed" && hasMoqViolation) {
     return { error: "moq" };
   }
 
-  const ratesSnapshot = JSON.stringify(await getExchangeRates());
-
-  const session = await auth();
-  const userId = Number(session!.user!.id);
+  const ratesSnapshot = JSON.stringify(await getExchangeRates(user.companyId));
 
   // The state being replaced, captured for the changelog before it is gone.
-  const before = db.select().from(orders).where(eq(orders.id, id)).get();
+  // Scoped: this is also what stops an id from another company being edited.
+  const before = await db
+    .select()
+    .from(orders)
+    .where(and(eq(orders.companyId, user.companyId), eq(orders.id, id)))
+    .limit(1)
+    .then(one);
+  if (!before) return { error: "not-found" };
   const beforeItems = await db
     .select()
     .from(orderItems)
-    .where(eq(orderItems.orderId, id))
-    .all();
+    .where(eq(orderItems.orderId, id));
 
-  db.transaction((tx) => {
-    tx.update(orders)
+  await db.transaction(async (tx) => {
+    await tx
+      .update(orders)
       .set({
         updatedBy: userId,
         clientId: data.clientId,
@@ -183,31 +195,27 @@ export async function updateOrder(
         notes: data.notes,
         updatedAt: new Date().toISOString(),
       })
-      .where(eq(orders.id, id))
-      .run();
+      .where(eq(orders.id, id));
 
-    tx.delete(orderItems).where(eq(orderItems.orderId, id)).run();
+    await tx.delete(orderItems).where(eq(orderItems.orderId, id));
     for (const row of rows) {
-      tx.insert(orderItems)
-        .values({ orderId: id, ...row })
-        .run();
+      await tx.insert(orderItems).values({ orderId: id, ...row });
     }
   });
 
-  if (before) {
+  {
     const productIds = [
       ...new Set([...beforeItems.map((i) => i.productId), ...rows.map((r) => r.productId)]),
     ];
     const productRows = productIds.length
-      ? await db.select().from(products).where(inArray(products.id, productIds)).all()
+      ? await db.select().from(products).where(inArray(products.id, productIds))
       : [];
     const skuById = new Map(productRows.map((p) => [p.id, p.sku]));
     const clientIds = [...new Set([before.clientId, data.clientId])];
     const clientRows = await db
       .select()
       .from(contacts)
-      .where(inArray(contacts.id, clientIds))
-      .all();
+      .where(inArray(contacts.id, clientIds));
     const clientById = new Map(clientRows.map((c) => [c.id, c.companyName]));
 
     const changes = diffOrderEdit(
@@ -229,7 +237,7 @@ export async function updateOrder(
     );
     // An edit that changed nothing is not history worth keeping.
     if (changes.length > 0) {
-      logOrderEvent(id, userId, "edited", { changes });
+      await logOrderEvent(id, userId, "edited", { changes });
     }
   }
 
@@ -248,19 +256,17 @@ export async function setOrderStatus(
     const items = await db
       .select()
       .from(orderItems)
-      .where(eq(orderItems.orderId, id))
-      .all();
+      .where(eq(orderItems.orderId, id));
     const hasMoqViolation = items.some((i) => isBelowMoq(i.quantity, i.moqSnapshot));
     if (hasMoqViolation) return { error: "moq" };
   }
 
-  const current = db.select().from(orders).where(eq(orders.id, id)).get();
+  const current = await db.select().from(orders).where(eq(orders.id, id)).limit(1).then(one);
   if (!current) return { error: "not-found" };
 
-  db.update(orders)
+  await db.update(orders)
     .set({ status, updatedAt: new Date().toISOString() })
-    .where(eq(orders.id, id))
-    .run();
+    .where(eq(orders.id, id));
 
   if (current.status !== status) {
     const session = await auth();
@@ -281,28 +287,37 @@ export async function setOrderStatus(
  * worth remembering.
  */
 export async function setOrderBankAccount(orderId: number, bankAccountId: number) {
-  await requireSession();
+  const user = await requireSession();
 
-  const current = db.select().from(orders).where(eq(orders.id, orderId)).get();
+  const current = await db
+    .select()
+    .from(orders)
+    .where(and(eq(orders.companyId, user.companyId), eq(orders.id, orderId)))
+    .limit(1)
+    .then(one);
   if (!current) return;
-  const target = db
+  const target = await db
     .select()
     .from(bankAccounts)
-    .where(eq(bankAccounts.id, bankAccountId))
-    .get();
+    .where(and(eq(bankAccounts.companyId, user.companyId), eq(bankAccounts.id, bankAccountId)))
+    .limit(1)
+    .then(one);
   if (!target || current.bankAccountId === bankAccountId) return;
 
   const before = current.bankAccountId
-    ? db.select().from(bankAccounts).where(eq(bankAccounts.id, current.bankAccountId)).get()
+    ? await db
+        .select()
+        .from(bankAccounts)
+        .where(eq(bankAccounts.id, current.bankAccountId))
+        .limit(1)
+        .then(one)
     : undefined;
 
-  db.update(orders)
+  await db.update(orders)
     .set({ bankAccountId, updatedAt: new Date().toISOString() })
-    .where(eq(orders.id, orderId))
-    .run();
+    .where(eq(orders.id, orderId));
 
-  const session = await auth();
-  logOrderEvent(orderId, Number(session?.user?.id ?? 0) || null, "edited", {
+  await logOrderEvent(orderId, user.id, "edited", {
     changes: [{ code: "bank", from: before?.label ?? "—", to: target.label }],
   });
 
@@ -313,17 +328,25 @@ export async function setOrderBankAccount(orderId: number, bankAccountId: number
 }
 
 export async function deleteOrder(id: number) {
-  await requireAdmin();
+  const admin = await requireAdmin();
+
+  const existing = await db
+    .select({ id: orders.id })
+    .from(orders)
+    .where(and(eq(orders.companyId, admin.companyId), eq(orders.id, id)))
+    .limit(1)
+    .then(one);
+  if (!existing) return;
 
   // Document and receipt rows cascade with the order; the files would stay
   // behind in the uploads volume forever if they were not removed here.
   const [documents, payments, expenses] = await Promise.all([
-    db.select().from(orderDocuments).where(eq(orderDocuments.orderId, id)).all(),
-    db.select().from(orderPayments).where(eq(orderPayments.orderId, id)).all(),
-    db.select().from(orderExpenses).where(eq(orderExpenses.orderId, id)).all(),
+    db.select().from(orderDocuments).where(eq(orderDocuments.orderId, id)),
+    db.select().from(orderPayments).where(eq(orderPayments.orderId, id)),
+    db.select().from(orderExpenses).where(eq(orderExpenses.orderId, id)),
   ]);
 
-  db.delete(orders).where(eq(orders.id, id)).run();
+  await db.delete(orders).where(eq(orders.id, id));
   for (const doc of documents) {
     await deleteUpload(doc.path);
   }

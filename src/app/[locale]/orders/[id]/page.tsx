@@ -15,6 +15,7 @@ import { OrderFinance } from "@/components/orders/order-finance";
 import { OrderResult } from "@/components/orders/order-result";
 import { OrderChangelog } from "@/components/orders/order-changelog";
 import { ProformaBankSelect } from "@/components/orders/proforma-bank-select";
+import { requireUser } from "@/lib/authz";
 
 const STATUS_VARIANT = {
   draft: "secondary",
@@ -28,16 +29,17 @@ export default async function OrderDetailPage({
 }: {
   params: Promise<{ id: string; locale: string }>;
 }) {
+  const { companyId } = await requireUser();
   const { id, locale } = await params;
   const t = await getTranslations("orders");
   const catalogT = await getTranslations("catalog");
   const proformaT = await getTranslations("proforma");
 
   const [view, userNames, finance, bankAccounts] = await Promise.all([
-    getOrderView(Number(id), locale as Locale),
-    getUserNames(),
+    getOrderView(companyId, Number(id), locale as Locale),
+    getUserNames(companyId),
     getOrderFinanceRows(Number(id)),
-    getBankAccounts(),
+    getBankAccounts(companyId),
   ]);
   if (!view) notFound();
   const { order, client, rows, targets, totals, effectiveRates } = view;
@@ -282,7 +284,7 @@ export default async function OrderDetailPage({
 
       <OrderResult fin={fin} quote={quote} />
 
-      <OrderChangelog orderId={order.id} locale={locale} />
+      <OrderChangelog companyId={companyId} orderId={order.id} locale={locale} />
     </div>
   );
 }

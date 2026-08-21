@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { sessionUser } from "@/lib/authz";
 import { ingestDraft, readDraft, type IngestFile } from "@/lib/drafts";
 
 /**
@@ -33,8 +33,8 @@ import { ingestDraft, readDraft, type IngestFile } from "@/lib/drafts";
 const MAX_BODY_BYTES = 80 * 1024 * 1024;
 
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
+  const user = await sessionUser();
+  if (!user) {
     // Retryable on purpose: the trip outlasted the session, and signing in
     // again makes every queued capture deliverable.
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -92,7 +92,8 @@ export async function POST(request: Request) {
     capturedAt,
     fields,
     files: [...files, ...(qr ? [{ file: qr, role: "qr" as const }] : [])],
-    userId: Number(session.user.id),
+    userId: user.id,
+    companyId: user.companyId,
   });
 
   if (!result.ok) {
@@ -106,7 +107,7 @@ export async function POST(request: Request) {
   // the outbox wait for it would hold the queue behind a slow model on a link
   // that is already marginal.
   if (!result.duplicate) {
-    void readDraft(result.draftId).catch(() => {});
+    void readDraft(user.companyId, result.draftId).catch(() => {});
   }
 
   return NextResponse.json(

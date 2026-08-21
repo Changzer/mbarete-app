@@ -1,14 +1,36 @@
 services:
+  mbarete-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mbarete
+      # Reachable only on the compose network — never publish 5432. Override
+      # via .env all the same; the app reads the same value below.
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-mbarete}
+      POSTGRES_DB: mbarete
+    volumes:
+      - mbarete-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mbarete -d mbarete"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
   mbarete-app:
     build:
       context: .
       args:
         NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org}
     restart: unless-stopped
+    depends_on:
+      mbarete-db:
+        condition: service_healthy
     ports:
       - "3000:3000"
     environment:
       AUTH_SECRET: ${AUTH_SECRET}
+      DATABASE_URL: postgres://mbarete:${DB_PASSWORD:-mbarete}@mbarete-db:5432/mbarete
+      COMPANY_NAME: ${COMPANY_NAME:-Mbarete}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       ADMIN_NAME: ${ADMIN_NAME:-Admin}
@@ -24,6 +46,8 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       TRANSCRIBE_PROVIDER: ${TRANSCRIBE_PROVIDER:-}
     volumes:
+      # Still mounted: the SQLite era's mbarete.db lives here, read once by
+      # `npm run db:import-sqlite` and kept afterwards as a backup.
       - mbarete-data:/app/data
       # Same volume as before, remounted: uploads moved out of public/ because
       # standalone Next.js will not serve files written there after build.
@@ -33,4 +57,5 @@ services:
 
 volumes:
   mbarete-data:
+  mbarete-pgdata:
   mbarete-uploads:

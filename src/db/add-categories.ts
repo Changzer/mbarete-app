@@ -1,5 +1,6 @@
-import { db } from "./index";
-import { categories } from "./schema";
+import { db, one, pool } from "./index";
+import { categories, companies } from "./schema";
+import { eq } from "drizzle-orm";
 
 /**
  * One-time helper: adds a starter set of market categories, skipping any that
@@ -38,8 +39,14 @@ const STARTER_CATEGORIES: { nameEn: string; nameZh: string }[] = [
   { nameEn: "Packaging", nameZh: "包装材料" },
 ];
 
-export function addStarterCategories(list = STARTER_CATEGORIES) {
-  const existing = db.select().from(categories).all();
+export async function addStarterCategories(list = STARTER_CATEGORIES) {
+  // Run by hand on a self-hosted install: there is exactly one company.
+  const company = await db.select().from(companies).limit(1).then(one);
+  if (!company) throw new Error("no company yet — start the app once first");
+  const existing = await db
+    .select()
+    .from(categories)
+    .where(eq(categories.companyId, company.id));
   const haveEn = new Set(existing.map((c) => c.nameEn.trim().toLowerCase()));
   const haveZh = new Set(existing.map((c) => c.nameZh.trim()));
 
@@ -50,7 +57,7 @@ export function addStarterCategories(list = STARTER_CATEGORIES) {
       skipped.push(candidate.nameEn);
       continue;
     }
-    db.insert(categories).values(candidate).run();
+    await db.insert(categories).values({ ...candidate, companyId: company.id });
     // Guards against duplicates inside the list itself, too.
     haveEn.add(candidate.nameEn.toLowerCase());
     haveZh.add(candidate.nameZh);
@@ -60,11 +67,19 @@ export function addStarterCategories(list = STARTER_CATEGORIES) {
 }
 
 if (require.main === module) {
-  const { added, skipped } = addStarterCategories();
-  for (const name of added) console.log(`  + ${name}`);
-  console.log(
-    `[categories] added ${added.length}, already present ${skipped.length}` +
-      (skipped.length ? `: ${skipped.join(", ")}` : ""),
-  );
-  console.log("Manage them any time under Catalog -> Manage Categories.");
+  addStarterCategories()
+    .then(async ({ added, skipped }) => {
+      for (const name of added) console.log(`  + ${name}`);
+      console.log(
+        `[categories] added ${added.length}, already present ${skipped.length}` +
+          (skipped.length ? `: ${skipped.join(", ")}` : ""),
+      );
+      console.log("Manage them any time under Catalog -> Manage Categories.");
+      await pool.end();
+    })
+    .catch(async (err) => {
+      console.error("[categories] failed:", err);
+      await pool.end();
+      process.exit(1);
+    });
 }

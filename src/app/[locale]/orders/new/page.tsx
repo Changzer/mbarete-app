@@ -5,20 +5,22 @@ import { getExchangeRates } from "@/lib/queries/orders";
 import { localizeField } from "@/lib/localize";
 import type { Locale } from "@/i18n/routing";
 import { OrderBuilder, type BuilderProduct } from "@/components/orders/order-builder";
+import { requireUser } from "@/lib/authz";
 
 export default async function NewOrderPage({
   params,
 }: {
   params: Promise<{ locale: string }>;
 }) {
+  const { companyId } = await requireUser();
   const { locale } = await params;
   const t = await getTranslations("orders");
 
   const [products, categories, clients, rates] = await Promise.all([
-    getProducts({ activeOnly: true }),
-    getCategories(),
-    getContactsByType("client"),
-    getExchangeRates(),
+    getProducts(companyId, { activeOnly: true }),
+    getCategories(companyId),
+    getContactsByType(companyId, "client"),
+    getExchangeRates(companyId),
   ]);
 
   const categoryMap = new Map(categories.map((c) => [c.id, c]));

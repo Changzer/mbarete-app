@@ -2,15 +2,15 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { db } from "@/db";
+import { db, one } from "@/db";
 import { exchangeRates, companyProfile, bankAccounts, orders } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/authz";
 
 // Company profile, banks and exchange rates feed the proforma and every
 // price calculation — admin ground, in full.
 async function requireSession() {
-  await requireAdmin();
+  return await requireAdmin();
 }
 
 const rateSchema = z.object({
@@ -28,7 +28,7 @@ export async function upsertExchangeRate(
   _prevState: string | undefined,
   formData: FormData,
 ): Promise<string | undefined> {
-  await requireSession();
+  const admin = await requireSession();
 
   const parsed = rateSchema.safeParse({
     currencyCode: formData.get("currencyCode"),
@@ -37,19 +37,20 @@ export async function upsertExchangeRate(
   if (!parsed.success) return "invalid";
   const { currencyCode, rateToUsd } = parsed.data;
 
-  const existing = db
-    .select()
-    .from(exchangeRates)
-    .where(eq(exchangeRates.currencyCode, currencyCode))
-    .get();
+  const scope = and(
+    eq(exchangeRates.companyId, admin.companyId),
+    eq(exchangeRates.currencyCode, currencyCode),
+  );
+  const existing = await db.select().from(exchangeRates).where(scope).limit(1).then(one);
 
   if (existing) {
-    db.update(exchangeRates)
+    await db.update(exchangeRates)
       .set({ rateToUsd, updatedAt: new Date().toISOString() })
-      .where(eq(exchangeRates.currencyCode, currencyCode))
-      .run();
+      .where(scope);
   } else {
-    db.insert(exchangeRates).values({ currencyCode, rateToUsd }).run();
+    await db
+      .insert(exchangeRates)
+      .values({ companyId: admin.companyId, currencyCode, rateToUsd });
   }
 
   revalidatePath("/settings");
@@ -58,9 +59,16 @@ export async function upsertExchangeRate(
 }
 
 export async function deleteExchangeRate(currencyCode: string) {
-  await requireSession();
+  const admin = await requireSession();
   if (currencyCode === "USD") return; // USD is the peg; removing it breaks conversion
-  db.delete(exchangeRates).where(eq(exchangeRates.currencyCode, currencyCode)).run();
+  await db
+    .delete(exchangeRates)
+    .where(
+      and(
+        eq(exchangeRates.companyId, admin.companyId),
+        eq(exchangeRates.currencyCode, currencyCode),
+      ),
+    );
   revalidatePath("/settings");
   revalidatePath("/orders");
 }
@@ -85,18 +93,26 @@ export async function saveCompanyProfile(
   _prevState: string | undefined,
   formData: FormData,
 ): Promise<string | undefined> {
-  await requireSession();
+  const admin = await requireSession();
 
   const parsed = companySchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return "invalid";
   const data = { ...parsed.data, updatedAt: new Date().toISOString() };
 
-  // Always row 1: there is one company, and the proforma reads exactly it.
-  const existing = db.select().from(companyProfile).where(eq(companyProfile.id, 1)).get();
+  // One profile row per company; the proforma reads exactly it.
+  const existing = await db
+    .select()
+    .from(companyProfile)
+    .where(eq(companyProfile.companyId, admin.companyId))
+    .limit(1)
+    .then(one);
   if (existing) {
-    db.update(companyProfile).set(data).where(eq(companyProfile.id, 1)).run();
+    await db
+      .update(companyProfile)
+      .set(data)
+      .where(eq(companyProfile.companyId, admin.companyId));
   } else {
-    db.insert(companyProfile).values({ id: 1, ...data }).run();
+    await db.insert(companyProfile).values({ companyId: admin.companyId, ...data });
   }
 
   revalidatePath("/settings");
@@ -129,7 +145,7 @@ export async function saveBankAccount(
   _prevState: string | undefined,
   formData: FormData,
 ): Promise<string | undefined> {
-  await requireSession();
+  const admin = await requireSession();
 
   const raw = Object.fromEntries(formData);
   if (!raw.id) delete raw.id; // empty string means "new account", not id 0
@@ -140,18 +156,26 @@ export async function saveBankAccount(
   if (id) {
     // The row may have been deleted from another tab; a silent no-op would
     // close the form and discard what was typed as if it had been saved.
-    const target = db.select({ id: bankAccounts.id }).from(bankAccounts).where(eq(bankAccounts.id, id)).get();
+    const target = await db
+      .select({ id: bankAccounts.id })
+      .from(bankAccounts)
+      .where(and(eq(bankAccounts.companyId, admin.companyId), eq(bankAccounts.id, id)))
+      .limit(1)
+      .then(one);
     if (!target) {
       revalidatePath("/settings");
       return "missing";
     }
-    db.update(bankAccounts).set(data).where(eq(bankAccounts.id, id)).run();
+    await db.update(bankAccounts).set(data).where(eq(bankAccounts.id, id));
   } else {
     // The first account registered becomes the default automatically.
-    const existing = db.select({ id: bankAccounts.id }).from(bankAccounts).all();
-    db.insert(bankAccounts)
-      .values({ ...data, isDefault: existing.length === 0 })
-      .run();
+    const existing = await db
+      .select({ id: bankAccounts.id })
+      .from(bankAccounts)
+      .where(eq(bankAccounts.companyId, admin.companyId));
+    await db
+      .insert(bankAccounts)
+      .values({ ...data, companyId: admin.companyId, isDefault: existing.length === 0 });
   }
 
   revalidatePath("/settings");
@@ -160,40 +184,57 @@ export async function saveBankAccount(
 }
 
 export async function setDefaultBankAccount(id: number) {
-  await requireSession();
+  const admin = await requireSession();
   // One transaction: a crash between the two updates would leave no default.
-  db.transaction((tx) => {
-    const target = tx.select().from(bankAccounts).where(eq(bankAccounts.id, id)).get();
+  await db.transaction(async (tx) => {
+    const target = await tx
+      .select()
+      .from(bankAccounts)
+      .where(and(eq(bankAccounts.companyId, admin.companyId), eq(bankAccounts.id, id)))
+      .limit(1)
+      .then(one);
     if (!target) return;
-    tx.update(bankAccounts).set({ isDefault: false }).run();
-    tx.update(bankAccounts).set({ isDefault: true }).where(eq(bankAccounts.id, id)).run();
+    await tx
+      .update(bankAccounts)
+      .set({ isDefault: false })
+      .where(eq(bankAccounts.companyId, admin.companyId));
+    await tx.update(bankAccounts).set({ isDefault: true }).where(eq(bankAccounts.id, id));
   });
   revalidatePath("/settings");
   revalidatePath("/orders");
 }
 
 export async function deleteBankAccount(id: number) {
-  await requireSession();
-  db.transaction((tx) => {
-    const target = tx.select().from(bankAccounts).where(eq(bankAccounts.id, id)).get();
+  const admin = await requireSession();
+  await db.transaction(async (tx) => {
+    const target = await tx
+      .select()
+      .from(bankAccounts)
+      .where(and(eq(bankAccounts.companyId, admin.companyId), eq(bankAccounts.id, id)))
+      .limit(1)
+      .then(one);
     if (!target) return;
 
     // Orders that pointed here fall back to the default account; done by hand
     // rather than trusting the FK's SET NULL, so it holds on any database.
-    tx.update(orders)
+    await tx
+      .update(orders)
       .set({ bankAccountId: null })
-      .where(eq(orders.bankAccountId, id))
-      .run();
-    tx.delete(bankAccounts).where(eq(bankAccounts.id, id)).run();
+      .where(eq(orders.bankAccountId, id));
+    await tx.delete(bankAccounts).where(eq(bankAccounts.id, id));
 
     // Never leave the remaining accounts without a default.
     if (target.isDefault) {
-      const next = tx.select({ id: bankAccounts.id }).from(bankAccounts).all()[0];
+      const [next] = await tx
+        .select({ id: bankAccounts.id })
+        .from(bankAccounts)
+        .where(eq(bankAccounts.companyId, admin.companyId))
+        .limit(1);
       if (next) {
-        tx.update(bankAccounts)
+        await tx
+          .update(bankAccounts)
           .set({ isDefault: true })
-          .where(eq(bankAccounts.id, next.id))
-          .run();
+          .where(eq(bankAccounts.id, next.id));
       }
     }
   });
@@ -206,9 +247,9 @@ export async function deleteBankAccount(id: number) {
 export async function refreshRatesNow(): Promise<
   { ok: true; source: string } | { ok: false; error: string }
 > {
-  await requireSession();
+  const admin = await requireSession();
   const { refreshExchangeRates } = await import("@/lib/forex");
-  const result = await refreshExchangeRates();
+  const result = await refreshExchangeRates(admin.companyId);
   if (result.ok) {
     revalidatePath("/settings");
     revalidatePath("/orders");

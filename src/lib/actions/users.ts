@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
-import { db } from "@/db";
+import { db, one } from "@/db";
 import { users } from "@/db/schema";
 import { eq, ne, and } from "drizzle-orm";
 import { requireAdmin } from "@/lib/authz";
@@ -14,7 +14,7 @@ import { requireAdmin } from "@/lib/authz";
  * here rejects them anyway.
  */
 async function requireSession() {
-  return (await requireAdmin()).id;
+  return await requireAdmin();
 }
 
 const roleSchema = z.enum(["admin", "collaborator"]);
@@ -48,7 +48,7 @@ export async function createUser(
   _prevState: UserActionResult | undefined,
   formData: FormData,
 ): Promise<UserActionResult> {
-  await requireSession();
+  const admin = await requireSession();
 
   const parsed = newUserSchema.safeParse({
     name: formData.get("name"),
@@ -59,13 +59,18 @@ export async function createUser(
   if (!parsed.success) return { error: "invalid" };
   const { name, email, password, role } = parsed.data;
 
-  if (db.select().from(users).where(eq(users.email, email)).get()) {
+  // Emails are globally unique — one account, one company.
+  if (await db.select().from(users).where(eq(users.email, email)).limit(1).then(one)) {
     return { error: "duplicate-email" };
   }
 
-  db.insert(users)
-    .values({ name, email, role, passwordHash: await bcrypt.hash(password, 10) })
-    .run();
+  await db.insert(users).values({
+    companyId: admin.companyId,
+    name,
+    email,
+    role,
+    passwordHash: await bcrypt.hash(password, 10),
+  });
 
   revalidatePath("/users");
   return {};
@@ -76,7 +81,7 @@ export async function updateUser(
   _prevState: UserActionResult | undefined,
   formData: FormData,
 ): Promise<UserActionResult> {
-  await requireSession();
+  const admin = await requireSession();
 
   const parsed = editUserSchema.safeParse({
     name: formData.get("name"),
@@ -86,26 +91,32 @@ export async function updateUser(
   if (!parsed.success) return { error: "invalid" };
   const { name, email, password } = parsed.data;
 
-  if (!db.select().from(users).where(eq(users.id, id)).get()) {
+  const target = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(and(eq(users.companyId, admin.companyId), eq(users.id, id)))
+    .limit(1)
+    .then(one);
+  if (!target) {
     return { error: "not-found" };
   }
 
   // Somebody else already signs in with this address.
-  const clash = db
+  const clash = await db
     .select()
     .from(users)
     .where(and(eq(users.email, email), ne(users.id, id)))
-    .get();
+    .limit(1)
+    .then(one);
   if (clash) return { error: "duplicate-email" };
 
-  db.update(users)
+  await db.update(users)
     .set({
       name,
       email,
       ...(password ? { passwordHash: await bcrypt.hash(password, 10) } : {}),
     })
-    .where(eq(users.id, id))
-    .run();
+    .where(eq(users.id, id));
 
   revalidatePath("/users");
   revalidatePath("/catalog");
@@ -124,16 +135,26 @@ export async function setUserActive(
   id: number,
   active: boolean,
 ): Promise<UserActionResult> {
-  const currentUserId = await requireSession();
+  const admin = await requireSession();
+  const currentUserId = admin.id;
 
-  if (!db.select().from(users).where(eq(users.id, id)).get()) {
+  const exists = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(and(eq(users.companyId, admin.companyId), eq(users.id, id)))
+    .limit(1)
+    .then(one);
+  if (!exists) {
     return { error: "not-found" };
   }
 
   if (!active) {
     // Locking yourself out, or locking out the last way in, is never intended.
     if (id === currentUserId) return { error: "self-deactivate" };
-    const activeUsers = db.select().from(users).where(eq(users.active, true)).all();
+    const activeUsers = await db
+      .select()
+      .from(users)
+      .where(and(eq(users.companyId, admin.companyId), eq(users.active, true)));
     if (activeUsers.length <= 1) return { error: "last-user" };
     const target = activeUsers.find((u) => u.id === id);
     // Deactivating the only active admin would leave nobody able to manage
@@ -146,7 +167,7 @@ export async function setUserActive(
     }
   }
 
-  db.update(users).set({ active }).where(eq(users.id, id)).run();
+  await db.update(users).set({ active }).where(eq(users.id, id));
 
   revalidatePath("/users");
   return {};
@@ -161,25 +182,39 @@ export async function setUserRole(
   id: number,
   role: "admin" | "collaborator",
 ): Promise<UserActionResult> {
-  const currentUserId = await requireSession();
+  const admin = await requireSession();
+  const currentUserId = admin.id;
 
   if (!roleSchema.safeParse(role).success) return { error: "invalid" };
 
-  const target = db.select().from(users).where(eq(users.id, id)).get();
+  const target = await db
+    .select()
+    .from(users)
+    .where(and(eq(users.companyId, admin.companyId), eq(users.id, id)))
+    .limit(1)
+    .then(one);
   if (!target) return { error: "not-found" };
   if (target.role === role) return {};
 
   if (role === "collaborator") {
     if (id === currentUserId) return { error: "self-demote" };
-    const otherAdmin = db
+    const otherAdmin = await db
       .select()
       .from(users)
-      .where(and(eq(users.role, "admin"), eq(users.active, true), ne(users.id, id)))
-      .get();
+      .where(
+        and(
+          eq(users.companyId, admin.companyId),
+          eq(users.role, "admin"),
+          eq(users.active, true),
+          ne(users.id, id),
+        ),
+      )
+      .limit(1)
+      .then(one);
     if (!otherAdmin) return { error: "last-admin" };
   }
 
-  db.update(users).set({ role }).where(eq(users.id, id)).run();
+  await db.update(users).set({ role }).where(eq(users.id, id));
 
   revalidatePath("/users");
   return {};

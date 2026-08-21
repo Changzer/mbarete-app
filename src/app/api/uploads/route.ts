@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { sessionUser } from "@/lib/authz";
 import { saveUploadedImage } from "@/lib/uploads";
 
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user) {
+  const user = await sessionUser();
+  if (!user) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const uploadedPath = await saveUploadedImage(file);
+    const uploadedPath = await saveUploadedImage(user.companyId, file);
     return NextResponse.json({ path: uploadedPath });
   } catch {
     return NextResponse.json({ error: "upload failed" }, { status: 400 });

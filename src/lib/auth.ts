@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
-import { db } from "@/db";
+import { db, one } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
@@ -59,7 +59,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         if (isLockedOut(email)) return null;
 
-        const user = db.select().from(users).where(eq(users.email, email)).get();
+        const user = await db.select().from(users).where(eq(users.email, email)).limit(1).then(one);
         if (!user) {
           // Unknown addresses count too, or the lockout itself would reveal
           // which emails exist.

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ClipboardList } from "lucide-react";
+import { requireUser } from "@/lib/authz";
 
 const STATUS_VARIANT = {
   draft: "secondary",
@@ -15,7 +16,8 @@ const STATUS_VARIANT = {
 
 export default async function OrdersPage() {
   const t = await getTranslations("orders");
-  const orders = await getOrders();
+  const { companyId } = await requireUser();
+  const orders = await getOrders(companyId);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">

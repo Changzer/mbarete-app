@@ -2,15 +2,15 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { db } from "@/db";
-import { productSuppliers, contacts } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { db, one } from "@/db";
+import { productSuppliers, products, contacts } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
 import { requireUser } from "@/lib/authz";
 import { logEntityEvent } from "@/lib/entity-log";
 import { syncProductFromOffers } from "@/lib/queries/offers";
 
 async function requireSession() {
-  return (await requireUser()).id;
+  return await requireUser();
 }
 
 function refresh() {
@@ -42,7 +42,8 @@ export async function saveOffer(
   _prev: OfferActionResult | undefined,
   formData: FormData,
 ): Promise<OfferActionResult> {
-  const userId = await requireSession();
+  const user = await requireSession();
+  const userId = user.id;
 
   const raw = Object.fromEntries(formData);
   if (!raw.id) delete raw.id; // empty means "new offer", not id 0
@@ -53,31 +54,39 @@ export async function saveOffer(
   // One supplier quotes one product once. A second row for the same factory
   // would make the card claim more sources than exist, so a re-quote is an
   // edit of the offer already there.
+  // The product itself must belong to the caller's company before any offer
+  // hangs off it.
+  const product = await db
+    .select({ id: products.id })
+    .from(products)
+    .where(and(eq(products.companyId, user.companyId), eq(products.id, productId)))
+    .limit(1)
+    .then(one);
+  if (!product) return { error: "missing" };
+
   if (data.supplierId !== null) {
-    const clash = db
+    const rows = await db
       .select({ id: productSuppliers.id, supplierId: productSuppliers.supplierId })
       .from(productSuppliers)
-      .where(eq(productSuppliers.productId, productId))
-      .all()
-      .find((row) => row.supplierId === data.supplierId && row.id !== id);
+      .where(eq(productSuppliers.productId, productId));
+    const clash = rows.find((row) => row.supplierId === data.supplierId && row.id !== id);
     if (clash) return { error: "duplicate" };
   }
 
   if (id) {
-    const existing = db
+    const existing = await db
       .select({ id: productSuppliers.id })
       .from(productSuppliers)
       .where(eq(productSuppliers.id, id))
-      .get();
+      .limit(1)
+      .then(one);
     if (!existing) return { error: "missing" };
-    db.update(productSuppliers)
+    await db.update(productSuppliers)
       .set({ ...data, updatedAt: new Date().toISOString() })
-      .where(eq(productSuppliers.id, id))
-      .run();
+      .where(eq(productSuppliers.id, id));
   } else {
-    db.insert(productSuppliers)
-      .values({ productId, createdBy: userId, ...data })
-      .run();
+    await db.insert(productSuppliers)
+      .values({ productId, createdBy: userId, ...data });
 
     // The quote created from the registration form stood in for a source
     // nobody had recorded yet. Once a real supplier is named it has served
@@ -85,22 +94,20 @@ export async function saveOffer(
     // factories selling this item. Deactivated, not deleted: it can come
     // back from the supplier list if it was actually somebody's price.
     if (data.supplierId !== null) {
-      const placeholder = db
+      const offerRows = await db
         .select()
         .from(productSuppliers)
-        .where(eq(productSuppliers.productId, productId))
-        .all()
-        .find((o) => o.supplierId === null && o.active);
+        .where(eq(productSuppliers.productId, productId));
+      const placeholder = offerRows.find((o) => o.supplierId === null && o.active);
       if (placeholder) {
-        db.update(productSuppliers)
+        await db.update(productSuppliers)
           .set({ active: false, updatedAt: new Date().toISOString() })
-          .where(eq(productSuppliers.id, placeholder.id))
-          .run();
+          .where(eq(productSuppliers.id, placeholder.id));
       }
     }
   }
 
-  await syncProductFromOffers(productId);
+  await syncProductFromOffers(user.companyId, productId);
   refresh();
   return {};
 }
@@ -110,30 +117,36 @@ export async function saveOffer(
  * price, and the catalog should still be able to explain why.
  */
 export async function setOfferActive(offerId: number, active: boolean) {
-  await requireSession();
-  const row = db
-    .select()
+  const user = await requireSession();
+  const row = await db
+    .select({ offer: productSuppliers, companyId: products.companyId })
     .from(productSuppliers)
+    .innerJoin(products, eq(productSuppliers.productId, products.id))
     .where(eq(productSuppliers.id, offerId))
-    .get();
-  if (!row) return;
+    .limit(1)
+    .then(one);
+  if (!row || row.companyId !== user.companyId) return;
 
-  db.update(productSuppliers)
+  await db.update(productSuppliers)
     .set({ active, updatedAt: new Date().toISOString() })
-    .where(eq(productSuppliers.id, offerId))
-    .run();
+    .where(eq(productSuppliers.id, offerId));
 
-  await syncProductFromOffers(row.productId);
+  await syncProductFromOffers(user.companyId, row.offer.productId);
   refresh();
 }
 
 /** Same rule for suppliers themselves: deactivate, keep the history. */
 export async function setSupplierActive(contactId: number, active: boolean) {
-  const userId = await requireSession();
-  const row = db.select().from(contacts).where(eq(contacts.id, contactId)).get();
+  const user = await requireSession();
+  const row = await db
+    .select()
+    .from(contacts)
+    .where(and(eq(contacts.companyId, user.companyId), eq(contacts.id, contactId)))
+    .limit(1)
+    .then(one);
   if (!row || row.active === active) return;
-  db.update(contacts).set({ active }).where(eq(contacts.id, contactId)).run();
-  logEntityEvent("contact", contactId, userId, "edited", {
+  await db.update(contacts).set({ active }).where(eq(contacts.id, contactId));
+  await logEntityEvent(user.companyId, "contact", contactId, user.id, "edited", {
     name: row.companyName || row.companyNameZh,
     changes: [{ field: active ? "activated" : "deactivated" }],
   });
