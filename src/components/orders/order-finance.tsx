@@ -157,7 +157,7 @@ function FileButton({
         {common("selectFile")}
       </Button>
       <span
-        className="max-w-44 truncate text-xs text-neutral-500 dark:text-neutral-400"
+        className="max-w-44 truncate text-xs text-sub"
         title={fileName || undefined}
       >
         {fileName || common("noFileSelected")}
@@ -253,7 +253,7 @@ function PaymentForm({
         <select
           name="account"
           defaultValue={defaultCurrency === "USD" ? "USD" : "RMB"}
-          className="flex h-9 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+          className="flex h-9 rounded-md border border-line bg-surface px-2 text-sm"
           data-testid={`account-${direction}`}
         >
           <option value="RMB">{t("accountRmb")}</option>
@@ -270,7 +270,7 @@ function PaymentForm({
         {t("add")}
       </Button>
       {result?.error ? (
-        <p className="w-full text-xs text-red-600 dark:text-red-400">{errorText(result.error)}</p>
+        <p className="w-full text-xs text-danger">{errorText(result.error)}</p>
       ) : null}
     </form>
   );
@@ -285,29 +285,29 @@ function PaymentList({
 }) {
   const t = useTranslations("finance");
   if (rows.length === 0) {
-    return <p className="text-xs text-neutral-500 dark:text-neutral-400">{t("none")}</p>;
+    return <p className="text-xs text-sub">{t("none")}</p>;
   }
   return (
-    <ul className="flex flex-col divide-y divide-neutral-100 dark:divide-neutral-800">
+    <ul className="flex flex-col divide-y divide-line">
       {rows.map((p) => (
         <li key={p.id} className="flex items-center gap-3 py-1.5 text-sm">
-          <span className="w-24 shrink-0 text-neutral-500 dark:text-neutral-400">{p.paidOn}</span>
-          <span className="font-medium text-neutral-900 dark:text-neutral-100">
+          <span className="w-24 shrink-0 text-sub">{p.paidOn}</span>
+          <span className="font-medium text-ink">
             {money(p.amount)} {p.currency}
           </span>
           {p.account ? (
-            <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-medium text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+            <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-sub">
               {p.account}
             </span>
           ) : null}
-          <span className="min-w-0 flex-1 truncate text-neutral-500 dark:text-neutral-400">
+          <span className="min-w-0 flex-1 truncate text-sub">
             {p.note}
           </span>
           {p.receiptPath ? <ReceiptLink path={p.receiptPath} name={p.receiptName} /> : null}
           <button
             type="button"
             onClick={() => deletePayment(orderId, p.id)}
-            className="text-xs text-neutral-400 hover:text-red-600 dark:hover:text-red-400"
+            className="text-xs text-faint hover:text-danger"
           >
             {t("remove")}
           </button>
@@ -393,38 +393,38 @@ function ExpenseSection({
           {t("add")}
         </Button>
         {result?.error ? (
-          <p className="w-full text-xs text-red-600 dark:text-red-400">
+          <p className="w-full text-xs text-danger">
             {errorText(result.error)}
           </p>
         ) : null}
       </form>
 
       {rows.length === 0 ? (
-        <p className="text-xs text-neutral-500 dark:text-neutral-400">{t("none")}</p>
+        <p className="text-xs text-sub">{t("none")}</p>
       ) : (
         <ul
-          className="flex flex-col divide-y divide-neutral-100 dark:divide-neutral-800"
+          className="flex flex-col divide-y divide-line"
           data-testid="expense-list"
         >
           {rows.map((e) => (
             <li key={e.id} className="flex items-center gap-3 py-1.5 text-sm">
-              <span className="w-24 shrink-0 text-neutral-500 dark:text-neutral-400">
+              <span className="w-24 shrink-0 text-sub">
                 {e.spentOn}
               </span>
-              <span className="w-32 shrink-0 text-neutral-700 dark:text-neutral-300">
+              <span className="w-32 shrink-0 text-ink">
                 {t(`category_${e.category}` as "category_other")}
               </span>
-              <span className="font-medium text-neutral-900 dark:text-neutral-100">
+              <span className="font-medium text-ink">
                 {money(e.amount)} {e.currency}
               </span>
-              <span className="min-w-0 flex-1 truncate text-neutral-500 dark:text-neutral-400">
+              <span className="min-w-0 flex-1 truncate text-sub">
                 {e.note}
               </span>
               {e.receiptPath ? <ReceiptLink path={e.receiptPath} name={e.receiptName} /> : null}
               <button
                 type="button"
                 onClick={() => deleteExpense(orderId, e.id)}
-                className="text-xs text-neutral-400 hover:text-red-600 dark:hover:text-red-400"
+                className="text-xs text-faint hover:text-danger"
               >
                 {t("remove")}
               </button>
@@ -493,33 +493,33 @@ function DocumentSection({
           {t("upload")}
         </Button>
         {result?.error ? (
-          <p className="w-full text-xs text-red-600 dark:text-red-400">
+          <p className="w-full text-xs text-danger">
             {errorText(result.error)}
           </p>
         ) : null}
       </form>
 
       {rows.length === 0 ? (
-        <p className="text-xs text-neutral-500 dark:text-neutral-400">{t("noDocuments")}</p>
+        <p className="text-xs text-sub">{t("noDocuments")}</p>
       ) : (
         <ul
-          className="flex flex-col divide-y divide-neutral-100 dark:divide-neutral-800"
+          className="flex flex-col divide-y divide-line"
           data-testid="document-list"
         >
           {rows.map((d) => (
             <li key={d.id} className="flex items-center gap-3 py-1.5 text-sm">
-              <span className="w-36 shrink-0 text-neutral-500 dark:text-neutral-400">
+              <span className="w-36 shrink-0 text-sub">
                 {t(`kind_${d.kind}` as "kind_other")}
               </span>
               {/* download keeps the name the file arrived with */}
               <a
                 href={d.path}
                 download={d.originalName}
-                className="min-w-0 flex-1 truncate font-medium text-neutral-900 hover:underline dark:text-neutral-100"
+                className="min-w-0 flex-1 truncate font-medium text-ink hover:underline"
               >
                 {d.originalName}
               </a>
-              <span className="shrink-0 text-xs text-neutral-400">
+              <span className="shrink-0 text-xs text-faint">
                 {prettyBytes(d.sizeBytes)}
               </span>
               <button
@@ -527,7 +527,7 @@ function DocumentSection({
                 onClick={() => {
                   if (confirm(t("deleteDocumentConfirm"))) deleteOrderDocument(orderId, d.id);
                 }}
-                className="text-xs text-neutral-400 hover:text-red-600 dark:hover:text-red-400"
+                className="text-xs text-faint hover:text-danger"
               >
                 {t("remove")}
               </button>
@@ -561,8 +561,8 @@ export function OrderFinance({
   const paymentsOut = payments.filter((p) => p.direction === "out");
 
   const box =
-    "rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900";
-  const heading = "mb-3 text-sm font-semibold text-neutral-900 dark:text-neutral-100";
+    "rounded-lg border border-line bg-surface p-4";
+  const heading = "mb-3 text-sm font-semibold text-ink";
 
   return (
     <div className="flex flex-col gap-4">
@@ -575,7 +575,7 @@ export function OrderFinance({
         <div className={box} data-testid="section-payments-in">
           <h2 className={heading}>{t("paymentsIn")}</h2>
           <div className="flex flex-col gap-3">
-            <p className="text-xs text-neutral-500 dark:text-neutral-400">{t("gatewayHint")}</p>
+            <p className="text-xs text-sub">{t("gatewayHint")}</p>
             <PaymentForm orderId={orderId} direction="in" defaultCurrency={quoteCurrency} />
             <PaymentList orderId={orderId} rows={paymentsIn} />
           </div>

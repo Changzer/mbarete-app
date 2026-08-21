@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
 import { OrderStatusActions } from "@/components/orders/order-status-actions";
+import { OrderActionsSheet } from "@/components/orders/order-actions-sheet";
 import { OrderFinance } from "@/components/orders/order-finance";
 import { OrderResult } from "@/components/orders/order-result";
 import { OrderChangelog } from "@/components/orders/order-changelog";
@@ -71,10 +72,10 @@ export default async function OrderDetailPage({
     <div className="mx-auto max-w-4xl px-4 py-6">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">{order.orderNumber}</h1>
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">{client?.companyName}</p>
+          <h1 className="text-[23px] font-extrabold tracking-tight text-ink">{order.orderNumber}</h1>
+          <p className="text-sm text-sub">{client?.companyName}</p>
           <p
-            className="mt-1 text-xs text-neutral-500 dark:text-neutral-400"
+            className="mt-1 text-xs text-sub"
             data-testid="order-attribution"
           >
             {t("filedBy")}: {userNames.get(order.createdBy) ?? t("unknownUser")}
@@ -83,30 +84,68 @@ export default async function OrderDetailPage({
               : ""}
           </p>
         </div>
-        <div className="flex flex-col items-end gap-2">
+        <div className="flex items-center gap-2">
           <Badge variant={STATUS_VARIANT[order.status]}>
             {t(`status${order.status.charAt(0).toUpperCase()}${order.status.slice(1)}` as "statusDraft")}
           </Badge>
-          <OrderStatusActions orderId={order.id} status={order.status} />
-          <ProformaBankSelect
-            orderId={order.id}
-            accounts={bankAccounts.map((a) => ({
-              id: a.id,
-              label: a.label,
-              currency: a.currency,
-              isDefault: a.isDefault,
-            }))}
-            selectedId={order.bankAccountId}
-          />
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/orders/${order.id}/proforma`}>{proformaT("open")}</Link>
-          </Button>
+          {/* One button on a phone, a column of them on a desk. */}
+          <OrderActionsSheet
+            status={t(
+              `status${order.status.charAt(0).toUpperCase()}${order.status.slice(1)}` as "statusDraft",
+            )}
+          >
+            <OrderStatusActions orderId={order.id} status={order.status} />
+            <ProformaBankSelect
+              orderId={order.id}
+              accounts={bankAccounts.map((a) => ({
+                id: a.id,
+                label: a.label,
+                currency: a.currency,
+                isDefault: a.isDefault,
+              }))}
+              selectedId={order.bankAccountId}
+            />
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/orders/${order.id}/proforma`}>{proformaT("open")}</Link>
+            </Button>
+          </OrderActionsSheet>
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+      {/* A phone reads the lines as cards: six columns of frozen figures do
+          not survive 360px, and the figures are the point of this page. */}
+      <ul className="flex flex-col gap-2 lg:hidden" data-testid="order-line-rows">
+        {rows.map((r) => (
+          <li key={r.id} className="flex flex-col gap-1.5 rounded-[12px] border border-line bg-surface p-3">
+            <div className="flex items-start justify-between gap-2">
+              <span className="min-w-0 flex-1 text-[13.5px] font-bold text-ink">{r.name}</span>
+              <span className="shrink-0 font-mono text-[13.5px] font-semibold tabular-nums text-ink">
+                {r.sellTotal.toFixed(2)} {r.currencySnapshot}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-sub">
+              <span>
+                {t("quantity")} {r.quantity}
+              </span>
+              <span>
+                {r.cartons !== null ? `${r.cartons} × ${r.perCarton}` : "—"}
+              </span>
+              <span>
+                {r.unitPriceSnapshot.toFixed(2)} → {r.sellPrice.toFixed(2)} {r.currencySnapshot}
+              </span>
+            </div>
+            {r.below ? (
+              <Badge variant="warning" className="w-fit">
+                {t("moqWarning", { moq: r.moqSnapshot })}
+              </Badge>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+
+      <div className="hidden overflow-x-auto rounded-[12px] border border-line bg-surface lg:block">
         <table className="w-full text-sm">
-          <thead className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800 text-left text-neutral-500 dark:text-neutral-400">
+          <thead className="border-b border-line bg-surface-2 text-left text-sub">
             <tr>
               <th className="px-4 py-2 font-medium">{catalogT("title")}</th>
               <th className="px-4 py-2 font-medium">{t("quantity")}</th>
@@ -116,11 +155,11 @@ export default async function OrderDetailPage({
               <th className="px-4 py-2 font-medium">{t("lineTotal")}</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+          <tbody className="divide-y divide-line">
             {rows.map((r) => (
               <tr key={r.id}>
-                <td className="px-4 py-2 text-neutral-900 dark:text-neutral-100">{r.name}</td>
-                <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">
+                <td className="px-4 py-2 text-ink">{r.name}</td>
+                <td className="px-4 py-2 text-ink">
                   {r.quantity}
                   {r.below ? (
                     <Badge variant="warning" className="ml-2">
@@ -128,16 +167,16 @@ export default async function OrderDetailPage({
                     </Badge>
                   ) : null}
                 </td>
-                <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">
+                <td className="px-4 py-2 text-ink">
                   {r.cartons !== null ? `${r.cartons} × ${r.perCarton}` : "—"}
                 </td>
-                <td className="px-4 py-2 text-neutral-500 dark:text-neutral-400">
+                <td className="px-4 py-2 text-sub">
                   {r.unitPriceSnapshot.toFixed(2)} {r.currencySnapshot}
                 </td>
-                <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">
+                <td className="px-4 py-2 text-ink">
                   {r.sellPrice.toFixed(2)} {r.currencySnapshot}
                 </td>
-                <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">
+                <td className="px-4 py-2 text-ink">
                   {r.sellTotal.toFixed(2)} {r.currencySnapshot}
                 </td>
               </tr>
@@ -146,19 +185,19 @@ export default async function OrderDetailPage({
         </table>
       </div>
 
-      <div className="mt-4 flex flex-col gap-2 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 text-sm sm:w-80 sm:self-end">
+      <div className="mt-4 flex flex-col gap-2 rounded-lg border border-line bg-surface p-4 text-sm sm:w-80 sm:self-end">
         {totals.missingRates.length > 0 ? (
-          <p className="rounded-md bg-amber-100 dark:bg-amber-950 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+          <p className="rounded-md bg-warn-soft px-3 py-2 text-xs text-warn">
             {t("missingRate", { codes: totals.missingRates.join(", ") })}
           </p>
         ) : null}
 
         <div className="flex flex-col gap-1">
-          <span className="text-neutral-500 dark:text-neutral-400">{t("goodsSubtotal")}</span>
+          <span className="text-sub">{t("goodsSubtotal")}</span>
           {targets.map((code) => (
             <div key={code} className="flex justify-between">
-              <span className="text-neutral-400 dark:text-neutral-500">{code}</span>
-              <span className="text-neutral-700 dark:text-neutral-300">
+              <span className="font-mono text-[11px] text-faint">{code}</span>
+              <span className="font-mono tabular-nums text-ink">
                 {totals.goods[code].toFixed(2)}
               </span>
             </div>
@@ -167,13 +206,13 @@ export default async function OrderDetailPage({
 
         {order.commissionPct > 0 ? (
           <div className="flex flex-col gap-1">
-            <span className="text-neutral-500 dark:text-neutral-400">
+            <span className="text-sub">
               {t("commissionAmount")} ({order.commissionPct}%)
             </span>
             {targets.map((code) => (
               <div key={code} className="flex justify-between">
-                <span className="text-neutral-400 dark:text-neutral-500">{code}</span>
-                <span className="text-neutral-700 dark:text-neutral-300">
+                <span className="font-mono text-[11px] text-faint">{code}</span>
+                <span className="text-ink">
                   {totals.commission[code].toFixed(2)}
                 </span>
               </div>
@@ -181,36 +220,36 @@ export default async function OrderDetailPage({
           </div>
         ) : null}
 
-        <div className="flex flex-col gap-1 border-t border-neutral-200 dark:border-neutral-800 pt-2">
-          <span className="text-neutral-500 dark:text-neutral-400">{t("grandTotal")}</span>
+        <div className="flex flex-col gap-1 border-t border-line pt-2">
+          <span className="text-sub">{t("grandTotal")}</span>
           {targets.map((code) => (
             <div key={code} className="flex justify-between">
-              <span className="text-neutral-400 dark:text-neutral-500">{code}</span>
-              <span className="font-semibold text-neutral-900 dark:text-neutral-100">
+              <span className="font-mono text-[11px] text-faint">{code}</span>
+              <span className="font-semibold text-ink">
                 {totals.grandTotal[code].toFixed(2)}
               </span>
             </div>
           ))}
         </div>
         <div className="flex justify-between">
-          <span className="text-neutral-500 dark:text-neutral-400">{t("totalCartons")}</span>
-          <span className="font-semibold text-neutral-900 dark:text-neutral-100">
+          <span className="text-sub">{t("totalCartons")}</span>
+          <span className="font-semibold text-ink">
             {Number.isInteger(totals.totalCartons)
               ? totals.totalCartons
               : totals.totalCartons.toFixed(2)}
           </span>
         </div>
         <div className="flex justify-between">
-          <span className="text-neutral-500 dark:text-neutral-400">{t("totalCbm")}</span>
-          <span className="font-semibold text-neutral-900 dark:text-neutral-100">{formatCbm(totals.totalCbm)} m³</span>
+          <span className="text-sub">{t("totalCbm")}</span>
+          <span className="font-semibold text-ink">{formatCbm(totals.totalCbm)} m³</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-neutral-500 dark:text-neutral-400">{t("totalWeight")}</span>
-          <span className="font-semibold text-neutral-900 dark:text-neutral-100">{totals.totalWeightKg.toFixed(2)} kg</span>
+          <span className="text-sub">{t("totalWeight")}</span>
+          <span className="font-semibold text-ink">{totals.totalWeightKg.toFixed(2)} kg</span>
         </div>
         {hasUnmeasured ? (
           <p
-            className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
+            className="mt-2 rounded-md border bg-warn-soft px-2 py-1.5 text-xs text-warn"
             data-testid="order-unmeasured-note"
           >
             {t("unmeasuredIncluded")}
@@ -220,13 +259,13 @@ export default async function OrderDetailPage({
 
       {order.notes ? (
         <div className="mt-4">
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">{t("notes")}</p>
-          <p className="whitespace-pre-wrap text-sm text-neutral-800 dark:text-neutral-200">{order.notes}</p>
+          <p className="text-sm text-sub">{t("notes")}</p>
+          <p className="whitespace-pre-wrap text-sm text-ink">{order.notes}</p>
         </div>
       ) : null}
 
       {totals.hasMoqViolation && order.status === "draft" ? (
-        <p className="mt-4 text-xs text-amber-700">{t("moqBlocksConfirm")}</p>
+        <p className="mt-4 text-xs text-warn">{t("moqBlocksConfirm")}</p>
       ) : null}
 
       {/* --- the trade file: documents, money in and out, expenses --- */}

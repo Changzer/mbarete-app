@@ -34,7 +34,7 @@ function Field({
       <Label htmlFor={`bank-${name}`}>{label}</Label>
       <Input id={`bank-${name}`} name={name} defaultValue={defaultValue} required={required} />
       {hint ? (
-        <p className="text-xs text-neutral-500 dark:text-neutral-400">{hint}</p>
+        <p className="text-xs text-sub">{hint}</p>
       ) : null}
     </div>
   );
@@ -75,12 +75,12 @@ export function BankAccountsManager({ accounts }: { accounts: BankAccount[] }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <p className="text-sm text-neutral-500 dark:text-neutral-400">{t("banksHelp")}</p>
+      <p className="text-sm text-sub">{t("banksHelp")}</p>
 
       {accounts.length > 0 ? (
-        <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+        <div className="overflow-x-auto rounded-lg border border-line bg-surface">
           <table className="w-full text-sm" data-testid="bank-accounts">
-            <thead className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800 text-left text-neutral-500 dark:text-neutral-400">
+            <thead className="border-b border-line bg-surface-2 text-left text-sub">
               <tr>
                 <th className="px-4 py-2 font-medium">{t("bankLabel")}</th>
                 <th className="px-4 py-2 font-medium">{t("bankName")}</th>
@@ -88,13 +88,13 @@ export function BankAccountsManager({ accounts }: { accounts: BankAccount[] }) {
                 <th className="px-4 py-2 font-medium">{common("actions")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+            <tbody className="divide-y divide-line">
               {accounts.map((account) => (
                 <tr key={account.id}>
-                  <td className="px-4 py-2 font-medium text-neutral-900 dark:text-neutral-100">
+                  <td className="px-4 py-2 font-medium text-ink">
                     {account.label}
                     {account.currency ? (
-                      <span className="ml-1 text-xs text-neutral-400 dark:text-neutral-500">
+                      <span className="ml-1 text-xs text-faint">
                         {account.currency}
                       </span>
                     ) : null}
@@ -104,10 +104,10 @@ export function BankAccountsManager({ accounts }: { accounts: BankAccount[] }) {
                       </Badge>
                     ) : null}
                   </td>
-                  <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">
+                  <td className="px-4 py-2 text-ink">
                     {account.bankName || "—"}
                   </td>
-                  <td className="px-4 py-2 text-neutral-500 dark:text-neutral-400">
+                  <td className="px-4 py-2 text-sub">
                     {account.accountNumber || "—"}
                   </td>
                   <td className="px-4 py-2">
@@ -144,7 +144,7 @@ export function BankAccountsManager({ accounts }: { accounts: BankAccount[] }) {
           </table>
         </div>
       ) : (
-        <p className="text-sm text-neutral-500 dark:text-neutral-400" data-testid="banks-empty">
+        <p className="text-sm text-sub" data-testid="banks-empty">
           {t("banksEmpty")}
         </p>
       )}
@@ -152,7 +152,7 @@ export function BankAccountsManager({ accounts }: { accounts: BankAccount[] }) {
       <Card>
         <CardContent className="p-4">
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+            <h3 className="text-sm font-semibold text-ink">
               {current.id ? t("bankEditTitle", { label: current.label }) : t("bankAddTitle")}
             </h3>
             {current.id ? (
@@ -188,7 +188,7 @@ export function BankAccountsManager({ accounts }: { accounts: BankAccount[] }) {
               />
             </div>
             {errorMessage ? (
-              <p className="text-sm text-red-600 dark:text-red-400">
+              <p className="text-sm text-danger">
                 {errorMessage === "missing" ? t("bankGone") : t("bankInvalid")}
               </p>
             ) : null}

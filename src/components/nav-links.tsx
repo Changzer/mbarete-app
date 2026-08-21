@@ -8,12 +8,13 @@ import {
   LineChart,
   UserCog,
   Settings,
+  MoreHorizontal,
 } from "lucide-react";
 
 export type NavItem = {
   href: string;
   label: string;
-  icon: "catalog" | "orders" | "contacts" | "finance" | "users" | "settings";
+  icon: "catalog" | "orders" | "contacts" | "finance" | "users" | "settings" | "more";
 };
 
 const ICONS = {
@@ -23,32 +24,41 @@ const ICONS = {
   finance: LineChart,
   users: UserCog,
   settings: Settings,
+  more: MoreHorizontal,
 } as const;
 
 function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+/**
+ * More owns the pages that are not part of the daily loop, so the tab bar can
+ * stay at five: whichever of them the agent is on, the More tab is the one lit.
+ */
+function moreIsActive(pathname: string, items: NavItem[]) {
+  return items.some((item) => isActive(pathname, item.href));
+}
+
 /** Desktop links: text with a brand underline riding under the active page. */
 export function NavLinks({ items }: { items: NavItem[] }) {
   const pathname = usePathname();
   return (
-    <nav className="hidden items-center gap-1 text-sm font-medium md:flex">
+    <nav className="hidden items-center gap-1 text-[13px] font-semibold lg:flex">
       {items.map((item) => {
         const active = isActive(pathname, item.href);
         return (
           <Link
             key={item.href}
             href={item.href}
-            className={`relative rounded-md px-3 py-1.5 transition-colors ${
+            className={`focus-ring relative rounded-[10px] px-3 py-2 transition-colors ${
               active
-                ? "text-brand-600 dark:text-brand-400"
-                : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+                ? "text-action-chrome"
+                : "text-sub hover:bg-surface-2 hover:text-ink"
             }`}
           >
             {item.label}
             {active ? (
-              <span className="absolute inset-x-3 -bottom-[13px] h-0.5 rounded-full bg-brand-600 dark:bg-brand-500" />
+              <span className="absolute inset-x-3 -bottom-[11px] h-0.5 rounded-full bg-action" />
             ) : null}
           </Link>
         );
@@ -58,33 +68,49 @@ export function NavLinks({ items }: { items: NavItem[] }) {
 }
 
 /**
- * Phone navigation: a fixed bottom tab bar, where thumbs actually are.
- * The top header keeps only the brand and session controls on small screens.
+ * Phone and tablet-portrait navigation: a fixed bottom tab bar, where thumbs
+ * actually are. Five tabs is the ceiling at 360px — Users and Settings live
+ * behind More rather than shrinking every label to fit.
  */
-export function MobileNav({ items }: { items: NavItem[] }) {
+export function MobileNav({
+  items,
+  moreItems,
+}: {
+  items: NavItem[];
+  /** The pages behind More — used only to decide whether More reads as active. */
+  moreItems: NavItem[];
+}) {
   const pathname = usePathname();
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-neutral-200 bg-white/95 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/95 md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 backdrop-blur print:hidden lg:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       data-testid="mobile-nav"
     >
       <div className="mx-auto flex max-w-lg items-stretch justify-between">
         {items.map((item) => {
           const Icon = ICONS[item.icon];
-          const active = isActive(pathname, item.href);
+          const active =
+            item.icon === "more"
+              ? isActive(pathname, item.href) || moreIsActive(pathname, moreItems)
+              : isActive(pathname, item.href);
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 pb-1.5 pt-2 text-[10px] font-medium ${
-                active
-                  ? "text-brand-600 dark:text-brand-400"
-                  : "text-neutral-500 dark:text-neutral-400"
+              aria-current={active ? "page" : undefined}
+              data-testid={`nav-${item.icon}`}
+              // min-h-14 keeps every tab a 56px target even where the label is
+              // a single narrow glyph.
+              className={`focus-ring flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 pb-1 pt-1.5 text-[10px] font-semibold ${
+                active ? "text-action-chrome" : "text-sub"
               }`}
             >
-              <Icon className={`h-5 w-5 ${active ? "stroke-[2.25]" : ""}`} />
-              <span className="truncate">{item.label}</span>
+              <Icon
+                className="h-[19px] w-[19px]"
+                strokeWidth={active ? 1.9 : 1.5}
+              />
+              <span className="w-full truncate text-center">{item.label}</span>
             </Link>
           );
         })}

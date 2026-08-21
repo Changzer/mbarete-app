@@ -42,11 +42,11 @@ export function Brand({
 
   if (size === "hero") {
     return (
-      <div className="flex flex-col items-center gap-1 border-4 border-brand-600 px-6 py-4">
-        <span className="text-3xl font-extrabold tracking-[0.2em] text-brand-600">
+      <div className="flex flex-col items-center gap-1 border-4 border-action px-6 py-4">
+        <span className="text-3xl font-extrabold tracking-[0.2em] text-action-chrome">
           MBARETE
         </span>
-        <span className="text-sm font-semibold tracking-[0.35em] text-brand-600">
+        <span className="text-sm font-semibold tracking-[0.35em] text-action-chrome">
           玻汭进出口
         </span>
       </div>
@@ -54,11 +54,11 @@ export function Brand({
   }
 
   return (
-    <div className="flex flex-col border-2 border-brand-600 px-2 py-0.5 leading-none">
-      <span className="text-sm font-extrabold tracking-[0.15em] text-brand-600">
+    <div className="flex flex-col border-2 border-action px-2 py-0.5 leading-none">
+      <span className="text-sm font-extrabold tracking-[0.15em] text-action-chrome">
         MBARETE
       </span>
-      <span className="text-[8px] font-semibold tracking-[0.3em] text-brand-600">
+      <span className="text-[8px] font-semibold tracking-[0.3em] text-action-chrome">
         玻汭进出口
       </span>
     </div>

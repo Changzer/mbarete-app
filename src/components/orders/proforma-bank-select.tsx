@@ -35,13 +35,13 @@ export function ProformaBankSelect({
 
   return (
     <div className="flex items-center gap-2">
-      <Label htmlFor="proforma-bank" className="text-xs text-neutral-500 dark:text-neutral-400">
+      <Label htmlFor="proforma-bank" className="text-xs text-sub">
         {t("proformaBank")}
       </Label>
       <select
         id="proforma-bank"
         data-testid="proforma-bank"
-        className="h-8 rounded-md border border-neutral-200 bg-white px-2 text-xs text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+        className="h-8 rounded-md border border-line bg-white px-2 text-xs text-ink dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
         value={stored ? String(stored.id) : ""}
         disabled={isPending}
         onChange={(e) => {

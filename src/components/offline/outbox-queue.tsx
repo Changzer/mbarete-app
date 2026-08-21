@@ -72,42 +72,42 @@ export function OutboxQueue({
         </DialogHeader>
 
         {drafts && drafts.length === 0 ? (
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">{t("queueEmpty")}</p>
+          <p className="text-sm text-sub">{t("queueEmpty")}</p>
         ) : null}
 
         <div className="-mx-1 flex-1 overflow-y-auto px-1" data-testid="outbox-queue-list">
           {(drafts ?? []).map((draft) => (
             <div
               key={draft.clientId}
-              className="flex flex-col gap-2 border-b border-neutral-100 py-3 last:border-0 dark:border-neutral-800"
+              className="flex flex-col gap-2 border-b border-line py-3 last:border-0"
               data-testid="outbox-queue-item"
             >
               <div className="flex items-center gap-2">
                 {draft.kind === "contact" ? (
-                  <Contact className="h-4 w-4 shrink-0 text-neutral-400" />
+                  <Contact className="h-4 w-4 shrink-0 text-faint" />
                 ) : (
-                  <Camera className="h-4 w-4 shrink-0 text-neutral-400" />
+                  <Camera className="h-4 w-4 shrink-0 text-faint" />
                 )}
-                <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
                   {label(draft)}
                 </span>
-                <span className="shrink-0 text-xs text-neutral-500 dark:text-neutral-400">
+                <span className="shrink-0 text-xs text-sub">
                   {t("queuePhotos", { count: draft.images.length })}
                 </span>
               </div>
 
               {draft.status === "blocked" ? (
-                <p className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400">
+                <p className="flex items-center gap-1.5 text-xs text-warn">
                   <TriangleAlert className="h-3.5 w-3.5 shrink-0" />
                   {t("queueBlocked")}
                   {draft.lastError ? (
-                    <span className="text-neutral-400 dark:text-neutral-500">
+                    <span className="text-faint">
                       ({draft.lastError})
                     </span>
                   ) : null}
                 </p>
               ) : (
-                <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                <p className="text-xs text-sub">
                   {t("queueWaiting")}
                 </p>
               )}
@@ -131,7 +131,7 @@ export function OutboxQueue({
                   variant="ghost"
                   size="sm"
                   data-testid="queue-discard"
-                  className="text-neutral-500 hover:text-red-600 dark:text-neutral-400 dark:hover:text-red-400"
+                  className="text-sub hover:text-danger"
                   onClick={async () => {
                     if (!confirm(t("queueDiscardConfirm"))) return;
                     await outbox.discard(draft.clientId);

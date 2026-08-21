@@ -87,35 +87,35 @@ export function OfferManager({
   return (
     <div className="flex flex-col gap-4" data-testid="offer-manager">
       <div>
-        <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+        <h2 className="text-lg font-semibold text-ink">
           {t("suppliersTitle")}
         </h2>
-        <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+        <p className="mt-1 text-sm text-sub">
           {t("suppliersHelp")}
         </p>
       </div>
 
       {offers.length > 0 ? (
         <ul
-          className="flex flex-col divide-y divide-neutral-100 rounded-lg border border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800"
+          className="flex flex-col divide-y divide-line rounded-lg border border-line"
           data-testid="offer-list"
         >
           {offers.map((o) => (
             <li key={o.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm">
-              <span className="inline-flex min-w-40 items-center gap-1 font-medium text-neutral-900 dark:text-neutral-100">
-                <Store className="h-3.5 w-3.5 text-neutral-400" />
+              <span className="inline-flex min-w-40 items-center gap-1 font-medium text-ink">
+                <Store className="h-3.5 w-3.5 text-faint" strokeWidth={1.5} />
                 {o.supplierName ?? t("supplierUnknown")}
               </span>
-              <span className="font-medium text-neutral-900 dark:text-neutral-100">
+              <span className="font-medium text-ink">
                 {o.price.toFixed(2)} {o.currency}
               </span>
-              <span className="text-xs text-neutral-500 dark:text-neutral-400">
+              <span className="text-xs text-sub">
                 {t("moq")} {o.moq}
                 {o.leadTimeDays > 0 ? ` · ${t("leadDays", { days: o.leadTimeDays })}` : ""}
               </span>
-              <span className="inline-flex items-center gap-1 text-xs text-neutral-400 dark:text-neutral-500">
+              <span className="inline-flex items-center gap-1 text-xs text-faint">
                 {o.quotedOn}
-                {isStaleQuote(o.quotedOn) ? <Clock className="h-3 w-3 text-amber-500" /> : null}
+                {isStaleQuote(o.quotedOn) ? <Clock className="h-3 w-3 text-warn" strokeWidth={1.5} /> : null}
               </span>
               {!o.active ? <Badge variant="secondary">{t("inactive")}</Badge> : null}
               <span className="ml-auto flex items-center gap-1">
@@ -134,7 +134,7 @@ export function OfferManager({
           ))}
         </ul>
       ) : (
-        <p className="text-sm text-neutral-500 dark:text-neutral-400" data-testid="offers-empty">
+        <p className="text-sm text-sub" data-testid="offers-empty">
           {t("noSuppliersYet")}
         </p>
       )}
@@ -142,7 +142,7 @@ export function OfferManager({
       <Card>
         <CardContent className="p-4">
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+            <h3 className="text-sm font-semibold text-ink">
               {current.id ? t("editOffer") : t("addOffer")}
             </h3>
             {current.id ? (
@@ -164,7 +164,7 @@ export function OfferManager({
                   name="supplierId"
                   defaultValue={current.supplierId ?? ""}
                   data-testid="offer-supplier"
-                  className="flex h-9 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+                  className="flex h-9 rounded-md border border-line bg-surface px-2 text-sm"
                 >
                   <option value="">{t("supplierUnknown")}</option>
                   {suppliers.map((s) => (
@@ -238,7 +238,7 @@ export function OfferManager({
             </div>
 
             {result?.error ? (
-              <p className="text-sm text-red-600 dark:text-red-400">
+              <p className="text-sm text-danger">
                 {result.error === "duplicate"
                   ? t("offerDuplicate")
                   : result.error === "missing"

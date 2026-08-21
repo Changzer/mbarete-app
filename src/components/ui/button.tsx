@@ -3,25 +3,32 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
+/**
+ * The solid red silhouette belongs to Save and nothing else — destructive is
+ * outlined, so a delete can never be mistaken for the primary action at a
+ * glance. Sizes start at 44px because every one of these is pressed with a
+ * thumb, often one-handed, often while holding a product.
+ */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 dark:focus-visible:ring-brand-400/60 disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
+  "press focus-ring inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[12px] text-[13.5px] font-semibold disabled:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
         default:
-          "bg-brand-600 text-white shadow-sm hover:bg-brand-700 active:bg-brand-800 dark:bg-brand-600 dark:hover:bg-brand-500",
+          "bg-action text-white hover:bg-action-press active:bg-action-press disabled:bg-surface-2 disabled:text-faint",
         destructive:
-          "bg-red-600 text-white hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600",
+          "border-[1.5px] border-danger-line bg-surface text-danger font-bold hover:bg-danger-soft",
         outline:
-          "border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-900 dark:text-neutral-100",
-        ghost: "hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-900 dark:text-neutral-100",
-        secondary: "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700",
+          "border-[1.5px] border-line bg-surface text-action-chrome hover:bg-action-soft disabled:text-faint",
+        ghost: "text-sub hover:bg-surface-2 hover:text-ink",
+        secondary:
+          "bg-surface-2 text-ink hover:bg-line",
       },
       size: {
-        default: "h-9 px-4 py-2",
-        sm: "h-8 rounded-md px-3 text-xs",
-        lg: "h-10 rounded-md px-6",
-        icon: "h-9 w-9",
+        default: "h-11 px-[18px]",
+        sm: "h-9 rounded-[10px] px-3.5 text-[12.5px]",
+        lg: "h-12 px-6 text-[14px]",
+        icon: "h-11 w-11 px-0",
       },
     },
     defaultVariants: {

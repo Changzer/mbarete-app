@@ -6,8 +6,9 @@ import { routing, type Locale } from "@/i18n/routing";
 import { auth } from "@/lib/auth";
 import { AppNav } from "@/components/app-nav";
 import { OutboxProvider } from "@/components/offline/outbox";
-import { OutboxStatus } from "@/components/offline/outbox-status";
 import { SwRegister } from "@/components/offline/sw-register";
+import { ToastProvider } from "@/components/ui/toast";
+import { themeBootScript } from "@/components/theme-toggle";
 import "../globals.css";
 
 export const metadata: Metadata = {
@@ -37,7 +38,12 @@ export default async function LocaleLayout({
 
   return (
     <html lang={locale} className="h-full antialiased">
-      <body className="min-h-full flex flex-col bg-neutral-50 dark:bg-neutral-950">
+      <head>
+        {/* Ahead of hydration, so an agent who chose dark never gets a white
+            flash on the way into the app. */}
+        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
+      </head>
+      <body className="min-h-full flex flex-col bg-bg text-ink">
         <SwRegister />
         <NextIntlClientProvider messages={messages}>
           {/* The outbox mounts only for signed-in views: it delivers captures
@@ -46,9 +52,15 @@ export default async function LocaleLayout({
               in the app the agent happens to be when the signal returns. */}
           {session?.user ? (
             <OutboxProvider>
-              <AppNav userName={session.user.name ?? ""} />
-              <main className="flex-1 pb-20 md:pb-0">{children}</main>
-              <OutboxStatus />
+              <ToastProvider>
+                <AppNav userName={session.user.name ?? ""} />
+                {/* Room below for the tab bar plus the phone's safe area — the
+                    bar is fixed, so the last row of any list would otherwise
+                    sit under it. */}
+                <main className="flex-1 pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:pb-0">
+                  {children}
+                </main>
+              </ToastProvider>
             </OutboxProvider>
           ) : (
             <main className="flex-1">{children}</main>

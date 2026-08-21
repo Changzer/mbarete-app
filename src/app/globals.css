@@ -1,4 +1,7 @@
-@import "@fontsource-variable/inter";
+@import "@fontsource-variable/archivo";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+@import "@fontsource/ibm-plex-mono/600.css";
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -10,9 +13,62 @@
  * `color` is inherited by any element that does not set one, which previously
  * rendered near-white text inside white inputs under a dark colour scheme.
  *
- * Surfaces and text colours belong on the components as Tailwind classes with
- * explicit `dark:` variants. Only put things here that utilities cannot express.
+ * Surfaces and text colours belong on the components as Tailwind classes. Only
+ * put things here that utilities cannot express.
  */
+
+/*
+ * Dark mode is chosen by the phone unless the agent overrides it in More →
+ * Appearance, which stamps `data-theme` on <html>. Both halves are needed:
+ * the media query so a fresh install follows the system, the attribute so an
+ * explicit choice wins in either direction (`data-theme="light"` has to beat a
+ * dark phone, which is why the media half excuses that attribute).
+ */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(
+        html:not([data-theme="light"]),
+        html:not([data-theme="light"]) *
+      ) {
+      @slot;
+    }
+  }
+  &:where(html[data-theme="dark"], html[data-theme="dark"] *) {
+    @slot;
+  }
+}
+
+/*
+ * Warm stone + vermilion. The semantic tokens below are the palette the app
+ * paints with — `bg-surface`, `text-sub`, `border-line` — so a component reads
+ * as its role rather than as a colour, and the theme swap happens once here
+ * instead of in a `dark:` twin on every element.
+ */
+@theme inline {
+  --color-bg: var(--mb-bg);
+  --color-surface: var(--mb-surface);
+  --color-surface-2: var(--mb-surface-2);
+  --color-ink: var(--mb-ink);
+  --color-sub: var(--mb-sub);
+  --color-faint: var(--mb-faint);
+  --color-line: var(--mb-line);
+  --color-line-strong: var(--mb-line-strong);
+
+  /* The action colour: fill stays the logo red on both grounds, chrome (text,
+     icons, underlines) lightens in the dark so it clears its background. */
+  --color-action: var(--mb-action);
+  --color-action-press: var(--mb-action-press);
+  --color-action-chrome: var(--mb-action-chrome);
+  --color-action-soft: var(--mb-action-soft);
+
+  --color-ok: var(--mb-ok);
+  --color-ok-soft: var(--mb-ok-soft);
+  --color-warn: var(--mb-warn);
+  --color-warn-soft: var(--mb-warn-soft);
+  --color-danger: var(--mb-danger);
+  --color-danger-soft: var(--mb-danger-soft);
+  --color-danger-line: var(--mb-danger-line);
+}
 
 @theme {
   /* Mbarete brand red, sampled from the logo, with a usable scale around it. */
@@ -20,23 +76,112 @@
   --color-brand-100: #f9e4e0;
   --color-brand-200: #f2c6bf;
   --color-brand-300: #e79f93;
-  --color-brand-400: #d96f5e;
+  --color-brand-400: #e8684f;
   --color-brand-500: #c94733;
-  --color-brand-600: #c13a2b;
+  --color-brand-600: #bc3524;
   --color-brand-700: #a02f23;
-  --color-brand-800: #84291f;
+  --color-brand-800: #8f2317;
   --color-brand-900: #6e251d;
   --color-brand-950: #3b110d;
 
-  /* Inter ships in the image via npm; Chinese falls through to system faces. */
+  /* Archivo ships in the image via npm; Chinese falls through to system faces. */
   --font-sans:
-    "Inter Variable", ui-sans-serif, system-ui, -apple-system, "PingFang SC",
+    "Archivo Variable", ui-sans-serif, system-ui, -apple-system, "PingFang SC",
     "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+
+  /* The data register: SKU, prices, MOQ, pack, CBM, weight, booth codes, order
+     numbers, rates. CJK inside a mono run falls through to the CJK faces —
+     acceptable, because it is the digits that have to stay in column. */
+  --font-mono:
+    "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace,
+    "PingFang SC", "Noto Sans CJK SC";
+
+  /* Radii from the design system: fields 10, cards 12, sheets 20. */
+  --radius-field: 10px;
+  --radius-card: 12px;
+  --radius-sheet: 20px;
 }
 
 :root {
+  --mb-bg: #f8f4ec;
+  --mb-surface: #fdfbf7;
+  --mb-surface-2: #f2ecdf;
+  --mb-ink: #26201a;
+  --mb-sub: #77695a;
+  --mb-faint: #a3958a;
+  --mb-line: #e1d6c4;
+  --mb-line-strong: #cdbfa8;
+  --mb-action: #bc3524;
+  --mb-action-press: #a02f23;
+  --mb-action-chrome: #a02f23;
+  --mb-action-soft: #f6e6e0;
+  --mb-ok: #3d7c4f;
+  --mb-ok-soft: #e8efe4;
+  --mb-warn: #8a5a06;
+  --mb-warn-soft: #f7eed7;
+  --mb-danger: #8f2317;
+  --mb-danger-soft: #f3d9d5;
+  --mb-danger-line: #d9a99f;
+
   /* Lets native UI (form controls, scrollbars) follow the active scheme. */
-  color-scheme: light dark;
+  color-scheme: light;
+}
+
+/*
+ * Dark is warm, not gray: the same stone rotated down, never a neutral.
+ *
+ * The values are written twice on purpose — once for the phone's own
+ * preference, once for an explicit choice. `light-dark()` would say it once,
+ * but on a browser that lacks it every colour resolves to nothing and the app
+ * renders unpainted, which is not a trade worth making for a tool used on
+ * whatever handset is in the buyer's pocket.
+ */
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) {
+    --mb-bg: #1b1512;
+    --mb-surface: #261f19;
+    --mb-surface-2: #241d17;
+    --mb-ink: #f1eae1;
+    --mb-sub: #a5968a;
+    --mb-faint: #7d6f63;
+    --mb-line: #3b3229;
+    --mb-line-strong: #5c4a3d;
+    --mb-action: #bc3524;
+    --mb-action-press: #a02f23;
+    --mb-action-chrome: #e8684f;
+    --mb-action-soft: #332017;
+    --mb-ok: #6fbf85;
+    --mb-ok-soft: #233024;
+    --mb-warn: #eab659;
+    --mb-warn-soft: #3d2f12;
+    --mb-danger: #f2917d;
+    --mb-danger-soft: #42201a;
+    --mb-danger-line: #7a3c30;
+    color-scheme: dark;
+  }
+}
+
+html[data-theme="dark"] {
+  --mb-bg: #1b1512;
+  --mb-surface: #261f19;
+  --mb-surface-2: #241d17;
+  --mb-ink: #f1eae1;
+  --mb-sub: #a5968a;
+  --mb-faint: #7d6f63;
+  --mb-line: #3b3229;
+  --mb-line-strong: #5c4a3d;
+  --mb-action: #bc3524;
+  --mb-action-press: #a02f23;
+  --mb-action-chrome: #e8684f;
+  --mb-action-soft: #332017;
+  --mb-ok: #6fbf85;
+  --mb-ok-soft: #233024;
+  --mb-warn: #eab659;
+  --mb-warn-soft: #3d2f12;
+  --mb-danger: #f2917d;
+  --mb-danger-soft: #42201a;
+  --mb-danger-line: #7a3c30;
+  color-scheme: dark;
 }
 
 body {
@@ -45,6 +190,81 @@ body {
 
 /* Text selection in the brand colour — a small tell that this is one product. */
 ::selection {
-  background: #c13a2b;
+  background: #bc3524;
   color: #fff;
+}
+
+/*
+ * Focus is one ring everywhere: 2px action outline, offset 2. Utilities can
+ * express it, but repeating it on every control is how it drifts.
+ */
+@utility focus-ring {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  &:focus-visible {
+    outline-color: var(--mb-action);
+  }
+}
+
+/* Press feedback: 80ms, state only — nothing here is decorative. */
+@utility press {
+  transition:
+    transform 80ms ease-out,
+    filter 80ms ease-out,
+    background-color 120ms ease-out;
+  &:active:not(:disabled) {
+    transform: scale(0.985);
+  }
+}
+
+/* Skeleton shimmer — first load only; later loads keep stale content visible. */
+@keyframes mb-shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: 200px 0;
+  }
+}
+
+@utility skeleton {
+  background-image: linear-gradient(
+    90deg,
+    var(--mb-surface-2) 0%,
+    color-mix(in srgb, var(--mb-surface-2) 55%, var(--mb-surface)) 50%,
+    var(--mb-surface-2) 100%
+  );
+  background-size: 400px 100%;
+  animation: mb-shimmer 1.4s linear infinite;
+}
+
+/* Sheets slide up in 250ms; toasts rise in 220ms. Nothing runs past 300ms. */
+@keyframes mb-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes mb-toast-in {
+  from {
+    transform: translateY(14px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

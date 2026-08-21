@@ -20,21 +20,21 @@ export default async function SettingsPage() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-10 px-4 py-6">
       <section>
-        <h1 className="mb-6 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
+        <h1 className="mb-6 text-[23px] font-extrabold tracking-tight text-ink">
           {companyT("title")}
         </h1>
         <CompanyProfileForm profile={profile} />
       </section>
 
       <section>
-        <h2 className="mb-6 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
+        <h2 className="mb-6 text-[23px] font-extrabold tracking-tight text-ink">
           {companyT("banksTitle")}
         </h2>
         <BankAccountsManager accounts={banks} />
       </section>
 
       <section>
-        <h2 className="mb-6 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
+        <h2 className="mb-6 text-[23px] font-extrabold tracking-tight text-ink">
           {t("exchangeRates")}
         </h2>
         <ExchangeRateManager rates={rates} />

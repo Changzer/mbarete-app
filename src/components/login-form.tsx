@@ -26,7 +26,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
         <Input id="password" name="password" type="password" required />
       </div>
       {errorMessage ? (
-        <p className="text-sm text-red-600">{t("error")}</p>
+        <p className="text-sm text-danger">{t("error")}</p>
       ) : null}
       <Button type="submit" disabled={isPending} className="mt-2">
         {t("submit")}

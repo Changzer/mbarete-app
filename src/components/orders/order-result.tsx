@@ -12,21 +12,21 @@ export async function OrderResult({ fin, quote }: { fin: OrderFinance; quote: st
   const orderT = await getTranslations("orders");
   const money = (n: number) => `${n.toFixed(2)} ${quote}`;
 
-  const label = "text-neutral-500 dark:text-neutral-400";
-  const value = "text-neutral-900 dark:text-neutral-100";
-  const warn = "font-medium text-amber-700 dark:text-amber-400";
+  const label = "text-sub";
+  const value = "text-ink";
+  const warn = "font-medium text-warn";
 
   return (
     <div
-      className="mt-4 rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
+      className="mt-4 rounded-lg border border-line bg-surface p-4"
       data-testid="section-net"
     >
-      <h2 className="mb-3 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+      <h2 className="mb-3 text-sm font-semibold text-ink">
         {t("netTitle")}
       </h2>
 
       {fin.missingRates.length > 0 ? (
-        <p className="mb-3 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+        <p className="mb-3 rounded-md border bg-warn-soft px-2 py-1.5 text-xs text-warn">
           {orderT("missingRate", { codes: fin.missingRates.join(", ") })}
         </p>
       ) : null}
@@ -72,7 +72,7 @@ export async function OrderResult({ fin, quote }: { fin: OrderFinance; quote: st
         </div>
       </div>
 
-      <div className="mt-4 flex flex-col gap-1 border-t border-neutral-200 pt-3 text-sm dark:border-neutral-800">
+      <div className="mt-4 flex flex-col gap-1 border-t border-line pt-3 text-sm">
         <div className="flex justify-between">
           <span className={label}>{t("expensesTotal")}</span>
           <span className={value} data-testid="fin-expenses">{money(fin.expensesTotal)}</span>
@@ -81,7 +81,7 @@ export async function OrderResult({ fin, quote }: { fin: OrderFinance; quote: st
           <div className="flex justify-between">
             <span className={label}>{t("fxGainLoss")}</span>
             <span
-              className={fin.fxGainLoss < 0 ? "text-red-600 dark:text-red-400" : "text-green-700 dark:text-green-400"}
+              className={fin.fxGainLoss < 0 ? "text-danger" : "text-ok"}
               data-testid="fin-fx"
             >
               {fin.fxGainLoss > 0 ? "+" : ""}
@@ -92,26 +92,26 @@ export async function OrderResult({ fin, quote }: { fin: OrderFinance; quote: st
         <div className="flex justify-between">
           <span className={label}>{t("netActual")}</span>
           <span
-            className={`font-semibold ${fin.netActual < 0 ? "text-red-600 dark:text-red-400" : value}`}
+            className={`font-semibold ${fin.netActual < 0 ? "text-danger" : value}`}
             data-testid="fin-net-actual"
           >
             {money(fin.netActual)}
           </span>
         </div>
         <div className="flex justify-between text-base">
-          <span className="font-medium text-neutral-900 dark:text-neutral-100">
+          <span className="font-medium text-ink">
             {t("netExpected")}
           </span>
-          <span className="font-bold text-neutral-900 dark:text-neutral-100" data-testid="fin-net-expected">
+          <span className="font-bold text-ink" data-testid="fin-net-expected">
             {money(fin.netExpected)}
             {fin.marginPct !== null ? (
-              <span className="ml-2 text-sm font-normal text-neutral-500 dark:text-neutral-400">
+              <span className="ml-2 text-sm font-normal text-sub">
                 ({fin.marginPct.toFixed(1)}%)
               </span>
             ) : null}
           </span>
         </div>
-        <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{t("netHelp")}</p>
+        <p className="mt-1 text-xs text-sub">{t("netHelp")}</p>
       </div>
     </div>
   );

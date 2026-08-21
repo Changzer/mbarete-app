@@ -32,8 +32,8 @@ export default async function FinancePage({
     `${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${reportCurrency}`;
 
   const box =
-    "rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900";
-  const heading = "mb-3 text-sm font-semibold text-neutral-900 dark:text-neutral-100";
+    "rounded-lg border border-line bg-surface p-4";
+  const heading = "mb-3 text-sm font-semibold text-ink";
   const th = "px-3 py-2 font-medium";
   const td = "px-3 py-2";
   const tdNum = "px-3 py-2 text-right tabular-nums";
@@ -52,19 +52,19 @@ export default async function FinancePage({
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
+        <h1 className="text-[23px] font-extrabold tracking-tight text-ink">
           {t("title")}
         </h1>
         <div className="flex items-center gap-1 text-sm" data-testid="currency-picker">
-          <span className="mr-1 text-neutral-500 dark:text-neutral-400">{t("reportCurrency")}</span>
+          <span className="mr-1 text-sub">{t("reportCurrency")}</span>
           {codes.map((code) => (
             <Link
               key={code}
               href={`/finance?currency=${code}`}
               className={`rounded-md px-2 py-1 ${
                 code === reportCurrency
-                  ? "bg-neutral-900 font-medium text-white dark:bg-neutral-100 dark:text-neutral-900"
-                  : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
+                  ? "bg-action font-semibold text-white"
+                  : "text-sub hover:bg-surface-2"
               }`}
             >
               {code}
@@ -73,10 +73,10 @@ export default async function FinancePage({
         </div>
       </div>
 
-      <p className="text-xs text-neutral-500 dark:text-neutral-400">{t("help")}</p>
+      <p className="text-xs text-sub">{t("help")}</p>
 
       {report.missingRates.length > 0 ? (
-        <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+        <p className="rounded-md border bg-warn-soft px-3 py-2 text-sm text-warn">
           {t("missingRates", { codes: report.missingRates.join(", ") })}
         </p>
       ) : null}
@@ -85,14 +85,14 @@ export default async function FinancePage({
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5" data-testid="tiles">
         {tiles.map((tile) => (
           <div key={tile.label} className={box}>
-            <div className="text-xs text-neutral-500 dark:text-neutral-400">{tile.label}</div>
+            <div className="text-xs text-sub">{tile.label}</div>
             <div
-              className={`mt-1 text-lg font-bold tabular-nums ${
+              className={`mt-1 font-mono text-[20px] font-semibold tabular-nums ${
                 tile.tone === "bad"
-                  ? "text-red-600 dark:text-red-400"
+                  ? "text-danger"
                   : tile.tone === "warn"
-                    ? "text-amber-700 dark:text-amber-400"
-                    : "text-neutral-900 dark:text-neutral-100"
+                    ? "text-warn"
+                    : "text-ink"
               }`}
             >
               {tile.value}
@@ -106,21 +106,21 @@ export default async function FinancePage({
         <div className={box} data-testid="receivables">
           <h2 className={heading}>{t("receivables")}</h2>
           {report.receivablesList.length === 0 ? (
-            <p className="text-xs text-neutral-500 dark:text-neutral-400">{t("allSettled")}</p>
+            <p className="text-xs text-sub">{t("allSettled")}</p>
           ) : (
-            <ul className="flex flex-col divide-y divide-neutral-100 text-sm dark:divide-neutral-800">
+            <ul className="flex flex-col divide-y divide-line text-sm">
               {report.receivablesList.map((r) => (
                 <li key={r.orderId} className="flex items-center justify-between gap-3 py-1.5">
                   <Link
                     href={`/orders/${r.orderId}`}
-                    className="font-medium text-neutral-900 hover:underline dark:text-neutral-100"
+                    className="font-medium text-ink hover:underline"
                   >
                     {r.orderNumber}
                   </Link>
-                  <span className="min-w-0 flex-1 truncate text-neutral-500 dark:text-neutral-400">
+                  <span className="min-w-0 flex-1 truncate text-sub">
                     {r.clientName}
                   </span>
-                  <span className="font-medium tabular-nums text-amber-700 dark:text-amber-400">
+                  <span className="font-medium tabular-nums text-warn">
                     {money(r.amount)}
                   </span>
                 </li>
@@ -131,21 +131,21 @@ export default async function FinancePage({
         <div className={box} data-testid="payables">
           <h2 className={heading}>{t("payables")}</h2>
           {report.payablesList.length === 0 ? (
-            <p className="text-xs text-neutral-500 dark:text-neutral-400">{t("allSettled")}</p>
+            <p className="text-xs text-sub">{t("allSettled")}</p>
           ) : (
-            <ul className="flex flex-col divide-y divide-neutral-100 text-sm dark:divide-neutral-800">
+            <ul className="flex flex-col divide-y divide-line text-sm">
               {report.payablesList.map((r) => (
                 <li key={r.orderId} className="flex items-center justify-between gap-3 py-1.5">
                   <Link
                     href={`/orders/${r.orderId}`}
-                    className="font-medium text-neutral-900 hover:underline dark:text-neutral-100"
+                    className="font-medium text-ink hover:underline"
                   >
                     {r.orderNumber}
                   </Link>
-                  <span className="min-w-0 flex-1 truncate text-neutral-500 dark:text-neutral-400">
+                  <span className="min-w-0 flex-1 truncate text-sub">
                     {r.clientName}
                   </span>
-                  <span className="font-medium tabular-nums text-amber-700 dark:text-amber-400">
+                  <span className="font-medium tabular-nums text-warn">
                     {money(r.amount)}
                   </span>
                 </li>
@@ -159,11 +159,11 @@ export default async function FinancePage({
       <div className={box} data-testid="monthly">
         <h2 className={heading}>{t("byMonth")}</h2>
         {report.months.length === 0 ? (
-          <p className="text-xs text-neutral-500 dark:text-neutral-400">{t("noData")}</p>
+          <p className="text-xs text-sub">{t("noData")}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="border-b border-neutral-200 text-left text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+              <thead className="border-b border-line text-left text-sub">
                 <tr>
                   <th className={th}>{t("month")}</th>
                   <th className={`${th} text-right`}>{t("ordersCount")}</th>
@@ -174,18 +174,18 @@ export default async function FinancePage({
                   <th className={`${th} text-right`}>{t("netCash")}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+              <tbody className="divide-y divide-line">
                 {report.months.map((m) => (
                   <tr key={m.month}>
-                    <td className={`${td} font-medium text-neutral-900 dark:text-neutral-100`}>{m.month}</td>
-                    <td className={`${tdNum} text-neutral-700 dark:text-neutral-300`}>{m.orders}</td>
-                    <td className={`${tdNum} text-neutral-700 dark:text-neutral-300`}>{money(m.expectedRevenue)}</td>
-                    <td className={`${tdNum} text-neutral-700 dark:text-neutral-300`}>{money(m.expectedNet)}</td>
-                    <td className={`${tdNum} text-neutral-700 dark:text-neutral-300`}>{money(m.cashIn)}</td>
-                    <td className={`${tdNum} text-neutral-700 dark:text-neutral-300`}>{money(m.cashOut)}</td>
+                    <td className={`${td} font-medium text-ink`}>{m.month}</td>
+                    <td className={`${tdNum} text-ink`}>{m.orders}</td>
+                    <td className={`${tdNum} text-ink`}>{money(m.expectedRevenue)}</td>
+                    <td className={`${tdNum} text-ink`}>{money(m.expectedNet)}</td>
+                    <td className={`${tdNum} text-ink`}>{money(m.cashIn)}</td>
+                    <td className={`${tdNum} text-ink`}>{money(m.cashOut)}</td>
                     <td
                       className={`${tdNum} font-medium ${
-                        m.netCash < 0 ? "text-red-600 dark:text-red-400" : "text-neutral-900 dark:text-neutral-100"
+                        m.netCash < 0 ? "text-danger" : "text-ink"
                       }`}
                     >
                       {money(m.netCash)}
@@ -202,32 +202,32 @@ export default async function FinancePage({
       <div className={box} data-testid="landing-breakdown">
         <h2 className={heading}>{t("byAccount")}</h2>
         {report.receivedByAccount.length === 0 ? (
-          <p className="text-xs text-neutral-500 dark:text-neutral-400">{t("noData")}</p>
+          <p className="text-xs text-sub">{t("noData")}</p>
         ) : (
           <ul className="flex flex-col gap-2 text-sm">
             {report.receivedByAccount.map((row) => (
               <li key={row.key} className="flex flex-col gap-1">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <span className="font-medium text-neutral-900 dark:text-neutral-100">
+                  <span className="font-medium text-ink">
                     {row.key === "RMB"
                       ? financeT("accountRmb")
                       : row.key === "USD"
                         ? financeT("accountUsd")
                         : row.key}
                   </span>
-                  <span className="tabular-nums text-neutral-900 dark:text-neutral-100">
+                  <span className="tabular-nums text-ink">
                     {Object.entries(row.native)
                       .map(([code, amount]) =>
                         `${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${code}`)
                       .join(" + ")}
-                    <span className="ml-2 text-xs text-neutral-500 dark:text-neutral-400">
+                    <span className="ml-2 text-xs text-sub">
                       ≈ {money(row.value)} · {row.pct.toFixed(0)}%
                     </span>
                   </span>
                 </div>
-                <div className="h-1.5 w-full rounded-full bg-neutral-100 dark:bg-neutral-800">
+                <div className="h-1.5 w-full rounded-full bg-surface-2">
                   <div
-                    className="h-1.5 rounded-full bg-brand-600 dark:bg-brand-500"
+                    className="h-1.5 rounded-full bg-action"
                     style={{ width: `${Math.max(2, row.pct)}%` }}
                   />
                 </div>
@@ -235,7 +235,7 @@ export default async function FinancePage({
             ))}
           </ul>
         )}
-        <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400">{t("byAccountHelp")}</p>
+        <p className="mt-3 text-xs text-sub">{t("byAccountHelp")}</p>
       </div>
 
       {/* --- expenses and clients --- */}
@@ -243,26 +243,26 @@ export default async function FinancePage({
         <div className={box} data-testid="expense-breakdown">
           <h2 className={heading}>{t("expensesByCategory")}</h2>
           {report.expensesByCategory.length === 0 ? (
-            <p className="text-xs text-neutral-500 dark:text-neutral-400">{t("noData")}</p>
+            <p className="text-xs text-sub">{t("noData")}</p>
           ) : (
             <ul className="flex flex-col gap-2 text-sm">
               {report.expensesByCategory.map((e) => (
                 <li key={e.category} className="flex flex-col gap-1">
                   <div className="flex justify-between">
-                    <span className="text-neutral-700 dark:text-neutral-300">
+                    <span className="text-ink">
                       {financeT(`category_${e.category}` as "category_other")}
                     </span>
-                    <span className="tabular-nums text-neutral-900 dark:text-neutral-100">
+                    <span className="tabular-nums text-ink">
                       {money(e.amount)}
-                      <span className="ml-1 text-xs text-neutral-500 dark:text-neutral-400">
+                      <span className="ml-1 text-xs text-sub">
                         {e.pct.toFixed(0)}%
                       </span>
                     </span>
                   </div>
                   {/* proportion bar, no library needed */}
-                  <div className="h-1.5 w-full rounded-full bg-neutral-100 dark:bg-neutral-800">
+                  <div className="h-1.5 w-full rounded-full bg-surface-2">
                     <div
-                      className="h-1.5 rounded-full bg-neutral-500 dark:bg-neutral-400"
+                      className="h-1.5 rounded-full bg-sub"
                       style={{ width: `${Math.max(2, e.pct)}%` }}
                     />
                   </div>
@@ -275,11 +275,11 @@ export default async function FinancePage({
         <div className={box} data-testid="clients">
           <h2 className={heading}>{t("byClient")}</h2>
           {report.clients.length === 0 ? (
-            <p className="text-xs text-neutral-500 dark:text-neutral-400">{t("noData")}</p>
+            <p className="text-xs text-sub">{t("noData")}</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="border-b border-neutral-200 text-left text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+                <thead className="border-b border-line text-left text-sub">
                   <tr>
                     <th className={th}>{t("client")}</th>
                     <th className={`${th} text-right`}>{t("ordersCount")}</th>
@@ -289,21 +289,21 @@ export default async function FinancePage({
                     <th className={`${th} text-right`}>{t("outstanding")}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                <tbody className="divide-y divide-line">
                   {report.clients.map((c) => (
                     <tr key={c.clientName}>
-                      <td className={`${td} font-medium text-neutral-900 dark:text-neutral-100`}>{c.clientName}</td>
-                      <td className={`${tdNum} text-neutral-700 dark:text-neutral-300`}>{c.orders}</td>
-                      <td className={`${tdNum} text-neutral-700 dark:text-neutral-300`}>{money(c.expectedRevenue)}</td>
-                      <td className={`${tdNum} text-neutral-700 dark:text-neutral-300`}>{money(c.expectedNet)}</td>
-                      <td className={`${tdNum} text-neutral-700 dark:text-neutral-300`}>
+                      <td className={`${td} font-medium text-ink`}>{c.clientName}</td>
+                      <td className={`${tdNum} text-ink`}>{c.orders}</td>
+                      <td className={`${tdNum} text-ink`}>{money(c.expectedRevenue)}</td>
+                      <td className={`${tdNum} text-ink`}>{money(c.expectedNet)}</td>
+                      <td className={`${tdNum} text-ink`}>
                         {c.marginPct !== null ? `${c.marginPct.toFixed(1)}%` : "—"}
                       </td>
                       <td
                         className={`${tdNum} ${
                           c.outstanding > 0.005
-                            ? "font-medium text-amber-700 dark:text-amber-400"
-                            : "text-neutral-700 dark:text-neutral-300"
+                            ? "font-medium text-warn"
+                            : "text-ink"
                         }`}
                       >
                         {money(c.outstanding)}

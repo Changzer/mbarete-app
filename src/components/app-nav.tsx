@@ -4,6 +4,7 @@ import { signOutAction } from "@/lib/actions/auth";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { Brand } from "@/components/brand";
 import { NavLinks, MobileNav, type NavItem } from "@/components/nav-links";
+import { HeaderSyncChip } from "@/components/offline/header-sync-chip";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 
@@ -12,14 +13,19 @@ export async function AppNav({ userName }: { userName: string }) {
   const locale = await getLocale();
   const boundSignOut = signOutAction.bind(null, locale);
 
-  const items: NavItem[] = [
+  // The daily loop, in the order a market run runs: find a product, put it on
+  // an order, look up whose booth it was, see whether it has been paid.
+  const primary: NavItem[] = [
     { href: "/catalog", label: t("catalog"), icon: "catalog" },
     { href: "/orders", label: t("orders"), icon: "orders" },
     { href: "/contacts", label: t("contacts"), icon: "contacts" },
     { href: "/finance", label: t("finance"), icon: "finance" },
+  ];
+  const behindMore: NavItem[] = [
     { href: "/users", label: t("users"), icon: "users" },
     { href: "/settings", label: t("settings"), icon: "settings" },
   ];
+  const tabs: NavItem[] = [...primary, { href: "/more", label: t("more"), icon: "more" }];
 
   return (
     <>
@@ -27,31 +33,37 @@ export async function AppNav({ userName }: { userName: string }) {
         Sticky with a blur so content slides beneath it, and a brand-red top
         edge — the one place the logo colour runs the full width of the app.
       */}
-      <header className="sticky top-0 z-40 border-b border-neutral-200 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/75 dark:border-neutral-800 dark:bg-neutral-950/90 dark:supports-[backdrop-filter]:bg-neutral-950/75">
-        <div className="h-0.5 w-full bg-brand-600" />
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-2.5">
+      <header className="sticky top-0 z-40 border-b border-line bg-surface/90 backdrop-blur supports-[backdrop-filter]:bg-surface/75 print:hidden">
+        <div className="h-0.5 w-full bg-action" />
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2">
           <div className="flex min-w-0 items-center gap-5">
             <Link href="/catalog" className="shrink-0" aria-label="Mbarete">
               <Brand />
             </Link>
-            <NavLinks items={items} />
+            <NavLinks items={[...primary, ...behindMore]} />
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <LanguageSwitcher />
-            <span className="hidden max-w-32 truncate text-sm text-neutral-500 dark:text-neutral-400 sm:inline">
+          <div className="flex shrink-0 items-center gap-1.5">
+            {/* The sync state belongs in the chrome, not in a page: it is true
+                of the whole app and it is what the agent checks before
+                walking out of signal. */}
+            <HeaderSyncChip />
+            <div className="hidden lg:block">
+              <LanguageSwitcher />
+            </div>
+            <span className="hidden max-w-32 truncate text-[12px] text-sub lg:inline">
               {userName}
             </span>
-            <form action={boundSignOut}>
+            <form action={boundSignOut} className="hidden lg:block">
               <Button variant="ghost" size="sm" type="submit" aria-label={t("signOut")}>
-                <LogOut className="h-4 w-4" />
-                <span className="hidden lg:inline">{t("signOut")}</span>
+                <LogOut className="h-4 w-4" strokeWidth={1.5} />
+                <span className="hidden xl:inline">{t("signOut")}</span>
               </Button>
             </form>
           </div>
         </div>
       </header>
 
-      <MobileNav items={items} />
+      <MobileNav items={tabs} moreItems={behindMore} />
     </>
   );
 }

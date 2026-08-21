@@ -71,13 +71,13 @@ export function OfflineCatalog({
         </DialogHeader>
 
         {snapshot === null ? (
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">
+          <p className="text-sm text-sub">
             {t("catalogCopyEmpty")}
           </p>
         ) : (
           <>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -86,7 +86,7 @@ export function OfflineCatalog({
               />
             </div>
             {snapshot ? (
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              <p className="text-xs text-sub">
                 {t("catalogCopyAsOf", { time: formatLocalMinute(snapshot.savedAt) })}
               </p>
             ) : null}
@@ -94,17 +94,17 @@ export function OfflineCatalog({
               {rows.map((p) => (
                 <div
                   key={p.id}
-                  className="border-b border-neutral-100 py-2.5 text-sm last:border-0 dark:border-neutral-800"
+                  className="border-b border-line py-2.5 text-sm last:border-0"
                 >
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className="min-w-0 truncate font-medium text-neutral-900 dark:text-neutral-100">
+                    <span className="min-w-0 truncate font-medium text-ink">
                       {p.name}
                     </span>
-                    <span className="shrink-0 tabular-nums text-neutral-900 dark:text-neutral-100">
+                    <span className="shrink-0 tabular-nums text-ink">
                       {p.price} {p.currency}
                     </span>
                   </div>
-                  <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-neutral-500 dark:text-neutral-400">
+                  <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-sub">
                     <span>{p.sku}</span>
                     <span>{p.categoryName}</span>
                     <span>{t("catalogCopyMoqBox", { moq: p.moq, qty: p.qtyPerBox })}</span>
@@ -114,7 +114,7 @@ export function OfflineCatalog({
                 </div>
               ))}
               {rows.length === 0 && snapshot ? (
-                <p className="py-4 text-sm text-neutral-500 dark:text-neutral-400">
+                <p className="py-4 text-sm text-sub">
                   {t("catalogCopyNoMatch")}
                 </p>
               ) : null}

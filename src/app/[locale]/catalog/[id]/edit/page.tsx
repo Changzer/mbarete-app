@@ -35,7 +35,7 @@ export default async function EditProductPage({
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
-      <h1 className="mb-6 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
+      <h1 className="mb-6 text-[23px] font-extrabold tracking-tight text-ink">
         {t("editProduct")}
       </h1>
       <ProductForm
@@ -63,7 +63,7 @@ export default async function EditProductPage({
         transcribeCard={aiEnabled ? transcribeCard : undefined}
       />
 
-      <div className="mt-10 border-t border-neutral-200 pt-8 dark:border-neutral-800">
+      <div className="mt-10 border-t border-line pt-8">
         <OfferManager
           productId={productId}
           offers={offers.map((o) => ({

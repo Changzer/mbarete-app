@@ -15,9 +15,22 @@ import { comparablePrice } from "@/lib/offers";
 import { localizeField } from "@/lib/localize";
 import type { Locale } from "@/i18n/routing";
 import { CatalogControls } from "@/components/catalog/catalog-controls";
-import { ProductCard, type CatalogProduct } from "@/components/catalog/product-card";
+import { type CatalogProduct } from "@/components/catalog/product-card";
+import { CatalogList } from "@/components/catalog/catalog-list";
+import { CaptureFab } from "@/components/catalog/capture-fab";
 import { CatalogSnapshot } from "@/components/offline/catalog-snapshot";
 import { Button } from "@/components/ui/button";
+
+/**
+ * The name in the language the page is *not* in, so a row can carry both.
+ * Empty when a product was registered in one language only, or when the two
+ * names are the same string — repeating it would just be noise in the row.
+ */
+function altName(locale: Locale, nameEn: string, nameZh: string) {
+  const other = locale === "zh" ? nameEn : nameZh;
+  const primary = localizeField(locale, nameEn, nameZh);
+  return other && other !== primary ? other : "";
+}
 
 /** A search param that must be a real row id, or nothing. */
 function positiveId(value: string | undefined) {
@@ -71,6 +84,9 @@ export default async function CatalogPage({
       id: p.id,
       sku: p.sku,
       name: localizeField(locale as Locale, p.nameEn, p.nameZh),
+      // The other language's name, so a row can carry both and a search can
+      // match either — the supplier writes the Chinese one on the box.
+      altName: altName(locale as Locale, p.nameEn, p.nameZh),
       description: localizeField(locale as Locale, p.descriptionEn, p.descriptionZh),
       categoryName: cat
         ? localizeField(locale as Locale, cat.nameEn, cat.nameZh)
@@ -96,7 +112,7 @@ export default async function CatalogPage({
       supplierName: p.supplierId
         ? (() => {
             const s = supplierMap.get(p.supplierId);
-            return s ? s.companyName || s.companyNameZh : null;
+            return s ? localizeField(locale as Locale, s.companyName, s.companyNameZh) : null;
           })()
         : null,
       supplierBooth: p.supplierId
@@ -120,7 +136,7 @@ export default async function CatalogPage({
   });
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6">
+    <div className="mx-auto max-w-6xl px-4 py-4 md:py-6">
       {/* Every full catalog view refreshes the phone's offline copy. */}
       <CatalogSnapshot
         complete={!categoryId && !supplierId}
@@ -138,8 +154,8 @@ export default async function CatalogPage({
           supplierBooth: p.supplierBooth,
         }))}
       />
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">{t("title")}</h1>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-[23px] font-extrabold tracking-tight text-ink">{t("title")}</h1>
         <div className="flex items-center gap-2">
           {/* Only exists while there is something to review, so the button
               doubles as the signal that captures have arrived. */}
@@ -151,29 +167,29 @@ export default async function CatalogPage({
           <Button asChild variant="outline" size="sm">
             <Link href="/catalog/categories">{t("manageCategories")}</Link>
           </Button>
-          <Button asChild size="sm">
+          {/* On a phone the FAB is how a product is registered; this button is
+              for the desktop, where nothing floats. */}
+          <Button asChild size="sm" className="hidden md:inline-flex">
             <Link href="/catalog/new">{t("addProduct")}</Link>
           </Button>
         </div>
       </div>
 
-      <div className="mb-6">
-        <CatalogControls
-          categories={categories}
-          suppliers={filterSuppliers}
-          locale={locale}
-        />
-      </div>
+      <CatalogList
+        products={catalogProducts}
+        filters={
+          // Keyed because it crosses the server/client boundary as a prop:
+          // React reconciles it as a list child on the way through.
+          <CatalogControls
+            key="catalog-filters"
+            categories={categories}
+            suppliers={filterSuppliers}
+            locale={locale}
+          />
+        }
+      />
 
-      {catalogProducts.length === 0 ? (
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">{t("noProducts")}</p>
-      ) : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-          {catalogProducts.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))}
-        </div>
-      )}
+      <CaptureFab />
     </div>
   );
 }
