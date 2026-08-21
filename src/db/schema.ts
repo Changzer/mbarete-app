@@ -525,6 +525,29 @@ export const orderEvents = sqliteTable(
 );
 
 /**
+ * The products/contacts counterpart of order_events: who created, edited or
+ * deleted what, and which fields an edit touched. entityId is deliberately
+ * not a foreign key — the log's whole job is to keep saying "deleted
+ * supplier so-and-so" after the row it points at is gone.
+ */
+export const entityEvents = sqliteTable(
+  "entity_events",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    entity: text("entity", { enum: ["product", "contact"] }).notNull(),
+    entityId: integer("entity_id").notNull(),
+    userId: integer("user_id").references(() => users.id),
+    kind: text("kind", { enum: ["created", "edited", "deleted"] }).notNull(),
+    /** JSON payload; see src/lib/entity-log.ts. */
+    payload: text("payload").notNull().default("{}"),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
+  },
+  (table) => [index("entity_events_entity_idx").on(table.entity, table.entityId)],
+);
+
+/**
  * A product photographed at a booth before it was a catalog entry.
  *
  * The agent works where the network does not: a hall at the Canton Fair, a

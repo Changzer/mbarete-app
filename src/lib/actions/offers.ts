@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { productSuppliers, contacts } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { requireUser } from "@/lib/authz";
+import { logEntityEvent } from "@/lib/entity-log";
 import { syncProductFromOffers } from "@/lib/queries/offers";
 
 async function requireSession() {
@@ -128,8 +129,14 @@ export async function setOfferActive(offerId: number, active: boolean) {
 
 /** Same rule for suppliers themselves: deactivate, keep the history. */
 export async function setSupplierActive(contactId: number, active: boolean) {
-  await requireSession();
+  const userId = await requireSession();
+  const row = db.select().from(contacts).where(eq(contacts.id, contactId)).get();
+  if (!row || row.active === active) return;
   db.update(contacts).set({ active }).where(eq(contacts.id, contactId)).run();
+  logEntityEvent("contact", contactId, userId, "edited", {
+    name: row.companyName || row.companyNameZh,
+    changes: [{ field: active ? "activated" : "deactivated" }],
+  });
   revalidatePath("/[locale]/contacts", "page");
   refresh();
 }

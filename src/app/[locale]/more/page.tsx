@@ -1,5 +1,5 @@
 import { getTranslations, getLocale } from "next-intl/server";
-import { ChevronRight, LogOut, Settings, UserCog } from "lucide-react";
+import { ChevronRight, History, LogOut, Settings, UserCog } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { auth } from "@/lib/auth";
 import { sessionUser } from "@/lib/authz";
@@ -29,6 +29,7 @@ export default async function MorePage() {
       ? [
           { href: "/users" as const, label: nav("users"), Icon: UserCog },
           { href: "/settings" as const, label: nav("settings"), Icon: Settings },
+          { href: "/activity" as const, label: nav("activity"), Icon: History },
         ]
       : [];
 

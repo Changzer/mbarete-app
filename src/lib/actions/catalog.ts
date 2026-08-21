@@ -39,10 +39,26 @@ async function saveUploadedImages(formData: FormData) {
   return paths;
 }
 import { requireUser, requireAdmin } from "@/lib/authz";
+import { logEntityEvent, diffProductEdit } from "@/lib/entity-log";
 
 /** Returns the signed-in user's id, so edits can be attributed to them. */
 async function requireSession() {
   return (await requireUser()).id;
+}
+
+function productLogName(row: { sku: string; nameEn: string }) {
+  return `${row.sku} ${row.nameEn}`.trim();
+}
+
+function categoryNameOf(id: number) {
+  const row = db.select().from(categories).where(eq(categories.id, id)).get();
+  return row ? row.nameEn || row.nameZh : "—";
+}
+
+function supplierNameOf(id: number | null) {
+  if (!id) return "—";
+  const row = db.select().from(contacts).where(eq(contacts.id, id)).get();
+  return row ? row.companyName || row.companyNameZh : "—";
 }
 
 function formToProductInput(formData: FormData) {
@@ -226,6 +242,10 @@ export async function createProduct(
 
   const newProductId = Number(inserted.lastInsertRowid);
 
+  logEntityEvent("product", newProductId, userId, "created", {
+    name: productLogName({ sku, nameEn: data.nameEn }),
+  });
+
   // The price typed on the registration form becomes the product's first
   // supplier quote, credited to whichever supplier the form named. Left
   // unrecorded when it named none — honest about knowing a price but not
@@ -388,6 +408,19 @@ export async function updateProduct(
     .where(eq(products.id, id))
     .run();
 
+  const changes = diffProductEdit(
+    existing,
+    { ...data, sku, ...carton, supplierId },
+    categoryNameOf,
+    supplierNameOf,
+  );
+  if (changes.length > 0) {
+    logEntityEvent("product", id, userId, "edited", {
+      name: productLogName({ sku, nameEn: data.nameEn }),
+      changes,
+    });
+  }
+
   // The product form carries one supplier and one price, so it edits that
   // supplier's quote — keeping the simple one-supplier case behaving exactly
   // as it always did. Comparing several factories is the supplier section's
@@ -436,7 +469,10 @@ export async function updateProduct(
 }
 
 export async function deleteProduct(id: number): Promise<string | undefined> {
-  await requireAdmin();
+  const admin = await requireAdmin();
+
+  const existing = db.select().from(products).where(eq(products.id, id)).get();
+  if (!existing) return undefined;
 
   // A product on an order is history, not clutter: deleting it would strip
   // the name and SKU off every order that bought it (and the foreign key
@@ -459,6 +495,8 @@ export async function deleteProduct(id: number): Promise<string | undefined> {
   for (const image of images) {
     await deleteUpload(image.path);
   }
+
+  logEntityEvent("product", id, admin.id, "deleted", { name: productLogName(existing) });
 
   revalidatePath("/catalog");
   return undefined;

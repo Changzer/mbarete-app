@@ -34,6 +34,7 @@ export async function AppNav({
     ? [
         { href: "/users", label: t("users"), icon: "users" },
         { href: "/settings", label: t("settings"), icon: "settings" },
+        { href: "/activity", label: t("activity"), icon: "activity" },
       ]
     : [];
   const tabs: NavItem[] = [...primary, { href: "/more", label: t("more"), icon: "more" }];

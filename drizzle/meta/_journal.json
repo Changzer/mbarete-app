@@ -127,6 +127,13 @@
       "when": 1787323573145,
       "tag": "0017_add-user-roles",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1787325503660,
+      "tag": "0018_entity-events",
+      "breakpoints": true
     }
   ]
 }
