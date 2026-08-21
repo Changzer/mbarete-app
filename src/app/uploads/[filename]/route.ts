@@ -33,7 +33,8 @@ export async function GET(
 
   // Payment slips are photos as often as PDFs, so they are gated by their
   // name prefix rather than by extension like other documents.
-  if (DOCUMENT_EXTENSIONS.has(ext) || isReceiptUploadName(filename)) {
+  const gated = DOCUMENT_EXTENSIONS.has(ext) || isReceiptUploadName(filename);
+  if (gated) {
     const session = await auth();
     if (!session?.user) {
       return new NextResponse("unauthorized", { status: 401 });
@@ -46,7 +47,12 @@ export async function GET(
     return new NextResponse(new Uint8Array(file), {
       headers: {
         "Content-Type": CONTENT_TYPES[ext] ?? "application/octet-stream",
-        "Cache-Control": "public, max-age=31536000, immutable",
+        // Gated files were served with a session check — "private" keeps a
+        // shared proxy or CDN from caching one signed-in user's invoice and
+        // handing it to the next visitor.
+        "Cache-Control": gated
+          ? "private, max-age=3600"
+          : "public, max-age=31536000, immutable",
       },
     });
   } catch {

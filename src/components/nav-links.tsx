@@ -8,13 +8,14 @@ import {
   LineChart,
   UserCog,
   Settings,
+  History,
   MoreHorizontal,
 } from "lucide-react";
 
 export type NavItem = {
   href: string;
   label: string;
-  icon: "catalog" | "orders" | "contacts" | "finance" | "users" | "settings" | "more";
+  icon: "catalog" | "orders" | "contacts" | "finance" | "users" | "settings" | "activity" | "more";
 };
 
 const ICONS = {
@@ -24,6 +25,7 @@ const ICONS = {
   finance: LineChart,
   users: UserCog,
   settings: Settings,
+  activity: History,
   more: MoreHorizontal,
 } as const;
 

@@ -6,6 +6,7 @@ import {
   createUser,
   updateUser,
   setUserActive,
+  setUserRole,
   type UserActionResult,
 } from "@/lib/actions/users";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ export type TeamUser = {
   id: number;
   name: string;
   email: string;
+  role: "admin" | "collaborator";
   active: boolean;
   createdAt: string;
 };
@@ -39,6 +41,10 @@ function useErrorText() {
         return t("errorDuplicateEmail");
       case "self-deactivate":
         return t("errorSelfDeactivate");
+      case "self-demote":
+        return t("errorSelfDemote");
+      case "last-admin":
+        return t("errorLastAdmin");
       case "last-user":
         return t("errorLastUser");
       case "not-found":
@@ -83,6 +89,18 @@ function AddUserForm() {
               className="w-48"
               required
             />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="new-role">{t("role")}</Label>
+            <select
+              id="new-role"
+              name="role"
+              defaultValue="collaborator"
+              className="flex h-9 rounded-md border border-line bg-surface px-2 text-sm"
+            >
+              <option value="collaborator">{t("roleCollaborator")}</option>
+              <option value="admin">{t("roleAdmin")}</option>
+            </select>
           </div>
           <Button type="submit" disabled={isPending}>
             {t("addUser")}
@@ -185,6 +203,12 @@ export function UserManager({
     setActionError(errorText(res));
   }
 
+  async function changeRole(user: TeamUser, role: "admin" | "collaborator") {
+    setActionError(null);
+    const res = await setUserRole(user.id, role);
+    setActionError(errorText(res));
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <p className="text-sm text-sub">{t("help")}</p>
@@ -201,6 +225,7 @@ export function UserManager({
             <tr>
               <th className="px-4 py-2 font-medium">{t("name")}</th>
               <th className="px-4 py-2 font-medium">{t("email")}</th>
+              <th className="px-4 py-2 font-medium">{t("role")}</th>
               <th className="px-4 py-2 font-medium">{t("status")}</th>
               <th className="px-4 py-2 font-medium">{common("actions")}</th>
             </tr>
@@ -222,6 +247,25 @@ export function UserManager({
                 </td>
                 <td className="px-4 py-2 text-sub">
                   {user.email}
+                </td>
+                <td className="px-4 py-2">
+                  {user.id === currentUserId ? (
+                    // Demoting yourself would lock you out of this page —
+                    // the server refuses it, so don't offer it.
+                    <Badge variant="secondary">{t("roleAdmin")}</Badge>
+                  ) : (
+                    <select
+                      value={user.role}
+                      data-testid={`user-role-${user.id}`}
+                      onChange={(e) =>
+                        changeRole(user, e.target.value as "admin" | "collaborator")
+                      }
+                      className="flex h-8 rounded-md border border-line bg-surface px-2 text-sm"
+                    >
+                      <option value="collaborator">{t("roleCollaborator")}</option>
+                      <option value="admin">{t("roleAdmin")}</option>
+                    </select>
+                  )}
                 </td>
                 <td className="px-4 py-2">
                   <Badge variant={user.active ? "success" : "secondary"}>

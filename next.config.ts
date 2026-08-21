@@ -15,6 +15,25 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "40mb",
     },
   },
+  // Baseline hardening for the day this leaves the NAS for a public server.
+  // No Content-Security-Policy yet: Next's inline hydration scripts need a
+  // per-request nonce, which is a project of its own.
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          // The app has no reason to ever be framed — kills clickjacking.
+          { key: "X-Frame-Options", value: "DENY" },
+          // Browsers must trust our Content-Type, not sniff their own.
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          // Internal URLs (order ids, filenames) stay out of third-party logs.
+          { key: "Referrer-Policy", value: "same-origin" },
+          { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
+        ],
+      },
+    ];
+  },
 };
 
 export default withNextIntl(nextConfig);

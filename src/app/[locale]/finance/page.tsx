@@ -1,5 +1,6 @@
-import { getTranslations } from "next-intl/server";
-import { Link } from "@/i18n/navigation";
+import { getTranslations, getLocale } from "next-intl/server";
+import { Link, redirect } from "@/i18n/navigation";
+import { sessionUser } from "@/lib/authz";
 import { getFinanceData } from "@/lib/queries/finance";
 import { computeFinanceReport } from "@/lib/finance-report";
 
@@ -14,6 +15,12 @@ export default async function FinancePage({
 }: {
   searchParams: Promise<{ currency?: string }>;
 }) {
+  // The finance report is the business's bottom line — admin eyes only.
+  const user = await sessionUser();
+  if (user?.role !== "admin") {
+    redirect({ href: "/catalog", locale: await getLocale() });
+  }
+
   const { currency } = await searchParams;
   const t = await getTranslations("financeReport");
   const financeT = await getTranslations("finance");

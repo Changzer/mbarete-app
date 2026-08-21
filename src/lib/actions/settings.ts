@@ -5,11 +5,12 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { exchangeRates, companyProfile, bankAccounts, orders } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { requireAdmin } from "@/lib/authz";
 
+// Company profile, banks and exchange rates feed the proforma and every
+// price calculation — admin ground, in full.
 async function requireSession() {
-  const session = await auth();
-  if (!session?.user) throw new Error("unauthorized");
+  await requireAdmin();
 }
 
 const rateSchema = z.object({

@@ -6,23 +6,26 @@ import bcrypt from "bcryptjs";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq, ne, and } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { requireAdmin } from "@/lib/authz";
 
 /**
- * Every signed-in user can manage the team, because the tool has one role.
- * Adding a second role later means gating these actions, not rewriting them.
+ * Team management is admin ground: an admin adds accounts, resets passwords
+ * and assigns roles; a collaborator never sees this page and every action
+ * here rejects them anyway.
  */
 async function requireSession() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("unauthorized");
-  return Number(session.user.id);
+  return (await requireAdmin()).id;
 }
+
+const roleSchema = z.enum(["admin", "collaborator"]);
 
 export type UserActionError =
   | "invalid"
   | "duplicate-email"
   | "not-found"
   | "self-deactivate"
+  | "self-demote"
+  | "last-admin"
   | "last-user";
 
 export type UserActionResult = { error?: UserActionError };
@@ -31,6 +34,7 @@ const newUserSchema = z.object({
   name: z.string().trim().min(1),
   email: z.string().trim().toLowerCase().email(),
   password: z.string().min(8),
+  role: roleSchema,
 });
 
 const editUserSchema = z.object({
@@ -50,16 +54,17 @@ export async function createUser(
     name: formData.get("name"),
     email: formData.get("email"),
     password: formData.get("password"),
+    role: formData.get("role"),
   });
   if (!parsed.success) return { error: "invalid" };
-  const { name, email, password } = parsed.data;
+  const { name, email, password, role } = parsed.data;
 
   if (db.select().from(users).where(eq(users.email, email)).get()) {
     return { error: "duplicate-email" };
   }
 
   db.insert(users)
-    .values({ name, email, passwordHash: await bcrypt.hash(password, 10) })
+    .values({ name, email, role, passwordHash: await bcrypt.hash(password, 10) })
     .run();
 
   revalidatePath("/users");
@@ -128,15 +133,53 @@ export async function setUserActive(
   if (!active) {
     // Locking yourself out, or locking out the last way in, is never intended.
     if (id === currentUserId) return { error: "self-deactivate" };
-    const activeCount = db
-      .select()
-      .from(users)
-      .where(eq(users.active, true))
-      .all().length;
-    if (activeCount <= 1) return { error: "last-user" };
+    const activeUsers = db.select().from(users).where(eq(users.active, true)).all();
+    if (activeUsers.length <= 1) return { error: "last-user" };
+    const target = activeUsers.find((u) => u.id === id);
+    // Deactivating the only active admin would leave nobody able to manage
+    // roles, settings or this page — the same lockout as deleting yourself.
+    if (
+      target?.role === "admin" &&
+      !activeUsers.some((u) => u.id !== id && u.role === "admin")
+    ) {
+      return { error: "last-admin" };
+    }
   }
 
   db.update(users).set({ active }).where(eq(users.id, id)).run();
+
+  revalidatePath("/users");
+  return {};
+}
+
+/**
+ * Assign a role from the team list. Guarded the same way deactivation is:
+ * demoting yourself or the only active admin would leave the team with
+ * nobody who can get back into this page to undo it.
+ */
+export async function setUserRole(
+  id: number,
+  role: "admin" | "collaborator",
+): Promise<UserActionResult> {
+  const currentUserId = await requireSession();
+
+  if (!roleSchema.safeParse(role).success) return { error: "invalid" };
+
+  const target = db.select().from(users).where(eq(users.id, id)).get();
+  if (!target) return { error: "not-found" };
+  if (target.role === role) return {};
+
+  if (role === "collaborator") {
+    if (id === currentUserId) return { error: "self-demote" };
+    const otherAdmin = db
+      .select()
+      .from(users)
+      .where(and(eq(users.role, "admin"), eq(users.active, true), ne(users.id, id)))
+      .get();
+    if (!otherAdmin) return { error: "last-admin" };
+  }
+
+  db.update(users).set({ role }).where(eq(users.id, id)).run();
 
   revalidatePath("/users");
   return {};

@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { useTranslations } from "next-intl";
+import { useIsAdmin } from "@/components/role-provider";
 import { createCategory, deleteCategory } from "@/lib/actions/catalog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 type Category = { id: number; nameEn: string; nameZh: string };
 
 export function CategoryManager({ categories }: { categories: Category[] }) {
+  const isAdmin = useIsAdmin();
   const t = useTranslations("catalog");
   const common = useTranslations("common");
   const [errorMessage, formAction, isPending] = useActionState(
@@ -47,17 +49,19 @@ export function CategoryManager({ categories }: { categories: Category[] }) {
             <span className="text-sm text-ink">
               {c.nameEn} / {c.nameZh}
             </span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={async () => {
-                const error = await deleteCategory(c.id);
-                if (error) alert(t("deleteCategoryInUse"));
-              }}
-            >
-              {common("delete")}
-            </Button>
+            {isAdmin ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={async () => {
+                  const error = await deleteCategory(c.id);
+                  if (error) alert(t("deleteCategoryInUse"));
+                }}
+              >
+                {common("delete")}
+              </Button>
+            ) : null}
           </li>
         ))}
       </ul>

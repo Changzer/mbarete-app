@@ -6,11 +6,11 @@ import { contacts, contactImages, orders, products } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { contactSchema } from "@/lib/validators";
 import { saveUploadedImage, deleteUpload } from "@/lib/uploads";
-import { auth } from "@/lib/auth";
+import { requireUser, requireAdmin } from "@/lib/authz";
+import { logEntityEvent, diffContactEdit } from "@/lib/entity-log";
 
 async function requireSession() {
-  const session = await auth();
-  if (!session?.user) throw new Error("unauthorized");
+  return (await requireUser()).id;
 }
 
 function formToContactInput(formData: FormData) {
@@ -48,6 +48,10 @@ async function saveQrImage(formData: FormData) {
   return saveUploadedImage(file);
 }
 
+function contactLogName(row: { companyName: string; companyNameZh: string }) {
+  return row.companyName || row.companyNameZh;
+}
+
 /** `id` is returned so a caller can immediately select what it just created. */
 export type ContactActionResult = { error?: string; id?: number };
 
@@ -55,7 +59,7 @@ export async function createContact(
   _prevState: ContactActionResult | undefined,
   formData: FormData,
 ): Promise<ContactActionResult> {
-  await requireSession();
+  const userId = await requireSession();
 
   let data;
   try {
@@ -87,6 +91,8 @@ export async function createContact(
     db.insert(contactImages).values({ contactId, path: qrPath, kind: "qr" }).run();
   }
 
+  logEntityEvent("contact", contactId, userId, "created", { name: contactLogName(data) });
+
   revalidatePath("/contacts");
   revalidatePath("/orders");
   return { id: contactId };
@@ -97,7 +103,7 @@ export async function updateContact(
   _prevState: ContactActionResult | undefined,
   formData: FormData,
 ): Promise<ContactActionResult> {
-  await requireSession();
+  const userId = await requireSession();
 
   let data;
   try {
@@ -105,6 +111,9 @@ export async function updateContact(
   } catch {
     return { error: "invalid" };
   }
+
+  const existing = db.select().from(contacts).where(eq(contacts.id, id)).get();
+  if (!existing) return { error: "invalid" };
 
   // Card photos the user ticked for removal in the form.
   const removeIds = formData
@@ -162,13 +171,25 @@ export async function updateContact(
   });
 
   db.update(contacts).set(data).where(eq(contacts.id, id)).run();
+
+  const changes = diffContactEdit(existing, data);
+  if (changes.length > 0) {
+    logEntityEvent("contact", id, userId, "edited", {
+      name: contactLogName(data),
+      changes,
+    });
+  }
+
   revalidatePath("/contacts");
   revalidatePath("/orders");
   return { id };
 }
 
 export async function deleteContact(id: number): Promise<string | undefined> {
-  await requireSession();
+  const admin = await requireAdmin();
+
+  const existing = db.select().from(contacts).where(eq(contacts.id, id)).get();
+  if (!existing) return undefined;
 
   // A client with orders is part of the books; deleting the row would tear
   // the name off every one of them (and the foreign key blocks it anyway).
@@ -199,6 +220,8 @@ export async function deleteContact(id: number): Promise<string | undefined> {
   for (const image of images) {
     await deleteUpload(image.path);
   }
+
+  logEntityEvent("contact", id, admin.id, "deleted", { name: contactLogName(existing) });
 
   revalidatePath("/contacts");
   return undefined;

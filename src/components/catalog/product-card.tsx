@@ -16,6 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { deleteProduct } from "@/lib/actions/catalog";
+import { useIsAdmin } from "@/components/role-provider";
 import { formatCbm, formatWeightKg, missingCartonFigures } from "@/lib/calculations";
 import { formatMoney } from "@/lib/money";
 import { SupplierPrices, type CardOffer } from "@/components/catalog/supplier-prices";
@@ -72,6 +73,7 @@ export function ProductCard({
 }) {
   const t = useTranslations("catalog");
   const common = useTranslations("common");
+  const isAdmin = useIsAdmin();
   const [open, setOpen] = useState(false);
   const [zoom, setZoom] = useState(false);
   const [index, setIndex] = useState(0);
@@ -284,23 +286,25 @@ export function ProductCard({
           ) : null}
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              onClick={async () => {
-                if (confirm(t("deleteConfirm"))) {
-                  const error = await deleteProduct(product.id);
-                  if (error) {
-                    alert(t("deleteOnOrders"));
-                    return;
+            {isAdmin ? (
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={async () => {
+                  if (confirm(t("deleteConfirm"))) {
+                    const error = await deleteProduct(product.id);
+                    if (error) {
+                      alert(t("deleteOnOrders"));
+                      return;
+                    }
+                    setOpen(false);
                   }
-                  setOpen(false);
-                }
-              }}
-            >
-              {common("delete")}
-            </Button>
+                }}
+              >
+                {common("delete")}
+              </Button>
+            ) : null}
             <Button asChild variant="outline" size="sm" data-testid="duplicate-product">
               {/* Prefills a fresh registration from this product: new SKU,
                   blank buy price, no photos or supplier — the compare-vendors loop. */}

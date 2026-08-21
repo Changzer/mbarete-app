@@ -4,13 +4,11 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { captureDrafts, captureDraftImages, contacts, contactImages } from "@/db/schema";
-import { auth } from "@/lib/auth";
+import { requireUser } from "@/lib/authz";
 import { readDraft } from "@/lib/drafts";
 
 async function requireSession() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("unauthorized");
-  return Number(session.user.id);
+  return (await requireUser()).id;
 }
 
 /**

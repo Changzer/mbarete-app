@@ -18,6 +18,11 @@ export const users = sqliteTable("users", {
   // this row, and removing it would erase who did what. An inactive user
   // cannot sign in but still gets credited on everything they entered.
   active: integer("active", { mode: "boolean" }).notNull().default(true),
+  // "admin" sees everything; "collaborator" runs the daily loop (products,
+  // contacts, orders) but cannot delete records, touch settings, manage the
+  // team or read the finance report. The default is the safe one — existing
+  // accounts were promoted to admin by the migration that added the column.
+  role: text("role").$type<"admin" | "collaborator">().notNull().default("collaborator"),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(current_timestamp)`),
@@ -517,6 +522,29 @@ export const orderEvents = sqliteTable(
       .default(sql`(current_timestamp)`),
   },
   (table) => [index("order_events_order_idx").on(table.orderId)],
+);
+
+/**
+ * The products/contacts counterpart of order_events: who created, edited or
+ * deleted what, and which fields an edit touched. entityId is deliberately
+ * not a foreign key — the log's whole job is to keep saying "deleted
+ * supplier so-and-so" after the row it points at is gone.
+ */
+export const entityEvents = sqliteTable(
+  "entity_events",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    entity: text("entity", { enum: ["product", "contact"] }).notNull(),
+    entityId: integer("entity_id").notNull(),
+    userId: integer("user_id").references(() => users.id),
+    kind: text("kind", { enum: ["created", "edited", "deleted"] }).notNull(),
+    /** JSON payload; see src/lib/entity-log.ts. */
+    payload: text("payload").notNull().default("{}"),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
+  },
+  (table) => [index("entity_events_entity_idx").on(table.entity, table.entityId)],
 );
 
 /**

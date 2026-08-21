@@ -1,4 +1,6 @@
-import { getTranslations } from "next-intl/server";
+import { getTranslations, getLocale } from "next-intl/server";
+import { redirect } from "@/i18n/navigation";
+import { sessionUser } from "@/lib/authz";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { asc } from "drizzle-orm";
@@ -6,6 +8,11 @@ import { auth } from "@/lib/auth";
 import { UserManager, type TeamUser } from "@/components/users/user-manager";
 
 export default async function UsersPage() {
+  const current = await sessionUser();
+  if (current?.role !== "admin") {
+    redirect({ href: "/catalog", locale: await getLocale() });
+  }
+
   const t = await getTranslations("users");
   const session = await auth();
 
@@ -14,6 +21,7 @@ export default async function UsersPage() {
     id: u.id,
     name: u.name,
     email: u.email,
+    role: u.role,
     active: u.active,
     createdAt: u.createdAt,
   }));

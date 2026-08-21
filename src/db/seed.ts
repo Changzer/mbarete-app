@@ -13,7 +13,8 @@ export async function seed() {
     const existing = db.select().from(users).where(eq(users.email, email)).get();
     if (!existing) {
       const passwordHash = await bcrypt.hash(adminPassword, 10);
-      db.insert(users).values({ email, passwordHash, name: adminName }).run();
+      // The bootstrap account must be able to reach Settings and Users.
+      db.insert(users).values({ email, passwordHash, name: adminName, role: "admin" }).run();
       console.log(`[seed] created initial user ${email}`);
     }
   } else {
