@@ -118,10 +118,12 @@ Rules that keep this reliable — worth telling every agent:
 - The app stays usable offline only while it is **already open** — over plain
   HTTP no browser lets a page load with zero connectivity. Keep the tab/app
   open through the halls (it survives backgrounding). Putting the app behind
-  HTTPS (e.g. `tailscale serve --bg https / http://127.0.0.1:3000` on the
-  NAS) turns on the bundled service worker, after which previously-visited
-  pages also survive a full reload offline and the browser can be asked to
-  protect the outbox from eviction.
+  HTTPS (`sudo tailscale serve --bg 3000` on the NAS) turns on the bundled
+  service worker, after which previously-visited pages also survive a full
+  reload offline — including cold-opening the home-screen icon — and the
+  browser can be asked to protect the outbox from eviction. The step-by-step
+  setup, including moving the phones to the new address, is in
+  [INSTALL.md → Turning on HTTPS](INSTALL.md#turning-on-https--unlocks-full-offline-mode).
 
 Editing (products, orders, contacts) stays online-only on purpose: an edit
 delivered days later could silently overwrite someone's newer work. Offline
