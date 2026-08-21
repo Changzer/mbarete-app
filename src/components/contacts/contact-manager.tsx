@@ -59,6 +59,14 @@ export function ContactManager({
     setDialogOpen(true);
   }
 
+  /** One delete path, shared by the phone list and the desktop table. */
+  async function removeContact(id: number) {
+    if (!confirm(t("deleteConfirm"))) return;
+    const error = await deleteContact(id);
+    if (error === "has-products") alert(t("deleteHasProducts"));
+    else if (error) alert(t("deleteHasOrders"));
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex justify-end">
@@ -92,9 +100,71 @@ export function ContactManager({
       </div>
 
       {contacts.length === 0 ? (
-        <p className="text-sm text-sub">{t("noContacts")}</p>
+        <p className="text-[12.5px] text-sub">{t("noContacts")}</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-line bg-surface">
+        <>
+          {/*
+            On a phone this is a list, not a table with six columns scrolling
+            sideways. Booth leads, because a supplier record is looked up to
+            answer one question: which aisle, which floor, which shop.
+          */}
+          <ul className="flex flex-col gap-2 lg:hidden" data-testid="contact-rows">
+            {contacts.map((c) => (
+              <li
+                key={c.id}
+                className="flex flex-col gap-2 rounded-[12px] border border-line bg-surface p-3"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13.5px] font-bold text-ink">
+                      {c.companyName}
+                      {c.companyNameZh ? (
+                        <span className="ml-1.5 font-medium text-sub">{c.companyNameZh}</span>
+                      ) : null}
+                    </p>
+                    {/* A retired booth still holds quotes and past orders, so
+                        it stays in the list — labelled, not hidden. */}
+                    {!c.active ? (
+                      <Badge variant="secondary" className="mt-1">
+                        {t("inactive")}
+                      </Badge>
+                    ) : null}
+                    {type === "supplier" && c.boothLocation ? (
+                      <p className="mt-1 inline-flex rounded-full bg-action-soft px-2 py-0.5 font-mono text-[12px] font-semibold text-action-chrome">
+                        {c.boothLocation}
+                      </p>
+                    ) : null}
+                    {c.contactPerson ? (
+                      <p className="mt-1 truncate text-[12px] text-sub">{c.contactPerson}</p>
+                    ) : null}
+                    <p className="mt-0.5 truncate font-mono text-[12px] text-sub">
+                      {[c.phone, type === "supplier" ? "" : c.email].filter(Boolean).join(" · ")}
+                    </p>
+                  </div>
+                  <WechatCell contact={c} scanHint={t("wechatQrHelp")} />
+                </div>
+                <div className="flex gap-2 border-t border-line pt-2">
+                  <Button variant="outline" size="sm" className="flex-1" onClick={() => openEdit(c)}>
+                    {common("edit")}
+                  </Button>
+                  {type === "supplier" ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSupplierActive(c.id, !c.active)}
+                    >
+                      {c.active ? t("deactivate") : t("reactivate")}
+                    </Button>
+                  ) : null}
+                  <Button variant="ghost" size="sm" onClick={() => removeContact(c.id)}>
+                    {common("delete")}
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          <div className="hidden overflow-x-auto rounded-[12px] border border-line bg-surface lg:block">
           <table className="w-full text-sm">
             <thead className="border-b border-line bg-surface-2 text-left text-sub">
               <tr>
@@ -149,13 +219,7 @@ export function ContactManager({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={async () => {
-                          if (confirm(t("deleteConfirm"))) {
-                            const error = await deleteContact(c.id);
-                            if (error === "has-products") alert(t("deleteHasProducts"));
-                            else if (error) alert(t("deleteHasOrders"));
-                          }
-                        }}
+                        onClick={() => removeContact(c.id)}
                       >
                         {common("delete")}
                       </Button>
@@ -166,6 +230,7 @@ export function ContactManager({
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );
@@ -178,7 +243,14 @@ export function ContactManager({
  */
 function WechatCell({ contact, scanHint }: { contact: Contact; scanHint: string }) {
   const qr = contact.images.find((img) => img.kind === "qr");
-  if (!qr) return <>{contact.wechat}</>;
+  // Bounded: a WeChat id is arbitrary text and will happily push a phone
+  // list's booth line off the screen given the chance.
+  if (!qr)
+    return (
+      <span className="block max-w-28 truncate font-mono text-[12px] text-sub">
+        {contact.wechat}
+      </span>
+    );
   return (
     <div className="flex flex-col items-start gap-1">
       <a href={qr.path} target="_blank" rel="noreferrer" title={scanHint}>

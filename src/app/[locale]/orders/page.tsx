@@ -3,6 +3,8 @@ import { Link } from "@/i18n/navigation";
 import { getOrders } from "@/lib/queries/orders";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ClipboardList } from "lucide-react";
 
 const STATUS_VARIANT = {
   draft: "secondary",
@@ -25,9 +27,45 @@ export default async function OrdersPage() {
       </div>
 
       {orders.length === 0 ? (
-        <p className="text-sm text-sub">{t("noOrders")}</p>
+        <EmptyState
+          icon={<ClipboardList strokeWidth={1.5} />}
+          title={t("noOrders")}
+          action={
+            <Button asChild size="sm">
+              <Link href="/orders/new">{t("newOrder")}</Link>
+            </Button>
+          }
+        />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-line bg-surface">
+        <>
+          {/* A phone gets rows: order number and status are what a person is
+              scanning for, and five columns of them do not fit at 360px. */}
+          <ul className="flex flex-col gap-2 lg:hidden" data-testid="order-rows">
+            {orders.map((o) => (
+              <li key={o.id}>
+                <Link
+                  href={`/orders/${o.id}`}
+                  className="press focus-ring flex items-center gap-3 rounded-[12px] border border-line bg-surface p-3"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-mono text-[13.5px] font-semibold text-ink">
+                      {o.orderNumber}
+                    </span>
+                    <span className="block truncate text-[12.5px] text-sub">{o.clientName}</span>
+                    <span className="mt-0.5 block truncate font-mono text-[11px] text-faint">
+                      {new Date(o.createdAt).toLocaleDateString()} ·{" "}
+                      {o.createdByName ?? t("unknownUser")}
+                    </span>
+                  </span>
+                  <Badge variant={STATUS_VARIANT[o.status]} className="shrink-0">
+                    {t(`status${o.status.charAt(0).toUpperCase()}${o.status.slice(1)}` as "statusDraft")}
+                  </Badge>
+                </Link>
+              </li>
+            ))}
+          </ul>
+
+          <div className="hidden overflow-x-auto rounded-[12px] border border-line bg-surface lg:block">
           <table className="w-full text-sm">
             <thead className="border-b border-line bg-surface-2 text-left text-sub">
               <tr>
@@ -65,7 +103,8 @@ export default async function OrdersPage() {
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );
