@@ -151,6 +151,9 @@ export function ProductForm({
   const [aiPending, setAiPending] = useState(false);
   const [aiError, setAiError] = useState<"no-photos" | "failed" | null>(null);
   const [aiNotes, setAiNotes] = useState<string | null>(null);
+  // What the model read off the price board, shown so a wrong figure can be
+  // spotted against the handwriting instead of trusted blindly.
+  const [aiBoardText, setAiBoardText] = useState<string | null>(null);
 
   // "0" is the no-supplier option: Radix Select items cannot carry an empty value.
   const [supplierId, setSupplierId] = useState(
@@ -322,6 +325,7 @@ export function ProductForm({
     setAiPending(false);
     setAiError(null);
     setAiNotes(null);
+    setAiBoardText(null);
     setOfflineSaved("saved");
     window.scrollTo({ top: 0 });
     return undefined;
@@ -407,6 +411,7 @@ export function ProductForm({
     const run = ++aiRun.current;
     setAiError(null);
     setAiNotes(null);
+    setAiBoardText(null);
     setAiPending(true);
     try {
       const data = new FormData();
@@ -423,6 +428,7 @@ export function ProductForm({
         }
         applyTranscription(result.fields, result.newCategory);
         setAiNotes(result.notes);
+        setAiBoardText(result.boardText);
       } else if (result.error === "no-photos") {
         setAiError("no-photos");
       } else {
@@ -569,13 +575,20 @@ export function ProductForm({
                 <p className="text-[12px] font-semibold text-danger" data-testid="ai-error">
                   {aiError === "no-photos" ? t("aiErrorNoPhotos") : t("aiErrorFailed")}
                 </p>
-              ) : aiNotes ? (
-                <p
-                  className="rounded-[10px] bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-sub"
-                  data-testid="ai-notes"
-                >
-                  {t("aiNotes")}: {aiNotes}
-                </p>
+              ) : aiNotes || aiBoardText ? (
+                <div className="flex flex-col gap-1.5 rounded-[10px] bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-sub">
+                  {aiBoardText ? (
+                    <p data-testid="ai-board-text">
+                      <span className="font-semibold">{t("aiBoardRead")}:</span>{" "}
+                      <span className="whitespace-pre-wrap font-mono">{aiBoardText}</span>
+                    </p>
+                  ) : null}
+                  {aiNotes ? (
+                    <p data-testid="ai-notes">
+                      {t("aiNotes")}: {aiNotes}
+                    </p>
+                  ) : null}
+                </div>
               ) : (
                 <p className="text-[11px] leading-relaxed text-sub">{t("aiFillHelp")}</p>
               )}
@@ -584,8 +597,43 @@ export function ProductForm({
       </FormSection>
 
       {/*
+        Supplier sits directly under the photos on purpose: choosing one — or
+        registering one from a business card — is the one job that needs a
+        person while the transcription reads the board, so the wait costs
+        nothing.
+      */}
+      <FormSection kicker={t("supplier")} className="lg:col-span-2">
+        <Field label={t("supplier")} htmlFor="supplierId">
+          <input
+            type="hidden"
+            name="supplierId"
+            value={supplierId === "0" ? "" : supplierId}
+          />
+          {defaultValues?.duplicatedFromId ? (
+            <input type="hidden" name="duplicatedFromId" value={defaultValues.duplicatedFromId} />
+          ) : null}
+          <div className="flex gap-2">
+            <SupplierPicker
+              suppliers={allSuppliers}
+              value={supplierId}
+              onChange={setSupplierId}
+              className="min-w-0 flex-1"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSupplierDialogOpen(true)}
+              data-testid="new-supplier"
+            >
+              {t("newSupplier")}
+            </Button>
+          </div>
+        </Field>
+      </FormSection>
+
+      {/*
         The commercial group — what a buyer is actually deciding with. It sits
-        directly under the photos so a capture can legitimately stop here.
+        under the supplier so a capture can legitimately stop here.
       */}
       <FormSection kicker={t("commercial")} className="lg:col-span-2">
         <div className="grid grid-cols-2 gap-3">
@@ -684,32 +732,6 @@ export function ProductForm({
           </Field>
         </div>
 
-        <Field label={t("supplier")} htmlFor="supplierId">
-          <input
-            type="hidden"
-            name="supplierId"
-            value={supplierId === "0" ? "" : supplierId}
-          />
-          {defaultValues?.duplicatedFromId ? (
-            <input type="hidden" name="duplicatedFromId" value={defaultValues.duplicatedFromId} />
-          ) : null}
-          <div className="flex gap-2">
-            <SupplierPicker
-              suppliers={allSuppliers}
-              value={supplierId}
-              onChange={setSupplierId}
-              className="min-w-0 flex-1"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setSupplierDialogOpen(true)}
-              data-testid="new-supplier"
-            >
-              {t("newSupplier")}
-            </Button>
-          </div>
-        </Field>
       </FormSection>
 
       <FormSection kicker={t("description")} className="lg:col-span-2">

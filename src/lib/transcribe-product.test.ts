@@ -5,6 +5,7 @@ import { sanitizeTranscription, type RawTranscription } from "./transcribe-produ
 const CATEGORY_IDS = new Set([1, 2, 3]);
 
 const raw = (overrides: Partial<RawTranscription>): RawTranscription => ({
+  boardText: null,
   nameEn: null,
   nameZh: null,
   descriptionEn: null,
@@ -152,4 +153,17 @@ test("a category proposal only survives when nothing matched and both names exis
   // Half a proposal is no proposal: the categories table needs both languages.
   const half = sanitizeTranscription(raw({ newCategoryEn: "Stationery" }), CATEGORY_IDS);
   assert.equal(half.proposedCategory, null);
+});
+
+test("board text is carried through so a misread is visible to a person", () => {
+  const r = sanitizeTranscription(
+    raw({ boardText: "¥ 6.07\nMOQ 3 box\nQTY 360 pcs\nCBM 0.16", price: 6.07 }),
+    CATEGORY_IDS,
+  );
+  assert.equal(r.boardText, "¥ 6.07\nMOQ 3 box\nQTY 360 pcs\nCBM 0.16");
+  assert.equal(r.fields.price, 6.07);
+});
+
+test("an empty board reading is null, not an empty string", () => {
+  assert.equal(sanitizeTranscription(raw({ boardText: "   " }), CATEGORY_IDS).boardText, null);
 });

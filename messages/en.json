@@ -178,7 +178,8 @@
     "currencyOther": "Other",
     "saveReassurance": "Saved to this phone first — it uploads by itself, even if you walk out of signal.",
     "columnProduct": "Product",
-    "identityGroup": "Product & supplier"
+    "identityGroup": "Product code",
+    "aiBoardRead": "Board read as"
   },
   "contacts": {
     "title": "Contacts",
