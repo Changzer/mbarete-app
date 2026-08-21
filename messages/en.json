@@ -291,7 +291,8 @@
     "proformaBankDefault": "Default: {label}",
     "totalsTitle": "Totals",
     "rateSnapshot": "Rate frozen at {rate} when this order was started.",
-    "belowMoqBlocks": "One line is below its MOQ — a draft is fine, confirming is not."
+    "belowMoqBlocks": "One line is below its MOQ — a draft is fine, confirming is not.",
+    "actions": "Actions"
   },
   "settings": {
     "exchangeRates": "Exchange Rates",

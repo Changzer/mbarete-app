@@ -52,3 +52,9 @@ next-env.d.ts
 /.auto-update.lock/
 /.auto-update-skip
 /.auto-update-skip-notice
+.env.local
+
+# Local-only scratch: throwaway drivers and env for eyeballing the app.
+*.local.mjs
+*.local.ts
+.env.local

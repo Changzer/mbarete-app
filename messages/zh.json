@@ -291,7 +291,8 @@
     "proformaBankDefault": "默认：{label}",
     "totalsTitle": "合计",
     "rateSnapshot": "汇率已在建单时锁定为 {rate}。",
-    "belowMoqBlocks": "有一行低于起订量 — 可存草稿，但不能确认。"
+    "belowMoqBlocks": "有一行低于起订量 — 可存草稿，但不能确认。",
+    "actions": "操作"
   },
   "settings": {
     "exchangeRates": "汇率",
