@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { deleteProduct } from "@/lib/actions/catalog";
 import { formatCbm, formatWeightKg, missingCartonFigures } from "@/lib/calculations";
+import { formatMoney } from "@/lib/money";
 import { SupplierPrices, type CardOffer } from "@/components/catalog/supplier-prices";
 
 export type CatalogProduct = {
@@ -51,17 +52,6 @@ export type CatalogProduct = {
   offers: CardOffer[];
 };
 
-const CURRENCY_MARK: Record<string, string> = { CNY: "¥", USD: "$", EUR: "€" };
-
-/** ¥12.50 — the register a buyer compares prices in, not "12.50 CNY". */
-export function formatMoney(value: number, currency: string) {
-  const mark = CURRENCY_MARK[currency];
-  const amount = value.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  return mark ? `${mark}${amount}` : `${amount} ${currency}`;
-}
 
 /**
  * A product as a row, not a tile.
@@ -113,6 +103,9 @@ export function ProductCard({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, count, go]);
+
+  // The quote to lead with; the query layer already ranked them.
+  const best = product.offers[0];
 
   const warnings = (
     <>
@@ -409,14 +402,21 @@ export function ProductCard({
             </div>
           </td>
           <td className="px-3 py-2.5 font-mono text-[12px] text-sub">{product.sku}</td>
+          {/* The cheapest live quote, like the phone row — with the count of
+              the others, since a table has no room for the whole comparison. */}
           <td className="px-3 py-2.5 font-mono text-[13px] font-semibold tabular-nums text-ink">
-            {formatMoney(product.price, product.currency)}
+            {best ? formatMoney(best.price, best.currency) : "—"}
           </td>
           <td className="px-3 py-2.5 font-mono text-[12px] tabular-nums text-sub">
-            {product.moq} · {product.qtyPerBox}
+            {best ? `${best.moq} · ${product.qtyPerBox}` : product.qtyPerBox}
           </td>
           <td className="max-w-48 truncate px-3 py-2.5 text-[12.5px] text-sub">
-            {product.supplierName ?? "—"}
+            {best?.supplierName ?? "—"}
+            {product.offers.length > 1 ? (
+              <span className="ml-1.5 font-mono text-[11px] text-faint">
+                +{product.offers.length - 1}
+              </span>
+            ) : null}
           </td>
           <td className="px-3 py-2.5">
             <span className="flex flex-wrap justify-end gap-1.5">{warnings}</span>

@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Stepper } from "@/components/ui/stepper";
-import { formatMoney } from "@/components/catalog/product-card";
+import { formatMoney } from "@/lib/money";
 import {
   Select,
   SelectContent,

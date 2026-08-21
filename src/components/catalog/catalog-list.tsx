@@ -8,11 +8,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SearchBar } from "@/components/ui/search-bar";
 import { OfflineStrip } from "@/components/offline/offline-strip";
-import {
-  ProductCard,
-  formatMoney,
-  type CatalogProduct,
-} from "@/components/catalog/product-card";
+import { ProductCard, type CatalogProduct } from "@/components/catalog/product-card";
 
 /**
  * Search runs on the phone, over the rows already on screen.
@@ -141,5 +137,3 @@ function CatalogTable({ products }: { products: CatalogProduct[] }) {
     </div>
   );
 }
-
-export { formatMoney };

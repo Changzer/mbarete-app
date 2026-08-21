@@ -63,7 +63,7 @@ export default async function EditProductPage({
         transcribeCard={aiEnabled ? transcribeCard : undefined}
       />
 
-      <div className="mt-10 border-t border-neutral-200 pt-8 dark:border-neutral-800">
+      <div className="mt-10 border-t border-line pt-8">
         <OfferManager
           productId={productId}
           offers={offers.map((o) => ({
