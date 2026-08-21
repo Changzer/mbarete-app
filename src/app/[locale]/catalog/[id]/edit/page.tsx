@@ -7,6 +7,8 @@ import { transcribeProduct, transcribeCard } from "@/lib/actions/transcribe";
 import { isTranscriptionEnabled } from "@/lib/transcribe-product";
 import { ProductForm } from "@/components/catalog/product-form";
 import { computeCbm } from "@/lib/calculations";
+import { OfferManager } from "@/components/catalog/offer-manager";
+import { getAllOffersForProduct } from "@/lib/queries/offers";
 
 export default async function EditProductPage({
   params,
@@ -18,11 +20,12 @@ export default async function EditProductPage({
   const t = await getTranslations("catalog");
   const common = await getTranslations("common");
 
-  const [categories, suppliers, product, images] = await Promise.all([
+  const [categories, suppliers, product, images, offers] = await Promise.all([
     getCategories(),
     getSuppliersForPicker(),
     getProductById(productId),
     getProductImages(productId),
+    getAllOffersForProduct(productId),
   ]);
 
   if (!product) notFound();
@@ -59,6 +62,25 @@ export default async function EditProductPage({
         transcribe={aiEnabled ? transcribeProduct : undefined}
         transcribeCard={aiEnabled ? transcribeCard : undefined}
       />
+
+      <div className="mt-10 border-t border-neutral-200 pt-8 dark:border-neutral-800">
+        <OfferManager
+          productId={productId}
+          offers={offers.map((o) => ({
+            id: o.id,
+            supplierId: o.supplierId,
+            supplierName: o.supplierName,
+            price: o.price,
+            currency: o.currency,
+            moq: o.moq,
+            leadTimeDays: o.leadTimeDays,
+            quotedOn: o.quotedOn,
+            note: o.note,
+            active: o.active,
+          }))}
+          suppliers={suppliers.map((s) => ({ id: s.id, companyName: s.companyName }))}
+        />
+      </div>
     </div>
   );
 }

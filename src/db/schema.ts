@@ -225,6 +225,10 @@ export const contacts = sqliteTable(
     // the stored card photo before any payment goes out.
     bankInfo: text("bank_info").notNull().default(""),
     notes: text("notes").notNull().default(""),
+    // Deactivated, never deleted: orders and supplier offers point here, and
+    // removing the row would erase who a deal was actually done with. An
+    // inactive contact stops appearing in pickers and keeps its history.
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
     createdAt: text("created_at")
       .notNull()
       .default(sql`(current_timestamp)`),
@@ -254,6 +258,56 @@ export const contactImages = sqliteTable(
       .default(sql`(current_timestamp)`),
   },
   (table) => [index("contact_images_contact_idx").on(table.contactId)],
+);
+
+/**
+ * What one supplier will sell one product for.
+ *
+ * A sourcing company's real asset is this map: the same electric scooter
+ * quoted by five factories at five prices. The product is the item — what it
+ * is and what Mbarete invoices it at. The offer is the deal — what it costs,
+ * from whom, in what quantity, quoted when. Margin is the gap between them,
+ * and it differs per supplier, which is exactly the comparison this table
+ * exists to make possible.
+ *
+ * `supplierId` is nullable on purpose: products registered before offers
+ * existed carry a known price from an unrecorded source, and saying so beats
+ * inventing a supplier.
+ */
+export const productSuppliers = sqliteTable(
+  "product_suppliers",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    productId: integer("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    supplierId: integer("supplier_id").references(() => contacts.id),
+    price: real("price").notNull(),
+    currency: text("currency").notNull().default("USD"),
+    moq: integer("moq").notNull().default(1),
+    // Optional: 0 means nobody recorded it. Never blocks saving an offer —
+    // most China lead times are the same 30 days and not worth typing.
+    leadTimeDays: integer("lead_time_days").notNull().default(0),
+    /**
+     * When this price was quoted, ISO date. Factory prices move, so a quote
+     * has an age; the catalog ages stale ones visibly rather than letting a
+     * two-year-old cost be mistaken for today's.
+     */
+    quotedOn: text("quoted_on").notNull(),
+    note: text("note").notNull().default(""),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    createdBy: integer("created_by").references(() => users.id),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
+  },
+  (table) => [
+    index("product_suppliers_product_idx").on(table.productId),
+    index("product_suppliers_supplier_idx").on(table.supplierId),
+  ],
 );
 
 export const orders = sqliteTable(

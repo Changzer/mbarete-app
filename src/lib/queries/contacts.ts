@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { contacts, contactImages } from "@/db/schema";
-import { eq, desc, asc, inArray } from "drizzle-orm";
+import { eq, and, desc, asc, inArray } from "drizzle-orm";
 
 export async function getContactsByType(type: "supplier" | "client") {
   return db
@@ -29,7 +29,7 @@ export async function getSuppliersForPicker() {
       boothLocation: contacts.boothLocation,
     })
     .from(contacts)
-    .where(eq(contacts.type, "supplier"))
+    .where(and(eq(contacts.type, "supplier"), eq(contacts.active, true)))
     .orderBy(desc(contacts.id))
     .all();
 }

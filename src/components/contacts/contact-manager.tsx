@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import { ContactForm, type ExistingCardImage } from "@/components/contacts/contact-form";
 import { createContact, updateContact, deleteContact } from "@/lib/actions/contacts";
 import type { CardTranscribeResult } from "@/lib/transcribe-card";
+import { setSupplierActive } from "@/lib/actions/offers";
+import { Badge } from "@/components/ui/badge";
 
 type Contact = {
   id: number;
@@ -28,6 +30,7 @@ type Contact = {
   bankInfo: string;
   notes: string;
   images: ExistingCardImage[];
+  active: boolean;
 };
 
 export function ContactManager({
@@ -117,6 +120,11 @@ export function ContactManager({
                         {c.companyNameZh}
                       </span>
                     ) : null}
+                    {!c.active ? (
+                      <Badge variant="secondary" className="ml-2">
+                        {t("inactive")}
+                      </Badge>
+                    ) : null}
                   </td>
                   <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">{c.contactPerson}</td>
                   <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">{c.phone}</td>
@@ -130,6 +138,13 @@ export function ContactManager({
                     <div className="flex gap-2">
                       <Button variant="ghost" size="sm" onClick={() => openEdit(c)}>
                         {common("edit")}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSupplierActive(c.id, !c.active)}
+                      >
+                        {c.active ? t("deactivate") : t("reactivate")}
                       </Button>
                       <Button
                         variant="ghost"

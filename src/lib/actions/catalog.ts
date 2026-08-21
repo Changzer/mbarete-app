@@ -10,6 +10,7 @@ import {
   categories,
   productImages,
   orderItems,
+  productSuppliers,
   contacts,
   captureDrafts,
   captureDraftImages,
@@ -24,6 +25,7 @@ import {
 import { saveUploadedImage, deleteUpload } from "@/lib/uploads";
 import { normalizeDecimalInput } from "@/lib/decimal-input";
 import { suggestNextSku } from "@/lib/queries/catalog";
+import { syncProductFromOffers } from "@/lib/queries/offers";
 
 /** Saves every non-empty file under `images`, preserving the chosen order. */
 async function saveUploadedImages(formData: FormData) {
@@ -225,6 +227,23 @@ export async function createProduct(
   }
 
   const newProductId = Number(inserted.lastInsertRowid);
+
+  // The price typed on the registration form becomes the product's first
+  // supplier quote, credited to whichever supplier the form named. Left
+  // unrecorded when it named none — honest about knowing a price but not
+  // its source, and a real supplier can be attached later.
+  db.insert(productSuppliers)
+    .values({
+      productId: newProductId,
+      supplierId,
+      price: data.price,
+      currency: data.currency,
+      moq: data.moq,
+      quotedOn: new Date().toISOString().slice(0, 10),
+      createdBy: userId,
+    })
+    .run();
+
   uploaded.forEach((path, i) => {
     db.insert(productImages)
       .values({ productId: newProductId, path, sortOrder: i })
@@ -370,6 +389,49 @@ export async function updateProduct(
     })
     .where(eq(products.id, id))
     .run();
+
+  // The product form carries one supplier and one price, so it edits that
+  // supplier's quote — keeping the simple one-supplier case behaving exactly
+  // as it always did. Comparing several factories is the supplier section's
+  // job, and quotes it owns are never rewritten from here.
+  const quotes = db
+    .select()
+    .from(productSuppliers)
+    .where(eq(productSuppliers.productId, id))
+    .all();
+  const terms = {
+    price: data.price,
+    currency: data.currency,
+    moq: data.moq,
+    updatedAt: new Date().toISOString(),
+  };
+  const forThisSupplier = quotes.find((o) => o.supplierId === supplierId);
+  const onlyQuote = quotes.length === 1 ? quotes[0] : undefined;
+
+  if (forThisSupplier) {
+    db.update(productSuppliers)
+      .set(terms)
+      .where(eq(productSuppliers.id, forThisSupplier.id))
+      .run();
+  } else if (onlyQuote) {
+    // Naming a supplier on a product that had a single unattributed quote
+    // credits that quote rather than leaving a duplicate behind.
+    db.update(productSuppliers)
+      .set({ ...terms, supplierId })
+      .where(eq(productSuppliers.id, onlyQuote.id))
+      .run();
+  } else {
+    db.insert(productSuppliers)
+      .values({
+        productId: id,
+        supplierId,
+        ...terms,
+        quotedOn: new Date().toISOString().slice(0, 10),
+        createdBy: userId,
+      })
+      .run();
+  }
+  await syncProductFromOffers(id);
 
   revalidatePath("/catalog");
   redirect({ href: "/catalog", locale: (await getLocale()) as Locale });

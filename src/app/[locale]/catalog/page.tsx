@@ -9,6 +9,9 @@ import {
 import { getSuppliersForPicker } from "@/lib/queries/contacts";
 import { countOpenDrafts } from "@/lib/queries/drafts";
 import { getUserNames } from "@/lib/queries/users";
+import { getOffersByProduct, OFFER_BASIS } from "@/lib/queries/offers";
+import { getExchangeRates } from "@/lib/queries/orders";
+import { comparablePrice } from "@/lib/offers";
 import { localizeField } from "@/lib/localize";
 import type { Locale } from "@/i18n/routing";
 import { CatalogControls } from "@/components/catalog/catalog-controls";
@@ -43,8 +46,13 @@ export default async function CatalogPage({
     sort: sort === "price-asc" ? "price-asc" : "default",
   });
 
-  const imagesByProduct = await getImagesByProduct(products.map((p) => p.id));
-  const userNames = await getUserNames();
+  const productIds = products.map((p) => p.id);
+  const [imagesByProduct, userNames, offersByProduct, rates] = await Promise.all([
+    getImagesByProduct(productIds),
+    getUserNames(),
+    getOffersByProduct(productIds),
+    getExchangeRates(),
+  ]);
   const categoryMap = new Map(categories.map((c) => [c.id, c]));
   const suppliers = await getSuppliersForPicker();
   const supplierMap = new Map(suppliers.map((s) => [s.id, s]));
@@ -94,6 +102,20 @@ export default async function CatalogPage({
       supplierBooth: p.supplierId
         ? supplierMap.get(p.supplierId)?.boothLocation || null
         : null,
+      // Already ranked; the card only needs each offer's comparable value to
+      // work out how far behind the cheapest the others sit.
+      offers: (offersByProduct.get(p.id) ?? []).map((o) => ({
+        id: o.id,
+        supplierId: o.supplierId,
+        supplierName: o.supplierName,
+        price: o.price,
+        currency: o.currency,
+        moq: o.moq,
+        leadTimeDays: o.leadTimeDays,
+        quotedOn: o.quotedOn,
+        timesOrdered: o.timesOrdered,
+        comparable: comparablePrice(o, OFFER_BASIS, rates),
+      })),
     };
   });
 
