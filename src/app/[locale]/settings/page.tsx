@@ -3,7 +3,7 @@ import { redirect } from "@/i18n/navigation";
 import { sessionUser } from "@/lib/authz";
 import { db } from "@/db";
 import { exchangeRates } from "@/db/schema";
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { getCompanyProfile, getBankAccounts } from "@/lib/queries/settings";
 import { ExchangeRateManager } from "@/components/settings/exchange-rate-manager";
 import { CompanyProfileForm } from "@/components/settings/company-profile-form";
@@ -19,9 +19,13 @@ export default async function SettingsPage() {
   const companyT = await getTranslations("company");
 
   const [rates, profile, banks] = await Promise.all([
-    db.select().from(exchangeRates).orderBy(asc(exchangeRates.currencyCode)).all(),
-    getCompanyProfile(),
-    getBankAccounts(),
+    db
+      .select()
+      .from(exchangeRates)
+      .where(eq(exchangeRates.companyId, user!.companyId))
+      .orderBy(asc(exchangeRates.currencyCode)),
+    getCompanyProfile(user!.companyId),
+    getBankAccounts(user!.companyId),
   ]);
 
   return (

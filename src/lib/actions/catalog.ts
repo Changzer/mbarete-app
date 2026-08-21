@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
 import type { Locale } from "@/i18n/routing";
-import { db } from "@/db";
+import { db, one } from "@/db";
 import {
   products,
   categories,
@@ -28,36 +28,36 @@ import { suggestNextSku } from "@/lib/queries/catalog";
 import { syncProductFromOffers } from "@/lib/queries/offers";
 
 /** Saves every non-empty file under `images`, preserving the chosen order. */
-async function saveUploadedImages(formData: FormData) {
+async function saveUploadedImages(companyId: number, formData: FormData) {
   const files = formData
     .getAll("images")
     .filter((f): f is File => f instanceof File && f.size > 0);
   const paths: string[] = [];
   for (const file of files) {
-    paths.push(await saveUploadedImage(file));
+    paths.push(await saveUploadedImage(companyId, file));
   }
   return paths;
 }
 import { requireUser, requireAdmin } from "@/lib/authz";
 import { logEntityEvent, diffProductEdit } from "@/lib/entity-log";
 
-/** Returns the signed-in user's id, so edits can be attributed to them. */
+/** The signed-in user, for attribution and tenant scoping alike. */
 async function requireSession() {
-  return (await requireUser()).id;
+  return await requireUser();
 }
 
 function productLogName(row: { sku: string; nameEn: string }) {
   return `${row.sku} ${row.nameEn}`.trim();
 }
 
-function categoryNameOf(id: number) {
-  const row = db.select().from(categories).where(eq(categories.id, id)).get();
+async function categoryNameOf(id: number) {
+  const row = await db.select().from(categories).where(eq(categories.id, id)).limit(1).then(one);
   return row ? row.nameEn || row.nameZh : "—";
 }
 
-function supplierNameOf(id: number | null) {
+async function supplierNameOf(id: number | null) {
   if (!id) return "—";
-  const row = db.select().from(contacts).where(eq(contacts.id, id)).get();
+  const row = await db.select().from(contacts).where(eq(contacts.id, id)).limit(1).then(one);
   return row ? row.companyName || row.companyNameZh : "—";
 }
 
@@ -100,24 +100,32 @@ function formToProductInput(formData: FormData) {
  * number, so it must point at a real supplier contact before it is stored.
  * Returns null for "no supplier", undefined when the id doesn't check out.
  */
-function resolveSupplierId(supplierId: number | undefined) {
+async function resolveSupplierId(companyId: number, supplierId: number | undefined) {
   if (!supplierId) return null;
-  const row = db
+  const row = await db
     .select({ id: contacts.id })
     .from(contacts)
-    .where(and(eq(contacts.id, supplierId), eq(contacts.type, "supplier")))
-    .get();
+    .where(
+      and(
+        eq(contacts.companyId, companyId),
+        eq(contacts.id, supplierId),
+        eq(contacts.type, "supplier"),
+      ),
+    )
+    .limit(1)
+    .then(one);
   return row ? row.id : undefined;
 }
 
 /** Lineage is best-effort: a stale source product just means no link. */
-function resolveDuplicatedFromId(duplicatedFromId: number | undefined) {
+async function resolveDuplicatedFromId(companyId: number, duplicatedFromId: number | undefined) {
   if (!duplicatedFromId) return null;
-  const row = db
+  const row = await db
     .select({ id: products.id })
     .from(products)
-    .where(eq(products.id, duplicatedFromId))
-    .get();
+    .where(and(eq(products.companyId, companyId), eq(products.id, duplicatedFromId)))
+    .limit(1)
+    .then(one);
   return row ? row.id : null;
 }
 
@@ -183,7 +191,8 @@ export async function createProduct(
   _prevState: string | undefined,
   formData: FormData,
 ): Promise<string | undefined> {
-  const userId = await requireSession();
+  const user = await requireSession();
+  const userId = user.id;
 
   let data;
   try {
@@ -194,28 +203,36 @@ export async function createProduct(
 
   const carton = resolveCartonFigures(data);
 
-  const supplierId = resolveSupplierId(data.supplierId);
+  const supplierId = await resolveSupplierId(user.companyId, data.supplierId);
   if (supplierId === undefined) return "invalid";
 
   // Left blank on purpose, or cleared while entering products in a hurry.
-  const sku = data.sku || (await suggestNextSku());
-  if (db.select().from(products).where(eq(products.sku, sku)).get()) {
+  const sku = data.sku || (await suggestNextSku(user.companyId));
+  const skuClash = await db
+    .select({ id: products.id })
+    .from(products)
+    .where(and(eq(products.companyId, user.companyId), eq(products.sku, sku)))
+    .limit(1)
+    .then(one);
+  if (skuClash) {
     return "duplicate-sku";
   }
 
   let uploaded: string[];
   try {
-    uploaded = await saveUploadedImages(formData);
+    uploaded = await saveUploadedImages(user.companyId, formData);
   } catch {
     return "image-error";
   }
 
   let inserted;
   try {
-    inserted = db.insert(products)
-    .values({
-      sku,
-      nameEn: data.nameEn,
+    [inserted] = await db
+      .insert(products)
+      .values({
+        companyId: user.companyId,
+        sku,
+        nameEn: data.nameEn,
       nameZh: data.nameZh,
       categoryId: data.categoryId,
       descriptionEn: data.descriptionEn,
@@ -227,22 +244,22 @@ export async function createProduct(
       qtyPerBox: data.qtyPerBox,
       ...carton,
       supplierId,
-      duplicatedFromId: resolveDuplicatedFromId(data.duplicatedFromId),
+      duplicatedFromId: await resolveDuplicatedFromId(user.companyId, data.duplicatedFromId),
       active: data.active,
       createdBy: userId,
       updatedBy: userId,
       updatedAt: new Date().toISOString(),
     })
-      .run();
+      .returning({ id: products.id });
   } catch {
     // Two saves racing onto the same auto-assigned SKU: the loser retries by hand.
     for (const path of uploaded) await deleteUpload(path);
     return "duplicate-sku";
   }
 
-  const newProductId = Number(inserted.lastInsertRowid);
+  const newProductId = inserted.id;
 
-  logEntityEvent("product", newProductId, userId, "created", {
+  await logEntityEvent(user.companyId, "product", newProductId, userId, "created", {
     name: productLogName({ sku, nameEn: data.nameEn }),
   });
 
@@ -250,7 +267,7 @@ export async function createProduct(
   // supplier quote, credited to whichever supplier the form named. Left
   // unrecorded when it named none — honest about knowing a price but not
   // its source, and a real supplier can be attached later.
-  db.insert(productSuppliers)
+  await db.insert(productSuppliers)
     .values({
       productId: newProductId,
       supplierId,
@@ -259,48 +276,44 @@ export async function createProduct(
       moq: data.moq,
       quotedOn: new Date().toISOString().slice(0, 10),
       createdBy: userId,
-    })
-    .run();
+    });
 
-  uploaded.forEach((path, i) => {
-    db.insert(productImages)
-      .values({ productId: newProductId, path, sortOrder: i })
-      .run();
-  });
+  for (const [i, path] of uploaded.entries()) {
+    await db.insert(productImages).values({ productId: newProductId, path, sortOrder: i });
+  }
 
   // Saving from a capture draft (photos taken offline at a booth): the photos
   // are already on disk under the draft, so they move across instead of being
   // uploaded again, and the draft is settled so it leaves the review queue.
   const draftId = Number(formData.get("draftId"));
   if (Number.isFinite(draftId) && draftId > 0) {
-    const draft = db
+    const draft = await db
       .select()
       .from(captureDrafts)
-      .where(eq(captureDrafts.id, draftId))
-      .get();
+      .where(and(eq(captureDrafts.companyId, user.companyId), eq(captureDrafts.id, draftId)))
+      .limit(1)
+      .then(one);
     // Only an open draft is promotable — a second save of the same review tab
     // must not steal photos from the product the first save created.
     if (draft && (draft.status === "pending" || draft.status === "read")) {
-      const draftImages = db
+      const draftImageRows = await db
         .select()
         .from(captureDraftImages)
-        .where(eq(captureDraftImages.draftId, draftId))
-        .all()
-        .sort((a, b) => a.sortOrder - b.sortOrder);
-      draftImages.forEach((image, i) => {
-        db.insert(productImages)
-          .values({ productId: newProductId, path: image.path, sortOrder: uploaded.length + i })
-          .run();
-      });
-      db.delete(captureDraftImages).where(eq(captureDraftImages.draftId, draftId)).run();
-      db.update(captureDrafts)
+        .where(eq(captureDraftImages.draftId, draftId));
+      const draftImages = draftImageRows.sort((a, b) => a.sortOrder - b.sortOrder);
+      for (const [i, image] of draftImages.entries()) {
+        await db
+          .insert(productImages)
+          .values({ productId: newProductId, path: image.path, sortOrder: uploaded.length + i });
+      }
+      await db.delete(captureDraftImages).where(eq(captureDraftImages.draftId, draftId));
+      await db.update(captureDrafts)
         .set({
           status: "imported",
           productId: newProductId,
           updatedAt: new Date().toISOString(),
         })
-        .where(eq(captureDrafts.id, draftId))
-        .run();
+        .where(eq(captureDrafts.id, draftId));
       revalidatePath("/catalog/drafts");
     }
   }
@@ -323,7 +336,8 @@ export async function updateProduct(
   _prevState: string | undefined,
   formData: FormData,
 ): Promise<string | undefined> {
-  const userId = await requireSession();
+  const user = await requireSession();
+  const userId = user.id;
 
   let data;
   try {
@@ -334,18 +348,26 @@ export async function updateProduct(
 
   const carton = resolveCartonFigures(data);
 
-  const supplierId = resolveSupplierId(data.supplierId);
+  const supplierId = await resolveSupplierId(user.companyId, data.supplierId);
   if (supplierId === undefined) return "invalid";
 
-  const existing = db.select().from(products).where(eq(products.id, id)).get();
+  const existing = await db
+    .select()
+    .from(products)
+    .where(and(eq(products.companyId, user.companyId), eq(products.id, id)))
+    .limit(1)
+    .then(one);
   if (!existing) return "not-found";
 
   const sku = data.sku || existing.sku;
-  const clash = db
+  const clash = await db
     .select()
     .from(products)
-    .where(and(eq(products.sku, sku), ne(products.id, id)))
-    .get();
+    .where(
+      and(eq(products.companyId, user.companyId), eq(products.sku, sku), ne(products.id, id)),
+    )
+    .limit(1)
+    .then(one);
   if (clash) return "duplicate-sku";
 
   // Images the user ticked for removal in the form.
@@ -355,36 +377,36 @@ export async function updateProduct(
     .filter((n) => Number.isFinite(n));
 
   for (const imageId of removeIds) {
-    const row = db
+    const row = await db
       .select()
       .from(productImages)
       .where(eq(productImages.id, imageId))
-      .get();
+      .limit(1)
+      .then(one);
     if (row && row.productId === id) {
-      db.delete(productImages).where(eq(productImages.id, imageId)).run();
+      await db.delete(productImages).where(eq(productImages.id, imageId));
       await deleteUpload(row.path);
     }
   }
 
   let uploaded: string[];
   try {
-    uploaded = await saveUploadedImages(formData);
+    uploaded = await saveUploadedImages(user.companyId, formData);
   } catch {
     return "image-error";
   }
 
-  const remaining = db
+  const remaining = await db
     .select()
     .from(productImages)
-    .where(eq(productImages.productId, id))
-    .all();
-  uploaded.forEach((path, i) => {
-    db.insert(productImages)
-      .values({ productId: id, path, sortOrder: remaining.length + i })
-      .run();
-  });
+    .where(eq(productImages.productId, id));
+  for (const [i, path] of uploaded.entries()) {
+    await db
+      .insert(productImages)
+      .values({ productId: id, path, sortOrder: remaining.length + i });
+  }
 
-  db.update(products)
+  await db.update(products)
     .set({
       sku,
       nameEn: data.nameEn,
@@ -405,17 +427,26 @@ export async function updateProduct(
       updatedBy: userId,
       updatedAt: new Date().toISOString(),
     })
-    .where(eq(products.id, id))
-    .run();
+    .where(eq(products.id, id));
 
+  // The diff wants display names; resolve the four that can appear before
+  // handing it plain lookups.
+  const categoryNames = new Map<number, string>();
+  for (const categoryId of new Set([existing.categoryId, data.categoryId])) {
+    categoryNames.set(categoryId, await categoryNameOf(categoryId));
+  }
+  const supplierNames = new Map<number | null, string>();
+  for (const sid of new Set([existing.supplierId, supplierId])) {
+    supplierNames.set(sid, await supplierNameOf(sid));
+  }
   const changes = diffProductEdit(
     existing,
     { ...data, sku, ...carton, supplierId },
-    categoryNameOf,
-    supplierNameOf,
+    (categoryId) => categoryNames.get(categoryId) ?? "—",
+    (sid) => supplierNames.get(sid) ?? "—",
   );
   if (changes.length > 0) {
-    logEntityEvent("product", id, userId, "edited", {
+    await logEntityEvent(user.companyId, "product", id, userId, "edited", {
       name: productLogName({ sku, nameEn: data.nameEn }),
       changes,
     });
@@ -425,11 +456,10 @@ export async function updateProduct(
   // supplier's quote — keeping the simple one-supplier case behaving exactly
   // as it always did. Comparing several factories is the supplier section's
   // job, and quotes it owns are never rewritten from here.
-  const quotes = db
+  const quotes = await db
     .select()
     .from(productSuppliers)
-    .where(eq(productSuppliers.productId, id))
-    .all();
+    .where(eq(productSuppliers.productId, id));
   const terms = {
     price: data.price,
     currency: data.currency,
@@ -440,29 +470,26 @@ export async function updateProduct(
   const onlyQuote = quotes.length === 1 ? quotes[0] : undefined;
 
   if (forThisSupplier) {
-    db.update(productSuppliers)
+    await db.update(productSuppliers)
       .set(terms)
-      .where(eq(productSuppliers.id, forThisSupplier.id))
-      .run();
+      .where(eq(productSuppliers.id, forThisSupplier.id));
   } else if (onlyQuote) {
     // Naming a supplier on a product that had a single unattributed quote
     // credits that quote rather than leaving a duplicate behind.
-    db.update(productSuppliers)
+    await db.update(productSuppliers)
       .set({ ...terms, supplierId })
-      .where(eq(productSuppliers.id, onlyQuote.id))
-      .run();
+      .where(eq(productSuppliers.id, onlyQuote.id));
   } else {
-    db.insert(productSuppliers)
+    await db.insert(productSuppliers)
       .values({
         productId: id,
         supplierId,
         ...terms,
         quotedOn: new Date().toISOString().slice(0, 10),
         createdBy: userId,
-      })
-      .run();
+      });
   }
-  await syncProductFromOffers(id);
+  await syncProductFromOffers(user.companyId, id);
 
   revalidatePath("/catalog");
   redirect({ href: "/catalog", locale: (await getLocale()) as Locale });
@@ -471,32 +498,39 @@ export async function updateProduct(
 export async function deleteProduct(id: number): Promise<string | undefined> {
   const admin = await requireAdmin();
 
-  const existing = db.select().from(products).where(eq(products.id, id)).get();
+  const existing = await db
+    .select()
+    .from(products)
+    .where(and(eq(products.companyId, admin.companyId), eq(products.id, id)))
+    .limit(1)
+    .then(one);
   if (!existing) return undefined;
 
   // A product on an order is history, not clutter: deleting it would strip
   // the name and SKU off every order that bought it (and the foreign key
   // blocks it anyway). Deactivating hides it from the catalog instead.
-  const onOrder = db
+  const onOrder = await db
     .select({ id: orderItems.id })
     .from(orderItems)
     .where(eq(orderItems.productId, id))
-    .get();
+    .limit(1)
+    .then(one);
   if (onOrder) return "on-orders";
 
   // Rows cascade, but the files on disk would be orphaned otherwise.
-  const images = db
+  const images = await db
     .select()
     .from(productImages)
-    .where(eq(productImages.productId, id))
-    .all();
+    .where(eq(productImages.productId, id));
 
-  db.delete(products).where(eq(products.id, id)).run();
+  await db.delete(products).where(eq(products.id, id));
   for (const image of images) {
     await deleteUpload(image.path);
   }
 
-  logEntityEvent("product", id, admin.id, "deleted", { name: productLogName(existing) });
+  await logEntityEvent(admin.companyId, "product", id, admin.id, "deleted", {
+    name: productLogName(existing),
+  });
 
   revalidatePath("/catalog");
   return undefined;
@@ -506,7 +540,7 @@ export async function createCategory(
   _prevState: string | undefined,
   formData: FormData,
 ): Promise<string | undefined> {
-  await requireSession();
+  const user = await requireSession();
 
   let data;
   try {
@@ -518,25 +552,28 @@ export async function createCategory(
     return "invalid";
   }
 
-  db.insert(categories).values(data).run();
+  await db.insert(categories).values({ ...data, companyId: user.companyId });
   revalidatePath("/catalog");
   return undefined;
 }
 
 export async function deleteCategory(id: number): Promise<string | undefined> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   // Products carry a required category, so the foreign key would reject this
   // with a raw constraint error. Check first and say what is actually wrong:
   // move those products to another category, then delete this one.
-  const inUse = db
+  const inUse = await db
     .select({ id: products.id })
     .from(products)
     .where(eq(products.categoryId, id))
-    .get();
+    .limit(1)
+    .then(one);
   if (inUse) return "has-products";
 
-  db.delete(categories).where(eq(categories.id, id)).run();
+  await db
+    .delete(categories)
+    .where(and(eq(categories.companyId, admin.companyId), eq(categories.id, id)));
   revalidatePath("/catalog");
   return undefined;
 }

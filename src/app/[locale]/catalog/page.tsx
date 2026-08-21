@@ -20,6 +20,7 @@ import { CatalogList } from "@/components/catalog/catalog-list";
 import { CaptureFab } from "@/components/catalog/capture-fab";
 import { CatalogSnapshot } from "@/components/offline/catalog-snapshot";
 import { Button } from "@/components/ui/button";
+import { requireUser } from "@/lib/authz";
 
 /**
  * The name in the language the page is *not* in, so a row can carry both.
@@ -49,11 +50,12 @@ export default async function CatalogPage({
   const { category, supplier, sort } = await searchParams;
   const t = await getTranslations("catalog");
 
-  const categories = await getCategories();
-  const openDrafts = await countOpenDrafts();
+  const { companyId } = await requireUser();
+  const categories = await getCategories(companyId);
+  const openDrafts = await countOpenDrafts(companyId);
   const categoryId = category ? Number(category) : undefined;
   const supplierId = positiveId(supplier);
-  const products = await getProducts({
+  const products = await getProducts(companyId, {
     categoryId,
     supplierId,
     sort: sort === "price-asc" ? "price-asc" : "default",
@@ -62,18 +64,18 @@ export default async function CatalogPage({
   const productIds = products.map((p) => p.id);
   const [imagesByProduct, userNames, offersByProduct, rates] = await Promise.all([
     getImagesByProduct(productIds),
-    getUserNames(),
-    getOffersByProduct(productIds),
-    getExchangeRates(),
+    getUserNames(companyId),
+    getOffersByProduct(companyId, productIds),
+    getExchangeRates(companyId),
   ]);
   const categoryMap = new Map(categories.map((c) => [c.id, c]));
-  const suppliers = await getSuppliersForPicker();
+  const suppliers = await getSuppliersForPicker(companyId);
   const supplierMap = new Map(suppliers.map((s) => [s.id, s]));
 
   // The filter offers only suppliers that have products — plus whichever one is
   // currently selected, so a filter that has gone empty still names itself
   // rather than silently reading "all suppliers".
-  const supplierIdsInCatalog = await getSupplierIdsInCatalog();
+  const supplierIdsInCatalog = await getSupplierIdsInCatalog(companyId);
   const filterSuppliers = suppliers.filter(
     (s) => supplierIdsInCatalog.has(s.id) || s.id === supplierId,
   );

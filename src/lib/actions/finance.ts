@@ -2,11 +2,10 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { db } from "@/db";
+import { db, one } from "@/db";
 import { orders, orderPayments, orderExpenses, orderDocuments } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { auth } from "@/lib/auth";
-import { requireUser, requireAdmin } from "@/lib/authz";
+import { and, eq } from "drizzle-orm";
+import { requireUser, requireAdmin, type SessionUser } from "@/lib/authz";
 import {
   saveUploadedDocument,
   saveUploadedReceipt,
@@ -18,12 +17,17 @@ import { logOrderEvent } from "@/lib/order-log";
 import { getExchangeRates } from "@/lib/queries/orders";
 
 async function requireSession() {
-  return (await requireUser()).id;
+  return await requireUser();
 }
 
-/** Rows only ever attach to an order that exists; everything else 404s here. */
-function requireOrder(orderId: number) {
-  const order = db.select().from(orders).where(eq(orders.id, orderId)).get();
+/** Rows only attach to an order of the caller's company; anything else 404s. */
+async function requireOrder(user: SessionUser, orderId: number) {
+  const order = await db
+    .select()
+    .from(orders)
+    .where(and(eq(orders.companyId, user.companyId), eq(orders.id, orderId)))
+    .limit(1)
+    .then(one);
   if (!order) throw new Error("order not found");
   return order;
 }
@@ -45,6 +49,7 @@ export type FinanceActionResult = { error?: string };
  * recorded without the slip the user attached.
  */
 async function readReceipt(
+  companyId: number,
   formData: FormData,
 ): Promise<
   | { receiptPath: string; receiptName: string }
@@ -55,7 +60,7 @@ async function readReceipt(
     return { receiptPath: "", receiptName: "" };
   }
   try {
-    const receiptPath = await saveUploadedReceipt(file);
+    const receiptPath = await saveUploadedReceipt(companyId, file);
     return { receiptPath, receiptName: file.name || "receipt" };
   } catch (err) {
     if (err instanceof FileTooLargeError) return { error: "receiptSize" };
@@ -80,40 +85,40 @@ export async function addPayment(
   _prev: FinanceActionResult | undefined,
   formData: FormData,
 ): Promise<FinanceActionResult> {
-  const userId = await requireSession();
-  requireOrder(orderId);
+  const user = await requireSession();
+  await requireOrder(user, orderId);
 
   const parsed = paymentSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "invalid" };
 
-  const receipt = await readReceipt(formData);
+  const receipt = await readReceipt(user.companyId, formData);
   if ("error" in receipt) return { error: receipt.error };
 
   // Freeze today's rates onto the payment: what this money was worth the day
   // it was recorded must not drift when rates move later.
-  const ratesSnapshot = JSON.stringify(await getExchangeRates());
+  const ratesSnapshot = JSON.stringify(await getExchangeRates(user.companyId));
 
-  db.insert(orderPayments)
-    .values({ orderId, createdBy: userId, ratesSnapshot, ...receipt, ...parsed.data })
-    .run();
-  logOrderEvent(orderId, userId, "payment_added", parsed.data);
+  await db.insert(orderPayments)
+    .values({ orderId, createdBy: user.id, ratesSnapshot, ...receipt, ...parsed.data });
+  await logOrderEvent(orderId, user.id, "payment_added", parsed.data);
   refresh(orderId);
   return {};
 }
 
 export async function deletePayment(orderId: number, paymentId: number) {
-  await requireAdmin();
-  const row = db
+  const admin = await requireAdmin();
+  await requireOrder(admin, orderId);
+  const row = await db
     .select()
     .from(orderPayments)
     .where(eq(orderPayments.id, paymentId))
-    .get();
+    .limit(1)
+    .then(one);
   // The orderId comes from the page; the row's own parent is what counts.
   if (!row || row.orderId !== orderId) return;
-  db.delete(orderPayments).where(eq(orderPayments.id, paymentId)).run();
+  await db.delete(orderPayments).where(eq(orderPayments.id, paymentId));
   if (row.receiptPath) await deleteUpload(row.receiptPath);
-  const session = await auth();
-  logOrderEvent(orderId, Number(session?.user?.id ?? 0) || null, "payment_removed", {
+  await logOrderEvent(orderId, admin.id, "payment_removed", {
     direction: row.direction,
     amount: row.amount,
     currency: row.currency,
@@ -144,37 +149,37 @@ export async function addExpense(
   _prev: FinanceActionResult | undefined,
   formData: FormData,
 ): Promise<FinanceActionResult> {
-  const userId = await requireSession();
-  requireOrder(orderId);
+  const user = await requireSession();
+  await requireOrder(user, orderId);
 
   const parsed = expenseSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "invalid" };
 
-  const receipt = await readReceipt(formData);
+  const receipt = await readReceipt(user.companyId, formData);
   if ("error" in receipt) return { error: receipt.error };
 
-  const ratesSnapshot = JSON.stringify(await getExchangeRates());
+  const ratesSnapshot = JSON.stringify(await getExchangeRates(user.companyId));
 
-  db.insert(orderExpenses)
-    .values({ orderId, createdBy: userId, ratesSnapshot, ...receipt, ...parsed.data })
-    .run();
-  logOrderEvent(orderId, userId, "expense_added", parsed.data);
+  await db.insert(orderExpenses)
+    .values({ orderId, createdBy: user.id, ratesSnapshot, ...receipt, ...parsed.data });
+  await logOrderEvent(orderId, user.id, "expense_added", parsed.data);
   refresh(orderId);
   return {};
 }
 
 export async function deleteExpense(orderId: number, expenseId: number) {
-  await requireAdmin();
-  const row = db
+  const admin = await requireAdmin();
+  await requireOrder(admin, orderId);
+  const row = await db
     .select()
     .from(orderExpenses)
     .where(eq(orderExpenses.id, expenseId))
-    .get();
+    .limit(1)
+    .then(one);
   if (!row || row.orderId !== orderId) return;
-  db.delete(orderExpenses).where(eq(orderExpenses.id, expenseId)).run();
+  await db.delete(orderExpenses).where(eq(orderExpenses.id, expenseId));
   if (row.receiptPath) await deleteUpload(row.receiptPath);
-  const session = await auth();
-  logOrderEvent(orderId, Number(session?.user?.id ?? 0) || null, "expense_removed", {
+  await logOrderEvent(orderId, admin.id, "expense_removed", {
     category: row.category,
     amount: row.amount,
     currency: row.currency,
@@ -197,8 +202,8 @@ export async function uploadOrderDocument(
   _prev: FinanceActionResult | undefined,
   formData: FormData,
 ): Promise<FinanceActionResult> {
-  const userId = await requireSession();
-  requireOrder(orderId);
+  const user = await requireSession();
+  await requireOrder(user, orderId);
 
   const kind = documentKind.safeParse(formData.get("kind"));
   const file = formData.get("file");
@@ -208,7 +213,7 @@ export async function uploadOrderDocument(
 
   let path: string;
   try {
-    path = await saveUploadedDocument(file);
+    path = await saveUploadedDocument(user.companyId, file);
   } catch (err) {
     // Which rule refused it matters: "too large" and "wrong format" call
     // for different next moves at the user's end.
@@ -217,17 +222,16 @@ export async function uploadOrderDocument(
     throw err;
   }
 
-  db.insert(orderDocuments)
+  await db.insert(orderDocuments)
     .values({
       orderId,
       kind: kind.data,
       path,
       originalName: file.name || "document",
       sizeBytes: file.size,
-      uploadedBy: userId,
-    })
-    .run();
-  logOrderEvent(orderId, userId, "document_added", {
+      uploadedBy: user.id,
+    });
+  await logOrderEvent(orderId, user.id, "document_added", {
     kind: kind.data,
     name: file.name || "document",
   });
@@ -236,18 +240,19 @@ export async function uploadOrderDocument(
 }
 
 export async function deleteOrderDocument(orderId: number, documentId: number) {
-  await requireAdmin();
-  const row = db
+  const admin = await requireAdmin();
+  await requireOrder(admin, orderId);
+  const row = await db
     .select()
     .from(orderDocuments)
     .where(eq(orderDocuments.id, documentId))
-    .get();
+    .limit(1)
+    .then(one);
   if (!row || row.orderId !== orderId) return;
-  db.delete(orderDocuments).where(eq(orderDocuments.id, documentId)).run();
+  await db.delete(orderDocuments).where(eq(orderDocuments.id, documentId));
   // The DB row is the record; the file goes with it or it leaks in the volume.
   await deleteUpload(row.path);
-  const session = await auth();
-  logOrderEvent(orderId, Number(session?.user?.id ?? 0) || null, "document_removed", {
+  await logOrderEvent(orderId, admin.id, "document_removed", {
     kind: row.kind,
     name: row.originalName,
   });

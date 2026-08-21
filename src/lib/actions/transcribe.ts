@@ -42,14 +42,14 @@ async function collectImages(formData: FormData, field: string): Promise<Transcr
 }
 
 export async function transcribeProduct(formData: FormData): Promise<TranscribeResult> {
-  await requireUser();
+  const user = await requireUser();
 
   if (!isTranscriptionEnabled()) return { ok: false, error: "not-configured" };
 
   const images = await collectImages(formData, "images");
   if (images.length === 0) return { ok: false, error: "no-photos" };
 
-  const categories = await getCategories();
+  const categories = await getCategories(user.companyId);
 
   let result: TranscribeResult;
   try {
@@ -78,13 +78,12 @@ export async function transcribeProduct(formData: FormData): Promise<TranscribeR
     if (existing) {
       result.fields.categoryId = existing.id;
     } else {
-      const inserted = db
+      const [inserted] = await db
         .insert(categoriesTable)
-        .values({ nameEn: proposal.nameEn, nameZh: proposal.nameZh })
-        .run();
-      const id = Number(inserted.lastInsertRowid);
-      result.fields.categoryId = id;
-      result.newCategory = { id, nameEn: proposal.nameEn, nameZh: proposal.nameZh };
+        .values({ companyId: user.companyId, nameEn: proposal.nameEn, nameZh: proposal.nameZh })
+        .returning({ id: categoriesTable.id });
+      result.fields.categoryId = inserted.id;
+      result.newCategory = { id: inserted.id, nameEn: proposal.nameEn, nameZh: proposal.nameZh };
     }
   }
 

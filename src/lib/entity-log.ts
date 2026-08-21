@@ -23,16 +23,17 @@ export type FieldChange = { field: string; from?: string; to?: string };
 
 export type EntityEventPayload = { name: string; changes?: FieldChange[] };
 
-export function logEntityEvent(
+export async function logEntityEvent(
+  companyId: number,
   entity: EntityKind,
   entityId: number,
   userId: number | null,
   kind: EntityEventKind,
   payload: EntityEventPayload,
 ) {
-  db.insert(entityEvents)
-    .values({ entity, entityId, userId, kind, payload: JSON.stringify(payload) })
-    .run();
+  await db
+    .insert(entityEvents)
+    .values({ companyId, entity, entityId, userId, kind, payload: JSON.stringify(payload) });
 }
 
 /** Long free text would bloat the log; keep enough to recognise the value. */

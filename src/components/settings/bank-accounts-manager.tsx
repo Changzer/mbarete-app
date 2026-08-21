@@ -42,6 +42,7 @@ function Field({
 
 const EMPTY: BankAccount = {
   id: 0,
+  companyId: 0,
   label: "",
   bankName: "",
   accountName: "",

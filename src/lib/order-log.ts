@@ -33,15 +33,13 @@ export type OrderChange =
   | { code: "line_qty"; sku: string; from: number; to: number }
   | { code: "line_price"; sku: string; from: number; to: number };
 
-export function logOrderEvent(
+export async function logOrderEvent(
   orderId: number,
   userId: number | null,
   kind: OrderEventKind,
   payload: unknown = {},
 ) {
-  db.insert(orderEvents)
-    .values({ orderId, userId, kind, payload: JSON.stringify(payload) })
-    .run();
+  await db.insert(orderEvents).values({ orderId, userId, kind, payload: JSON.stringify(payload) });
 }
 
 type OrderShape = {

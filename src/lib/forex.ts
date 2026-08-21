@@ -1,6 +1,6 @@
-import { db } from "@/db";
-import { exchangeRates, exchangeRateHistory } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { db, one } from "@/db";
+import { companies, exchangeRates, exchangeRateHistory } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
 
 /**
  * Automatic exchange rates.
@@ -14,6 +14,10 @@ import { eq } from "drizzle-orm";
  *
  * Manual entry stays as the fallback: a failed refresh changes nothing, and
  * the Settings page shows where each rate came from and how old it is.
+ *
+ * Rates are per company (each tenant owns its rate table and can hand-tune
+ * it), but the day's market rates are the same for everyone — so the
+ * scheduled refresh fetches once and writes the result for every company.
  */
 
 /** The currencies refreshed automatically; anything else stays hand-entered. */
@@ -71,56 +75,84 @@ async function fetchFromProvider(url: string): Promise<Record<string, number> | 
   }
 }
 
-/** Fetch the day's rates and write them into the live table and the history. */
-export async function refreshExchangeRates(): Promise<RefreshResult> {
-  let rates: Record<string, number> | null = null;
-  let source = "";
+/** Ask the provider chain for today's rates. Pure fetch, no writes. */
+async function fetchDailyRates(): Promise<{
+  rates: Record<string, number>;
+  source: string;
+} | null> {
   for (const url of providerUrls()) {
-    rates = await fetchFromProvider(url);
+    const rates = await fetchFromProvider(url);
     if (rates) {
+      let source: string;
       try {
         source = new URL(url).hostname;
       } catch {
         source = url;
       }
-      break;
+      return { rates, source };
     }
   }
-  if (!rates) {
-    return { ok: false, error: "no provider reachable" };
-  }
+  return null;
+}
 
+/** Write one day's fetched rates into one company's live table and history. */
+async function writeRatesForCompany(
+  companyId: number,
+  rates: Record<string, number>,
+  source: string,
+) {
   const now = new Date().toISOString();
   const day = now.slice(0, 10);
 
   for (const [currencyCode, rateToUsd] of Object.entries(rates)) {
-    const existing = db
-      .select()
-      .from(exchangeRates)
-      .where(eq(exchangeRates.currencyCode, currencyCode))
-      .get();
+    const scope = and(
+      eq(exchangeRates.companyId, companyId),
+      eq(exchangeRates.currencyCode, currencyCode),
+    );
+    const existing = await db.select().from(exchangeRates).where(scope).limit(1).then(one);
     if (existing) {
-      db.update(exchangeRates)
+      await db
+        .update(exchangeRates)
         .set({ rateToUsd, source: "auto", updatedAt: now })
-        .where(eq(exchangeRates.currencyCode, currencyCode))
-        .run();
+        .where(scope);
     } else {
-      db.insert(exchangeRates)
-        .values({ currencyCode, rateToUsd, source: "auto", updatedAt: now })
-        .run();
+      await db
+        .insert(exchangeRates)
+        .values({ companyId, currencyCode, rateToUsd, source: "auto", updatedAt: now });
     }
 
     // One record per currency per day; a later fetch the same day wins.
-    db.insert(exchangeRateHistory)
-      .values({ day, currencyCode, rateToUsd, source })
+    await db
+      .insert(exchangeRateHistory)
+      .values({ companyId, day, currencyCode, rateToUsd, source })
       .onConflictDoUpdate({
-        target: [exchangeRateHistory.day, exchangeRateHistory.currencyCode],
+        target: [
+          exchangeRateHistory.companyId,
+          exchangeRateHistory.day,
+          exchangeRateHistory.currencyCode,
+        ],
         set: { rateToUsd, source },
-      })
-      .run();
+      });
   }
+}
 
-  return { ok: true, source, rates };
+/** Fetch the day's rates and write them for ONE company — the Settings button. */
+export async function refreshExchangeRates(companyId: number): Promise<RefreshResult> {
+  const fetched = await fetchDailyRates();
+  if (!fetched) return { ok: false, error: "no provider reachable" };
+  await writeRatesForCompany(companyId, fetched.rates, fetched.source);
+  return { ok: true, source: fetched.source, rates: fetched.rates };
+}
+
+/** The scheduled refresh: one fetch, written for every company. */
+export async function refreshExchangeRatesForAllCompanies(): Promise<RefreshResult> {
+  const fetched = await fetchDailyRates();
+  if (!fetched) return { ok: false, error: "no provider reachable" };
+  const rows = await db.select({ id: companies.id }).from(companies);
+  for (const row of rows) {
+    await writeRatesForCompany(row.id, fetched.rates, fetched.source);
+  }
+  return { ok: true, source: fetched.source, rates: fetched.rates };
 }
 
 const STARTED = Symbol.for("mbarete.forex.autorefresh");
@@ -136,7 +168,7 @@ export function startForexAutoRefresh() {
   g[STARTED] = true;
 
   const run = async () => {
-    const result = await refreshExchangeRates();
+    const result = await refreshExchangeRatesForAllCompanies();
     if (result.ok) {
       console.log(`[forex] rates refreshed from ${result.source}`);
     } else {

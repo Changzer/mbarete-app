@@ -1,7 +1,7 @@
 import path from "node:path";
 import fs from "node:fs/promises";
 import { and, eq, inArray } from "drizzle-orm";
-import { db } from "@/db";
+import { db, one } from "@/db";
 import { captureDrafts, captureDraftImages } from "@/db/schema";
 import { saveUploadedImage, deleteUpload, uploadsDir, CONTENT_TYPES } from "@/lib/uploads";
 import { getCategories } from "@/lib/queries/catalog";
@@ -48,21 +48,23 @@ export async function ingestDraft(input: {
   fields: Record<string, string>;
   files: IngestFile[];
   userId: number;
+  companyId: number;
 }): Promise<IngestResult> {
   if (!input.clientId.trim()) return { ok: false, error: "invalid" };
   if (!input.capturedAt.trim()) return { ok: false, error: "invalid" };
 
-  const existing = db
+  const existing = await db
     .select({ id: captureDrafts.id })
     .from(captureDrafts)
     .where(eq(captureDrafts.clientId, input.clientId))
-    .get();
+    .limit(1)
+    .then(one);
   if (existing) return { ok: true, draftId: existing.id, duplicate: true };
 
   const paths: { path: string; role: DraftImageRole }[] = [];
   try {
     for (const { file, role } of input.files) {
-      paths.push({ path: await saveUploadedImage(file), role });
+      paths.push({ path: await saveUploadedImage(input.companyId, file), role });
     }
   } catch {
     for (const stored of paths) await deleteUpload(stored.path);
@@ -75,10 +77,11 @@ export async function ingestDraft(input: {
   // "already have it" and the phone would delete its only complete copy.
   let draftId: number;
   try {
-    draftId = db.transaction((tx) => {
-      const inserted = tx
+    draftId = await db.transaction(async (tx) => {
+      const [inserted] = await tx
         .insert(captureDrafts)
         .values({
+          companyId: input.companyId,
           clientId: input.clientId,
           kind: input.kind,
           userId: input.userId,
@@ -86,25 +89,25 @@ export async function ingestDraft(input: {
           capturedAt: input.capturedAt,
           updatedAt: new Date().toISOString(),
         })
-        .run();
-      const id = Number(inserted.lastInsertRowid);
-      paths.forEach((stored, i) => {
-        tx.insert(captureDraftImages)
-          .values({ draftId: id, path: stored.path, role: stored.role, sortOrder: i })
-          .run();
-      });
-      return id;
+        .returning({ id: captureDrafts.id });
+      for (const [i, stored] of paths.entries()) {
+        await tx
+          .insert(captureDraftImages)
+          .values({ draftId: inserted.id, path: stored.path, role: stored.role, sortOrder: i });
+      }
+      return inserted.id;
     });
   } catch {
     // Two deliveries of the same capture raced and the other won — or the
     // write itself failed and nothing at all was stored. Either way this
     // attempt's files are cleaned up before answering.
     for (const stored of paths) await deleteUpload(stored.path);
-    const row = db
+    const row = await db
       .select({ id: captureDrafts.id })
       .from(captureDrafts)
       .where(eq(captureDrafts.clientId, input.clientId))
-      .get();
+      .limit(1)
+      .then(one);
     return row
       ? { ok: true, draftId: row.id, duplicate: true }
       : { ok: false, error: "invalid" };
@@ -131,8 +134,13 @@ const VISION_TYPES = new Set<TranscribeImage["mediaType"]>([
  * can offer a retry rather than hide the problem. The reading only pre-fills
  * the product form later — nothing here decides anything about the catalog.
  */
-export async function readDraft(draftId: number): Promise<void> {
-  const draft = db.select().from(captureDrafts).where(eq(captureDrafts.id, draftId)).get();
+export async function readDraft(companyId: number, draftId: number): Promise<void> {
+  const draft = await db
+    .select()
+    .from(captureDrafts)
+    .where(and(eq(captureDrafts.companyId, companyId), eq(captureDrafts.id, draftId)))
+    .limit(1)
+    .then(one);
   // "read" is allowed through again: re-reading picks up categories that were
   // created after the first pass. Imported and discarded drafts are settled.
   if (!draft || (draft.status !== "pending" && draft.status !== "read")) return;
@@ -140,11 +148,11 @@ export async function readDraft(draftId: number): Promise<void> {
 
   // The QR crop is a contact method, not something to read text out of, so
   // it never goes to the model — same as the live contact form.
-  const images = db
+  const imageRows = await db
     .select()
     .from(captureDraftImages)
-    .where(eq(captureDraftImages.draftId, draftId))
-    .all()
+    .where(eq(captureDraftImages.draftId, draftId));
+  const images = imageRows
     .filter((i) => i.role !== "qr")
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .slice(0, MAX_TRANSCRIBE_IMAGES);
@@ -152,7 +160,7 @@ export async function readDraft(draftId: number): Promise<void> {
 
   const payload = await loadStoredImages(images.map((i) => i.path));
   if (payload.length === 0) {
-    recordReadFailure(draftId, "image-missing");
+    await recordReadFailure(draftId, "image-missing");
     return;
   }
 
@@ -162,19 +170,19 @@ export async function readDraft(draftId: number): Promise<void> {
     if (draft.kind === "contact") {
       const result = await transcribeBusinessCard(payload);
       if (!result.ok) {
-        recordReadFailure(draftId, result.error);
+        await recordReadFailure(draftId, result.error);
         return;
       }
       fields = result.fields;
       notes = result.notes;
     } else {
-      const categories = await getCategories();
+      const categories = await getCategories(companyId);
       const result = await transcribeProductPhotos(
         payload,
         categories.map((c) => ({ id: c.id, nameEn: c.nameEn, nameZh: c.nameZh })),
       );
       if (!result.ok) {
-        recordReadFailure(draftId, result.error);
+        await recordReadFailure(draftId, result.error);
         return;
       }
       fields = result.fields;
@@ -184,7 +192,7 @@ export async function readDraft(draftId: number): Promise<void> {
     // seconds, and the draft may have been imported or discarded meanwhile.
     // Writing "read" over either would resurrect a settled draft — worse,
     // one whose photos have already moved to the product or contact.
-    db.update(captureDrafts)
+    await db.update(captureDrafts)
       .set({
         status: "read",
         transcript: JSON.stringify(fields),
@@ -197,20 +205,19 @@ export async function readDraft(draftId: number): Promise<void> {
           eq(captureDrafts.id, draftId),
           inArray(captureDrafts.status, ["pending", "read"]),
         ),
-      )
-      .run();
+      );
   } catch {
     // Network trouble, a refused request, malformed output — all the same to
     // the drafts page, which offers one retry button either way.
-    recordReadFailure(draftId, "failed");
+    await recordReadFailure(draftId, "failed");
   }
 }
 
-function recordReadFailure(draftId: number, error: string) {
-  db.update(captureDrafts)
+async function recordReadFailure(draftId: number, error: string) {
+  await db
+    .update(captureDrafts)
     .set({ transcriptError: error, updatedAt: new Date().toISOString() })
-    .where(eq(captureDrafts.id, draftId))
-    .run();
+    .where(eq(captureDrafts.id, draftId));
 }
 
 /**

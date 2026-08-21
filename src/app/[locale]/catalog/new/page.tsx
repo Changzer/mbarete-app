@@ -7,19 +7,21 @@ import { transcribeProduct, transcribeCard } from "@/lib/actions/transcribe";
 import { isTranscriptionEnabled } from "@/lib/transcribe-product";
 import { ProductForm } from "@/components/catalog/product-form";
 import { normalizeDecimalInput } from "@/lib/decimal-input";
+import { requireUser } from "@/lib/authz";
 
 export default async function NewProductPage({
   searchParams,
 }: {
   searchParams: Promise<{ category?: string; from?: string; supplier?: string; draft?: string }>;
 }) {
+  const { companyId } = await requireUser();
   const { category, from, supplier, draft } = await searchParams;
   const t = await getTranslations("catalog");
   const common = await getTranslations("common");
   const [categories, suppliers, nextSku] = await Promise.all([
-    getCategories(),
-    getSuppliersForPicker(),
-    suggestNextSku(),
+    getCategories(companyId),
+    getSuppliersForPicker(companyId),
+    suggestNextSku(companyId),
   ]);
 
   // "Save and add another" comes back here carrying the category — and the
@@ -33,7 +35,7 @@ export default async function NewProductPage({
   // it), and photos and supplier stay empty because they belong to the other
   // vendor. The source id rides along as lineage for later comparison.
   const fromId = Number(from);
-  const source = Number.isFinite(fromId) && fromId > 0 ? await getProductById(fromId) : undefined;
+  const source = Number.isFinite(fromId) && fromId > 0 ? await getProductById(companyId, fromId) : undefined;
   const duplicateDefaults = source
     ? {
         nameEn: source.nameEn,
@@ -67,7 +69,7 @@ export default async function NewProductPage({
   // person to proofread — the same posture as live transcription. The photos
   // are already on the server under the draft; saving moves them across.
   const draftId = Number(draft);
-  const openDraft = Number.isFinite(draftId) && draftId > 0 ? await getDraftById(draftId) : undefined;
+  const openDraft = Number.isFinite(draftId) && draftId > 0 ? await getDraftById(companyId, draftId) : undefined;
   const reviewable =
     openDraft &&
     openDraft.kind === "product" &&

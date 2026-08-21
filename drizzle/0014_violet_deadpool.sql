@@ -1,1 +1,0 @@
-ALTER TABLE `contact_images` ADD `kind` text DEFAULT 'card' NOT NULL;

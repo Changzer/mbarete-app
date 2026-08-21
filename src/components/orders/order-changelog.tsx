@@ -111,7 +111,15 @@ function formatWhen(sqliteTimestamp: string, locale: string) {
   });
 }
 
-export async function OrderChangelog({ orderId, locale }: { orderId: number; locale: string }) {
+export async function OrderChangelog({
+  companyId,
+  orderId,
+  locale,
+}: {
+  companyId: number;
+  orderId: number;
+  locale: string;
+}) {
   const t = await getTranslations("orderLog");
   const finT = await getTranslations("finance");
 
@@ -120,9 +128,8 @@ export async function OrderChangelog({ orderId, locale }: { orderId: number; loc
       .select()
       .from(orderEvents)
       .where(eq(orderEvents.orderId, orderId))
-      .orderBy(desc(orderEvents.createdAt), desc(orderEvents.id))
-      .all(),
-    getUserNames(),
+      .orderBy(desc(orderEvents.createdAt), desc(orderEvents.id)),
+    getUserNames(companyId),
   ]);
 
   return (

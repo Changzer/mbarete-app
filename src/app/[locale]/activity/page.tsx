@@ -2,7 +2,7 @@ import { getTranslations, getLocale } from "next-intl/server";
 import { redirect } from "@/i18n/navigation";
 import { db } from "@/db";
 import { entityEvents } from "@/db/schema";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { sessionUser } from "@/lib/authz";
 import { getUserNames } from "@/lib/queries/users";
 import type { FieldChange } from "@/lib/entity-log";
@@ -60,10 +60,10 @@ export default async function ActivityPage() {
     db
       .select()
       .from(entityEvents)
+      .where(eq(entityEvents.companyId, user!.companyId))
       .orderBy(desc(entityEvents.createdAt), desc(entityEvents.id))
-      .limit(200)
-      .all(),
-    getUserNames(),
+      .limit(200),
+    getUserNames(user!.companyId),
   ]);
 
   return (

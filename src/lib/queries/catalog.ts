@@ -1,13 +1,22 @@
-import { db } from "@/db";
+import { db, one } from "@/db";
 import { products, categories, productImages } from "@/db/schema";
 import { eq, asc, and, inArray } from "drizzle-orm";
 
-export async function getCategories() {
-  return db.select().from(categories).orderBy(asc(categories.nameEn)).all();
+export async function getCategories(companyId: number) {
+  return await db
+    .select()
+    .from(categories)
+    .where(eq(categories.companyId, companyId))
+    .orderBy(asc(categories.nameEn));
 }
 
-export async function getCategoryById(id: number) {
-  return db.select().from(categories).where(eq(categories.id, id)).get();
+export async function getCategoryById(companyId: number, id: number) {
+  return await db
+    .select()
+    .from(categories)
+    .where(and(eq(categories.companyId, companyId), eq(categories.id, id)))
+    .limit(1)
+    .then(one);
 }
 
 export type ProductFilters = {
@@ -17,8 +26,8 @@ export type ProductFilters = {
   activeOnly?: boolean;
 };
 
-export async function getProducts(filters: ProductFilters = {}) {
-  const conditions = [];
+export async function getProducts(companyId: number, filters: ProductFilters = {}) {
+  const conditions = [eq(products.companyId, companyId)];
   if (filters.categoryId) {
     conditions.push(eq(products.categoryId, filters.categoryId));
   }
@@ -32,11 +41,12 @@ export async function getProducts(filters: ProductFilters = {}) {
   const query = db
     .select()
     .from(products)
-    .where(conditions.length ? and(...conditions) : undefined);
+    .where(and(...conditions));
 
-  const rows = filters.sort === "price-asc"
-    ? await query.orderBy(asc(products.price)).all()
-    : await query.orderBy(asc(products.nameEn)).all();
+  const rows =
+    filters.sort === "price-asc"
+      ? await query.orderBy(asc(products.price))
+      : await query.orderBy(asc(products.nameEn));
 
   return rows;
 }
@@ -46,18 +56,23 @@ export async function getProducts(filters: ProductFilters = {}) {
  * only ever offers a supplier that can return something. Suppliers registered
  * at a booth whose products were never saved would otherwise be dead ends.
  */
-export async function getSupplierIdsInCatalog() {
+export async function getSupplierIdsInCatalog(companyId: number) {
   const rows = await db
     .selectDistinct({ supplierId: products.supplierId })
     .from(products)
-    .all();
+    .where(eq(products.companyId, companyId));
   return new Set(
     rows.map((r) => r.supplierId).filter((id): id is number => id !== null),
   );
 }
 
-export async function getProductById(id: number) {
-  return db.select().from(products).where(eq(products.id, id)).get();
+export async function getProductById(companyId: number, id: number) {
+  return await db
+    .select()
+    .from(products)
+    .where(and(eq(products.companyId, companyId), eq(products.id, id)))
+    .limit(1)
+    .then(one);
 }
 
 /** All images for the given products, grouped by product id and ordered. */
@@ -69,8 +84,7 @@ export async function getImagesByProduct(productIds: number[]) {
     .select()
     .from(productImages)
     .where(inArray(productImages.productId, productIds))
-    .orderBy(asc(productImages.sortOrder), asc(productImages.id))
-    .all();
+    .orderBy(asc(productImages.sortOrder), asc(productImages.id));
 
   for (const row of rows) {
     const list = grouped.get(row.productId) ?? [];
@@ -85,8 +99,7 @@ export async function getProductImages(productId: number) {
     .select()
     .from(productImages)
     .where(eq(productImages.productId, productId))
-    .orderBy(asc(productImages.sortOrder), asc(productImages.id))
-    .all();
+    .orderBy(asc(productImages.sortOrder), asc(productImages.id));
 }
 
 /**
@@ -95,8 +108,11 @@ export async function getProductImages(productId: number) {
  * Purely a suggestion for the form: SKUs stay free-form, and anything that is
  * not a plain number is ignored when working out the next one.
  */
-export async function suggestNextSku() {
-  const rows = await db.select({ sku: products.sku }).from(products).all();
+export async function suggestNextSku(companyId: number) {
+  const rows = await db
+    .select({ sku: products.sku })
+    .from(products)
+    .where(eq(products.companyId, companyId));
   const numeric = rows
     .map((r) => r.sku.trim())
     .filter((sku) => /^\d+$/.test(sku));

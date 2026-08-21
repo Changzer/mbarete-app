@@ -1,44 +1,94 @@
 import { sql } from "drizzle-orm";
 import {
-  sqliteTable,
+  pgTable,
   text,
   integer,
-  real,
+  serial,
+  boolean,
+  doublePrecision,
   index,
+  uniqueIndex,
   primaryKey,
-  type AnySQLiteColumn,
-} from "drizzle-orm/sqlite-core";
+  type AnyPgColumn,
+} from "drizzle-orm/pg-core";
 
-export const users = sqliteTable("users", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  email: text("email").notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
+/**
+ * Timestamps are stored as text in SQLite's "YYYY-MM-DD HH:MM:SS" UTC shape,
+ * carried over unchanged from the SQLite era: every formatter and comparison
+ * in the app already speaks it, and rows migrated from the NAS database keep
+ * their history byte-for-byte. Columns written by the app with
+ * `new Date().toISOString()` mix in the ISO shape, which the formatters also
+ * accept — same as before.
+ */
+const utcNow = sql`to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD HH24:MI:SS')`;
+
+/**
+ * One tenant. Every row of business data below belongs to exactly one
+ * company, and every query filters on it — that filter is the wall between
+ * two customers of the product. In self-hosted mode there is exactly one
+ * company, created by the seed.
+ */
+export const companies = pgTable("companies", {
+  id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  // Accounts are deactivated, never deleted: products and orders point at
-  // this row, and removing it would erase who did what. An inactive user
-  // cannot sign in but still gets credited on everything they entered.
-  active: integer("active", { mode: "boolean" }).notNull().default(true),
-  // "admin" sees everything; "collaborator" runs the daily loop (products,
-  // contacts, orders) but cannot delete records, touch settings, manage the
-  // team or read the finance report. The default is the safe one — existing
-  // accounts were promoted to admin by the migration that added the column.
-  role: text("role").$type<"admin" | "collaborator">().notNull().default("collaborator"),
-  createdAt: text("created_at")
-    .notNull()
-    .default(sql`(current_timestamp)`),
+  /**
+   * The account owner — the person who registered the company. Owners are
+   * admins that other admins cannot demote or deactivate. Nullable only
+   * during creation, before the first user row exists.
+   */
+  ownerUserId: integer("owner_user_id").references((): AnyPgColumn => users.id),
+  /** Monetization hook, unenforced for now: "free" until plans exist. */
+  plan: text("plan").notNull().default("free"),
+  createdAt: text("created_at").notNull().default(utcNow),
 });
 
-export const categories = sqliteTable("categories", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  nameEn: text("name_en").notNull(),
-  nameZh: text("name_zh").notNull(),
-});
+export const users = pgTable(
+  "users",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    // Globally unique on purpose: an email belongs to one company. Sign-in
+    // never asks which company you meant, and an invite to an address that
+    // already has an account can say so plainly.
+    email: text("email").notNull().unique(),
+    passwordHash: text("password_hash").notNull(),
+    name: text("name").notNull(),
+    // Accounts are deactivated, never deleted: products and orders point at
+    // this row, and removing it would erase who did what. An inactive user
+    // cannot sign in but still gets credited on everything they entered.
+    active: boolean("active").notNull().default(true),
+    // "admin" sees everything; "collaborator" runs the daily loop (products,
+    // contacts, orders) but cannot delete records, touch settings, manage the
+    // team or read the finance report.
+    role: text("role").$type<"admin" | "collaborator">().notNull().default("collaborator"),
+    createdAt: text("created_at").notNull().default(utcNow),
+  },
+  (table) => [index("users_company_idx").on(table.companyId)],
+);
 
-export const products = sqliteTable(
+export const categories = pgTable(
+  "categories",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    nameEn: text("name_en").notNull(),
+    nameZh: text("name_zh").notNull(),
+  },
+  (table) => [index("categories_company_idx").on(table.companyId)],
+);
+
+export const products = pgTable(
   "products",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    sku: text("sku").notNull().unique(),
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    sku: text("sku").notNull(),
     nameEn: text("name_en").notNull(),
     nameZh: text("name_zh").notNull(),
     categoryId: integer("category_id")
@@ -46,20 +96,20 @@ export const products = sqliteTable(
       .references(() => categories.id),
     descriptionEn: text("description_en").notNull().default(""),
     descriptionZh: text("description_zh").notNull().default(""),
-    price: real("price").notNull(),
+    price: doublePrecision("price").notNull(),
     // Default selling price for order lines. 0 means none set: the product
     // sells at the supplier price until a price is typed on the order.
-    sellPrice: real("sell_price").notNull().default(0),
+    sellPrice: doublePrecision("sell_price").notNull().default(0),
     currency: text("currency").notNull().default("USD"),
     moq: integer("moq").notNull().default(1),
     qtyPerBox: integer("qty_per_box").notNull().default(1),
     // Carton figures. These are what every order calculation reads, whether
     // they were measured or estimated from a single piece.
-    lengthCm: real("length_cm").notNull().default(0),
-    widthCm: real("width_cm").notNull().default(0),
-    heightCm: real("height_cm").notNull().default(0),
-    weightKg: real("weight_kg").notNull().default(0),
-    cbm: real("cbm").notNull().default(0),
+    lengthCm: doublePrecision("length_cm").notNull().default(0),
+    widthCm: doublePrecision("width_cm").notNull().default(0),
+    heightCm: doublePrecision("height_cm").notNull().default(0),
+    weightKg: doublePrecision("weight_kg").notNull().default(0),
+    cbm: doublePrecision("cbm").notNull().default(0),
     // Where the carton figures came from: "carton" when the supplier quoted
     // the export carton, "piece" when only the product itself was known and
     // the carton was estimated from it.
@@ -69,11 +119,11 @@ export const products = sqliteTable(
       .default("carton"),
     // What was entered in piece mode, kept so the form round-trips and the
     // estimate can be recalculated when pieces per carton changes.
-    pieceLengthCm: real("piece_length_cm").notNull().default(0),
-    pieceWidthCm: real("piece_width_cm").notNull().default(0),
-    pieceHeightCm: real("piece_height_cm").notNull().default(0),
-    pieceWeightKg: real("piece_weight_kg").notNull().default(0),
-    packingAllowancePct: real("packing_allowance_pct").notNull().default(15),
+    pieceLengthCm: doublePrecision("piece_length_cm").notNull().default(0),
+    pieceWidthCm: doublePrecision("piece_width_cm").notNull().default(0),
+    pieceHeightCm: doublePrecision("piece_height_cm").notNull().default(0),
+    pieceWeightKg: doublePrecision("piece_weight_kg").notNull().default(0),
+    packingAllowancePct: doublePrecision("packing_allowance_pct").notNull().default(15),
     // Which vendor sells this. Nullable: products registered before suppliers
     // existed have none, and a product can be catalogued before the card is.
     // Deleting a referenced contact is blocked in the action, mirroring how
@@ -83,24 +133,22 @@ export const products = sqliteTable(
     // same item across booths. Write-only lineage for now: it lets offers for
     // one item be grouped later without re-entering anything.
     duplicatedFromId: integer("duplicated_from_id").references(
-      (): AnySQLiteColumn => products.id,
+      (): AnyPgColumn => products.id,
       { onDelete: "set null" },
     ),
-    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    active: boolean("active").notNull().default(true),
     // Who entered this product and who last changed it. Nullable because rows
     // written before attribution existed have nobody to credit.
     createdBy: integer("created_by").references(() => users.id),
     updatedBy: integer("updated_by").references(() => users.id),
-    createdAt: text("created_at")
-      .notNull()
-      .default(sql`(current_timestamp)`),
-    updatedAt: text("updated_at")
-      .notNull()
-      .default(sql`(current_timestamp)`),
+    createdAt: text("created_at").notNull().default(utcNow),
+    updatedAt: text("updated_at").notNull().default(utcNow),
   },
   (table) => [
-    index("products_category_idx").on(table.categoryId),
-    index("products_active_idx").on(table.active),
+    // SKUs are unique within a company, not across the product's customers.
+    uniqueIndex("products_company_sku_idx").on(table.companyId, table.sku),
+    index("products_company_category_idx").on(table.companyId, table.categoryId),
+    index("products_company_active_idx").on(table.companyId, table.active),
     index("products_supplier_idx").on(table.supplierId),
   ],
 );
@@ -108,60 +156,70 @@ export const products = sqliteTable(
 /**
  * One product can carry several photos (colour variants of the same item),
  * ordered by sortOrder. The first is used as the catalog thumbnail.
+ * Scoped through its product — every access path goes product-first.
  */
-export const productImages = sqliteTable(
+export const productImages = pgTable(
   "product_images",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     productId: integer("product_id")
       .notNull()
       .references(() => products.id, { onDelete: "cascade" }),
     path: text("path").notNull(),
     sortOrder: integer("sort_order").notNull().default(0),
-    createdAt: text("created_at")
-      .notNull()
-      .default(sql`(current_timestamp)`),
+    createdAt: text("created_at").notNull().default(utcNow),
   },
   (table) => [index("product_images_product_idx").on(table.productId)],
 );
 
-export const exchangeRates = sqliteTable("exchange_rates", {
-  currencyCode: text("currency_code").primaryKey(),
-  rateToUsd: real("rate_to_usd").notNull(),
-  /** "auto" rows are refreshed daily from the provider; "manual" rows were typed. */
-  source: text("source", { enum: ["manual", "auto"] })
-    .notNull()
-    .default("manual"),
-  updatedAt: text("updated_at")
-    .notNull()
-    .default(sql`(current_timestamp)`),
-});
-
-/**
- * One row per currency per day, written whenever the auto-fetch succeeds.
- * The daily record backs "what was the rate when this happened" questions
- * and keeps FX history even after the live table moves on.
- */
-export const exchangeRateHistory = sqliteTable(
-  "exchange_rate_history",
+export const exchangeRates = pgTable(
+  "exchange_rates",
   {
-    /** ISO date, YYYY-MM-DD. */
-    day: text("day").notNull(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
     currencyCode: text("currency_code").notNull(),
-    rateToUsd: real("rate_to_usd").notNull(),
-    source: text("source").notNull().default("auto"),
+    rateToUsd: doublePrecision("rate_to_usd").notNull(),
+    /** "auto" rows are refreshed daily from the provider; "manual" rows were typed. */
+    source: text("source", { enum: ["manual", "auto"] })
+      .notNull()
+      .default("manual"),
+    updatedAt: text("updated_at").notNull().default(utcNow),
   },
-  (table) => [primaryKey({ columns: [table.day, table.currencyCode] })],
+  (table) => [primaryKey({ columns: [table.companyId, table.currencyCode] })],
 );
 
 /**
- * Mbarete's own details, as they appear at the top of a proforma invoice.
- *
- * A single row, always id 1. A key/value table would be more flexible and
- * worse to read: every field here is wanted at once, on one document.
+ * One row per currency per day per company, written whenever the auto-fetch
+ * succeeds. The daily record backs "what was the rate when this happened"
+ * questions and keeps FX history even after the live table moves on.
  */
-export const companyProfile = sqliteTable("company_profile", {
-  id: integer("id").primaryKey().default(1),
+export const exchangeRateHistory = pgTable(
+  "exchange_rate_history",
+  {
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    /** ISO date, YYYY-MM-DD. */
+    day: text("day").notNull(),
+    currencyCode: text("currency_code").notNull(),
+    rateToUsd: doublePrecision("rate_to_usd").notNull(),
+    source: text("source").notNull().default("auto"),
+  },
+  (table) => [primaryKey({ columns: [table.companyId, table.day, table.currencyCode] })],
+);
+
+/**
+ * The company's own details, as they appear at the top of a proforma invoice.
+ *
+ * One row per company, keyed by the company itself. A key/value table would
+ * be more flexible and worse to read: every field here is wanted at once, on
+ * one document.
+ */
+export const companyProfile = pgTable("company_profile", {
+  companyId: integer("company_id")
+    .primaryKey()
+    .references(() => companies.id),
   companyName: text("company_name").notNull().default(""),
   addressLines: text("address_lines").notNull().default(""),
   phone: text("phone").notNull().default(""),
@@ -179,9 +237,7 @@ export const companyProfile = sqliteTable("company_profile", {
   incoterms: text("incoterms").notNull().default(""),
   validityDays: integer("validity_days").notNull().default(30),
   footerNote: text("footer_note").notNull().default(""),
-  updatedAt: text("updated_at")
-    .notNull()
-    .default(sql`(current_timestamp)`),
+  updatedAt: text("updated_at").notNull().default(utcNow),
 });
 
 /**
@@ -190,27 +246,35 @@ export const companyProfile = sqliteTable("company_profile", {
  * transfers RMB — so each order picks which of these prints on its invoice.
  * The default row is what a proforma shows when the order never chose.
  */
-export const bankAccounts = sqliteTable("bank_accounts", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  /** Short name shown in dropdowns, e.g. "Tailong Bank — RMB". */
-  label: text("label").notNull(),
-  bankName: text("bank_name").notNull().default(""),
-  accountName: text("account_name").notNull().default(""),
-  accountNumber: text("account_number").notNull().default(""),
-  swift: text("swift").notNull().default(""),
-  bankAddress: text("bank_address").notNull().default(""),
-  /** Which currency this account receives, informational only. */
-  currency: text("currency").notNull().default(""),
-  isDefault: integer("is_default", { mode: "boolean" }).notNull().default(false),
-  createdAt: text("created_at")
-    .notNull()
-    .default(sql`(current_timestamp)`),
-});
+export const bankAccounts = pgTable(
+  "bank_accounts",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    /** Short name shown in dropdowns, e.g. "Tailong Bank — RMB". */
+    label: text("label").notNull(),
+    bankName: text("bank_name").notNull().default(""),
+    accountName: text("account_name").notNull().default(""),
+    accountNumber: text("account_number").notNull().default(""),
+    swift: text("swift").notNull().default(""),
+    bankAddress: text("bank_address").notNull().default(""),
+    /** Which currency this account receives, informational only. */
+    currency: text("currency").notNull().default(""),
+    isDefault: boolean("is_default").notNull().default(false),
+    createdAt: text("created_at").notNull().default(utcNow),
+  },
+  (table) => [index("bank_accounts_company_idx").on(table.companyId)],
+);
 
-export const contacts = sqliteTable(
+export const contacts = pgTable(
   "contacts",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
     type: text("type", { enum: ["supplier", "client"] }).notNull(),
     /** English (or latin-script) name — what the team reads day to day. */
     companyName: text("company_name").notNull(),
@@ -233,12 +297,10 @@ export const contacts = sqliteTable(
     // Deactivated, never deleted: orders and supplier offers point here, and
     // removing the row would erase who a deal was actually done with. An
     // inactive contact stops appearing in pickers and keeps its history.
-    active: integer("active", { mode: "boolean" }).notNull().default(true),
-    createdAt: text("created_at")
-      .notNull()
-      .default(sql`(current_timestamp)`),
+    active: boolean("active").notNull().default(true),
+    createdAt: text("created_at").notNull().default(utcNow),
   },
-  (table) => [index("contacts_type_idx").on(table.type)],
+  (table) => [index("contacts_company_type_idx").on(table.companyId, table.type)],
 );
 
 /**
@@ -246,10 +308,10 @@ export const contacts = sqliteTable(
  * record: the WeChat QR on a card back can only be scanned from the image,
  * and bank digits are re-checked against it before paying.
  */
-export const contactImages = sqliteTable(
+export const contactImages = pgTable(
   "contact_images",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     contactId: integer("contact_id")
       .notNull()
       .references(() => contacts.id, { onDelete: "cascade" }),
@@ -258,9 +320,7 @@ export const contactImages = sqliteTable(
     kind: text("kind", { enum: ["card", "qr"] }).notNull().default("card"),
     path: text("path").notNull(),
     sortOrder: integer("sort_order").notNull().default(0),
-    createdAt: text("created_at")
-      .notNull()
-      .default(sql`(current_timestamp)`),
+    createdAt: text("created_at").notNull().default(utcNow),
   },
   (table) => [index("contact_images_contact_idx").on(table.contactId)],
 );
@@ -270,24 +330,24 @@ export const contactImages = sqliteTable(
  *
  * A sourcing company's real asset is this map: the same electric scooter
  * quoted by five factories at five prices. The product is the item — what it
- * is and what Mbarete invoices it at. The offer is the deal — what it costs,
- * from whom, in what quantity, quoted when. Margin is the gap between them,
- * and it differs per supplier, which is exactly the comparison this table
- * exists to make possible.
+ * is and what the company invoices it at. The offer is the deal — what it
+ * costs, from whom, in what quantity, quoted when. Margin is the gap between
+ * them, and it differs per supplier, which is exactly the comparison this
+ * table exists to make possible.
  *
  * `supplierId` is nullable on purpose: products registered before offers
  * existed carry a known price from an unrecorded source, and saying so beats
- * inventing a supplier.
+ * inventing a supplier. Scoped through its product.
  */
-export const productSuppliers = sqliteTable(
+export const productSuppliers = pgTable(
   "product_suppliers",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     productId: integer("product_id")
       .notNull()
       .references(() => products.id, { onDelete: "cascade" }),
     supplierId: integer("supplier_id").references(() => contacts.id),
-    price: real("price").notNull(),
+    price: doublePrecision("price").notNull(),
     currency: text("currency").notNull().default("USD"),
     moq: integer("moq").notNull().default(1),
     // Optional: 0 means nobody recorded it. Never blocks saving an offer —
@@ -300,14 +360,10 @@ export const productSuppliers = sqliteTable(
      */
     quotedOn: text("quoted_on").notNull(),
     note: text("note").notNull().default(""),
-    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    active: boolean("active").notNull().default(true),
     createdBy: integer("created_by").references(() => users.id),
-    createdAt: text("created_at")
-      .notNull()
-      .default(sql`(current_timestamp)`),
-    updatedAt: text("updated_at")
-      .notNull()
-      .default(sql`(current_timestamp)`),
+    createdAt: text("created_at").notNull().default(utcNow),
+    updatedAt: text("updated_at").notNull().default(utcNow),
   },
   (table) => [
     index("product_suppliers_product_idx").on(table.productId),
@@ -315,11 +371,14 @@ export const productSuppliers = sqliteTable(
   ],
 );
 
-export const orders = sqliteTable(
+export const orders = pgTable(
   "orders",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    orderNumber: text("order_number").notNull().unique(),
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    orderNumber: text("order_number").notNull(),
     clientId: integer("client_id")
       .notNull()
       .references(() => contacts.id),
@@ -332,8 +391,8 @@ export const orders = sqliteTable(
     // shown alongside it, so RMB cost and USD quote are visible together.
     displayCurrency: text("display_currency").notNull().default("USD"),
     secondaryCurrency: text("secondary_currency").notNull().default("CNY"),
-    // Mbarete's margin, charged on top of the goods subtotal.
-    commissionPct: real("commission_pct").notNull().default(0),
+    // The company's margin, charged on top of the goods subtotal.
+    commissionPct: doublePrecision("commission_pct").notNull().default(0),
     // Rates in force when the order was saved, so a stored quote does not move
     // when the rate table is later edited. JSON: {"CNY":0.14,"USD":1}
     ratesSnapshot: text("rates_snapshot").notNull().default("{}"),
@@ -347,20 +406,19 @@ export const orders = sqliteTable(
       .notNull()
       .references(() => users.id),
     updatedBy: integer("updated_by").references(() => users.id),
-    createdAt: text("created_at")
-      .notNull()
-      .default(sql`(current_timestamp)`),
-    updatedAt: text("updated_at")
-      .notNull()
-      .default(sql`(current_timestamp)`),
+    createdAt: text("created_at").notNull().default(utcNow),
+    updatedAt: text("updated_at").notNull().default(utcNow),
   },
-  (table) => [index("orders_status_idx").on(table.status)],
+  (table) => [
+    uniqueIndex("orders_company_number_idx").on(table.companyId, table.orderNumber),
+    index("orders_company_status_idx").on(table.companyId, table.status),
+  ],
 );
 
-export const orderItems = sqliteTable(
+export const orderItems = pgTable(
   "order_items",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     orderId: integer("order_id")
       .notNull()
       .references(() => orders.id, { onDelete: "cascade" }),
@@ -368,15 +426,15 @@ export const orderItems = sqliteTable(
       .notNull()
       .references(() => products.id),
     quantity: integer("quantity").notNull(),
-    unitPriceSnapshot: real("unit_price_snapshot").notNull(),
+    unitPriceSnapshot: doublePrecision("unit_price_snapshot").notNull(),
     // The invoiced price per unit, frozen with the rest of the line. 0 on
     // rows saved before selling prices existed, which read as "at cost".
-    sellPriceSnapshot: real("sell_price_snapshot").notNull().default(0),
+    sellPriceSnapshot: doublePrecision("sell_price_snapshot").notNull().default(0),
     currencySnapshot: text("currency_snapshot").notNull(),
     moqSnapshot: integer("moq_snapshot").notNull(),
-    lineTotal: real("line_total").notNull(),
-    lineCbm: real("line_cbm").notNull(),
-    lineWeightKg: real("line_weight_kg").notNull(),
+    lineTotal: doublePrecision("line_total").notNull(),
+    lineCbm: doublePrecision("line_cbm").notNull(),
+    lineWeightKg: doublePrecision("line_weight_kg").notNull(),
     // Cartons this line ships as, frozen at save time. Defaults to 0 for rows
     // written before this column existed; readers fall back to the product's
     // current pack size for those.
@@ -390,10 +448,10 @@ export const orderItems = sqliteTable(
  * lists, bills of lading and inspection reports all end up in the same file
  * in this business. Stored in the uploads volume next to product photos.
  */
-export const orderDocuments = sqliteTable(
+export const orderDocuments = pgTable(
   "order_documents",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     orderId: integer("order_id")
       .notNull()
       .references(() => orders.id, { onDelete: "cascade" }),
@@ -408,9 +466,7 @@ export const orderDocuments = sqliteTable(
     originalName: text("original_name").notNull(),
     sizeBytes: integer("size_bytes").notNull().default(0),
     uploadedBy: integer("uploaded_by").references(() => users.id),
-    createdAt: text("created_at")
-      .notNull()
-      .default(sql`(current_timestamp)`),
+    createdAt: text("created_at").notNull().default(utcNow),
   },
   (table) => [index("order_documents_order_idx").on(table.orderId)],
 );
@@ -420,15 +476,15 @@ export const orderDocuments = sqliteTable(
  * what goes out to the supplier. Amounts keep their own currency and are
  * converted for the summary the same way order totals are.
  */
-export const orderPayments = sqliteTable(
+export const orderPayments = pgTable(
   "order_payments",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     orderId: integer("order_id")
       .notNull()
       .references(() => orders.id, { onDelete: "cascade" }),
     direction: text("direction", { enum: ["in", "out"] }).notNull(),
-    amount: real("amount").notNull(),
+    amount: doublePrecision("amount").notNull(),
     currency: text("currency").notNull(),
     /** ISO date the money moved, not the date the row was typed in. */
     paidOn: text("paid_on").notNull(),
@@ -449,18 +505,16 @@ export const orderPayments = sqliteTable(
     receiptName: text("receipt_name").notNull().default(""),
     note: text("note").notNull().default(""),
     createdBy: integer("created_by").references(() => users.id),
-    createdAt: text("created_at")
-      .notNull()
-      .default(sql`(current_timestamp)`),
+    createdAt: text("created_at").notNull().default(utcNow),
   },
   (table) => [index("order_payments_order_idx").on(table.orderId)],
 );
 
 /** Everything an order costs beyond the goods themselves. */
-export const orderExpenses = sqliteTable(
+export const orderExpenses = pgTable(
   "order_expenses",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     orderId: integer("order_id")
       .notNull()
       .references(() => orders.id, { onDelete: "cascade" }),
@@ -469,7 +523,7 @@ export const orderExpenses = sqliteTable(
     })
       .notNull()
       .default("other"),
-    amount: real("amount").notNull(),
+    amount: doublePrecision("amount").notNull(),
     currency: text("currency").notNull(),
     spentOn: text("spent_on").notNull(),
     /** Same freezing as payments; see order_payments.rates_snapshot. */
@@ -479,9 +533,7 @@ export const orderExpenses = sqliteTable(
     receiptName: text("receipt_name").notNull().default(""),
     note: text("note").notNull().default(""),
     createdBy: integer("created_by").references(() => users.id),
-    createdAt: text("created_at")
-      .notNull()
-      .default(sql`(current_timestamp)`),
+    createdAt: text("created_at").notNull().default(utcNow),
   },
   (table) => [index("order_expenses_order_idx").on(table.orderId)],
 );
@@ -492,12 +544,12 @@ export const orderExpenses = sqliteTable(
  * Events store structured payloads rather than prose, so the changelog can be
  * rendered in whichever language the reader is using. Display values (names,
  * codes, amounts) are captured at write time — a later rename or deletion
- * must not rewrite what the log says happened.
+ * must not rewrite what the log says happened. Scoped through its order.
  */
-export const orderEvents = sqliteTable(
+export const orderEvents = pgTable(
   "order_events",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     orderId: integer("order_id")
       .notNull()
       .references(() => orders.id, { onDelete: "cascade" }),
@@ -517,9 +569,7 @@ export const orderEvents = sqliteTable(
     }).notNull(),
     /** JSON payload; shape depends on kind. See src/lib/order-log.ts. */
     payload: text("payload").notNull().default("{}"),
-    createdAt: text("created_at")
-      .notNull()
-      .default(sql`(current_timestamp)`),
+    createdAt: text("created_at").notNull().default(utcNow),
   },
   (table) => [index("order_events_order_idx").on(table.orderId)],
 );
@@ -528,23 +578,29 @@ export const orderEvents = sqliteTable(
  * The products/contacts counterpart of order_events: who created, edited or
  * deleted what, and which fields an edit touched. entityId is deliberately
  * not a foreign key — the log's whole job is to keep saying "deleted
- * supplier so-and-so" after the row it points at is gone.
+ * supplier so-and-so" after the row it points at is gone. Carries its own
+ * companyId for the same reason: with the row gone there is no parent left
+ * to scope through.
  */
-export const entityEvents = sqliteTable(
+export const entityEvents = pgTable(
   "entity_events",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
     entity: text("entity", { enum: ["product", "contact"] }).notNull(),
     entityId: integer("entity_id").notNull(),
     userId: integer("user_id").references(() => users.id),
     kind: text("kind", { enum: ["created", "edited", "deleted"] }).notNull(),
     /** JSON payload; see src/lib/entity-log.ts. */
     payload: text("payload").notNull().default("{}"),
-    createdAt: text("created_at")
-      .notNull()
-      .default(sql`(current_timestamp)`),
+    createdAt: text("created_at").notNull().default(utcNow),
   },
-  (table) => [index("entity_events_entity_idx").on(table.entity, table.entityId)],
+  (table) => [
+    index("entity_events_company_idx").on(table.companyId),
+    index("entity_events_entity_idx").on(table.entity, table.entityId),
+  ],
 );
 
 /**
@@ -554,7 +610,7 @@ export const entityEvents = sqliteTable(
  * lane in Yiwu, Tailscale dropping between towers. Saving there writes the
  * capture to the phone, and the phone ships it here as soon as anything
  * resembling a connection appears. This table is where a capture stops being
- * one device's problem — once a row exists the photos are on the NAS and a
+ * one device's problem — once a row exists the photos are on the server and a
  * lost, wiped or stolen phone costs nothing.
  *
  * A draft is deliberately not a product. `products` requires a name, a
@@ -563,15 +619,19 @@ export const entityEvents = sqliteTable(
  * here, read by the AI when there is a connection to read them with, and
  * promoted into the catalog by a human who has checked the price.
  */
-export const captureDrafts = sqliteTable(
+export const captureDrafts = pgTable(
   "capture_drafts",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
     /**
      * The id the phone minted at capture time. Unique, which is the whole
      * mechanism: a delivery that succeeded but whose response never made it
      * back gets retried, and the retry lands on this constraint instead of
-     * creating a second copy of the same booth.
+     * creating a second copy of the same booth. Globally unique is fine —
+     * the phone mints UUIDs.
      */
     clientId: text("client_id").notNull().unique(),
     userId: integer("user_id").references(() => users.id),
@@ -611,21 +671,17 @@ export const captureDrafts = sqliteTable(
     }),
     /** When the photo was taken, per the phone — not when it arrived here. */
     capturedAt: text("captured_at").notNull(),
-    createdAt: text("created_at")
-      .notNull()
-      .default(sql`(current_timestamp)`),
-    updatedAt: text("updated_at")
-      .notNull()
-      .default(sql`(current_timestamp)`),
+    createdAt: text("created_at").notNull().default(utcNow),
+    updatedAt: text("updated_at").notNull().default(utcNow),
   },
-  (table) => [index("capture_drafts_status_idx").on(table.status)],
+  (table) => [index("capture_drafts_company_status_idx").on(table.companyId, table.status)],
 );
 
 /** The photos of a capture, in the order they were taken. */
-export const captureDraftImages = sqliteTable(
+export const captureDraftImages = pgTable(
   "capture_draft_images",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     draftId: integer("draft_id")
       .notNull()
       .references(() => captureDrafts.id, { onDelete: "cascade" }),
@@ -637,9 +693,7 @@ export const captureDraftImages = sqliteTable(
       .default("image"),
     path: text("path").notNull(),
     sortOrder: integer("sort_order").notNull().default(0),
-    createdAt: text("created_at")
-      .notNull()
-      .default(sql`(current_timestamp)`),
+    createdAt: text("created_at").notNull().default(utcNow),
   },
   (table) => [index("capture_draft_images_draft_idx").on(table.draftId)],
 );

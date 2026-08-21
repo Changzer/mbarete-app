@@ -47,9 +47,19 @@ export function uploadsDir() {
   return process.env.UPLOADS_DIR ?? path.join(process.cwd(), "uploads");
 }
 
-/** Only ever a bare `<uuid>.<ext>` — no separators, no traversal. */
+/**
+ * `<uuid>.<ext>`, optionally inside a per-company folder `c<id>/` — nothing
+ * else, no traversal. Flat names are the pre-tenancy era's files, still
+ * served so old rows keep their images.
+ */
 export function isSafeUploadName(name: string) {
-  return /^[A-Za-z0-9][A-Za-z0-9-]*\.(jpg|png|webp|gif|pdf|xlsx|xls|docx)$/.test(name);
+  return /^(c\d+\/)?[A-Za-z0-9][A-Za-z0-9-]*\.(jpg|png|webp|gif|pdf|xlsx|xls|docx)$/.test(name);
+}
+
+/** The company a stored path belongs to, or null for pre-tenancy flat files. */
+export function uploadCompanyId(name: string): number | null {
+  const match = /^c(\d+)\//.exec(name);
+  return match ? Number(match[1]) : null;
 }
 
 /**
@@ -59,16 +69,18 @@ export function isSafeUploadName(name: string) {
  */
 const RECEIPT_PREFIX = "slip-";
 export function isReceiptUploadName(name: string) {
-  return name.startsWith(RECEIPT_PREFIX);
+  // The prefix marks slips in either era: flat or inside a company folder.
+  return name.replace(/^c\d+\//, "").startsWith(RECEIPT_PREFIX);
 }
 
-export async function saveUploadedImage(file: File): Promise<string> {
-  return saveUpload(file, ALLOWED_TYPES, MAX_IMAGE_BYTES);
+export async function saveUploadedImage(companyId: number, file: File): Promise<string> {
+  return saveUpload(companyId, file, ALLOWED_TYPES, MAX_IMAGE_BYTES);
 }
 
 /** A payment slip: a photo of the bank receipt, or the receipt PDF itself. */
-export async function saveUploadedReceipt(file: File): Promise<string> {
+export async function saveUploadedReceipt(companyId: number, file: File): Promise<string> {
   return saveUpload(
+    companyId,
     file,
     { ...ALLOWED_TYPES, "application/pdf": "pdf" },
     MAX_DOCUMENT_BYTES,
@@ -77,8 +89,8 @@ export async function saveUploadedReceipt(file: File): Promise<string> {
 }
 
 /** Same store as photos, wider set of types: invoices arrive as PDFs and sheets. */
-export async function saveUploadedDocument(file: File): Promise<string> {
-  return saveUpload(file, DOCUMENT_TYPES, MAX_DOCUMENT_BYTES);
+export async function saveUploadedDocument(companyId: number, file: File): Promise<string> {
+  return saveUpload(companyId, file, DOCUMENT_TYPES, MAX_DOCUMENT_BYTES);
 }
 
 /**
@@ -101,6 +113,7 @@ function detectExtension(file: File, allowed: Record<string, string>): string | 
 }
 
 async function saveUpload(
+  companyId: number,
   file: File,
   allowed: Record<string, string>,
   maxBytes: number,
@@ -114,7 +127,10 @@ async function saveUpload(
     throw new FileTooLargeError(String(file.size));
   }
 
-  const dir = uploadsDir();
+  // Each company's files live in their own folder, so serving can check that
+  // a gated file belongs to the session's company, and per-company export or
+  // deletion is a folder operation.
+  const dir = path.join(/* turbopackIgnore: true */ uploadsDir(), `c${companyId}`);
   await fs.mkdir(dir, { recursive: true });
 
   const filename = `${prefix}${crypto.randomUUID()}.${ext}`;
@@ -122,7 +138,7 @@ async function saveUpload(
   const target = path.join(/* turbopackIgnore: true */ dir, filename);
   await fs.writeFile(/* turbopackIgnore: true */ target, buffer);
 
-  return `/uploads/${filename}`;
+  return `/uploads/c${companyId}/${filename}`;
 }
 
 export async function deleteUpload(publicPath: string) {

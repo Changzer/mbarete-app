@@ -36,11 +36,11 @@ export type OrderView = NonNullable<Awaited<ReturnType<typeof getOrderView>>>;
  * the snapshot never had, so a quote saved before a rate existed recovers
  * without historical quotes moving.
  */
-export async function getOrderView(orderId: number, locale: Locale) {
+export async function getOrderView(companyId: number, orderId: number, locale: Locale) {
   const [data, rates, products] = await Promise.all([
-    getOrderById(orderId),
-    getExchangeRates(),
-    getProducts(),
+    getOrderById(companyId, orderId),
+    getExchangeRates(companyId),
+    getProducts(companyId),
   ]);
   if (!data) return null;
 

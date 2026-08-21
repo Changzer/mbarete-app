@@ -6,7 +6,7 @@ import {
   orderExpenses,
   contacts,
 } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { getExchangeRates, parseRatesSnapshot } from "@/lib/queries/orders";
 import { computeSnapshotTotals } from "@/lib/calculations";
 import type { FinanceOrderInput } from "@/lib/finance-report";
@@ -17,10 +17,17 @@ import type { FinanceOrderInput } from "@/lib/finance-report";
  * order page), plus its raw payments and expenses. Four selects, grouped in
  * memory — no per-order queries.
  */
-export async function getFinanceData(): Promise<{
+export async function getFinanceData(companyId: number): Promise<{
   orders: FinanceOrderInput[];
   rates: Record<string, number>;
 }> {
+  // The company's orders scope everything else: rows in the child tables
+  // belong to whichever order they hang off.
+  const companyOrders = db
+    .select({ id: orders.id })
+    .from(orders)
+    .where(eq(orders.companyId, companyId));
+
   const [orderRows, itemRows, paymentRows, expenseRows, rates] = await Promise.all([
     db
       .select({
@@ -36,11 +43,11 @@ export async function getFinanceData(): Promise<{
       })
       .from(orders)
       .leftJoin(contacts, eq(orders.clientId, contacts.id))
-      .all(),
-    db.select().from(orderItems).all(),
-    db.select().from(orderPayments).all(),
-    db.select().from(orderExpenses).all(),
-    getExchangeRates(),
+      .where(eq(orders.companyId, companyId)),
+    db.select().from(orderItems).where(inArray(orderItems.orderId, companyOrders)),
+    db.select().from(orderPayments).where(inArray(orderPayments.orderId, companyOrders)),
+    db.select().from(orderExpenses).where(inArray(orderExpenses.orderId, companyOrders)),
+    getExchangeRates(companyId),
   ]);
 
   const itemsByOrder = new Map<number, typeof itemRows>();

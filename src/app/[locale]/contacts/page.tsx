@@ -4,12 +4,14 @@ import { transcribeCard } from "@/lib/actions/transcribe";
 import { isTranscriptionEnabled } from "@/lib/transcribe-product";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ContactManager } from "@/components/contacts/contact-manager";
+import { requireUser } from "@/lib/authz";
 
 export default async function ContactsPage() {
+  const { companyId } = await requireUser();
   const t = await getTranslations("contacts");
   const [suppliers, clients] = await Promise.all([
-    getContactsByType("supplier"),
-    getContactsByType("client"),
+    getContactsByType(companyId, "supplier"),
+    getContactsByType(companyId, "client"),
   ]);
   const images = await getImagesByContact([...suppliers, ...clients].map((c) => c.id));
   const withImages = <T extends { id: number }>(rows: T[]) =>

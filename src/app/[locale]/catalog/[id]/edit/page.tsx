@@ -9,23 +9,25 @@ import { ProductForm } from "@/components/catalog/product-form";
 import { computeCbm } from "@/lib/calculations";
 import { OfferManager } from "@/components/catalog/offer-manager";
 import { getAllOffersForProduct } from "@/lib/queries/offers";
+import { requireUser } from "@/lib/authz";
 
 export default async function EditProductPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const { companyId } = await requireUser();
   const { id } = await params;
   const productId = Number(id);
   const t = await getTranslations("catalog");
   const common = await getTranslations("common");
 
   const [categories, suppliers, product, images, offers] = await Promise.all([
-    getCategories(),
-    getSuppliersForPicker(),
-    getProductById(productId),
+    getCategories(companyId),
+    getSuppliersForPicker(companyId),
+    getProductById(companyId, productId),
     getProductImages(productId),
-    getAllOffersForProduct(productId),
+    getAllOffersForProduct(companyId, productId),
   ]);
 
   if (!product) notFound();

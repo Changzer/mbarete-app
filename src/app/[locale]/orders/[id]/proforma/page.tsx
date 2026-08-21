@@ -12,6 +12,7 @@ import { PrintButton } from "@/components/orders/print-button";
 import { FreshOnRestore } from "@/components/fresh-on-restore";
 import { Brand } from "@/components/brand";
 import { Link } from "@/i18n/navigation";
+import { requireUser } from "@/lib/authz";
 
 /** Blank lines are dropped so an unfilled address does not leave gaps. */
 function Lines({ text, className }: { text: string; className?: string }) {
@@ -41,14 +42,15 @@ export default async function ProformaPage({
 }: {
   params: Promise<{ id: string; locale: string }>;
 }) {
+  const { companyId } = await requireUser();
   const { id, locale } = await params;
   const t = await getTranslations("proforma");
   const orderT = await getTranslations("orders");
 
   const [view, company, accounts] = await Promise.all([
-    getOrderView(Number(id), locale as Locale),
-    getCompanyProfile(),
-    getBankAccounts(),
+    getOrderView(companyId, Number(id), locale as Locale),
+    getCompanyProfile(companyId),
+    getBankAccounts(companyId),
   ]);
   if (!view) notFound();
   const { order, client, rows, targets, totals } = view;

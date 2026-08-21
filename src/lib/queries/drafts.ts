@@ -1,5 +1,5 @@
-import { desc, eq, inArray } from "drizzle-orm";
-import { db } from "@/db";
+import { and, desc, eq, inArray } from "drizzle-orm";
+import { db, one } from "@/db";
 import { captureDrafts, captureDraftImages, users } from "@/db/schema";
 import type { TranscribedFields } from "@/lib/transcribe-product";
 import type { TranscribedContactFields } from "@/lib/transcribe-card";
@@ -36,21 +36,25 @@ function parseJson<T>(raw: string, fallback: T): T {
  * and stay out of the way. Newest capture first: the agent reviewing tonight
  * cares about today.
  */
-export async function getOpenDrafts(): Promise<DraftListItem[]> {
-  const rows = db
+export async function getOpenDrafts(companyId: number): Promise<DraftListItem[]> {
+  const rows = await db
     .select({
       draft: captureDrafts,
       userName: users.name,
     })
     .from(captureDrafts)
     .leftJoin(users, eq(captureDrafts.userId, users.id))
-    .where(inArray(captureDrafts.status, ["pending", "read"]))
-    .orderBy(desc(captureDrafts.capturedAt))
-    .all();
+    .where(
+      and(
+        eq(captureDrafts.companyId, companyId),
+        inArray(captureDrafts.status, ["pending", "read"]),
+      ),
+    )
+    .orderBy(desc(captureDrafts.capturedAt));
 
   if (rows.length === 0) return [];
 
-  const images = db
+  const images = await db
     .select()
     .from(captureDraftImages)
     .where(
@@ -58,8 +62,7 @@ export async function getOpenDrafts(): Promise<DraftListItem[]> {
         captureDraftImages.draftId,
         rows.map((r) => r.draft.id),
       ),
-    )
-    .all();
+    );
 
   return rows.map(({ draft, userName }) => ({
     id: draft.id,
@@ -81,23 +84,35 @@ export async function getOpenDrafts(): Promise<DraftListItem[]> {
 }
 
 /** How many drafts are waiting — the number on the catalog page's chip. */
-export async function countOpenDrafts(): Promise<number> {
-  return db
+export async function countOpenDrafts(companyId: number): Promise<number> {
+  const rows = await db
     .select({ id: captureDrafts.id })
     .from(captureDrafts)
-    .where(inArray(captureDrafts.status, ["pending", "read"]))
-    .all().length;
+    .where(
+      and(
+        eq(captureDrafts.companyId, companyId),
+        inArray(captureDrafts.status, ["pending", "read"]),
+      ),
+    );
+  return rows.length;
 }
 
-export async function getDraftById(id: number): Promise<DraftListItem | undefined> {
-  const draft = db.select().from(captureDrafts).where(eq(captureDrafts.id, id)).get();
+export async function getDraftById(
+  companyId: number,
+  id: number,
+): Promise<DraftListItem | undefined> {
+  const draft = await db
+    .select()
+    .from(captureDrafts)
+    .where(and(eq(captureDrafts.companyId, companyId), eq(captureDrafts.id, id)))
+    .limit(1)
+    .then(one);
   if (!draft) return undefined;
 
-  const images = db
+  const images = await db
     .select()
     .from(captureDraftImages)
-    .where(eq(captureDraftImages.draftId, id))
-    .all();
+    .where(eq(captureDraftImages.draftId, id));
 
   return {
     id: draft.id,
