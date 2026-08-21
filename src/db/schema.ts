@@ -464,3 +464,100 @@ export const orderEvents = sqliteTable(
   },
   (table) => [index("order_events_order_idx").on(table.orderId)],
 );
+
+/**
+ * A product photographed at a booth before it was a catalog entry.
+ *
+ * The agent works where the network does not: a hall at the Canton Fair, a
+ * lane in Yiwu, Tailscale dropping between towers. Saving there writes the
+ * capture to the phone, and the phone ships it here as soon as anything
+ * resembling a connection appears. This table is where a capture stops being
+ * one device's problem — once a row exists the photos are on the NAS and a
+ * lost, wiped or stolen phone costs nothing.
+ *
+ * A draft is deliberately not a product. `products` requires a name, a
+ * category, an MOQ and a pack size (see src/lib/validators.ts), and a capture
+ * that is three photos and nothing else has none of them. Drafts are held
+ * here, read by the AI when there is a connection to read them with, and
+ * promoted into the catalog by a human who has checked the price.
+ */
+export const captureDrafts = sqliteTable(
+  "capture_drafts",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    /**
+     * The id the phone minted at capture time. Unique, which is the whole
+     * mechanism: a delivery that succeeded but whose response never made it
+     * back gets retried, and the retry lands on this constraint instead of
+     * creating a second copy of the same booth.
+     */
+    clientId: text("client_id").notNull().unique(),
+    userId: integer("user_id").references(() => users.id),
+    /** What the capture will become: a catalog product, or a contact. */
+    kind: text("kind", { enum: ["product", "contact"] })
+      .notNull()
+      .default("product"),
+    status: text("status", {
+      enum: [
+        /** Arrived; the AI has not read the photos yet. */
+        "pending",
+        /** The AI read them; suggested fields are in `transcript`. */
+        "read",
+        /** Promoted into the catalog — `productId` says what it became. */
+        "imported",
+        /** Thrown away by hand. Kept so the photos can still be recovered. */
+        "discarded",
+      ],
+    })
+      .notNull()
+      .default("pending"),
+    /**
+     * Whatever the agent had typed when they hit save, as posted by the form.
+     * JSON of string values, the same names the product form uses, so a draft
+     * can be poured straight back into that form for proofreading.
+     */
+    fields: text("fields").notNull().default("{}"),
+    /** The AI's reading of the photos: JSON of TranscribedFields, or empty. */
+    transcript: text("transcript").notNull().default("{}"),
+    /** What the AI wanted to flag about the reading, shown with the draft. */
+    transcriptNotes: text("transcript_notes").notNull().default(""),
+    /** Why the last AI read failed, when one did. Empty otherwise. */
+    transcriptError: text("transcript_error").notNull().default(""),
+    /** The product this draft became, once someone promoted it. */
+    productId: integer("product_id").references(() => products.id, {
+      onDelete: "set null",
+    }),
+    /** When the photo was taken, per the phone — not when it arrived here. */
+    capturedAt: text("captured_at").notNull(),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
+  },
+  (table) => [index("capture_drafts_status_idx").on(table.status)],
+);
+
+/** The photos of a capture, in the order they were taken. */
+export const captureDraftImages = sqliteTable(
+  "capture_draft_images",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    draftId: integer("draft_id")
+      .notNull()
+      .references(() => captureDrafts.id, { onDelete: "cascade" }),
+    // Which slot the photo belongs to. Products only have "image"; contacts
+    // keep card photos and the cropped WeChat QR apart, mirroring
+    // contact_images.kind, so promoting a draft can tell them apart too.
+    role: text("role", { enum: ["image", "card", "qr"] })
+      .notNull()
+      .default("image"),
+    path: text("path").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
+  },
+  (table) => [index("capture_draft_images_draft_idx").on(table.draftId)],
+);

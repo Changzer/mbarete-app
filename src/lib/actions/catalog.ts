@@ -5,7 +5,15 @@ import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
 import type { Locale } from "@/i18n/routing";
 import { db } from "@/db";
-import { products, categories, productImages, orderItems, contacts } from "@/db/schema";
+import {
+  products,
+  categories,
+  productImages,
+  orderItems,
+  contacts,
+  captureDrafts,
+  captureDraftImages,
+} from "@/db/schema";
 import { eq, and, ne } from "drizzle-orm";
 import { productSchema, categorySchema } from "@/lib/validators";
 import {
@@ -222,6 +230,43 @@ export async function createProduct(
       .values({ productId: newProductId, path, sortOrder: i })
       .run();
   });
+
+  // Saving from a capture draft (photos taken offline at a booth): the photos
+  // are already on disk under the draft, so they move across instead of being
+  // uploaded again, and the draft is settled so it leaves the review queue.
+  const draftId = Number(formData.get("draftId"));
+  if (Number.isFinite(draftId) && draftId > 0) {
+    const draft = db
+      .select()
+      .from(captureDrafts)
+      .where(eq(captureDrafts.id, draftId))
+      .get();
+    // Only an open draft is promotable — a second save of the same review tab
+    // must not steal photos from the product the first save created.
+    if (draft && (draft.status === "pending" || draft.status === "read")) {
+      const draftImages = db
+        .select()
+        .from(captureDraftImages)
+        .where(eq(captureDraftImages.draftId, draftId))
+        .all()
+        .sort((a, b) => a.sortOrder - b.sortOrder);
+      draftImages.forEach((image, i) => {
+        db.insert(productImages)
+          .values({ productId: newProductId, path: image.path, sortOrder: uploaded.length + i })
+          .run();
+      });
+      db.delete(captureDraftImages).where(eq(captureDraftImages.draftId, draftId)).run();
+      db.update(captureDrafts)
+        .set({
+          status: "imported",
+          productId: newProductId,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(captureDrafts.id, draftId))
+        .run();
+      revalidatePath("/catalog/drafts");
+    }
+  }
 
   revalidatePath("/catalog");
 

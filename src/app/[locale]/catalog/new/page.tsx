@@ -1,17 +1,19 @@
 import { getTranslations } from "next-intl/server";
 import { getCategories, getProductById, suggestNextSku } from "@/lib/queries/catalog";
 import { getSuppliersForPicker } from "@/lib/queries/contacts";
+import { getDraftById } from "@/lib/queries/drafts";
 import { createProduct } from "@/lib/actions/catalog";
 import { transcribeProduct, transcribeCard } from "@/lib/actions/transcribe";
 import { isTranscriptionEnabled } from "@/lib/transcribe-product";
 import { ProductForm } from "@/components/catalog/product-form";
+import { normalizeDecimalInput } from "@/lib/decimal-input";
 
 export default async function NewProductPage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string; from?: string; supplier?: string }>;
+  searchParams: Promise<{ category?: string; from?: string; supplier?: string; draft?: string }>;
 }) {
-  const { category, from, supplier } = await searchParams;
+  const { category, from, supplier, draft } = await searchParams;
   const t = await getTranslations("catalog");
   const common = await getTranslations("common");
   const [categories, suppliers, nextSku] = await Promise.all([
@@ -60,10 +62,67 @@ export default async function NewProductPage({
 
   const aiEnabled = isTranscriptionEnabled();
 
+  // Reviewing a capture draft: what was typed at the booth wins over what the
+  // AI read off the photos, and both land here as ordinary defaults for the
+  // person to proofread — the same posture as live transcription. The photos
+  // are already on the server under the draft; saving moves them across.
+  const draftId = Number(draft);
+  const openDraft = Number.isFinite(draftId) && draftId > 0 ? await getDraftById(draftId) : undefined;
+  const reviewable =
+    openDraft &&
+    openDraft.kind === "product" &&
+    (openDraft.status === "pending" || openDraft.status === "read")
+      ? openDraft
+      : undefined;
+
+  // Draft field values arrive as posted — strings, possibly comma-decimals —
+  // and go through the same normalizer the save itself would apply.
+  const num = (v: string | number | undefined) => {
+    if (v === undefined || v === "") return undefined;
+    const n = Number(normalizeDecimalInput(String(v)));
+    return Number.isFinite(n) && n > 0 ? n : undefined;
+  };
+  const draftDefaults = reviewable
+    ? (() => {
+        const f = reviewable.fields;
+        const tr = reviewable.transcript;
+        const catId = num(f.categoryId) ?? tr.categoryId;
+        const supId = num(f.supplierId);
+        return {
+          sku: f.sku || undefined,
+          nameEn: f.nameEn || tr.nameEn,
+          nameZh: f.nameZh || tr.nameZh,
+          descriptionEn: f.descriptionEn || tr.descriptionEn,
+          descriptionZh: f.descriptionZh || tr.descriptionZh,
+          price: num(f.price) ?? tr.price,
+          sellPrice: num(f.sellPrice),
+          currency: f.currency || tr.currency,
+          moq: num(f.moq) ?? tr.moq,
+          qtyPerBox: num(f.qtyPerBox) ?? tr.qtyPerBox,
+          lengthCm: num(f.lengthCm) ?? tr.lengthCm,
+          widthCm: num(f.widthCm) ?? tr.widthCm,
+          heightCm: num(f.heightCm) ?? tr.heightCm,
+          weightKg: num(f.weightKg) ?? tr.weightKg,
+          cbmOverride: num(f.cbmOverride) ?? tr.cbm,
+          dimensionSource: f.dimensionSource === "piece" ? ("piece" as const) : ("carton" as const),
+          pieceLengthCm: num(f.pieceLengthCm),
+          pieceWidthCm: num(f.pieceWidthCm),
+          pieceHeightCm: num(f.pieceHeightCm),
+          pieceWeightKg: num(f.pieceWeightKg),
+          packingAllowancePct: num(f.packingAllowancePct),
+          // "off" is stored explicitly at capture, so absence really does
+          // mean "not captured" and falls back to the default of active.
+          active: f.active === undefined ? true : f.active === "on",
+          ...(catId && categories.some((c) => c.id === catId) ? { categoryId: catId } : {}),
+          ...(supId && suppliers.some((s) => s.id === supId) ? { supplierId: supId } : {}),
+        };
+      })()
+    : undefined;
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
       <h1 className="mb-6 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
-        {source ? t("duplicateProduct") : t("addProduct")}
+        {reviewable ? t("reviewDraft") : source ? t("duplicateProduct") : t("addProduct")}
       </h1>
       <ProductForm
         categories={categories}
@@ -77,9 +136,12 @@ export default async function NewProductPage({
         lockCategory={Boolean(source)}
         transcribe={aiEnabled ? transcribeProduct : undefined}
         transcribeCard={aiEnabled ? transcribeCard : undefined}
+        draftId={reviewable?.id}
+        draftImages={reviewable?.images.filter((i) => i.role === "image")}
         defaultValues={{
           ...duplicateDefaults,
-          sku: nextSku,
+          ...draftDefaults,
+          sku: draftDefaults?.sku ?? nextSku,
           ...(Number.isFinite(categoryId) && categoryId > 0 ? { categoryId } : {}),
           ...(Number.isFinite(supplierId) && supplierId > 0 ? { supplierId } : {}),
         }}

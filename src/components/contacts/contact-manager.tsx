@@ -76,6 +76,10 @@ export function ContactManager({
               existingImages={editing?.images ?? []}
               submitLabel={common("save")}
               onSuccess={() => setDialogOpen(false)}
+              // Only when creating: a delivered offline edit could land on
+              // top of someone else's newer changes.
+              offlineCapture={!editing}
+              onSavedOffline={() => setDialogOpen(false)}
               transcribe={transcribe}
               // Warn about likely duplicates, but not against the row being edited.
               candidates={contacts.filter((c) => c.id !== editing?.id)}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import type { ContactActionResult } from "@/lib/actions/contacts";
 import type { CardTranscribeResult, TranscribedContactFields } from "@/lib/transcribe-card";
 import { findSimilarContact, type MatchCandidate } from "@/lib/contact-match";
@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PhotoPicker } from "@/components/catalog/photo-picker";
 import { extractQrFromImage } from "@/lib/client/extract-qr";
+import { useOutbox, probeServer } from "@/components/offline/outbox";
 
 type ContactFormValues = {
   companyName: string;
@@ -48,6 +49,8 @@ export function ContactForm({
   transcribe,
   candidates = [],
   onUseExisting,
+  offlineCapture = false,
+  onSavedOffline,
 }: {
   type: "supplier" | "client";
   action: (
@@ -64,20 +67,114 @@ export function ContactForm({
   candidates?: MatchCandidate[];
   /** In the product form's dialog: lets a detected duplicate be picked instead. */
   onUseExisting?: (candidate: MatchCandidate) => void;
+  /**
+   * Registering a new contact at a booth: an unreachable server routes the
+   * card to the phone's outbox instead of failing. Never set when editing —
+   * a delivered edit could land on top of someone else's newer changes.
+   */
+  offlineCapture?: boolean;
+  /** The capture went to the phone; dialogs use this to close as if saved. */
+  onSavedOffline?: () => void;
 }) {
   const t = useTranslations("contacts");
   const common = useTranslations("common");
 
-  async function wrappedAction(
-    prevState: ContactActionResult | undefined,
-    formData: FormData,
-  ) {
-    const result = await action(prevState, formData);
+  const outbox = useOutbox();
+  const [offlineSaved, setOfflineSaved] = useState<null | "saved" | "store-failed">(null);
+  // Remounts the PhotoPicker after a local save; its picked list is private.
+  const [captureEpoch, setCaptureEpoch] = useState(0);
+
+  /** The card goes to the phone, keeping card photos and QR crop apart. */
+  async function saveToPhone(formData: FormData): Promise<ContactActionResult> {
+    if (!outbox) return { error: "invalid" };
+    const files = [
+      ...formData
+        .getAll("cardImages")
+        .filter((f): f is File => f instanceof File && f.size > 0)
+        .map((file) => ({ file, field: "cardImages" as const })),
+      ...formData
+        .getAll("qrImage")
+        .filter((f): f is File => f instanceof File && f.size > 0)
+        .map((file) => ({ file, field: "qrImage" as const })),
+    ];
+    try {
+      await outbox.enqueue("contact", formData, files);
+    } catch {
+      setOfflineSaved("store-failed");
+      return {};
+    }
+    formRef.current?.reset();
+    setCaptureEpoch((epoch) => epoch + 1);
+    removeQr();
+    aiRun.current++;
+    if (aiTimer.current) clearTimeout(aiTimer.current);
+    setAiPending(false);
+    setAiError(null);
+    setAiNotes(null);
+    setSimilar(null);
+    setOfflineSaved("saved");
+    onSavedOffline?.();
+    return {};
+  }
+
+  async function wrappedAction(formData: FormData): Promise<ContactActionResult> {
+    setOfflineSaved(null);
+
+    // Same decision as the product form: server actions cannot be queued for
+    // later, so reachability is settled before anything is sent.
+    if (offlineCapture && outbox) {
+      if (!(await probeServer())) return saveToPhone(formData);
+      try {
+        const result = await action(undefined, formData);
+        if (!result.error) onSuccess?.(result.id);
+        return result;
+      } catch (error) {
+        if (
+          error &&
+          typeof error === "object" &&
+          "digest" in error &&
+          typeof error.digest === "string" &&
+          error.digest.startsWith("NEXT_")
+        ) {
+          throw error;
+        }
+        // Died mid-save: a request that did land makes a duplicate draft,
+        // which review catches; a dropped capture would be lost for good.
+        return saveToPhone(formData);
+      }
+    }
+
+    const result = await action(undefined, formData);
     if (!result.error) onSuccess?.(result.id);
     return result;
   }
 
-  const [result, formAction, isPending] = useActionState(wrappedAction, undefined);
+  const [result, setResult] = useState<ContactActionResult | undefined>(undefined);
+  const [isPending, startTransition] = useTransition();
+
+  /**
+   * Submitted by hand, not through `<form action>`: React 19 resets every
+   * uncontrolled field when a form action settles, which wiped the card's
+   * typed fields on any failed save — including "could not save to this
+   * phone", the one moment the fields must stay put. See the product form.
+   */
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    const formData = new FormData(event.currentTarget, submitter);
+    // Browsers before Chrome 112 / Safari 16.4 ignore the submitter argument;
+    // carried by hand so a named submit button keeps its meaning there too.
+    if (
+      submitter instanceof HTMLButtonElement &&
+      submitter.name &&
+      !formData.has(submitter.name)
+    ) {
+      formData.append(submitter.name, submitter.value);
+    }
+    startTransition(async () => {
+      setResult(await wrappedAction(formData));
+    });
+  }
 
   const formRef = useRef<HTMLFormElement>(null);
   const [removed, setRemoved] = useState<number[]>([]);
@@ -143,6 +240,11 @@ export function ContactForm({
   /** Card front + back taken back-to-back become one request after a pause. */
   function scheduleCardTranscribe(files: File[]) {
     if (!transcribe || files.length === 0) return;
+    // Offline, every read fails 1.5s after every photo; the capture is read
+    // server-side once it is delivered instead. `outbox.offline` covers what
+    // navigator.onLine cannot: hall wi-fi with no path to the NAS.
+    if (typeof navigator !== "undefined" && !navigator.onLine) return;
+    if (outbox?.offline) return;
     if (aiTimer.current) clearTimeout(aiTimer.current);
     aiTimer.current = setTimeout(() => {
       void handleTranscribe(true);
@@ -237,7 +339,7 @@ export function ContactForm({
   }
 
   return (
-    <form ref={formRef} action={formAction} className="flex flex-col gap-4">
+    <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-4">
       <input type="hidden" name="type" value={type} />
 
       <div className="flex flex-col gap-2">
@@ -283,7 +385,7 @@ export function ContactForm({
           </div>
         ) : null}
 
-        <PhotoPicker name="cardImages" onFilesChanged={onCardPhotosChanged} />
+        <PhotoPicker key={captureEpoch} name="cardImages" onFilesChanged={onCardPhotosChanged} />
 
         {transcribe ? (
           <div className="flex flex-col gap-2">
@@ -480,6 +582,20 @@ export function ContactForm({
       {result?.error ? (
         <p className="text-sm text-red-600">
           {result.error === "image-error" ? t("errorImage") : common("required")}
+        </p>
+      ) : null}
+
+      {offlineSaved === "saved" ? (
+        <p
+          className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
+          data-testid="contact-saved-offline"
+        >
+          {t("savedOffline")}
+        </p>
+      ) : null}
+      {offlineSaved === "store-failed" ? (
+        <p className="text-sm text-red-600" data-testid="contact-offline-store-failed">
+          {t("offlineStoreFailed")}
         </p>
       ) : null}
 

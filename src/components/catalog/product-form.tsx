@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,7 @@ import {
   DEFAULT_PACKING_ALLOWANCE_PCT,
 } from "@/lib/calculations";
 import { normalizeDecimalInput } from "@/lib/decimal-input";
+import { useOutbox, probeServer } from "@/components/offline/outbox";
 
 type Category = { id: number; nameEn: string; nameZh: string };
 
@@ -88,6 +89,8 @@ export function ProductForm({
   suppliers = [],
   transcribeCard,
   lockCategory = false,
+  draftId,
+  draftImages = [],
 }: {
   categories: Category[];
   action: (prevState: string | undefined, formData: FormData) => Promise<string | undefined>;
@@ -110,10 +113,24 @@ export function ProductForm({
    * kind of product, so the photos should be allowed to change it.
    */
   lockCategory?: boolean;
+  /** Saving promotes this capture draft: its photos attach, it leaves the queue. */
+  draftId?: number;
+  /** The draft's photos, already on the server — shown, not re-uploaded. */
+  draftImages?: { id: number; path: string }[];
 }) {
   const t = useTranslations("catalog");
   const common = useTranslations("common");
-  const [errorMessage, formAction, isPending] = useActionState(action, undefined);
+
+  const outbox = useOutbox();
+  // "saved": the capture is on the phone and the form has been cleared for
+  // the next item. "store-failed": the phone refused to store it (private
+  // mode, no space) — nothing was saved anywhere, so the form must stay put.
+  const [offlineSaved, setOfflineSaved] = useState<null | "saved" | "store-failed">(null);
+  // Remounts the PhotoPicker after a local save: its picked list is private
+  // state, and carrying photos from one booth into the next capture is the
+  // one mistake this flow cannot afford.
+  const [captureEpoch, setCaptureEpoch] = useState(0);
+
   const [removed, setRemoved] = useState<number[]>([]);
   const [categoryId, setCategoryId] = useState(
     defaultValues?.categoryId ? String(defaultValues.categoryId) : categories[0] ? String(categories[0].id) : "",
@@ -254,6 +271,121 @@ export function ProductForm({
   const aiRun = useRef(0);
   const aiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  /**
+   * Registering with no connection: the capture goes to the phone's outbox
+   * instead of the server, exactly as filled in. The one adjustment is a SKU
+   * still on its server-suggested default — every capture in a dead hall
+   * would carry that same suggestion, so it is blanked and assigned at
+   * promotion the same way a hand-cleared SKU is.
+   */
+  async function saveToPhone(formData: FormData): Promise<undefined> {
+    if (!outbox) return undefined;
+    if (formData.get("sku") === defaultValues?.sku) formData.set("sku", "");
+    // An unchecked checkbox posts nothing, which a draft cannot tell apart
+    // from "never captured" — so the box's state is written down explicitly.
+    formData.set("active", formData.get("active") === "on" ? "on" : "off");
+    const files = formData
+      .getAll("images")
+      .filter((f): f is File => f instanceof File && f.size > 0)
+      .map((file) => ({ file, field: "images" as const }));
+    try {
+      await outbox.enqueue("product", formData, files);
+    } catch {
+      setOfflineSaved("store-failed");
+      return undefined;
+    }
+
+    // Clear for the next booth in place — the online flow's redirect needs a
+    // server. Category and supplier stay, mirroring what "save & add another"
+    // carries in its querystring; everything else returns to its defaults.
+    formRef.current?.reset();
+    setCaptureEpoch((epoch) => epoch + 1);
+    setSource(defaultValues?.dimensionSource ?? "carton");
+    setQtyPerBox(String(defaultValues?.qtyPerBox ?? 1));
+    setPiece({
+      lengthCm: String(defaultValues?.pieceLengthCm ?? 0),
+      widthCm: String(defaultValues?.pieceWidthCm ?? 0),
+      heightCm: String(defaultValues?.pieceHeightCm ?? 0),
+      weightKg: String(defaultValues?.pieceWeightKg ?? 0),
+    });
+    setAllowance(String(defaultValues?.packingAllowancePct ?? DEFAULT_PACKING_ALLOWANCE_PCT));
+    aiRun.current++;
+    if (aiTimer.current) clearTimeout(aiTimer.current);
+    setAiPending(false);
+    setAiError(null);
+    setAiNotes(null);
+    setOfflineSaved("saved");
+    window.scrollTo({ top: 0 });
+    return undefined;
+  }
+
+  /**
+   * Decides where a save goes before anything is sent. Server actions are
+   * addressed by build-scoped ids and cannot be queued for later, so the
+   * choice has to happen here: reachable server → the normal action;
+   * unreachable → the outbox. The probe asks the server itself because
+   * `navigator.onLine` believes any wi-fi, including one with no way out.
+   */
+  async function submitAction(formData: FormData): Promise<string | undefined> {
+    setOfflineSaved(null);
+    // Only untouched registration captures offline. An edit delivered later
+    // could land on top of someone else's newer edit, and a draft under
+    // review lives on the server (photos included) — going to the phone from
+    // either would fork the data, so both stay online-only.
+    if (!showAddAnother || !outbox || draftId) return action(undefined, formData);
+
+    if (!(await probeServer())) return saveToPhone(formData);
+
+    try {
+      return await action(undefined, formData);
+    } catch (error) {
+      // The link died mid-save. If the request did reach the server, this
+      // re-save makes a duplicate draft — which review catches. The reverse
+      // failure, dropping the capture, would be silent and permanent.
+      if (
+        error &&
+        typeof error === "object" &&
+        "digest" in error &&
+        typeof error.digest === "string" &&
+        error.digest.startsWith("NEXT_")
+      ) {
+        throw error; // a redirect, not a failure
+      }
+      return saveToPhone(formData);
+    }
+  }
+
+  const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
+  const [isPending, startTransition] = useTransition();
+
+  /**
+   * Submitted by hand rather than through `<form action>`: React 19 resets
+   * every uncontrolled field when a form action settles, which on any failed
+   * save — a duplicate SKU, and above all "could not save to this phone" —
+   * wiped the very capture the error message was telling the user to keep.
+   * Dispatching from onSubmit leaves the fields exactly as typed; the one
+   * reset this form wants (a successful save to the phone) stays explicit in
+   * saveToPhone. Browser validation still runs first, and the clicked
+   * button rides along so "save & add another" keeps its meaning.
+   */
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    const formData = new FormData(event.currentTarget, submitter);
+    // Browsers before Chrome 112 / Safari 16.4 silently ignore the submitter
+    // argument, which would strip "save & add another" of its meaning.
+    if (
+      submitter instanceof HTMLButtonElement &&
+      submitter.name &&
+      !formData.has(submitter.name)
+    ) {
+      formData.append(submitter.name, submitter.value);
+    }
+    startTransition(async () => {
+      setErrorMessage(await submitAction(formData));
+    });
+  }
+
   async function handleTranscribe(auto = false) {
     if (!transcribe) return;
     const input = formRef.current?.elements.namedItem("images");
@@ -302,6 +434,12 @@ export function ProductForm({
    */
   function schedulePhotoTranscribe(files: File[]) {
     if (!transcribe || files.length === 0) return;
+    // No connection means every read would fail 1.5s after every photo —
+    // exactly where the app must feel calm. The draft is read server-side
+    // once the capture is delivered instead. `outbox.offline` covers what
+    // navigator.onLine cannot: hall wi-fi with no path to the NAS.
+    if (typeof navigator !== "undefined" && !navigator.onLine) return;
+    if (outbox?.offline) return;
     if (aiTimer.current) clearTimeout(aiTimer.current);
     aiTimer.current = setTimeout(() => {
       void handleTranscribe(true);
@@ -324,7 +462,7 @@ export function ProductForm({
   const bareCbm = computeCbm(pieceDims.lengthCm, pieceDims.widthCm, pieceDims.heightCm) * perBox;
 
   return (
-    <form ref={formRef} action={formAction} className="flex flex-col gap-5 pb-20 sm:pb-0">
+    <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-5 pb-20 sm:pb-0">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="sku">{t("sku")}</Label>
@@ -377,6 +515,23 @@ export function ProductForm({
         <div className="flex flex-col gap-2 sm:col-span-2">
           <Label htmlFor="images">{t("images")}</Label>
 
+          {draftId ? <input type="hidden" name="draftId" value={draftId} /> : null}
+          {/* Photos captured at the booth, already stored on the server under
+              the draft. Saving attaches them to the product as they are. */}
+          {draftImages.length > 0 ? (
+            <div className="flex flex-wrap gap-3" data-testid="draft-photos">
+              {draftImages.map((img) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={img.id}
+                  src={img.path}
+                  alt=""
+                  className="h-24 w-24 rounded-md border border-neutral-200 bg-neutral-100 object-contain dark:border-neutral-800 dark:bg-neutral-800"
+                />
+              ))}
+            </div>
+          ) : null}
+
           {existingImages.length > 0 ? (
             <div className="flex flex-wrap gap-3">
               {existingImages.map((img) => {
@@ -413,7 +568,7 @@ export function ProductForm({
             </div>
           ) : null}
 
-          <PhotoPicker onFilesChanged={schedulePhotoTranscribe} />
+          <PhotoPicker key={captureEpoch} onFilesChanged={schedulePhotoTranscribe} />
 
           {transcribe ? (
             <div className="flex flex-col gap-2">
@@ -737,6 +892,20 @@ export function ProductForm({
         </p>
       ) : null}
 
+      {offlineSaved === "saved" ? (
+        <p
+          className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
+          data-testid="saved-offline"
+        >
+          {t("savedOffline", { count: outbox?.pending ?? 1 })}
+        </p>
+      ) : null}
+      {offlineSaved === "store-failed" ? (
+        <p className="text-sm text-red-600" data-testid="offline-store-failed">
+          {t("offlineStoreFailed")}
+        </p>
+      ) : null}
+
       {/*
         Pinned to the bottom of the screen on a phone so saving never means
         scrolling back down a long form, and a normal row once there is room.
@@ -744,7 +913,12 @@ export function ProductForm({
         to stick within, so `sticky` would just sit off-screen at the end.
       */}
       <div className="fixed inset-x-0 bottom-14 z-30 flex gap-2 border-t border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-neutral-950 sm:static sm:z-auto sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 dark:sm:bg-transparent">
-        <Button type="submit" disabled={isPending} className="min-h-11 flex-1 sm:flex-none">
+        <Button
+          type="submit"
+          disabled={isPending}
+          data-testid="save-product"
+          className="min-h-11 flex-1 sm:flex-none"
+        >
           {submitLabel}
         </Button>
         {showAddAnother ? (
@@ -774,6 +948,11 @@ export function ProductForm({
             type="supplier"
             action={createSupplierInline}
             submitLabel={common("save")}
+            // Offline, the card is captured to the phone; the product being
+            // registered simply stays unlinked and the supplier is attached
+            // once both have reached the server.
+            offlineCapture
+            onSavedOffline={() => setSupplierDialogOpen(false)}
             transcribe={transcribeCard}
             candidates={allSuppliers.map((s) => ({
               id: s.id,
