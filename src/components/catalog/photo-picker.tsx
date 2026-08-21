@@ -62,13 +62,13 @@ function Preview({
       <img
         src={url}
         alt=""
-        className="h-24 w-24 rounded-md border border-neutral-200 bg-neutral-100 object-contain dark:border-neutral-800 dark:bg-neutral-800"
+        className="h-24 w-24 rounded-md border border-line bg-surface-2 object-contain"
       />
       <button
         type="button"
         aria-label={removeLabel}
         onClick={onRemove}
-        className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-neutral-900 text-white shadow dark:bg-neutral-100 dark:text-neutral-900"
+        className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-ink text-bg shadow"
       >
         <X className="h-4 w-4" />
       </button>
@@ -183,7 +183,7 @@ export function PhotoPicker({
           type="button"
           data-testid="take-photo"
           onClick={() => cameraRef.current?.click()}
-          className="flex min-h-14 items-center justify-center gap-2 rounded-lg border border-neutral-300 bg-white px-4 py-3 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-50 active:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
+          className="flex min-h-14 items-center justify-center gap-2 rounded-lg border border-line bg-surface px-4 py-3 text-sm font-medium text-ink transition-colors hover:bg-surface-2 active:bg-surface-2"
         >
           <Camera className="h-5 w-5" />
           {t("takePhoto")}
@@ -192,7 +192,7 @@ export function PhotoPicker({
           type="button"
           data-testid="choose-photos"
           onClick={() => libraryRef.current?.click()}
-          className="flex min-h-14 items-center justify-center gap-2 rounded-lg border border-neutral-300 bg-white px-4 py-3 text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-50 active:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
+          className="flex min-h-14 items-center justify-center gap-2 rounded-lg border border-line bg-surface px-4 py-3 text-sm font-medium text-ink transition-colors hover:bg-surface-2 active:bg-surface-2"
         >
           <ImagePlus className="h-5 w-5" />
           {t("choosePhotos")}
@@ -212,7 +212,7 @@ export function PhotoPicker({
         </div>
       ) : null}
 
-      <p className="text-xs text-neutral-500 dark:text-neutral-400">
+      <p className="text-xs text-sub">
         {picked.length > 0 ? t("photosReady", { count: picked.length }) : t("imagesHelp")}
       </p>
     </div>

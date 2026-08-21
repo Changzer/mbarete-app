@@ -88,11 +88,11 @@ function AddUserForm() {
             {t("addUser")}
           </Button>
         </form>
-        <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+        <p className="mt-2 text-xs text-sub">
           {t("passwordHelp")}
         </p>
         {message ? (
-          <p className="mt-2 text-sm text-red-600 dark:text-red-400">{message}</p>
+          <p className="mt-2 text-sm text-danger">{message}</p>
         ) : null}
       </CardContent>
     </Card>
@@ -154,7 +154,7 @@ function EditUserDialog({
             />
           </div>
           {message ? (
-            <p className="text-sm text-red-600 dark:text-red-400">{message}</p>
+            <p className="text-sm text-danger">{message}</p>
           ) : null}
           <Button type="submit" disabled={isPending}>
             {common("save")}
@@ -187,17 +187,17 @@ export function UserManager({
 
   return (
     <div className="flex flex-col gap-6">
-      <p className="text-sm text-neutral-500 dark:text-neutral-400">{t("help")}</p>
+      <p className="text-sm text-sub">{t("help")}</p>
 
       <AddUserForm />
 
       {actionError ? (
-        <p className="text-sm text-red-600 dark:text-red-400">{actionError}</p>
+        <p className="text-sm text-danger">{actionError}</p>
       ) : null}
 
-      <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+      <div className="overflow-x-auto rounded-lg border border-line bg-surface">
         <table className="w-full text-sm">
-          <thead className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800 text-left text-neutral-500 dark:text-neutral-400">
+          <thead className="border-b border-line bg-surface-2 text-left text-sub">
             <tr>
               <th className="px-4 py-2 font-medium">{t("name")}</th>
               <th className="px-4 py-2 font-medium">{t("email")}</th>
@@ -210,17 +210,17 @@ export function UserManager({
               <tr
                 key={user.id}
                 data-testid={`user-row-${user.id}`}
-                className="border-b border-neutral-100 dark:border-neutral-800 last:border-0"
+                className="border-b border-line last:border-0"
               >
-                <td className="px-4 py-2 font-medium text-neutral-900 dark:text-neutral-100">
+                <td className="px-4 py-2 font-medium text-ink">
                   {user.name}
                   {user.id === currentUserId ? (
-                    <span className="ml-2 text-xs font-normal text-neutral-500 dark:text-neutral-400">
+                    <span className="ml-2 text-xs font-normal text-sub">
                       {t("you")}
                     </span>
                   ) : null}
                 </td>
-                <td className="px-4 py-2 text-neutral-600 dark:text-neutral-300">
+                <td className="px-4 py-2 text-sub">
                   {user.email}
                 </td>
                 <td className="px-4 py-2">

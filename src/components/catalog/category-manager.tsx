@@ -36,15 +36,15 @@ export function CategoryManager({ categories }: { categories: Category[] }) {
             </Button>
           </form>
           {errorMessage ? (
-            <p className="mt-2 text-sm text-red-600">{common("required")}</p>
+            <p className="mt-2 text-sm text-danger">{common("required")}</p>
           ) : null}
         </CardContent>
       </Card>
 
-      <ul className="flex flex-col divide-y divide-neutral-200 dark:divide-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+      <ul className="flex flex-col divide-y divide-line rounded-lg border border-line bg-surface">
         {categories.map((c) => (
           <li key={c.id} className="flex items-center justify-between px-4 py-3">
-            <span className="text-sm text-neutral-900 dark:text-neutral-100">
+            <span className="text-sm text-ink">
               {c.nameEn} / {c.nameZh}
             </span>
             <Button

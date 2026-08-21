@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Clock, Search, X } from "lucide-react";
 
 const MAX_RECENT = 6;
@@ -49,13 +49,14 @@ export function SearchBar({
   clearLabel: string;
   className?: string;
 }) {
-  const [recent, setRecent] = useState<string[]>([]);
+  // Read once, lazily: the list only changes when this component writes to it,
+  // so there is no external store to subscribe to. Starting empty and filling
+  // in an effect would also mismatch the server's render on the first paint.
+  const [recent, setRecent] = useState<string[]>(() =>
+    recentKey && typeof window !== "undefined" ? readRecent(recentKey) : [],
+  );
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (recentKey) setRecent(readRecent(recentKey));
-  }, [recentKey]);
 
   function commit(query: string) {
     if (!recentKey) return;

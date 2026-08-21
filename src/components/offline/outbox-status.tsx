@@ -45,7 +45,7 @@ export function OutboxStatus() {
       <div
         role="status"
         data-testid="outbox-status"
-        className="fixed bottom-32 right-3 z-40 flex max-w-[calc(100vw-1.5rem)] items-center gap-2 rounded-full border border-amber-300 bg-amber-50 py-1.5 pl-3 pr-1.5 text-sm text-amber-900 shadow-lg print:hidden dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200 md:bottom-3"
+        className="fixed bottom-32 right-3 z-40 flex max-w-[calc(100vw-1.5rem)] items-center gap-2 rounded-full border bg-warn-soft py-1.5 pl-3 pr-1.5 text-sm text-warn shadow-lg print:hidden md:bottom-3"
       >
         {/* The label opens the phone's own queue — the only place a stuck
             capture can be seen, retried, or deliberately given up on. */}
@@ -70,7 +70,7 @@ export function OutboxStatus() {
             type="button"
             data-testid="open-offline-catalog"
             onClick={() => setCatalogOpen(true)}
-            className="flex shrink-0 items-center gap-1 rounded-full border border-amber-400 px-2.5 py-1 text-xs font-medium hover:bg-amber-100 dark:border-amber-800 dark:hover:bg-amber-900"
+            className="flex shrink-0 items-center gap-1 rounded-full border border-warn px-2.5 py-1 text-xs font-medium hover:bg-warn-soft"
           >
             <BookOpen className="h-3.5 w-3.5" />
             {t("catalogCopyButton")}

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Stepper } from "@/components/ui/stepper";
 import {
   Select,
   SelectContent,
@@ -261,7 +262,7 @@ export function OrderBuilder({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
       <div className="lg:col-span-2">
         <div className="mb-4 flex flex-wrap gap-3">
           <Input
@@ -285,7 +286,7 @@ export function OrderBuilder({
           </Select>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
           {filteredProducts.map((p) => {
             const qty = cart[p.id]?.qty ?? 0;
             const below = isBelowMoq(qty, p.moq);
@@ -295,46 +296,55 @@ export function OrderBuilder({
               <div
                 key={p.id}
                 data-testid={`picker-${p.sku}`}
-                className="flex flex-col gap-2 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3"
+                className={`flex flex-col gap-2 rounded-[12px] border bg-surface p-3 ${
+                  qty > 0 ? "border-action" : "border-line"
+                }`}
               >
-                <div>
-                  <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{p.name}</p>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                    {p.categoryName} · {p.price.toFixed(2)} {p.currency} · {t("moq")}: {p.moq}
+                <div className="min-w-0">
+                  <p className="truncate text-[13.5px] font-bold text-ink">{p.name}</p>
+                  <p className="truncate font-mono text-[11px] text-sub">
+                    {p.categoryName} · {p.price.toFixed(2)} {p.currency} · {t("moq")} {p.moq}
                   </p>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Input
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    value={qty}
-                    onChange={(e) => setQuantity(p.id, Number(e.target.value))}
-                    className="w-24"
-                  />
-                  {qty > 0 ? (
-                    <Badge variant={partial ? "warning" : "secondary"}>
-                      {partial
-                        ? t("partialCarton", {
-                            cartons: fullCartons(p, qty),
-                            perCarton: p.qtyPerBox,
-                          })
-                        : t("cartons", { count: fullCartons(p, qty) })}
-                    </Badge>
-                  ) : null}
-                  {below ? (
-                    <Badge variant="warning">{t("moqWarning", { moq: p.moq })}</Badge>
-                  ) : null}
-                  {qty > 0 && suggestion !== qty ? (
-                    <button
-                      type="button"
-                      onClick={() => setQuantity(p.id, suggestion)}
-                      className="text-xs underline text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100"
-                    >
-                      {t("roundTo", { qty: suggestion })}
-                    </button>
-                  ) : null}
-                </div>
+                {/* Stepping by the carton, because that is the unit that ships:
+                    a supplier does not sell 37 of anything. Typing still works
+                    for a buyer who already knows the number. */}
+                <Stepper
+                  value={qty}
+                  onChange={(next) => setQuantity(p.id, next)}
+                  step={p.qtyPerBox > 0 ? p.qtyPerBox : 1}
+                  label={p.name}
+                  suffix={`/${p.qtyPerBox}`}
+                  data-testid={`qty-${p.sku}`}
+                />
+                {qty > 0 || below ? (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {qty > 0 ? (
+                      <Badge variant={partial ? "warning" : "secondary"}>
+                        {partial
+                          ? t("partialCarton", {
+                              cartons: fullCartons(p, qty),
+                              perCarton: p.qtyPerBox,
+                            })
+                          : t("cartons", { count: fullCartons(p, qty) })}
+                      </Badge>
+                    ) : null}
+                    {below ? (
+                      <Badge variant="warning" data-testid={`below-moq-${p.sku}`}>
+                        {t("moqWarning", { moq: p.moq })}
+                      </Badge>
+                    ) : null}
+                    {qty > 0 && suggestion !== qty ? (
+                      <button
+                        type="button"
+                        onClick={() => setQuantity(p.id, suggestion)}
+                        className="focus-ring min-h-11 px-1 text-[11px] font-semibold text-action-chrome underline"
+                      >
+                        {t("roundTo", { qty: suggestion })}
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             );
           })}
@@ -342,8 +352,8 @@ export function OrderBuilder({
       </div>
 
       <div className="lg:col-span-1">
-        <div className="sticky top-4 flex flex-col gap-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4">
-          <h2 className="font-semibold text-neutral-900 dark:text-neutral-100">{t("cart")}</h2>
+        <div className="flex flex-col gap-4 rounded-[12px] border border-line bg-surface p-4 lg:sticky lg:top-20">
+          <h2 className="font-mono text-[10.5px] font-bold uppercase tracking-[0.1em] text-sub">{t("cart")}</h2>
 
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between">
@@ -353,7 +363,7 @@ export function OrderBuilder({
                   <button
                     type="button"
                     onClick={() => setClientDialog("edit")}
-                    className="text-xs underline text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100"
+                    className="focus-ring min-h-11 px-1 text-[11px] font-semibold text-action-chrome underline"
                   >
                     {common("edit")}
                   </button>
@@ -361,7 +371,7 @@ export function OrderBuilder({
                 <button
                   type="button"
                   onClick={() => setClientDialog("new")}
-                  className="text-xs underline text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100"
+                  className="focus-ring min-h-11 px-1 text-[11px] font-semibold text-action-chrome underline"
                 >
                   {t("newClient")}
                 </button>
@@ -380,7 +390,7 @@ export function OrderBuilder({
               </SelectContent>
             </Select>
             {allClients.length === 0 ? (
-              <p className="text-xs text-amber-700 dark:text-amber-400">
+              <p className="text-[11px] text-warn">
                 {t("noClientsYet")}
               </p>
             ) : null}
@@ -433,29 +443,29 @@ export function OrderBuilder({
           </div>
 
           {cartLines.length === 0 ? (
-            <p className="text-sm text-neutral-500 dark:text-neutral-400">{t("emptyCart")}</p>
+            <p className="text-[12.5px] text-sub">{t("emptyCart")}</p>
           ) : (
             <ul className="flex flex-col gap-2 max-h-64 overflow-y-auto">
               {cartLines.map(({ product, quantity }) => (
-                <li key={product.id} className="flex flex-col gap-1 border-b border-neutral-100 dark:border-neutral-800 pb-2 text-sm">
+                <li key={product.id} className="flex flex-col gap-1 border-b border-line pb-2 text-[13px] last:border-0">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-neutral-900 dark:text-neutral-100">{product.name}</span>
+                    <span className="min-w-0 truncate font-bold text-ink">{product.name}</span>
                     <button
                       type="button"
-                      className="text-xs text-neutral-400 dark:text-neutral-500 hover:text-red-600"
+                      className="focus-ring min-h-11 shrink-0 px-2 text-[11px] font-semibold text-faint hover:text-danger"
                       onClick={() => setQuantity(product.id, 0)}
                     >
                       {t("removeLine")}
                     </button>
                   </div>
-                  <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
+                  <div className="flex items-center justify-between font-mono text-[11px] text-sub">
                     <span>
                       {t("lineCost")}: {quantity} × {product.price.toFixed(2)} {product.currency}
                     </span>
                     <span>{lineTotal(product, quantity).toFixed(2)} {product.currency}</span>
                   </div>
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <label className="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400">
+                    <label className="flex items-center gap-1.5 text-[11px] text-sub">
                       {t("sellPriceLabel")}
                       <Input
                         type="number"
@@ -464,21 +474,21 @@ export function OrderBuilder({
                         min="0"
                         value={cart[product.id]?.sellPrice ?? ""}
                         onChange={(e) => setSellPrice(product.id, e.target.value)}
-                        className="h-7 w-24 text-sm"
+                        className="h-9 w-24"
                         data-testid={`sell-price-${product.sku}`}
                       />
                       {product.currency}
                     </label>
-                    <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                    <span className="font-mono text-[13px] font-semibold tabular-nums text-ink">
                       {lineSellTotal(product, quantity).toFixed(2)} {product.currency}
                     </span>
                   </div>
                   {product.price > 0 ? (
                     <span
-                      className={`w-fit text-xs ${
+                      className={`w-fit font-mono text-[11px] ${
                         product.sellPrice && product.sellPrice < product.price
-                          ? "font-medium text-red-600 dark:text-red-400"
-                          : "text-neutral-500 dark:text-neutral-400"
+                          ? "font-semibold text-danger"
+                          : "text-sub"
                       }`}
                       data-testid={`line-markup-${product.sku}`}
                     >
@@ -487,7 +497,7 @@ export function OrderBuilder({
                       })}
                     </span>
                   ) : null}
-                  <div className="flex items-center justify-between text-xs text-neutral-400 dark:text-neutral-500">
+                  <div className="flex items-center justify-between font-mono text-[11px] text-faint">
                     <span>{t("cartons", { count: fullCartons(product, quantity) })}</span>
                     <span>{quantity} / {product.qtyPerBox} {t("perCarton")}</span>
                   </div>
@@ -510,18 +520,18 @@ export function OrderBuilder({
           )}
 
           {totals.missingRates.length > 0 ? (
-            <p className="rounded-md bg-amber-100 dark:bg-amber-950 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+            <p className="rounded-[10px] bg-warn-soft px-3 py-2 text-[11px] leading-relaxed text-warn">
               {t("missingRate", { codes: totals.missingRates.join(", ") })}
             </p>
           ) : null}
 
-          <div className="flex flex-col gap-2 border-t border-neutral-200 dark:border-neutral-800 pt-3 text-sm">
+          <div className="flex flex-col gap-2 border-t border-line pt-3 text-[13px]">
             <div className="flex flex-col gap-1">
-              <span className="text-neutral-500 dark:text-neutral-400">{t("goodsSubtotal")}</span>
+              <span className="text-sub">{t("goodsSubtotal")}</span>
               {targets.map((code) => (
                 <div key={code} className="flex justify-between">
-                  <span className="text-neutral-400 dark:text-neutral-500">{code}</span>
-                  <span className="text-neutral-700 dark:text-neutral-300">
+                  <span className="font-mono text-[11px] text-faint">{code}</span>
+                  <span className="font-mono tabular-nums text-ink">
                     {totals.goods[code].toFixed(2)}
                   </span>
                 </div>
@@ -530,13 +540,13 @@ export function OrderBuilder({
 
             {commissionValue > 0 ? (
               <div className="flex flex-col gap-1">
-                <span className="text-neutral-500 dark:text-neutral-400">
+                <span className="text-sub">
                   {t("commissionAmount")} ({commissionValue}%)
                 </span>
                 {targets.map((code) => (
                   <div key={code} className="flex justify-between">
-                    <span className="text-neutral-400 dark:text-neutral-500">{code}</span>
-                    <span className="text-neutral-700 dark:text-neutral-300">
+                    <span className="font-mono text-[11px] text-faint">{code}</span>
+                    <span className="font-mono tabular-nums text-ink">
                       {totals.commission[code].toFixed(2)}
                     </span>
                   </div>
@@ -544,31 +554,31 @@ export function OrderBuilder({
               </div>
             ) : null}
 
-            <div className="flex flex-col gap-1 border-t border-neutral-200 dark:border-neutral-800 pt-2">
-              <span className="text-neutral-500 dark:text-neutral-400">{t("grandTotal")}</span>
+            <div className="flex flex-col gap-1 border-t border-line pt-2">
+              <span className="text-sub">{t("grandTotal")}</span>
               {targets.map((code) => (
                 <div key={code} className="flex justify-between">
-                  <span className="text-neutral-400 dark:text-neutral-500">{code}</span>
-                  <span className="font-semibold text-neutral-900 dark:text-neutral-100">
+                  <span className="font-mono text-[11px] text-faint">{code}</span>
+                  <span className="font-mono font-semibold tabular-nums text-ink">
                     {totals.grandTotal[code].toFixed(2)}
                   </span>
                 </div>
               ))}
             </div>
-            <div className="flex flex-col gap-1 border-t border-neutral-200 dark:border-neutral-800 pt-2">
+            <div className="flex flex-col gap-1 border-t border-line pt-2">
               <div className="flex justify-between text-xs">
-                <span className="text-neutral-500 dark:text-neutral-400">{t("supplierCost")}</span>
-                <span className="text-neutral-700 dark:text-neutral-300" data-testid="builder-cost">
+                <span className="text-sub">{t("supplierCost")}</span>
+                <span className="font-mono tabular-nums text-ink" data-testid="builder-cost">
                   {(totals.cost[displayCurrency] ?? 0).toFixed(2)} {displayCurrency}
                 </span>
               </div>
               <div className="flex justify-between text-xs">
-                <span className="text-neutral-500 dark:text-neutral-400">{t("grossMargin")}</span>
+                <span className="text-sub">{t("grossMargin")}</span>
                 <span
-                  className={`font-medium ${
+                  className={`font-mono font-semibold tabular-nums ${
                     (totals.grandTotal[displayCurrency] ?? 0) - (totals.cost[displayCurrency] ?? 0) < 0
-                      ? "text-red-600 dark:text-red-400"
-                      : "text-neutral-900 dark:text-neutral-100"
+                      ? "text-danger"
+                      : "text-ink"
                   }`}
                   data-testid="builder-margin"
                 >
@@ -577,24 +587,24 @@ export function OrderBuilder({
               </div>
             </div>
             <div className="flex justify-between">
-              <span className="text-neutral-500 dark:text-neutral-400">{t("totalCartons")}</span>
-              <span className="font-semibold text-neutral-900 dark:text-neutral-100">
+              <span className="text-sub">{t("totalCartons")}</span>
+              <span className="font-mono font-semibold tabular-nums text-ink">
                 {Number.isInteger(totals.totalCartons)
                   ? totals.totalCartons
                   : totals.totalCartons.toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-neutral-500 dark:text-neutral-400">{t("totalCbm")}</span>
-              <span className="font-semibold text-neutral-900 dark:text-neutral-100">{formatCbm(totals.totalCbm)} m³</span>
+              <span className="text-sub">{t("totalCbm")}</span>
+              <span className="font-mono font-semibold tabular-nums text-ink">{formatCbm(totals.totalCbm)} m³</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-neutral-500 dark:text-neutral-400">{t("totalWeight")}</span>
-              <span className="font-semibold text-neutral-900 dark:text-neutral-100">{totals.totalWeightKg.toFixed(2)} kg</span>
+              <span className="text-sub">{t("totalWeight")}</span>
+              <span className="font-mono font-semibold tabular-nums text-ink">{totals.totalWeightKg.toFixed(2)} kg</span>
             </div>
             {hasUnmeasured ? (
               <p
-                className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
+                className="rounded-[10px] bg-warn-soft px-3 py-2 text-[11px] leading-relaxed text-warn"
                 data-testid="order-unmeasured-note"
               >
                 {t("unmeasuredIncluded")}
@@ -602,7 +612,7 @@ export function OrderBuilder({
             ) : null}
             {hasEstimatedCarton ? (
               <p
-                className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
+                className="rounded-[10px] bg-warn-soft px-3 py-2 text-[11px] leading-relaxed text-warn"
                 data-testid="order-estimate-note"
               >
                 {t("estimatedCartonsIncluded")}
@@ -616,16 +626,16 @@ export function OrderBuilder({
           </div>
 
           {totals.hasMoqViolation ? (
-            <p className="text-xs text-amber-700">{t("moqBlocksConfirm")}</p>
+            <p className="rounded-[10px] bg-warn-soft px-3 py-2 text-[11px] leading-relaxed text-warn" data-testid="moq-blocks-confirm">{t("moqBlocksConfirm")}</p>
           ) : null}
           {error === "empty" ? (
-            <p className="text-xs text-red-600">{t("emptyCart")}</p>
+            <p className="text-[12px] font-semibold text-danger">{t("emptyCart")}</p>
           ) : null}
           {error === "client" ? (
-            <p className="text-xs text-red-600">{t("selectClient")}</p>
+            <p className="text-[12px] font-semibold text-danger">{t("selectClient")}</p>
           ) : null}
           {error === "moq" ? (
-            <p className="text-xs text-red-600">{t("moqBlocksConfirm")}</p>
+            <p className="text-[12px] font-semibold text-danger">{t("moqBlocksConfirm")}</p>
           ) : null}
 
           <div className="flex flex-col gap-2">

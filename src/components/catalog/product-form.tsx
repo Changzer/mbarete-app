@@ -2,10 +2,11 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
-import { Loader2, Sparkles } from "lucide-react";
+import { Check, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Disclosure, Field, FormSection } from "@/components/ui/disclosure";
+import { CurrencyField } from "@/components/catalog/currency-field";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -202,6 +203,9 @@ export function ProductForm({
 
   // Controlled so the estimate below updates as the numbers are typed.
   const [qtyPerBox, setQtyPerBox] = useState(String(defaultValues?.qtyPerBox ?? 1));
+  // A segmented control rather than a text field, so it is state, not a DOM
+  // value the AI pass can poke at — see applyTranscription.
+  const [currency, setCurrency] = useState(defaultValues?.currency ?? "USD");
   const [piece, setPiece] = useState({
     lengthCm: String(defaultValues?.pieceLengthCm ?? 0),
     widthCm: String(defaultValues?.pieceWidthCm ?? 0),
@@ -238,7 +242,11 @@ export function ProductForm({
     setIfUntouched("descriptionEn", fields.descriptionEn);
     setIfUntouched("descriptionZh", fields.descriptionZh);
     setIfUntouched("price", fields.price);
-    setIfUntouched("currency", fields.currency, ["USD"]);
+    // Currency is state, so it takes the same "only if untouched" rule by
+    // hand: USD is the pristine default nobody chose.
+    if (fields.currency) {
+      setCurrency((prev) => (prev === "USD" ? String(fields.currency) : prev));
+    }
     setIfUntouched("moq", fields.moq, ["1"]);
     // Carton figures off the board. These inputs only exist in carton mode;
     // in piece mode namedItem() finds nothing and the values are skipped.
@@ -461,60 +469,30 @@ export function ProductForm({
   const estimatedWeight = estimateCartonWeightKg(num(piece.weightKg), perBox, allowancePct);
   const bareCbm = computeCbm(pieceDims.lengthCm, pieceDims.widthCm, pieceDims.heightCm) * perBox;
 
+  // Editing something that has already been measured opens the disclosure: it
+  // folds to keep a *new* capture short, not to hide figures already there.
+  const hasDimensions = Boolean(
+    defaultValues &&
+      (defaultValues.lengthCm ||
+        defaultValues.widthCm ||
+        defaultValues.heightCm ||
+        defaultValues.weightKg ||
+        defaultValues.cbmOverride ||
+        defaultValues.dimensionSource === "piece"),
+  );
+
   return (
-    <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-5 pb-20 sm:pb-0">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="sku">{t("sku")}</Label>
-          <Input id="sku" name="sku" defaultValue={defaultValues?.sku} />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="categoryId">{t("category")}</Label>
-          <input type="hidden" name="categoryId" value={categoryId} />
-          <Select value={categoryId} onValueChange={setCategoryId}>
-            <SelectTrigger id="categoryId">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {allCategories.map((c) => (
-                <SelectItem key={c.id} value={String(c.id)}>
-                  {c.nameEn} / {c.nameZh}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex flex-col gap-1.5 sm:col-span-2">
-          <Label htmlFor="supplierId">{t("supplier")}</Label>
-          <input
-            type="hidden"
-            name="supplierId"
-            value={supplierId === "0" ? "" : supplierId}
-          />
-          {defaultValues?.duplicatedFromId ? (
-            <input type="hidden" name="duplicatedFromId" value={defaultValues.duplicatedFromId} />
-          ) : null}
-          <div className="flex gap-2">
-            <SupplierPicker
-              suppliers={allSuppliers}
-              value={supplierId}
-              onChange={setSupplierId}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setSupplierDialogOpen(true)}
-              data-testid="new-supplier"
-            >
-              {t("newSupplier")}
-            </Button>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-2 sm:col-span-2">
-          <Label htmlFor="images">{t("images")}</Label>
-
+    <form
+      ref={formRef}
+      onSubmit={handleSubmit}
+      className="flex flex-col gap-4 pb-36 lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-6 lg:pb-0"
+    >
+      {/*
+        Photos first, and not as a courtesy: at a booth the phone comes out,
+        the product is photographed, and everything else on this form is
+        either read off those photos by the AI pass or filled in afterwards.
+      */}
+      <FormSection kicker={t("images")} className="lg:col-span-2">
           {draftId ? <input type="hidden" name="draftId" value={draftId} /> : null}
           {/* Photos captured at the booth, already stored on the server under
               the draft. Saving attaches them to the product as they are. */}
@@ -526,7 +504,7 @@ export function ProductForm({
                   key={img.id}
                   src={img.path}
                   alt=""
-                  className="h-24 w-24 rounded-md border border-neutral-200 bg-neutral-100 object-contain dark:border-neutral-800 dark:bg-neutral-800"
+                  className="h-24 w-24 rounded-[8px] border border-line bg-surface-2 object-contain"
                 />
               ))}
             </div>
@@ -542,7 +520,7 @@ export function ProductForm({
                     <img
                       src={img.path}
                       alt=""
-                      className={`h-24 w-24 rounded-md border border-neutral-200 dark:border-neutral-800 object-contain bg-neutral-100 dark:bg-neutral-800 ${
+                      className={`h-24 w-24 rounded-[8px] border border-line bg-surface-2 object-contain ${
                         isRemoved ? "opacity-30" : ""
                       }`}
                     />
@@ -551,7 +529,7 @@ export function ProductForm({
                     ) : null}
                     <button
                       type="button"
-                      className="text-xs text-neutral-500 dark:text-neutral-400 hover:text-red-600 dark:hover:text-red-400"
+                      className="focus-ring min-h-11 px-2 text-[11px] font-semibold text-sub hover:text-danger"
                       onClick={() =>
                         setRemoved((prev) =>
                           prev.includes(img.id)
@@ -578,312 +556,350 @@ export function ProductForm({
                 disabled={aiPending}
                 onClick={() => handleTranscribe()}
                 data-testid="fill-from-photos"
-                className="min-h-11 justify-center gap-2"
+                className="w-full justify-center"
               >
                 {aiPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-[spin_2.4s_linear_infinite]" strokeWidth={1.5} />
                 ) : (
-                  <Sparkles className="h-4 w-4" />
+                  <Sparkles className="h-4 w-4" strokeWidth={1.5} />
                 )}
                 {aiPending ? t("aiFilling") : t("aiFill")}
               </Button>
               {aiError ? (
-                <p className="text-sm text-red-600" data-testid="ai-error">
+                <p className="text-[12px] font-semibold text-danger" data-testid="ai-error">
                   {aiError === "no-photos" ? t("aiErrorNoPhotos") : t("aiErrorFailed")}
                 </p>
               ) : aiNotes ? (
                 <p
-                  className="rounded-md bg-neutral-100 px-3 py-2 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400"
+                  className="rounded-[10px] bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-sub"
                   data-testid="ai-notes"
                 >
                   {t("aiNotes")}: {aiNotes}
                 </p>
               ) : (
-                <p className="text-xs text-neutral-500 dark:text-neutral-400">{t("aiFillHelp")}</p>
+                <p className="text-[11px] leading-relaxed text-sub">{t("aiFillHelp")}</p>
               )}
             </div>
           ) : null}
+      </FormSection>
+
+      {/*
+        The commercial group — what a buyer is actually deciding with. It sits
+        directly under the photos so a capture can legitimately stop here.
+      */}
+      <FormSection kicker={t("commercial")} className="lg:col-span-2">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={t("costPrice")} htmlFor="price">
+            <Input
+              id="price"
+              name="price"
+              type="text"
+              numeric
+              inputMode="decimal"
+              placeholder="0.00"
+              defaultValue={defaultValues?.price}
+              required
+            />
+          </Field>
+          <CurrencyField
+            value={currency}
+            onChange={setCurrency}
+            label={t("currency")}
+            otherLabel={t("currencyOther")}
+          />
+
+          <Field label={t("moq")} htmlFor="moq">
+            <Input
+              id="moq"
+              name="moq"
+              type="text"
+              numeric
+              inputMode="numeric"
+              suffix={t("unitPcs")}
+              defaultValue={defaultValues?.moq ?? 1}
+              required
+            />
+          </Field>
+          <Field label={t("qtyPerBox")} htmlFor="qtyPerBox">
+            <Input
+              id="qtyPerBox"
+              name="qtyPerBox"
+              type="text"
+              numeric
+              inputMode="numeric"
+              suffix={t("perCarton")}
+              value={qtyPerBox}
+              onChange={(e) => setQtyPerBox(e.target.value)}
+              required
+            />
+          </Field>
+
+          <Field
+            label={t("sellPrice")}
+            htmlFor="sellPrice"
+            hint={t("sellPriceHelp")}
+            className="col-span-2"
+          >
+            <Input
+              id="sellPrice"
+              name="sellPrice"
+              type="text"
+              numeric
+              inputMode="decimal"
+              placeholder={t("optionalPlaceholder")}
+              defaultValue={defaultValues?.sellPrice ? defaultValues.sellPrice : ""}
+            />
+          </Field>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="nameEn">{t("nameEn")}</Label>
+        {/* Both names, stacked: the supplier reads the Chinese one off the box
+            and the client reads the English one off the quote. */}
+        <Field label={t("nameEn")} htmlFor="nameEn">
           <Input id="nameEn" name="nameEn" defaultValue={defaultValues?.nameEn} />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="nameZh">{t("nameZh")}</Label>
+        </Field>
+        <Field label={t("nameZh")} htmlFor="nameZh">
           <Input id="nameZh" name="nameZh" defaultValue={defaultValues?.nameZh} />
+        </Field>
+      </FormSection>
+
+      <FormSection kicker={t("supplier")} className="lg:col-span-2">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={t("sku")} htmlFor="sku">
+            <Input id="sku" name="sku" numeric defaultValue={defaultValues?.sku} />
+          </Field>
+          <Field label={t("category")} htmlFor="categoryId">
+            <input type="hidden" name="categoryId" value={categoryId} />
+            <Select value={categoryId} onValueChange={setCategoryId}>
+              <SelectTrigger id="categoryId">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {allCategories.map((c) => (
+                  <SelectItem key={c.id} value={String(c.id)}>
+                    {c.nameEn} / {c.nameZh}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
         </div>
 
-        <div className="flex flex-col gap-1.5 sm:col-span-2">
-          <Label htmlFor="descriptionEn">{t("descriptionEn")}</Label>
+        <Field label={t("supplier")} htmlFor="supplierId">
+          <input
+            type="hidden"
+            name="supplierId"
+            value={supplierId === "0" ? "" : supplierId}
+          />
+          {defaultValues?.duplicatedFromId ? (
+            <input type="hidden" name="duplicatedFromId" value={defaultValues.duplicatedFromId} />
+          ) : null}
+          <div className="flex gap-2">
+            <SupplierPicker
+              suppliers={allSuppliers}
+              value={supplierId}
+              onChange={setSupplierId}
+              className="min-w-0 flex-1"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSupplierDialogOpen(true)}
+              data-testid="new-supplier"
+            >
+              {t("newSupplier")}
+            </Button>
+          </div>
+        </Field>
+      </FormSection>
+
+      <FormSection kicker={t("description")} className="lg:col-span-2">
+        <Field label={t("descriptionEn")} htmlFor="descriptionEn">
           <Textarea
             id="descriptionEn"
             name="descriptionEn"
             defaultValue={defaultValues?.descriptionEn}
           />
-        </div>
-        <div className="flex flex-col gap-1.5 sm:col-span-2">
-          <Label htmlFor="descriptionZh">{t("descriptionZh")}</Label>
+        </Field>
+        <Field label={t("descriptionZh")} htmlFor="descriptionZh">
           <Textarea
             id="descriptionZh"
             name="descriptionZh"
             defaultValue={defaultValues?.descriptionZh}
           />
-        </div>
+        </Field>
+      </FormSection>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="price">{t("costPrice")}</Label>
-          <Input
-            id="price"
-            name="price"
-            type="text"
-            inputMode="decimal"
-            defaultValue={defaultValues?.price}
-            required
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="sellPrice">{t("sellPrice")}</Label>
-          <Input
-            id="sellPrice"
-            name="sellPrice"
-            type="text"
-            inputMode="decimal"
-            placeholder={t("optionalPlaceholder")}
-            defaultValue={defaultValues?.sellPrice ? defaultValues.sellPrice : ""}
-          />
-          <p className="text-xs text-neutral-500 dark:text-neutral-400">{t("sellPriceHelp")}</p>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="currency">{t("currency")}</Label>
-          <Input
-            id="currency"
-            name="currency"
-            defaultValue={defaultValues?.currency ?? "USD"}
-            required
-          />
-        </div>
+      {/*
+        Folded away by default. The carton/piece modes inside are unchanged —
+        only their placement is: a tape measure is not something a buyer has
+        in the aisle, and these ten fields used to sit between the price and
+        the Save button.
+      */}
+      <div className="lg:col-span-2">
+        <Disclosure
+          title={t("dimensionsDisclosure")}
+          hint={t("dimensionsHint")}
+          data-testid="dimensions-disclosure"
+          defaultOpen={hasDimensions}
+        >
+          <div className="flex flex-col gap-3">
+            <Field label={t("dimensionSource")}>
+              <input type="hidden" name="dimensionSource" value={source} />
+              <div className="flex gap-1 rounded-[10px] border border-line bg-surface-2 p-1">
+                {(["carton", "piece"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    aria-pressed={source === mode}
+                    onClick={() => setSource(mode)}
+                    className={`press focus-ring min-h-9 flex-1 rounded-[8px] px-3 py-2 text-[12.5px] font-semibold ${
+                      source === mode
+                        ? "bg-action text-white"
+                        : "text-sub hover:text-ink"
+                    }`}
+                  >
+                    {mode === "carton" ? t("haveCartonSize") : t("havePieceSizeOnly")}
+                  </button>
+                ))}
+              </div>
+            </Field>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="moq">{t("moq")}</Label>
-          <Input
-            id="moq"
-            name="moq"
-            type="number"
-            inputMode="numeric"
-            min="1"
-            defaultValue={defaultValues?.moq ?? 1}
-            required
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="qtyPerBox">{t("qtyPerBox")}</Label>
-          <Input
-            id="qtyPerBox"
-            name="qtyPerBox"
-            type="number"
-            inputMode="numeric"
-            min="1"
-            value={qtyPerBox}
-            onChange={(e) => setQtyPerBox(e.target.value)}
-            required
-          />
-        </div>
+            {source === "carton" ? (
+              <>
+                <p className="rounded-[10px] bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-sub">
+                  {t("cartonHelp")} {t("measurementsOptional")}
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  {(
+                    [
+                      ["lengthCm", t("length"), defaultValues?.lengthCm, "cm"],
+                      ["widthCm", t("width"), defaultValues?.widthCm, "cm"],
+                      ["heightCm", t("height"), defaultValues?.heightCm, "cm"],
+                      ["weightKg", t("weight"), defaultValues?.weightKg, "kg"],
+                    ] as const
+                  ).map(([name, label, value, unit]) => (
+                    <Field key={name} label={label} htmlFor={name}>
+                      <Input
+                        id={name}
+                        name={name}
+                        placeholder={t("optionalPlaceholder")}
+                        type="text"
+                        numeric
+                        suffix={unit}
+                        inputMode="decimal"
+                        defaultValue={blankIfZero(value)}
+                      />
+                    </Field>
+                  ))}
+                  <Field
+                    label={t("cbmOverride")}
+                    htmlFor="cbmOverride"
+                    hint={t("cbmOverrideHelp")}
+                    className="col-span-2"
+                  >
+                    <Input
+                      id="cbmOverride"
+                      name="cbmOverride"
+                      placeholder={t("optionalPlaceholder")}
+                      type="text"
+                      numeric
+                      suffix="m³"
+                      inputMode="decimal"
+                      defaultValue={blankIfZero(defaultValues?.cbmOverride)}
+                    />
+                  </Field>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="rounded-[10px] bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-sub">
+                  {t("pieceHelp")}
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  {(
+                    [
+                      ["lengthCm", "pieceLengthCm", t("pieceLength"), "cm"],
+                      ["widthCm", "pieceWidthCm", t("pieceWidth"), "cm"],
+                      ["heightCm", "pieceHeightCm", t("pieceHeight"), "cm"],
+                      ["weightKg", "pieceWeightKg", t("pieceWeight"), "kg"],
+                    ] as const
+                  ).map(([key, name, label, unit]) => (
+                    <Field key={name} label={label} htmlFor={name}>
+                      <Input
+                        id={name}
+                        name={name}
+                        type="text"
+                        numeric
+                        suffix={unit}
+                        inputMode="decimal"
+                        value={piece[key]}
+                        onChange={(e) =>
+                          setPiece((prev) => ({ ...prev, [key]: e.target.value }))
+                        }
+                      />
+                    </Field>
+                  ))}
+                  <Field
+                    label={t("packingAllowance")}
+                    htmlFor="packingAllowancePct"
+                    hint={t("packingAllowanceHelp")}
+                    className="col-span-2"
+                  >
+                    <Input
+                      id="packingAllowancePct"
+                      name="packingAllowancePct"
+                      type="text"
+                      numeric
+                      suffix="%"
+                      inputMode="decimal"
+                      value={allowance}
+                      onChange={(e) => setAllowance(e.target.value)}
+                    />
+                  </Field>
+                </div>
 
-        <div className="flex flex-col gap-2 sm:col-span-2">
-          <Label>{t("dimensionSource")}</Label>
-          <input type="hidden" name="dimensionSource" value={source} />
-          <div className="flex flex-wrap gap-2">
-            {(["carton", "piece"] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                aria-pressed={source === mode}
-                onClick={() => setSource(mode)}
-                className={`rounded-md border px-3 py-2 text-sm transition-colors ${
-                  source === mode
-                    ? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900"
-                    : "border-neutral-300 text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                }`}
-              >
-                {mode === "carton" ? t("haveCartonSize") : t("havePieceSizeOnly")}
-              </button>
-            ))}
+                <div
+                  className="rounded-[10px] bg-warn-soft px-3 py-3 text-[13px] text-warn"
+                  data-testid="carton-estimate"
+                >
+                  <p className="font-bold">{t("estimatedCarton")}</p>
+                  <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
+                    <dt>{t("cbm")}</dt>
+                    <dd className="text-right font-mono font-semibold" data-testid="estimated-cbm">
+                      {formatCbm(estimatedCbm)} m³
+                    </dd>
+                    <dt>{t("weight")}</dt>
+                    <dd className="text-right font-mono font-semibold" data-testid="estimated-weight">
+                      {estimatedWeight.toFixed(2)} kg
+                    </dd>
+                  </dl>
+                  <p className="mt-2 text-[11px] leading-relaxed">
+                    {t("estimateBreakdown", {
+                      pieces: perBox,
+                      bare: formatCbm(bareCbm),
+                      allowance: allowancePct,
+                    })}
+                  </p>
+                </div>
+              </>
+            )}
           </div>
-        </div>
-
-        {source === "carton" ? (
-          <>
-            <p className="sm:col-span-2 rounded-md bg-neutral-100 dark:bg-neutral-800 px-3 py-2 text-xs text-neutral-600 dark:text-neutral-400">
-              {t("cartonHelp")} {t("measurementsOptional")}
-            </p>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="lengthCm">{t("length")}</Label>
-              <Input
-                id="lengthCm"
-                name="lengthCm"
-                placeholder={t("optionalPlaceholder")}
-                type="text"
-                inputMode="decimal"
-                defaultValue={blankIfZero(defaultValues?.lengthCm)}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="widthCm">{t("width")}</Label>
-              <Input
-                id="widthCm"
-                name="widthCm"
-                placeholder={t("optionalPlaceholder")}
-                type="text"
-                inputMode="decimal"
-                defaultValue={blankIfZero(defaultValues?.widthCm)}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="heightCm">{t("height")}</Label>
-              <Input
-                id="heightCm"
-                name="heightCm"
-                placeholder={t("optionalPlaceholder")}
-                type="text"
-                inputMode="decimal"
-                defaultValue={blankIfZero(defaultValues?.heightCm)}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="weightKg">{t("weight")}</Label>
-              <Input
-                id="weightKg"
-                name="weightKg"
-                placeholder={t("optionalPlaceholder")}
-                type="text"
-                inputMode="decimal"
-                defaultValue={blankIfZero(defaultValues?.weightKg)}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5 sm:col-span-2">
-              <Label htmlFor="cbmOverride">{t("cbmOverride")}</Label>
-              <Input
-                id="cbmOverride"
-                name="cbmOverride"
-                placeholder={t("optionalPlaceholder")}
-                type="text"
-                inputMode="decimal"
-                defaultValue={blankIfZero(defaultValues?.cbmOverride)}
-              />
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                {t("cbmOverrideHelp")}
-              </p>
-            </div>
-          </>
-        ) : (
-          <>
-            <p className="sm:col-span-2 rounded-md bg-neutral-100 dark:bg-neutral-800 px-3 py-2 text-xs text-neutral-600 dark:text-neutral-400">
-              {t("pieceHelp")}
-            </p>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="pieceLengthCm">{t("pieceLength")}</Label>
-              <Input
-                id="pieceLengthCm"
-                name="pieceLengthCm"
-                type="text"
-                inputMode="decimal"
-                value={piece.lengthCm}
-                onChange={(e) => setPiece((p) => ({ ...p, lengthCm: e.target.value }))}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="pieceWidthCm">{t("pieceWidth")}</Label>
-              <Input
-                id="pieceWidthCm"
-                name="pieceWidthCm"
-                type="text"
-                inputMode="decimal"
-                value={piece.widthCm}
-                onChange={(e) => setPiece((p) => ({ ...p, widthCm: e.target.value }))}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="pieceHeightCm">{t("pieceHeight")}</Label>
-              <Input
-                id="pieceHeightCm"
-                name="pieceHeightCm"
-                type="text"
-                inputMode="decimal"
-                value={piece.heightCm}
-                onChange={(e) => setPiece((p) => ({ ...p, heightCm: e.target.value }))}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="pieceWeightKg">{t("pieceWeight")}</Label>
-              <Input
-                id="pieceWeightKg"
-                name="pieceWeightKg"
-                type="text"
-                inputMode="decimal"
-                value={piece.weightKg}
-                onChange={(e) => setPiece((p) => ({ ...p, weightKg: e.target.value }))}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5 sm:col-span-2">
-              <Label htmlFor="packingAllowancePct">{t("packingAllowance")}</Label>
-              <Input
-                id="packingAllowancePct"
-                name="packingAllowancePct"
-                type="text"
-                inputMode="decimal"
-                value={allowance}
-                onChange={(e) => setAllowance(e.target.value)}
-              />
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                {t("packingAllowanceHelp")}
-              </p>
-            </div>
-
-            <div
-              className="sm:col-span-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-3 text-sm dark:border-amber-900 dark:bg-amber-950"
-              data-testid="carton-estimate"
-            >
-              <p className="font-medium text-amber-900 dark:text-amber-200">
-                {t("estimatedCarton")}
-              </p>
-              <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-amber-900 dark:text-amber-200">
-                <dt>{t("cbm")}</dt>
-                <dd className="text-right font-medium" data-testid="estimated-cbm">
-                  {formatCbm(estimatedCbm)} m³
-                </dd>
-                <dt>{t("weight")}</dt>
-                <dd className="text-right font-medium" data-testid="estimated-weight">
-                  {estimatedWeight.toFixed(2)} kg
-                </dd>
-              </dl>
-              <p className="mt-2 text-xs text-amber-800 dark:text-amber-300">
-                {t("estimateBreakdown", {
-                  pieces: perBox,
-                  bare: formatCbm(bareCbm),
-                  allowance: allowancePct,
-                })}
-              </p>
-            </div>
-          </>
-        )}
-
-        <div className="flex items-center gap-2">
-          <input
-            id="active"
-            name="active"
-            type="checkbox"
-            defaultChecked={defaultValues?.active ?? true}
-            className="h-4 w-4"
-          />
-          <Label htmlFor="active">{t("active")}</Label>
-        </div>
+        </Disclosure>
       </div>
 
+      <label className="flex min-h-11 items-center gap-2.5 text-[13px] font-semibold text-ink lg:col-span-2">
+        <input
+          id="active"
+          name="active"
+          type="checkbox"
+          defaultChecked={defaultValues?.active ?? true}
+          className="h-5 w-5 accent-[var(--mb-action)]"
+        />
+        {t("active")}
+      </label>
+
       {errorMessage ? (
-        <p className="text-sm text-red-600" data-testid="form-error">
+        <p className="text-[13px] font-semibold text-danger lg:col-span-2" data-testid="form-error">
           {errorMessage === "duplicate-sku"
             ? t("errorDuplicateSku")
             : errorMessage === "image-error"
@@ -892,48 +908,51 @@ export function ProductForm({
         </p>
       ) : null}
 
+      {/* After a local save the words are "saved" and "waiting" — never an
+          error. Nothing has been lost; it is simply still on the phone. */}
       {offlineSaved === "saved" ? (
         <p
-          className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
+          className="flex items-center gap-2 rounded-[10px] bg-ok-soft px-3 py-2.5 text-[13px] font-semibold text-ok lg:col-span-2"
           data-testid="saved-offline"
         >
+          <Check className="h-4 w-4 shrink-0" strokeWidth={1.5} />
           {t("savedOffline", { count: outbox?.pending ?? 1 })}
         </p>
       ) : null}
       {offlineSaved === "store-failed" ? (
-        <p className="text-sm text-red-600" data-testid="offline-store-failed">
+        <p className="text-[13px] font-semibold text-danger lg:col-span-2" data-testid="offline-store-failed">
           {t("offlineStoreFailed")}
         </p>
       ) : null}
 
       {/*
-        Pinned to the bottom of the screen on a phone so saving never means
-        scrolling back down a long form, and a normal row once there is room.
-        Fixed rather than sticky: as the form's last child it has nothing left
-        to stick within, so `sticky` would just sit off-screen at the end.
+        Pinned above the tab bar on a phone so saving never means scrolling
+        back down a long form, and a normal row once there is room. Fixed
+        rather than sticky: as the form's last child it has nothing left to
+        stick within, so `sticky` would just sit off-screen at the end.
       */}
-      <div className="fixed inset-x-0 bottom-14 z-30 flex gap-2 border-t border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-neutral-950 sm:static sm:z-auto sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 dark:sm:bg-transparent">
-        <Button
-          type="submit"
-          disabled={isPending}
-          data-testid="save-product"
-          className="min-h-11 flex-1 sm:flex-none"
-        >
-          {submitLabel}
-        </Button>
-        {showAddAnother ? (
-          <Button
-            type="submit"
-            name="andAnother"
-            value="1"
-            variant="outline"
-            disabled={isPending}
-            data-testid="save-and-add-another"
-            className="min-h-11 flex-1 sm:flex-none"
-          >
-            {t("saveAndAddAnother")}
+      <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-30 flex flex-col gap-2 border-t border-line bg-surface px-4 py-3 lg:static lg:z-auto lg:col-span-2 lg:border-0 lg:bg-transparent lg:px-0 lg:py-0">
+        <div className="flex gap-2">
+          <Button type="submit" disabled={isPending} data-testid="save-product" className="flex-1 lg:flex-none">
+            {isPending ? <Loader2 className="animate-spin" /> : null}
+            {submitLabel}
           </Button>
-        ) : null}
+          {showAddAnother ? (
+            <Button
+              type="submit"
+              name="andAnother"
+              value="1"
+              variant="outline"
+              disabled={isPending}
+              data-testid="save-and-add-another"
+              className="flex-1 lg:flex-none"
+            >
+              {t("saveAndAddAnother")}
+            </Button>
+          ) : null}
+        </div>
+        {/* The one line that makes a market aisle bearable: it is already safe. */}
+        <p className="text-[11px] leading-snug text-sub lg:hidden">{t("saveReassurance")}</p>
       </div>
 
       {/* Registering the vendor without leaving the product: photograph the

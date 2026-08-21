@@ -26,7 +26,7 @@ function Field({
       <Label htmlFor={name}>{label}</Label>
       <Input id={name} name={name} defaultValue={defaultValue} />
       {hint ? (
-        <p className="text-xs text-neutral-500 dark:text-neutral-400">{hint}</p>
+        <p className="text-xs text-sub">{hint}</p>
       ) : null}
     </div>
   );
@@ -43,7 +43,7 @@ export function CompanyProfileForm({ profile }: { profile: CompanyProfile }) {
   return (
     <Card>
       <CardContent className="p-4">
-        <p className="mb-4 text-sm text-neutral-500 dark:text-neutral-400">{t("help")}</p>
+        <p className="mb-4 text-sm text-sub">{t("help")}</p>
         <form action={formAction} className="flex flex-col gap-5">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field name="companyName" label={t("companyName")} defaultValue={profile.companyName} />
@@ -66,8 +66,8 @@ export function CompanyProfileForm({ profile }: { profile: CompanyProfile }) {
             <Field name="website" label={t("website")} defaultValue={profile.website} />
           </div>
 
-          <div className="border-t border-neutral-200 pt-4 dark:border-neutral-800">
-            <h3 className="mb-3 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+          <div className="border-t border-line pt-4">
+            <h3 className="mb-3 text-sm font-semibold text-ink">
               {t("termsSection")}
             </h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -105,7 +105,7 @@ export function CompanyProfileForm({ profile }: { profile: CompanyProfile }) {
           </div>
 
           {errorMessage ? (
-            <p className="text-sm text-red-600 dark:text-red-400">{common("required")}</p>
+            <p className="text-sm text-danger">{common("required")}</p>
           ) : null}
 
           <div>

@@ -31,7 +31,7 @@ export function DraftList({
   const t = useTranslations("drafts");
 
   if (drafts.length === 0) {
-    return <p className="text-sm text-neutral-500 dark:text-neutral-400">{t("empty")}</p>;
+    return <p className="text-sm text-sub">{t("empty")}</p>;
   }
 
   return (
@@ -65,17 +65,17 @@ function DraftCard({ draft, aiEnabled }: { draft: DraftListItem; aiEnabled: bool
 
   return (
     <div
-      className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
+      className="flex flex-col gap-3 rounded-lg border border-line bg-surface p-4"
       data-testid="draft-card"
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           {draft.kind === "contact" ? (
-            <Contact className="h-4 w-4 shrink-0 text-neutral-400" />
+            <Contact className="h-4 w-4 shrink-0 text-faint" />
           ) : (
-            <Camera className="h-4 w-4 shrink-0 text-neutral-400" />
+            <Camera className="h-4 w-4 shrink-0 text-faint" />
           )}
-          <span className="truncate font-medium text-neutral-900 dark:text-neutral-100">
+          <span className="truncate font-medium text-ink">
             {name || t("unnamed")}
           </span>
         </div>
@@ -92,14 +92,14 @@ function DraftCard({ draft, aiEnabled }: { draft: DraftListItem; aiEnabled: bool
               <img
                 src={img.path}
                 alt=""
-                className="h-20 w-20 rounded-md border border-neutral-200 bg-neutral-100 object-contain dark:border-neutral-800 dark:bg-neutral-800"
+                className="h-20 w-20 rounded-md border border-line bg-surface-2 object-contain"
               />
             </a>
           ))}
         </div>
       ) : null}
 
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-neutral-600 dark:text-neutral-400">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-sub">
         {price ? (
           <span>
             {price} {currency}
@@ -110,7 +110,7 @@ function DraftCard({ draft, aiEnabled }: { draft: DraftListItem; aiEnabled: bool
       </div>
 
       {draft.transcriptNotes ? (
-        <p className="rounded-md bg-neutral-100 px-3 py-2 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
+        <p className="rounded-md bg-surface-2 px-3 py-2 text-xs text-sub">
           {draft.transcriptNotes}
         </p>
       ) : null}
@@ -119,12 +119,12 @@ function DraftCard({ draft, aiEnabled }: { draft: DraftListItem; aiEnabled: bool
           a recorded error means someone should press the retry. Shown for
           read drafts too — their re-read can fail just the same. */}
       {draft.transcriptError ? (
-        <p className="text-xs text-amber-700 dark:text-amber-400" data-testid="draft-read-error">
+        <p className="text-xs text-warn" data-testid="draft-read-error">
           {t("readFailed")}
         </p>
       ) : null}
       {importError ? (
-        <p className="text-xs text-red-600" data-testid="draft-import-error">
+        <p className="text-xs text-danger" data-testid="draft-import-error">
           {t("importFailed")}
         </p>
       ) : null}
@@ -170,7 +170,7 @@ function DraftCard({ draft, aiEnabled }: { draft: DraftListItem; aiEnabled: bool
           size="sm"
           disabled={isPending}
           data-testid="discard-draft"
-          className="text-neutral-500 hover:text-red-600 dark:text-neutral-400 dark:hover:text-red-400"
+          className="text-sub hover:text-danger"
           onClick={() => {
             if (confirm(t("discardConfirm"))) {
               startTransition(() => discardDraft(draft.id));

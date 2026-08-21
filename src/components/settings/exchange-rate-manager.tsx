@@ -40,7 +40,7 @@ export function ExchangeRateManager({ rates }: { rates: Rate[] }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <p className="text-sm text-neutral-500 dark:text-neutral-400">
+      <p className="text-sm text-sub">
         {t("ratesHelp")} {t("autoHelp")}
       </p>
 
@@ -56,7 +56,7 @@ export function ExchangeRateManager({ rates }: { rates: Rate[] }) {
           <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
           {t("refreshNow")}
         </Button>
-        <span className="text-xs text-neutral-500 dark:text-neutral-400" data-testid="rates-freshness">
+        <span className="text-xs text-sub" data-testid="rates-freshness">
           {newestAuto
             ? t("lastAutoUpdate", {
                 when: new Date(newestAuto.updatedAt).toLocaleString(),
@@ -64,7 +64,7 @@ export function ExchangeRateManager({ rates }: { rates: Rate[] }) {
             : t("neverAutoUpdated")}
         </span>
         {refreshMessage ? (
-          <span className="text-xs text-neutral-600 dark:text-neutral-300" data-testid="refresh-result">
+          <span className="text-xs text-sub" data-testid="refresh-result">
             {refreshMessage}
           </span>
         ) : null}
@@ -102,16 +102,16 @@ export function ExchangeRateManager({ rates }: { rates: Rate[] }) {
             </Button>
           </form>
           {errorMessage ? (
-            <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+            <p className="mt-2 text-sm text-danger">
               {common("required")}
             </p>
           ) : null}
         </CardContent>
       </Card>
 
-      <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+      <div className="overflow-x-auto rounded-lg border border-line bg-surface">
         <table className="w-full text-sm">
-          <thead className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800 text-left text-neutral-500 dark:text-neutral-400">
+          <thead className="border-b border-line bg-surface-2 text-left text-sub">
             <tr>
               <th className="px-4 py-2 font-medium">{t("currencyCode")}</th>
               <th className="px-4 py-2 font-medium">{t("rateToUsd")}</th>
@@ -119,10 +119,10 @@ export function ExchangeRateManager({ rates }: { rates: Rate[] }) {
               <th className="px-4 py-2 font-medium">{common("actions")}</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+          <tbody className="divide-y divide-line">
             {rates.map((r) => (
               <tr key={r.currencyCode}>
-                <td className="px-4 py-2 font-medium text-neutral-900 dark:text-neutral-100">
+                <td className="px-4 py-2 font-medium text-ink">
                   {r.currencyCode}
                   <Badge
                     variant={r.source === "auto" ? "success" : "secondary"}
@@ -131,15 +131,15 @@ export function ExchangeRateManager({ rates }: { rates: Rate[] }) {
                     {r.source === "auto" ? t("sourceAuto") : t("sourceManual")}
                   </Badge>
                 </td>
-                <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">
+                <td className="px-4 py-2 text-ink">
                   {r.rateToUsd}
                 </td>
-                <td className="px-4 py-2 text-neutral-500 dark:text-neutral-400">
+                <td className="px-4 py-2 text-sub">
                   100 {r.currencyCode} = {(100 * r.rateToUsd).toFixed(2)} USD
                 </td>
                 <td className="px-4 py-2">
                   {r.currencyCode === "USD" ? (
-                    <span className="text-xs text-neutral-400 dark:text-neutral-500">
+                    <span className="text-xs text-faint">
                       {t("baseCurrency")}
                     </span>
                   ) : (

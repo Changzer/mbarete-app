@@ -5,7 +5,7 @@ import type { ContactActionResult } from "@/lib/actions/contacts";
 import type { CardTranscribeResult, TranscribedContactFields } from "@/lib/transcribe-card";
 import { findSimilarContact, type MatchCandidate } from "@/lib/contact-match";
 import { useTranslations } from "next-intl";
-import { Loader2, Sparkles } from "lucide-react";
+import { Eye, EyeOff, Loader2, Sparkles, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -83,6 +83,8 @@ export function ContactForm({
   const [offlineSaved, setOfflineSaved] = useState<null | "saved" | "store-failed">(null);
   // Remounts the PhotoPicker after a local save; its picked list is private.
   const [captureEpoch, setCaptureEpoch] = useState(0);
+  // Bank digits stay covered until someone deliberately asks for them.
+  const [bankVisible, setBankVisible] = useState(false);
 
   /** The card goes to the phone, keeping card photos and QR crop apart. */
   async function saveToPhone(formData: FormData): Promise<ContactActionResult> {
@@ -339,7 +341,7 @@ export function ContactForm({
   }
 
   return (
-    <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-4 pb-2">
       <input type="hidden" name="type" value={type} />
 
       <div className="flex flex-col gap-2">
@@ -358,7 +360,7 @@ export function ContactForm({
                     <img
                       src={img.path}
                       alt=""
-                      className={`h-24 w-24 rounded-md border border-neutral-200 dark:border-neutral-800 object-contain bg-neutral-100 dark:bg-neutral-800 ${
+                      className={`h-24 w-24 rounded-[8px] border border-line bg-surface-2 object-contain ${
                         isRemoved ? "opacity-30" : ""
                       }`}
                     />
@@ -368,7 +370,7 @@ export function ContactForm({
                   ) : null}
                   <button
                     type="button"
-                    className="text-xs text-neutral-500 dark:text-neutral-400 hover:text-red-600 dark:hover:text-red-400"
+                    className="focus-ring min-h-11 px-2 text-[11px] font-semibold text-sub hover:text-danger"
                     onClick={() =>
                       setRemoved((prev) =>
                         prev.includes(img.id)
@@ -395,35 +397,35 @@ export function ContactForm({
               disabled={aiPending}
               onClick={() => handleTranscribe()}
               data-testid="fill-from-card"
-              className="min-h-11 justify-center gap-2"
+              className="w-full justify-center"
             >
               {aiPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-[spin_2.4s_linear_infinite]" strokeWidth={1.5} />
               ) : (
-                <Sparkles className="h-4 w-4" />
+                <Sparkles className="h-4 w-4" strokeWidth={1.5} />
               )}
               {aiPending ? t("aiFilling") : t("aiFillCard")}
             </Button>
             {aiError ? (
-              <p className="text-sm text-red-600" data-testid="card-ai-error">
+              <p className="text-[12px] font-semibold text-danger" data-testid="card-ai-error">
                 {aiError === "no-photos" ? t("aiErrorNoPhotos") : t("aiErrorFailed")}
               </p>
             ) : aiNotes ? (
               <p
-                className="rounded-md bg-neutral-100 px-3 py-2 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400"
+                className="rounded-[10px] bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-sub"
                 data-testid="card-ai-notes"
               >
                 {t("aiNotes")}: {aiNotes}
               </p>
             ) : (
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">{t("aiFillCardHelp")}</p>
+              <p className="text-[11px] leading-relaxed text-sub">{t("aiFillCardHelp")}</p>
             )}
           </div>
         ) : null}
 
         {similar ? (
           <div
-            className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
+            className="flex flex-wrap items-center justify-between gap-2 rounded-[10px] bg-warn-soft px-3 py-2 text-[12.5px] text-warn"
             data-testid="similar-contact"
           >
             <span>
@@ -443,6 +445,25 @@ export function ContactForm({
             ) : null}
           </div>
         ) : null}
+      </div>
+
+      {/*
+        Booth is the field this record is used for. A buyer looking a supplier
+        up at 9am is asking one question — which aisle, which floor, which shop
+        number — so it is tinted, set in the data register, and it sits above
+        the contact details rather than at the bottom of the form.
+      */}
+      <div className="flex flex-col gap-1.5 rounded-[12px] bg-action-soft p-3">
+        <Label htmlFor="boothLocation" className="text-action-chrome">
+          {t("boothLocation")}
+        </Label>
+        <Input
+          id="boothLocation"
+          name="boothLocation"
+          numeric
+          className="border-line-strong"
+          defaultValue={defaultValues?.boothLocation}
+        />
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -470,7 +491,7 @@ export function ContactForm({
           defaultValue={defaultValues?.contactPerson}
         />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="phone">{t("phone")}</Label>
           <Input id="phone" name="phone" defaultValue={defaultValues?.phone} />
@@ -490,7 +511,7 @@ export function ContactForm({
           <input ref={qrInputRef} name="qrImage" type="file" className="hidden" />
           {!qr && (qrScan === "scanning" || qrScan === "none") ? (
             <p
-              className="text-xs text-neutral-500 dark:text-neutral-400"
+              className="text-[11px] text-sub"
               data-testid="qr-scan-status"
             >
               {qrScan === "scanning" ? t("wechatQrScanning") : t("wechatQrNone")}
@@ -502,16 +523,16 @@ export function ContactForm({
               <img
                 src={qr.url}
                 alt="WeChat QR"
-                className="h-24 w-24 rounded-md border border-neutral-200 bg-white object-contain dark:border-neutral-800"
+                className="h-24 w-24 rounded-[8px] border border-line bg-surface object-contain"
               />
               <div className="flex flex-col gap-1">
-                <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                <span className="text-[11px] leading-relaxed text-sub">
                   {t("wechatQrHelp")}
                 </span>
                 <button
                   type="button"
                   onClick={removeQr}
-                  className="self-start text-xs text-neutral-500 hover:text-red-600 dark:text-neutral-400 dark:hover:text-red-400"
+                  className="focus-ring min-h-11 self-start text-[11px] font-semibold text-sub hover:text-danger"
                 >
                   {common("delete")}
                 </button>
@@ -529,7 +550,7 @@ export function ContactForm({
                       <img
                         src={img.path}
                         alt="WeChat QR"
-                        className={`h-24 w-24 rounded-md border border-neutral-200 bg-white object-contain dark:border-neutral-800 ${
+                        className={`h-24 w-24 rounded-[8px] border border-line bg-surface object-contain ${
                           isRemoved ? "opacity-30" : ""
                         }`}
                       />
@@ -538,7 +559,7 @@ export function ContactForm({
                       <input type="hidden" name="removeImageIds" value={img.id} />
                     ) : null}
                     <div className="flex flex-col gap-1">
-                      <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                      <span className="text-[11px] leading-relaxed text-sub">
                         {t("wechatQrHelp")}
                       </span>
                       <button
@@ -550,7 +571,7 @@ export function ContactForm({
                               : [...prev, img.id],
                           )
                         }
-                        className="self-start text-xs text-neutral-500 hover:text-red-600 dark:text-neutral-400 dark:hover:text-red-400"
+                        className="focus-ring min-h-11 self-start text-[11px] font-semibold text-sub hover:text-danger"
                       >
                         {isRemoved ? common("cancel") : common("delete")}
                       </button>
@@ -561,18 +582,41 @@ export function ContactForm({
           )}
         </div>
       </div>
+
+      {/*
+        Bank details are covered until asked for. Not secrecy — a phone held up
+        in a crowded aisle simply should not be showing an account number, and
+        the act of revealing them is the moment to re-read the card.
+      */}
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="boothLocation">{t("boothLocation")}</Label>
-        <Input
-          id="boothLocation"
-          name="boothLocation"
-          defaultValue={defaultValues?.boothLocation}
+        <div className="flex items-center justify-between gap-2">
+          <Label htmlFor="bankInfo">{t("bankInfo")}</Label>
+          <button
+            type="button"
+            onClick={() => setBankVisible((v) => !v)}
+            data-testid="toggle-bank-info"
+            className="focus-ring flex min-h-11 items-center gap-1.5 px-1 text-[11px] font-semibold text-action-chrome"
+          >
+            {bankVisible ? (
+              <EyeOff className="h-3.5 w-3.5" strokeWidth={1.5} />
+            ) : (
+              <Eye className="h-3.5 w-3.5" strokeWidth={1.5} />
+            )}
+            {bankVisible ? t("bankInfoHide") : t("bankInfoShow")}
+          </button>
+        </div>
+        <Textarea
+          id="bankInfo"
+          name="bankInfo"
+          data-testid="bank-info"
+          defaultValue={defaultValues?.bankInfo}
+          className={bankVisible ? "font-mono" : "font-mono [-webkit-text-security:disc] [text-security:disc]"}
         />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="bankInfo">{t("bankInfo")}</Label>
-        <Textarea id="bankInfo" name="bankInfo" defaultValue={defaultValues?.bankInfo} />
-        <p className="text-xs text-neutral-500 dark:text-neutral-400">{t("bankInfoHelp")}</p>
+        <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-warn">
+          <TriangleAlert className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
+          {t("bankInfoVerify")}
+        </p>
+        <p className="text-[11px] leading-relaxed text-sub">{t("bankInfoHelp")}</p>
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="notes">{t("notes")}</Label>
@@ -580,21 +624,21 @@ export function ContactForm({
       </div>
 
       {result?.error ? (
-        <p className="text-sm text-red-600">
+        <p className="text-[13px] font-semibold text-danger">
           {result.error === "image-error" ? t("errorImage") : common("required")}
         </p>
       ) : null}
 
       {offlineSaved === "saved" ? (
         <p
-          className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
+          className="rounded-[10px] bg-ok-soft px-3 py-2.5 text-[13px] font-semibold text-ok"
           data-testid="contact-saved-offline"
         >
           {t("savedOffline")}
         </p>
       ) : null}
       {offlineSaved === "store-failed" ? (
-        <p className="text-sm text-red-600" data-testid="contact-offline-store-failed">
+        <p className="text-[13px] font-semibold text-danger" data-testid="contact-offline-store-failed">
           {t("offlineStoreFailed")}
         </p>
       ) : null}

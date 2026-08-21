@@ -15,7 +15,7 @@ export default async function LoginPage({
   const { callbackUrl } = await searchParams;
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-neutral-50 px-4 dark:bg-neutral-950">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-surface-2 px-4">
       {/* A soft brand glow behind the card, so the door feels like the logo. */}
       <div
         aria-hidden

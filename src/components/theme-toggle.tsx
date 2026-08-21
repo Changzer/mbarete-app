@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useTranslations } from "next-intl";
 
@@ -29,6 +29,24 @@ function readStored(): ThemeChoice {
 }
 
 /**
+ * localStorage is an external store, so it is read as one: the server and the
+ * first client paint both say "system" (the markup the boot script's attribute
+ * is already consistent with), and the real choice arrives without a cascading
+ * re-render or a hydration mismatch.
+ */
+const listeners = new Set<() => void>();
+
+function subscribe(onChange: () => void) {
+  listeners.add(onChange);
+  // Another tab changing the choice should move this one too.
+  window.addEventListener("storage", onChange);
+  return () => {
+    listeners.delete(onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
+
+/**
  * Appearance control for More → the three real answers a person has: follow
  * the phone, or override it in either direction. A market stall in daylight
  * and a hotel room at night are different rooms, and the phone is often set
@@ -36,14 +54,9 @@ function readStored(): ThemeChoice {
  */
 export function ThemeToggle() {
   const t = useTranslations("more");
-  // Starts at the server-rendered value and corrects on mount: the markup is
-  // identical for every choice, so there is nothing to mismatch.
-  const [choice, setChoice] = useState<ThemeChoice>("system");
-
-  useEffect(() => setChoice(readStored()), []);
+  const choice = useSyncExternalStore(subscribe, readStored, () => "system" as ThemeChoice);
 
   function pick(next: ThemeChoice) {
-    setChoice(next);
     applyTheme(next);
     try {
       if (next === "system") localStorage.removeItem(STORAGE_KEY);
@@ -51,6 +64,7 @@ export function ThemeToggle() {
     } catch {
       // The attribute is already set; it just will not survive a reload.
     }
+    listeners.forEach((notify) => notify());
   }
 
   const options: { value: ThemeChoice; label: string; Icon: typeof Sun }[] = [

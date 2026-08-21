@@ -174,7 +174,9 @@
     "perCarton": "per carton",
     "unitPcs": "pcs",
     "unitPerCtn": "/ctn",
-    "status": "Status"
+    "status": "Status",
+    "currencyOther": "Other",
+    "saveReassurance": "Saved to this phone first — it uploads by itself, even if you walk out of signal."
   },
   "contacts": {
     "title": "Contacts",
@@ -216,7 +218,10 @@
     "offlineStoreFailed": "Could not save to this phone. Keep this screen open and try again when you have signal.",
     "deactivate": "Deactivate",
     "reactivate": "Reactivate",
-    "inactive": "Inactive"
+    "inactive": "Inactive",
+    "bankInfoShow": "Show",
+    "bankInfoHide": "Hide",
+    "bankInfoVerify": "Check these digits against the card photo before paying."
   },
   "orders": {
     "title": "Orders",

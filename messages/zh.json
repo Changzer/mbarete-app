@@ -174,7 +174,9 @@
     "perCarton": "每箱",
     "unitPcs": "个",
     "unitPerCtn": "/箱",
-    "status": "状态"
+    "status": "状态",
+    "currencyOther": "其他",
+    "saveReassurance": "先保存在本机 — 即使离开信号区，也会自动上传。"
   },
   "contacts": {
     "title": "联系人",
@@ -216,7 +218,10 @@
     "offlineStoreFailed": "无法保存到手机。请保持此页面打开，等有信号后重试。",
     "deactivate": "停用",
     "reactivate": "恢复",
-    "inactive": "已停用"
+    "inactive": "已停用",
+    "bankInfoShow": "显示",
+    "bankInfoHide": "隐藏",
+    "bankInfoVerify": "付款前请与名片照片核对这些数字。"
   },
   "orders": {
     "title": "订单",

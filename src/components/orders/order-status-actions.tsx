@@ -68,7 +68,7 @@ export function OrderStatusActions({
           </>
         ) : null}
       </div>
-      {error === "moq" ? <p className="text-xs text-red-600">{t("moqBlocksConfirm")}</p> : null}
+      {error === "moq" ? <p className="text-xs text-danger">{t("moqBlocksConfirm")}</p> : null}
     </div>
   );
 }

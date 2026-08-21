@@ -88,7 +88,7 @@ export function SupplierPicker({
         onClick={() => setOpen(true)}
         data-testid={testId}
         className={cn(
-          "flex h-10 min-w-0 flex-1 items-center justify-between gap-2 rounded-md border border-neutral-300 bg-white px-3 text-sm text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100",
+          "flex h-10 min-w-0 flex-1 items-center justify-between gap-2 rounded-md border border-line bg-surface px-3 text-sm text-ink",
           className,
         )}
       >
@@ -129,7 +129,7 @@ export function SupplierPicker({
               />
             ))}
             {filtered.length === 0 ? (
-              <p className="px-2 py-3 text-sm text-neutral-500 dark:text-neutral-400">
+              <p className="px-2 py-3 text-sm text-sub">
                 {t("noSupplierMatches")}
               </p>
             ) : null}
@@ -155,17 +155,17 @@ function SupplierRow({
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-2 rounded-md px-2 py-2.5 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800"
+      className="flex w-full items-center gap-2 rounded-md px-2 py-2.5 text-left hover:bg-surface-2"
     >
       <span className={`h-4 w-4 shrink-0 ${selected ? "" : "invisible"}`}>
         <Check className="h-4 w-4" />
       </span>
       <span className="min-w-0">
-        <span className="block truncate text-sm text-neutral-900 dark:text-neutral-100">
+        <span className="block truncate text-sm text-ink">
           {label}
         </span>
         {detail ? (
-          <span className="block truncate text-xs text-neutral-500 dark:text-neutral-400">
+          <span className="block truncate text-xs text-sub">
             {detail}
           </span>
         ) : null}

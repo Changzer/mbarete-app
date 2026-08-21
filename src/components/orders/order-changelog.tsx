@@ -127,18 +127,18 @@ export async function OrderChangelog({ orderId, locale }: { orderId: number; loc
 
   return (
     <div
-      className="mt-4 rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
+      className="mt-4 rounded-lg border border-line bg-surface p-4"
       data-testid="section-changelog"
     >
-      <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-        <History className="h-4 w-4 text-brand-600 dark:text-brand-400" />
+      <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
+        <History className="h-4 w-4 text-action-chrome" />
         {t("title")}
       </h2>
 
       {events.length === 0 ? (
-        <p className="text-xs text-neutral-500 dark:text-neutral-400">{t("empty")}</p>
+        <p className="text-xs text-sub">{t("empty")}</p>
       ) : (
-        <ol className="relative flex flex-col gap-4 border-l border-neutral-200 pl-5 dark:border-neutral-800">
+        <ol className="relative flex flex-col gap-4 border-l border-line pl-5">
           {events.map((event) => {
             let payload: unknown = {};
             try {
@@ -153,20 +153,20 @@ export async function OrderChangelog({ orderId, locale }: { orderId: number; loc
 
             return (
               <li key={event.id} className="relative text-sm">
-                <span className="absolute -left-[27px] top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-white ring-4 ring-white dark:bg-neutral-900 dark:ring-neutral-900">
-                  <Icon className="h-3.5 w-3.5 text-neutral-400 dark:text-neutral-500" />
+                <span className="absolute -left-[27px] top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-surface ring-4 ring-white">
+                  <Icon className="h-3.5 w-3.5 text-faint" />
                 </span>
                 <div className="flex flex-wrap items-baseline gap-x-2">
-                  <span className="font-medium text-neutral-900 dark:text-neutral-100">{who}</span>
-                  <span className="text-xs text-neutral-400 dark:text-neutral-500">
+                  <span className="font-medium text-ink">{who}</span>
+                  <span className="text-xs text-faint">
                     {formatWhen(event.createdAt, locale)}
                   </span>
                 </div>
-                <p className="text-neutral-600 dark:text-neutral-300">
+                <p className="text-sub">
                   {event.kind === "edited" ? t("edited") : describe(event.kind, payload, t, finT)}
                 </p>
                 {changes.length > 0 ? (
-                  <ul className="mt-1 flex flex-col gap-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                  <ul className="mt-1 flex flex-col gap-0.5 text-xs text-sub">
                     {changes.map((change, i) => (
                       <li key={i}>· {describeChange(change, t)}</li>
                     ))}

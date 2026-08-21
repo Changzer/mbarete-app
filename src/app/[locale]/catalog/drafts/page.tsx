@@ -15,10 +15,10 @@ export default async function DraftsPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
-      <h1 className="mb-1 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
+      <h1 className="mb-1 text-2xl font-semibold text-ink">
         {t("title")}
       </h1>
-      <p className="mb-6 text-sm text-neutral-500 dark:text-neutral-400">{t("help")}</p>
+      <p className="mb-6 text-sm text-sub">{t("help")}</p>
       <DraftList drafts={drafts} aiEnabled={isTranscriptionEnabled()} />
     </div>
   );

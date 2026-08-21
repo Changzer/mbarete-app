@@ -92,11 +92,11 @@ export function ContactManager({
       </div>
 
       {contacts.length === 0 ? (
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">{t("noContacts")}</p>
+        <p className="text-sm text-sub">{t("noContacts")}</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+        <div className="overflow-x-auto rounded-lg border border-line bg-surface">
           <table className="w-full text-sm">
-            <thead className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800 text-left text-neutral-500 dark:text-neutral-400">
+            <thead className="border-b border-line bg-surface-2 text-left text-sub">
               <tr>
                 <th className="px-4 py-2 font-medium">{t("companyName")}</th>
                 <th className="px-4 py-2 font-medium">{t("contactPerson")}</th>
@@ -110,13 +110,13 @@ export function ContactManager({
                 <th className="px-4 py-2 font-medium">{common("actions")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+            <tbody className="divide-y divide-line">
               {contacts.map((c) => (
                 <tr key={c.id}>
-                  <td className="px-4 py-2 font-medium text-neutral-900 dark:text-neutral-100">
+                  <td className="px-4 py-2 font-medium text-ink">
                     {c.companyName}
                     {c.companyNameZh ? (
-                      <span className="ml-1 font-normal text-neutral-500 dark:text-neutral-400">
+                      <span className="ml-1 font-normal text-sub">
                         {c.companyNameZh}
                       </span>
                     ) : null}
@@ -126,12 +126,12 @@ export function ContactManager({
                       </Badge>
                     ) : null}
                   </td>
-                  <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">{c.contactPerson}</td>
-                  <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">{c.phone}</td>
-                  <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">
+                  <td className="px-4 py-2 text-ink">{c.contactPerson}</td>
+                  <td className="px-4 py-2 text-ink">{c.phone}</td>
+                  <td className="px-4 py-2 text-ink">
                     <WechatCell contact={c} scanHint={t("wechatQrHelp")} />
                   </td>
-                  <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">
+                  <td className="px-4 py-2 text-ink">
                     {type === "supplier" ? c.boothLocation : c.email}
                   </td>
                   <td className="px-4 py-2">
@@ -186,7 +186,7 @@ function WechatCell({ contact, scanHint }: { contact: Contact; scanHint: string 
         <img
           src={qr.path}
           alt="WeChat QR"
-          className="h-16 w-16 rounded border border-neutral-200 bg-white object-contain dark:border-neutral-800"
+          className="h-16 w-16 rounded border border-line bg-surface object-contain"
           data-testid="wechat-qr-cell"
         />
       </a>
