@@ -123,7 +123,11 @@
     "costPrice": "供应商价格（成本）",
     "sellPrice": "销售价格",
     "sellPriceHelp": "开给客户的单价。留空则按供应商价格开票；也可在每个订单中单独修改。",
-    "sellsAtCost": "按成本价——未设置"
+    "sellsAtCost": "按成本价——未设置",
+    "savedOffline": "已保存到手机 — 联网后自动上传（{count} 条待传）",
+    "offlineStoreFailed": "无法保存到手机。请保持此页面打开，等有信号后重试。",
+    "draftsWaiting": "草稿（{count}）",
+    "reviewDraft": "审核采集"
   },
   "contacts": {
     "title": "联系人",
@@ -160,7 +164,9 @@
     "wechatQrNone": "这些照片中未找到微信二维码。名片照片本身仍可扫描。",
     "similarExists": "已存在相似联系人：{name}",
     "useExisting": "使用现有",
-    "errorImage": "有照片保存失败，请重试或删除该照片。"
+    "errorImage": "有照片保存失败，请重试或删除该照片。",
+    "savedOffline": "已保存到手机 — 联网后自动上传",
+    "offlineStoreFailed": "无法保存到手机。请保持此页面打开，等有信号后重试。"
   },
   "orders": {
     "title": "订单",
@@ -448,5 +454,32 @@
     "changeLineQty": "{sku}：数量 {from} → {to}",
     "changeLinePrice": "{sku}：售价 {from} → {to}",
     "changeBank": "形式发票银行账户：{from} → {to}"
+  },
+  "offline": {
+    "offline": "离线 — 无法连接服务器",
+    "waiting": "手机上有 {count} 条采集待上传",
+    "sending": "正在上传 {count} 条采集…",
+    "blocked": "{count} 条待上传 — {blocked} 条需要处理",
+    "needsSignIn": "{count} 条待上传 — 请重新登录后上传",
+    "catalogCopyButton": "产品目录",
+    "catalogCopyTitle": "产品目录（离线副本）",
+    "catalogCopySearch": "搜索名称、SKU、摊位…",
+    "catalogCopyAsOf": "更新于 {time}",
+    "catalogCopyEmpty": "手机上还没有离线副本。请联网时打开一次产品目录。",
+    "catalogCopyNoMatch": "没有匹配结果。"
+  },
+  "drafts": {
+    "title": "采集草稿",
+    "help": "在市场拍下的照片，等待整理成产品或联系人。打开草稿，核对 AI 读取的内容后保存。",
+    "empty": "暂无待处理的采集。在市场采集的内容会出现在这里。",
+    "unnamed": "未命名采集",
+    "statusPending": "尚未读取",
+    "statusRead": "AI 已读取",
+    "readFailed": "AI 暂时无法读取 — 等服务器联网后重试。",
+    "importFailed": "导入失败 — 请刷新页面后重试。",
+    "openInForm": "在表单中打开",
+    "importContact": "创建联系人",
+    "retryRead": "重新读取",
+    "discardConfirm": "将此采集放到一边？它会从列表中消失，但不会删除任何内容。"
   }
 }

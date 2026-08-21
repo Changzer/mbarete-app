@@ -72,6 +72,57 @@ docker compose up -d --build
 
 The container re-runs migrations automatically on startup; existing data in the volumes is untouched.
 
+## Offline capture (market mode)
+
+Connectivity at Yiwu or the Canton Fair is assumed to be bad. The capture
+workflow — photograph, save, next booth — therefore never depends on it:
+
+- Registering a product or a supplier card when the server is unreachable
+  saves the capture **to the phone** (IndexedDB) instead of failing. The form
+  clears immediately and a pill shows "N captures on this phone".
+- The outbox delivers queued captures on its own — when the network returns,
+  when the app comes back to the foreground, and on a slow sweep. Every
+  capture carries a client-minted id, so a delivery that succeeded but lost
+  its response is replayed harmlessly (`/api/drafts` answers "already have
+  it" instead of creating a twin). A 2xx only counts as delivered when the
+  response body is provably ours — venue wi-fi captive portals answer 200 to
+  anything.
+- Delivered captures land in **Catalog → Drafts** as capture drafts. The
+  server runs the AI reading over the photos on arrival (when a provider key
+  is configured), so drafts come pre-filled: open a product draft in the
+  normal form to proofread and save; import a card draft as a contact with
+  one tap.
+- While offline, the pill also opens a **read-only catalog copy** (text only,
+  refreshed every time the full catalog page is viewed online) for "do we
+  already buy this, and at what price?" at the booth.
+
+Rules that keep this reliable — worth telling every agent:
+
+- **One address.** The queue and the offline copy live in the browser's
+  storage *for the address the app was opened on*. `http://192.168.x.x:3000`
+  and the Tailscale IP are two different worlds; captures saved on one are
+  invisible on the other. Pick one address (the Tailscale one) and bookmark
+  it everywhere.
+- **Install the icon, then sign in inside it** (Add to Home Screen). An iOS
+  home-screen app has its own storage, separate from Safari — captures made
+  in a Safari tab are invisible from the icon and vice versa. Install first,
+  sign in inside the installed app, and always capture from the icon.
+- **Sync before the trip ends.** The phone is the only copy until the queue
+  drains — a lost or wiped phone loses whatever was still waiting. iOS can
+  also evict a site's storage after ~7 days of Safari use with no visit. The
+  pill going away means everything is on the NAS.
+- The app stays usable offline only while it is **already open** — over plain
+  HTTP no browser lets a page load with zero connectivity. Keep the tab/app
+  open through the halls (it survives backgrounding). Putting the app behind
+  HTTPS (e.g. `tailscale serve --bg https / http://127.0.0.1:3000` on the
+  NAS) turns on the bundled service worker, after which previously-visited
+  pages also survive a full reload offline and the browser can be asked to
+  protect the outbox from eviction.
+
+Editing (products, orders, contacts) stays online-only on purpose: an edit
+delivered days later could silently overwrite someone's newer work. Offline
+is for *capturing new things*, which is what the market floor needs.
+
 ## Notes on the data model
 
 - **Products**: priced in any currency (`price` + `currency`), with MOQ, quantity-per-box, dimensions (auto-computes CBM, override allowed), weight, and a bilingual name/description.

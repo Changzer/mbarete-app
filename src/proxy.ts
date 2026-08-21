@@ -25,6 +25,10 @@ export default auth((req) => {
 
 export const config = {
   // logo.png must stay out of the middleware: the i18n router would rewrite
-  // the request to /en/logo.png and 404 it, real file or not.
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|logo.png|uploads).*)"],
+  // the request to /en/logo.png and 404 it, real file or not. Same for the
+  // PWA files — the manifest, its icons, and the service worker script,
+  // which must additionally be served from the origin root to control it.
+  matcher: [
+    "/((?!api|_next/static|_next/image|favicon.ico|logo.png|uploads|manifest.webmanifest|sw.js|icon-192.png|icon-512.png).*)",
+  ],
 };
