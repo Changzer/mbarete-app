@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { productSuppliers, contacts, orderItems, orders, products } from "@/db/schema";
-import { eq, inArray, asc, and } from "drizzle-orm";
+import { eq, inArray, asc } from "drizzle-orm";
 import { getExchangeRates } from "@/lib/queries/orders";
 import { pickPrimaryOffer, rankOffers, offerSpread, type Offer } from "@/lib/offers";
 
@@ -121,25 +121,15 @@ export async function getOfferSpread(offers: Offer[]) {
   return offerSpread(offers, { basis: OFFER_BASIS, rates });
 }
 
-/** Suppliers that can be attached to an offer: active ones, by name. */
-export async function getActiveSuppliers() {
-  return db
-    .select()
-    .from(contacts)
-    .where(and(eq(contacts.type, "supplier"), eq(contacts.active, true)))
-    .orderBy(asc(contacts.companyName))
-    .all();
-}
-
 /**
  * Copies the winning offer's terms onto the product row.
  *
- * The offers are the truth; `products.price`, `.currency` and `.moq` are a
- * cache of whichever one currently wins, so that catalog sorting, the order
- * builder and every existing reader keep working unchanged. Called after
- * every write that could change which offer leads. A product whose last
- * offer was deactivated keeps its final known price rather than dropping to
- * zero and pretending it is free.
+ * The offers are the truth; `products.price`, `.currency`, `.moq` and
+ * `.supplierId` are a cache of whichever one currently wins, so catalog
+ * sorting, the supplier filter, the order builder and every other existing
+ * reader keep working unchanged. Called after every write that could change
+ * which offer leads. A product whose last offer was deactivated keeps its
+ * final known price rather than dropping to zero and pretending it is free.
  */
 export async function syncProductFromOffers(productId: number) {
   const [offers, rates] = await Promise.all([
@@ -154,7 +144,14 @@ export async function syncProductFromOffers(productId: number) {
   if (!winner) return;
 
   db.update(products)
-    .set({ price: winner.price, currency: winner.currency, moq: winner.moq })
+    .set({
+      price: winner.price,
+      currency: winner.currency,
+      moq: winner.moq,
+      // Keeps "filter the catalog by supplier" answering with whoever the
+      // product would actually be bought from today.
+      supplierId: winner.supplierId,
+    })
     .where(eq(products.id, productId))
     .run();
 }

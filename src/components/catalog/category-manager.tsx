@@ -51,7 +51,10 @@ export function CategoryManager({ categories }: { categories: Category[] }) {
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => deleteCategory(c.id)}
+              onClick={async () => {
+                const error = await deleteCategory(c.id);
+                if (error) alert(t("deleteCategoryInUse"));
+              }}
             >
               {common("delete")}
             </Button>

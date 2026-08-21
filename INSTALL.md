@@ -235,6 +235,26 @@ Important notes:
 - **No quotes** around the values.
 - `ADMIN_EMAIL` and `ADMIN_PASSWORD` are what you'll use to log into the app. Pick a real password you'll remember — this is your login.
 
+Optional extra lines — AI photo transcription. With a provider key set, the
+product form reads market photos (product + handwritten price board) and the
+contact form reads business cards, pre-filling the fields for you to check.
+Skip them and the app simply works without those features.
+
+Moonshot/Kimi (recommended when the server runs in mainland China; key from
+https://platform.moonshot.cn):
+
+```
+MOONSHOT_API_KEY=sk-your-key-here
+MOONSHOT_MODEL=kimi-k2.6
+```
+
+Or Anthropic/Claude (works anywhere with access to api.anthropic.com; key
+from https://console.anthropic.com):
+
+```
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+```
+
 To save and close:
 1. Press `Ctrl + O` (the letter O), then Enter — this saves.
 2. Press `Ctrl + X` — this exits.
@@ -623,7 +643,114 @@ This guide sets the app up for your **local network only**, which is the safe de
 
 If you later want to reach it from outside the office, **don't** just forward port 3000 on your router — the app would be exposed to the whole internet over plain HTTP. Instead, either:
 
-- Use a **VPN** into your network (Ugreen NAS units typically have a VPN Server app — this is the safest option), or
+- Use **Tailscale with HTTPS** — the setup in [Turning on HTTPS](#turning-on-https--unlocks-full-offline-mode) below covers exactly this, is what the team already uses to reach the NAS from China, and unlocks the app's full offline mode as a bonus, or
+- Use a **VPN** into your network (Ugreen NAS units typically have a VPN Server app), or
 - Put it behind a **reverse proxy with HTTPS** (Nginx Proxy Manager, Traefik, or Ugreen's built-in reverse proxy if your model has one) so traffic is encrypted.
 
 Either way, keep the admin password strong.
+
+---
+
+## Turning on HTTPS — unlocks full offline mode
+
+Out of the box the app is reached over plain HTTP (`http://NAS-IP:3000` or the
+Tailscale IP). That works, but browsers hold one feature hostage until an app
+lives on HTTPS: the **service worker**, the piece that can serve pages from
+the phone itself when there is no connection.
+
+What that means in practice:
+
+| | Plain HTTP (now) | HTTPS (after this section) |
+|---|---|---|
+| Capturing products/cards offline | ✅ works, if the capture page was opened before the signal died | ✅ works |
+| Offline catalog copy from the pill | ✅ works | ✅ works |
+| Reloading a page while offline | ❌ browser error | ✅ loads from the phone |
+| Opening the home-screen icon in a dead hall | ❌ nothing loads | ✅ opens like a real app |
+| Phone protecting the capture queue from storage cleanup | ❌ not available | ✅ requested automatically |
+
+Since the team already reaches the NAS over Tailscale, the free way to get
+HTTPS is Tailscale's own `serve` — it gives the NAS a private, valid
+certificate on your tailnet. **Only devices signed into your Tailscale network
+can reach it**; nothing is exposed to the internet.
+
+### 1. One-time switches in the Tailscale admin page
+
+On a computer, open <https://login.tailscale.com/admin/dns> and check two
+things on that page:
+
+1. **MagicDNS** is enabled.
+2. **HTTPS Certificates** is enabled (a toggle further down the same page).
+
+Both are one-click and free.
+
+### 2. Find your NAS's Tailscale name
+
+In the NAS SSH session:
+
+```
+tailscale status
+```
+
+The first line of the list is the NAS itself. Its full name is the machine
+name plus your tailnet's domain, e.g. `ugreen-nas.tail1a2b3c.ts.net` — and
+you don't need to guess it: the command in the next step prints the exact
+address when it succeeds.
+
+### 3. Put the app behind Tailscale's HTTPS
+
+Still in the SSH session:
+
+```
+sudo tailscale serve --bg 3000
+```
+
+**You should see** it confirm something like:
+
+```
+Available within your tailnet:
+https://ugreen-nas.tail1a2b3c.ts.net/
+|-- proxy http://127.0.0.1:3000
+```
+
+That's it — Tailscale fetches the certificate itself on the first visit
+(the very first page load can take a few extra seconds while it does).
+
+`--bg` makes it permanent: it survives reboots, and `tailscale serve status`
+shows it any time. To undo it: `tailscale serve reset`.
+
+> If Tailscale runs on your NAS as a **Docker container** rather than an
+> installed app, run the same command inside that container, pointing at the
+> NAS's LAN address instead of 127.0.0.1:
+> `docker exec tailscale tailscale serve --bg http://192.168.1.50:3000`
+> (your container name and NAS IP may differ).
+
+### 4. Move the phones over — once, properly
+
+Browser storage is tied to the exact address, so the queue and the offline
+copy do not follow from the old `http://...` address to the new one. On each
+phone, in this order:
+
+1. **Drain first.** On the old address, make sure the amber pill is gone
+   (no captures still waiting on the phone).
+2. Open `https://ugreen-nas.tail1a2b3c.ts.net` (your name from step 2) in the
+   phone's browser and sign in.
+3. **Add to Home Screen** from this address, and from now on always use the
+   icon. Delete the old icon/bookmark so there is only one address in use.
+4. Open the icon, sign in inside it, and while still connected visit the pages
+   used at the market once — Catalog, and Catalog → Add Product. Visited
+   pages are what the phone can re-open offline.
+
+### 5. Prove it worked
+
+With the phone in **airplane mode**: open the home-screen icon.
+
+**You should see** the catalog load anyway — served by the phone. Add Product
+opens too; captures save to the phone and upload themselves once you're back
+online, same as before.
+
+Two honest limits remain even on HTTPS:
+
+- A page never visited while online has nothing cached to show offline.
+- Live data on a page (today's stock of drafts, another user's new products)
+  is as fresh as the last online visit. Capturing is unaffected — captures
+  never depend on the page being fresh.

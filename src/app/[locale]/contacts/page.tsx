@@ -1,5 +1,7 @@
 import { getTranslations } from "next-intl/server";
-import { getContactsByType } from "@/lib/queries/contacts";
+import { getContactsByType, getImagesByContact } from "@/lib/queries/contacts";
+import { transcribeCard } from "@/lib/actions/transcribe";
+import { isTranscriptionEnabled } from "@/lib/transcribe-product";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ContactManager } from "@/components/contacts/contact-manager";
 
@@ -9,6 +11,11 @@ export default async function ContactsPage() {
     getContactsByType("supplier"),
     getContactsByType("client"),
   ]);
+  const images = await getImagesByContact([...suppliers, ...clients].map((c) => c.id));
+  const withImages = <T extends { id: number }>(rows: T[]) =>
+    rows.map((c) => ({ ...c, images: images.get(c.id) ?? [] }));
+
+  const transcribe = isTranscriptionEnabled() ? transcribeCard : undefined;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
@@ -20,10 +27,14 @@ export default async function ContactsPage() {
           <TabsTrigger value="clients">{t("clients")}</TabsTrigger>
         </TabsList>
         <TabsContent value="suppliers">
-          <ContactManager type="supplier" contacts={suppliers} />
+          <ContactManager
+            type="supplier"
+            contacts={withImages(suppliers)}
+            transcribe={transcribe}
+          />
         </TabsContent>
         <TabsContent value="clients">
-          <ContactManager type="client" contacts={clients} />
+          <ContactManager type="client" contacts={withImages(clients)} transcribe={transcribe} />
         </TabsContent>
       </Tabs>
     </div>

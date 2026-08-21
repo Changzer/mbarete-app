@@ -45,6 +45,30 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder /app/drizzle ./drizzle
 
+# The standalone server never needs these, but one-off admin scripts
+# (db:add-categories and friends — see their file header comments) are meant
+# to be run by hand against the running container via
+# `docker compose exec mbarete-app npm run db:<script>`. That needs tsx (a
+# devDependency the standalone build's dependency tracing correctly omits)
+# plus the script sources, which nothing imports at runtime. The @esbuild
+# platform package must come along: --ignore-scripts skipped the postinstall
+# that would embed the binary, so esbuild resolves it from that package at
+# require() time. And .bin/tsx has to be a symlink made here — COPY would
+# dereference it, and tsx's CLI imports sibling chunks relative to its real
+# location, so a flattened copy in .bin/ cannot start.
+COPY --from=deps /app/node_modules/tsx ./node_modules/tsx
+COPY --from=deps /app/node_modules/esbuild ./node_modules/esbuild
+COPY --from=deps /app/node_modules/@esbuild ./node_modules/@esbuild
+# drizzle-orm and bcryptjs are production dependencies, but they are absent
+# from the standalone node_modules all the same: only better-sqlite3 is in
+# serverExternalPackages (next.config.ts), so Next bundles the other two into
+# the server chunks — which tsx, running the raw sources, cannot resolve from.
+COPY --from=deps /app/node_modules/drizzle-orm ./node_modules/drizzle-orm
+COPY --from=deps /app/node_modules/bcryptjs ./node_modules/bcryptjs
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
+RUN mkdir -p node_modules/.bin && ln -sf ../tsx/dist/cli.mjs node_modules/.bin/tsx
+
 # Next's standalone output tracer does not currently pick up instrumentation.js
 # (used here to run DB migrations/seed on boot) or its chunk — copy them in
 # explicitly so the app doesn't silently boot against an empty database.

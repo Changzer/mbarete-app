@@ -15,6 +15,14 @@ services:
       # Optional: comma-separated forex provider URLs, tried in order.
       # Leave unset for the defaults (open.er-api.com, frankfurter.dev).
       FOREX_PROVIDERS: ${FOREX_PROVIDERS:-}
+      # AI photo transcription. Moonshot (Kimi) is preferred when set;
+      # Anthropic (Claude) is the fallback. Unset both to hide the AI features.
+      MOONSHOT_API_KEY: ${MOONSHOT_API_KEY:-}
+      MOONSHOT_BASE_URL: ${MOONSHOT_BASE_URL:-}
+      MOONSHOT_MODEL: ${MOONSHOT_MODEL:-}
+      MOONSHOT_DISABLE_THINKING: ${MOONSHOT_DISABLE_THINKING:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      TRANSCRIBE_PROVIDER: ${TRANSCRIBE_PROVIDER:-}
     volumes:
       - mbarete-data:/app/data
       # Same volume as before, remounted: uploads moved out of public/ because

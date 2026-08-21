@@ -5,7 +5,16 @@ import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
 import type { Locale } from "@/i18n/routing";
 import { db } from "@/db";
-import { products, categories, productImages, orderItems, productSuppliers } from "@/db/schema";
+import {
+  products,
+  categories,
+  productImages,
+  orderItems,
+  productSuppliers,
+  contacts,
+  captureDrafts,
+  captureDraftImages,
+} from "@/db/schema";
 import { eq, and, ne } from "drizzle-orm";
 import { productSchema, categorySchema } from "@/lib/validators";
 import {
@@ -14,6 +23,7 @@ import {
   estimateCartonWeightKg,
 } from "@/lib/calculations";
 import { saveUploadedImage, deleteUpload } from "@/lib/uploads";
+import { normalizeDecimalInput } from "@/lib/decimal-input";
 import { suggestNextSku } from "@/lib/queries/catalog";
 import { syncProductFromOffers } from "@/lib/queries/offers";
 
@@ -38,6 +48,10 @@ async function requireSession() {
 }
 
 function formToProductInput(formData: FormData) {
+  // Decimal fields are text inputs (comma-locale keyboards), normalized here
+  // before validation: "10,20" -> "10.20", "1,200" -> "1200".
+  const dec = (v: FormDataEntryValue | null) =>
+    typeof v === "string" ? normalizeDecimalInput(v) : v;
   return productSchema.parse({
     sku: formData.get("sku"),
     nameEn: formData.get("nameEn"),
@@ -45,24 +59,52 @@ function formToProductInput(formData: FormData) {
     categoryId: formData.get("categoryId"),
     descriptionEn: formData.get("descriptionEn") ?? "",
     descriptionZh: formData.get("descriptionZh") ?? "",
-    price: formData.get("price"),
-    sellPrice: formData.get("sellPrice") || 0,
+    price: dec(formData.get("price")),
+    sellPrice: dec(formData.get("sellPrice")) || 0,
     currency: formData.get("currency"),
     moq: formData.get("moq"),
     qtyPerBox: formData.get("qtyPerBox"),
-    lengthCm: formData.get("lengthCm") || 0,
-    widthCm: formData.get("widthCm") || 0,
-    heightCm: formData.get("heightCm") || 0,
-    weightKg: formData.get("weightKg") || 0,
+    lengthCm: dec(formData.get("lengthCm")) || 0,
+    widthCm: dec(formData.get("widthCm")) || 0,
+    heightCm: dec(formData.get("heightCm")) || 0,
+    weightKg: dec(formData.get("weightKg")) || 0,
     dimensionSource: formData.get("dimensionSource") || "carton",
-    pieceLengthCm: formData.get("pieceLengthCm") || 0,
-    pieceWidthCm: formData.get("pieceWidthCm") || 0,
-    pieceHeightCm: formData.get("pieceHeightCm") || 0,
-    pieceWeightKg: formData.get("pieceWeightKg") || 0,
-    packingAllowancePct: formData.get("packingAllowancePct") ?? 15,
-    cbmOverride: formData.get("cbmOverride") || undefined,
+    pieceLengthCm: dec(formData.get("pieceLengthCm")) || 0,
+    pieceWidthCm: dec(formData.get("pieceWidthCm")) || 0,
+    pieceHeightCm: dec(formData.get("pieceHeightCm")) || 0,
+    pieceWeightKg: dec(formData.get("pieceWeightKg")) || 0,
+    packingAllowancePct: dec(formData.get("packingAllowancePct")) ?? 15,
+    cbmOverride: dec(formData.get("cbmOverride")) || undefined,
+    supplierId: formData.get("supplierId") || undefined,
+    duplicatedFromId: formData.get("duplicatedFromId") || undefined,
     active: formData.get("active") === "on",
   });
+}
+
+/**
+ * The posted supplier id, verified against the database — a form can post any
+ * number, so it must point at a real supplier contact before it is stored.
+ * Returns null for "no supplier", undefined when the id doesn't check out.
+ */
+function resolveSupplierId(supplierId: number | undefined) {
+  if (!supplierId) return null;
+  const row = db
+    .select({ id: contacts.id })
+    .from(contacts)
+    .where(and(eq(contacts.id, supplierId), eq(contacts.type, "supplier")))
+    .get();
+  return row ? row.id : undefined;
+}
+
+/** Lineage is best-effort: a stale source product just means no link. */
+function resolveDuplicatedFromId(duplicatedFromId: number | undefined) {
+  if (!duplicatedFromId) return null;
+  const row = db
+    .select({ id: products.id })
+    .from(products)
+    .where(eq(products.id, duplicatedFromId))
+    .get();
+  return row ? row.id : null;
 }
 
 type ProductInput = ReturnType<typeof formToProductInput>;
@@ -138,6 +180,9 @@ export async function createProduct(
 
   const carton = resolveCartonFigures(data);
 
+  const supplierId = resolveSupplierId(data.supplierId);
+  if (supplierId === undefined) return "invalid";
+
   // Left blank on purpose, or cleared while entering products in a hurry.
   const sku = data.sku || (await suggestNextSku());
   if (db.select().from(products).where(eq(products.sku, sku)).get()) {
@@ -167,6 +212,8 @@ export async function createProduct(
       moq: data.moq,
       qtyPerBox: data.qtyPerBox,
       ...carton,
+      supplierId,
+      duplicatedFromId: resolveDuplicatedFromId(data.duplicatedFromId),
       active: data.active,
       createdBy: userId,
       updatedBy: userId,
@@ -182,12 +229,13 @@ export async function createProduct(
   const newProductId = Number(inserted.lastInsertRowid);
 
   // The price typed on the registration form becomes the product's first
-  // supplier quote, with the source left unrecorded — on-site registration
-  // stays one form, and the supplier is attached later when there is time.
+  // supplier quote, credited to whichever supplier the form named. Left
+  // unrecorded when it named none — honest about knowing a price but not
+  // its source, and a real supplier can be attached later.
   db.insert(productSuppliers)
     .values({
       productId: newProductId,
-      supplierId: null,
+      supplierId,
       price: data.price,
       currency: data.currency,
       moq: data.moq,
@@ -202,13 +250,52 @@ export async function createProduct(
       .run();
   });
 
+  // Saving from a capture draft (photos taken offline at a booth): the photos
+  // are already on disk under the draft, so they move across instead of being
+  // uploaded again, and the draft is settled so it leaves the review queue.
+  const draftId = Number(formData.get("draftId"));
+  if (Number.isFinite(draftId) && draftId > 0) {
+    const draft = db
+      .select()
+      .from(captureDrafts)
+      .where(eq(captureDrafts.id, draftId))
+      .get();
+    // Only an open draft is promotable — a second save of the same review tab
+    // must not steal photos from the product the first save created.
+    if (draft && (draft.status === "pending" || draft.status === "read")) {
+      const draftImages = db
+        .select()
+        .from(captureDraftImages)
+        .where(eq(captureDraftImages.draftId, draftId))
+        .all()
+        .sort((a, b) => a.sortOrder - b.sortOrder);
+      draftImages.forEach((image, i) => {
+        db.insert(productImages)
+          .values({ productId: newProductId, path: image.path, sortOrder: uploaded.length + i })
+          .run();
+      });
+      db.delete(captureDraftImages).where(eq(captureDraftImages.draftId, draftId)).run();
+      db.update(captureDrafts)
+        .set({
+          status: "imported",
+          productId: newProductId,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(captureDrafts.id, draftId))
+        .run();
+      revalidatePath("/catalog/drafts");
+    }
+  }
+
   revalidatePath("/catalog");
 
   // Entering a run of products from one supplier: straight back to a blank
-  // form, keeping the category so it does not have to be picked every time.
+  // form, keeping the category — and the supplier, so a whole booth can be
+  // registered without re-picking the vendor on every item.
   const locale = (await getLocale()) as Locale;
   if (formData.get("andAnother")) {
-    redirect({ href: `/catalog/new?category=${data.categoryId}`, locale });
+    const sticky = supplierId ? `&supplier=${supplierId}` : "";
+    redirect({ href: `/catalog/new?category=${data.categoryId}${sticky}`, locale });
   }
   redirect({ href: "/catalog", locale });
 }
@@ -228,6 +315,9 @@ export async function updateProduct(
   }
 
   const carton = resolveCartonFigures(data);
+
+  const supplierId = resolveSupplierId(data.supplierId);
+  if (supplierId === undefined) return "invalid";
 
   const existing = db.select().from(products).where(eq(products.id, id)).get();
   if (!existing) return "not-found";
@@ -290,6 +380,9 @@ export async function updateProduct(
       moq: data.moq,
       qtyPerBox: data.qtyPerBox,
       ...carton,
+      // Lineage (duplicatedFromId) is deliberately not editable here: it
+      // records where a row came from, not something to maintain by hand.
+      supplierId,
       active: data.active,
       updatedBy: userId,
       updatedAt: new Date().toISOString(),
@@ -297,25 +390,45 @@ export async function updateProduct(
     .where(eq(products.id, id))
     .run();
 
-  // Editing the price on the product form updates the unrecorded-source
-  // quote it created, so the simple one-supplier case behaves exactly as it
-  // always did. Quotes from named suppliers are only ever edited in the
-  // supplier section, where it is clear whose price is changing.
-  const anonymous = db
+  // The product form carries one supplier and one price, so it edits that
+  // supplier's quote — keeping the simple one-supplier case behaving exactly
+  // as it always did. Comparing several factories is the supplier section's
+  // job, and quotes it owns are never rewritten from here.
+  const quotes = db
     .select()
     .from(productSuppliers)
     .where(eq(productSuppliers.productId, id))
-    .all()
-    .find((o) => o.supplierId === null);
-  if (anonymous) {
+    .all();
+  const terms = {
+    price: data.price,
+    currency: data.currency,
+    moq: data.moq,
+    updatedAt: new Date().toISOString(),
+  };
+  const forThisSupplier = quotes.find((o) => o.supplierId === supplierId);
+  const onlyQuote = quotes.length === 1 ? quotes[0] : undefined;
+
+  if (forThisSupplier) {
     db.update(productSuppliers)
-      .set({
-        price: data.price,
-        currency: data.currency,
-        moq: data.moq,
-        updatedAt: new Date().toISOString(),
+      .set(terms)
+      .where(eq(productSuppliers.id, forThisSupplier.id))
+      .run();
+  } else if (onlyQuote) {
+    // Naming a supplier on a product that had a single unattributed quote
+    // credits that quote rather than leaving a duplicate behind.
+    db.update(productSuppliers)
+      .set({ ...terms, supplierId })
+      .where(eq(productSuppliers.id, onlyQuote.id))
+      .run();
+  } else {
+    db.insert(productSuppliers)
+      .values({
+        productId: id,
+        supplierId,
+        ...terms,
+        quotedOn: new Date().toISOString().slice(0, 10),
+        createdBy: userId,
       })
-      .where(eq(productSuppliers.id, anonymous.id))
       .run();
   }
   await syncProductFromOffers(id);
@@ -374,8 +487,20 @@ export async function createCategory(
   return undefined;
 }
 
-export async function deleteCategory(id: number) {
+export async function deleteCategory(id: number): Promise<string | undefined> {
   await requireSession();
+
+  // Products carry a required category, so the foreign key would reject this
+  // with a raw constraint error. Check first and say what is actually wrong:
+  // move those products to another category, then delete this one.
+  const inUse = db
+    .select({ id: products.id })
+    .from(products)
+    .where(eq(products.categoryId, id))
+    .get();
+  if (inUse) return "has-products";
+
   db.delete(categories).where(eq(categories.id, id)).run();
   revalidatePath("/catalog");
+  return undefined;
 }

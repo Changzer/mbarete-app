@@ -21,5 +21,5 @@ CREATE INDEX `product_suppliers_product_idx` ON `product_suppliers` (`product_id
 CREATE INDEX `product_suppliers_supplier_idx` ON `product_suppliers` (`supplier_id`);--> statement-breakpoint
 ALTER TABLE `contacts` ADD `active` integer DEFAULT true NOT NULL;--> statement-breakpoint
 INSERT INTO `product_suppliers` (`product_id`, `supplier_id`, `price`, `currency`, `moq`, `quoted_on`, `active`, `created_by`, `created_at`)
-SELECT `id`, NULL, `price`, `currency`, `moq`, date(`created_at`), 1, `created_by`, `created_at`
+SELECT `id`, `supplier_id`, `price`, `currency`, `moq`, date(`created_at`), 1, `created_by`, `created_at`
 FROM `products`;

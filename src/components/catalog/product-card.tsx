@@ -44,6 +44,8 @@ export type CatalogProduct = {
   pieceHeightCm: number;
   images: string[];
   active: boolean;
+  supplierName: string | null;
+  supplierBooth: string | null;
   /** Every supplier selling this, best first. Empty until one is attached. */
   offers: CardOffer[];
 };
@@ -273,6 +275,20 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
             </p>
           ) : null}
 
+          {product.supplierName ? (
+            <dl className="border-t border-neutral-200 pt-3 text-sm dark:border-neutral-800">
+              <dt className="text-neutral-500 dark:text-neutral-400">{t("supplier")}</dt>
+              <dd className="font-medium text-neutral-900 dark:text-neutral-100" data-testid="card-supplier">
+                {product.supplierName}
+                {product.supplierBooth ? (
+                  <span className="ml-1 font-normal text-neutral-500 dark:text-neutral-400">
+                    · {product.supplierBooth}
+                  </span>
+                ) : null}
+              </dd>
+            </dl>
+          ) : null}
+
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-neutral-200 pt-3 text-sm dark:border-neutral-800">
             <div>
               <dt className="text-neutral-500 dark:text-neutral-400">{t("addedBy")}</dt>
@@ -320,6 +336,11 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
               }}
             >
               {common("delete")}
+            </Button>
+            <Button asChild variant="outline" size="sm" data-testid="duplicate-product">
+              {/* Prefills a fresh registration from this product: new SKU,
+                  blank buy price, no photos or supplier — the compare-vendors loop. */}
+              <Link href={`/catalog/new?from=${product.id}`}>{t("duplicate")}</Link>
             </Button>
             <Button asChild variant="outline" size="sm">
               <Link href={`/catalog/${product.id}/edit`}>{common("edit")}</Link>
