@@ -18,6 +18,13 @@ export type TranscribeCategory = { id: number; nameEn: string; nameZh: string };
 
 /** Everything is nullable: the model must leave unknowns empty, not guess. */
 const transcriptionSchema = z.object({
+  /**
+   * The price board copied out character by character, before any figure is
+   * interpreted. Reading first and deriving second stops the model settling
+   * for a plausible-looking price instead of the one actually written, and
+   * it lets a person see what the model thought it saw.
+   */
+  boardText: z.string().nullable(),
   nameEn: z.string().nullable(),
   nameZh: z.string().nullable(),
   descriptionEn: z.string().nullable(),
@@ -40,7 +47,7 @@ const transcriptionSchema = z.object({
 // Keep in sync with transcriptionSchema — this is what the JSON-mode backend
 // is told to return.
 const JSON_SPEC =
-  '{"nameEn": string|null, "nameZh": string|null, "descriptionEn": string|null, "descriptionZh": string|null, "price": number|null, "currency": string|null, "moq": number|null, "qtyPerBox": number|null, "categoryId": number|null, "newCategoryEn": string|null, "newCategoryZh": string|null, "lengthCm": number|null, "widthCm": number|null, "heightCm": number|null, "weightKg": number|null, "cbm": number|null, "notes": string|null}';
+  '{"boardText": string|null, "nameEn": string|null, "nameZh": string|null, "descriptionEn": string|null, "descriptionZh": string|null, "price": number|null, "currency": string|null, "moq": number|null, "qtyPerBox": number|null, "categoryId": number|null, "newCategoryEn": string|null, "newCategoryZh": string|null, "lengthCm": number|null, "widthCm": number|null, "heightCm": number|null, "weightKg": number|null, "cbm": number|null, "notes": string|null}';
 
 export type RawTranscription = z.infer<typeof transcriptionSchema>;
 
@@ -67,6 +74,8 @@ export type TranscribeResult =
       ok: true;
       fields: TranscribedFields;
       notes: string | null;
+      /** What the model read off the board, shown so a misread is visible. */
+      boardText: string | null;
       /** Category names proposed when nothing in the list fit; the server
        *  action resolves this into a real category (matching or creating). */
       proposedCategory: { nameEn: string; nameZh: string } | null;
@@ -79,11 +88,18 @@ const SYSTEM_PROMPT = `You transcribe supplier-booth photos into catalog entries
 
 Each photo set shows one product (its packaging or the item itself) and usually a handwritten price board next to or below it. Our staff often use a standard whiteboard, one item per line: the price ("¥ 5.20"), "MOQ 5 pcs" or "MOQ 2 ctn", "QTY 12 pcs/ctn", "CBM 0.02", "KG 12", sometimes a booth number. Vendors' own boards are free-form — read them with the same rules.
 
+Work in two steps. FIRST copy the handwritten board into boardText exactly as written — every line, character by character, including the currency sign, punctuation and any word you are unsure of. Do not tidy it, convert it or reorder it. THEN read the fields below out of what you just copied. Never report a price, MOQ, quantity, weight or CBM that does not appear in boardText; if it is not there, the field is null.
+
+The board is frequently photographed sideways or upside-down, because the paper is lying on a counter. Read it in whatever orientation it appears — turn it mentally until the writing is upright — and never skip it just because it is rotated.
+
+Handwriting on these boards is quick and uneven. Take care with digits that look alike: 0 and 6, 1 and 7, 4 and 9, and a decimal point that is barely a dot. When two readings are genuinely possible, choose the one that makes commercial sense for a wholesale unit price and say so in notes.
+
 Rules:
 - Transcribe ONLY the main, centered product and the price board that belongs to it. Ignore products or boards partly visible at the edges of the frame.
 - Boards are often handwritten with a comma as the decimal separator: "10,20" means 10.20. But a comma followed by exactly three digits ("1,200") is a thousands separator, so that means 1200. A "¥" sign or an unmarked price at a Chinese market means CNY.
 - "160/box", "160/ctn" or "160/箱" means 160 pieces per carton (qtyPerBox).
 - MOQ may appear as "MOQ", "min" or "起订" and is in pieces unless it clearly says cartons/boxes. A bare carton count on the board with no other label (e.g. "2 carton") is also the MOQ, in cartons. Whenever the MOQ is given in cartons, multiply by qtyPerBox and report pieces.
+- When a board gives a carton MOQ and a separate piece count with no per-carton marking (e.g. "MOQ 3 box" above "QTY 360 pcs"), the piece count is the total for that minimum order: report moq 360 and qtyPerBox 120 (360 ÷ 3), and say in notes that the split was derived. Only when the piece count is explicitly marked per carton ("360 pcs/ctn") does it become qtyPerBox directly.
 - lengthCm, widthCm, heightCm, weightKg and cbm are CARTON figures, and only when actually written on the board or packaging (e.g. "60x40x50", "KG 12", "CBM 0.02"). Never estimate them from how the product looks.
 - nameEn and nameZh are short catalog names: product type plus the key specs visible (count, size, material). Fill BOTH languages, translating whichever direction is needed. Never include the price in a name.
 - Descriptions are one or two short sentences of facts visible in the photos; null when the name already says everything.
@@ -131,6 +147,7 @@ export function sanitizeTranscription(
 ): {
   fields: TranscribedFields;
   notes: string | null;
+  boardText: string | null;
   proposedCategory: { nameEn: string; nameZh: string } | null;
 } {
   const text = (v: string | null) => {
@@ -185,6 +202,7 @@ export function sanitizeTranscription(
       cbm: measure(raw.cbm, 4),
     },
     notes: text(raw.notes) ?? null,
+    boardText: text(raw.boardText) ?? null,
     proposedCategory,
   };
 }

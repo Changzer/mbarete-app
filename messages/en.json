@@ -44,7 +44,7 @@
     "title": "Product Catalog",
     "addProduct": "Add Product",
     "editProduct": "Edit Product",
-    "allCategories": "All Categories",
+    "allCategories": "All categories",
     "allSuppliers": "All Suppliers",
     "category": "Category",
     "sortBy": "Sort by",
@@ -178,7 +178,9 @@
     "currencyOther": "Other",
     "saveReassurance": "Saved to this phone first — it uploads by itself, even if you walk out of signal.",
     "columnProduct": "Product",
-    "identityGroup": "Product & supplier"
+    "identityGroup": "Product code",
+    "aiBoardRead": "Board read as",
+    "noCategoryMatches": "No categories match"
   },
   "contacts": {
     "title": "Contacts",

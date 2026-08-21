@@ -1,9 +1,11 @@
 "use client";
 
+import { useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ArrowDownNarrowWide } from "lucide-react";
-import { Chip, ChipRow } from "@/components/ui/chip";
+import { Chip } from "@/components/ui/chip";
+import { CategoryPicker } from "@/components/catalog/category-picker";
 import {
   SupplierPicker,
   type SupplierOption,
@@ -12,12 +14,13 @@ import {
 type Category = { id: number; nameEn: string; nameZh: string };
 
 /**
- * Categories as a scrolling lane of chips rather than a dropdown.
+ * The catalog's filters: category, supplier, and one sort.
  *
- * A dropdown hides how many categories there are and costs two taps to change;
- * chips show the shape of the catalog and cost one. Supplier stays a searchable
- * picker — a market run registers far more booths than a lane can hold — and
- * sort is a single chip, because there are only two orders worth having.
+ * Category and supplier are both searchable pickers, so the two filters read
+ * as a pair and neither pushes the catalog below the fold on a phone — a lane
+ * of chips scrolled sideways past the fourth category and cost most of the
+ * first screen. Sort stays a single chip, because there are only two orders
+ * worth having.
  */
 export function CatalogControls({
   categories,
@@ -32,6 +35,9 @@ export function CatalogControls({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  // The filters stay tappable while the catalog behind them re-renders;
+  // without this the controls go inert for a moment after every change.
+  const [, startTransition] = useTransition();
 
   const currentCategory = searchParams.get("category") ?? "all";
   const currentSupplier = searchParams.get("supplier") ?? "all";
@@ -44,28 +50,20 @@ export function CatalogControls({
     } else {
       params.set(key, value);
     }
-    router.push(`${pathname}?${params.toString()}`);
+    startTransition(() => {
+      router.push(`${pathname}?${params.toString()}`);
+    });
   }
 
   return (
     <div className="flex flex-col gap-2">
-      <ChipRow data-testid="category-chips">
-        <Chip
-          selected={currentCategory === "all"}
-          onClick={() => updateParam("category", "all")}
-        >
-          {t("allCategoriesChip")}
-        </Chip>
-        {categories.map((c) => (
-          <Chip
-            key={c.id}
-            selected={currentCategory === String(c.id)}
-            onClick={() => updateParam("category", String(c.id))}
-          >
-            {locale === "zh" ? c.nameZh : c.nameEn}
-          </Chip>
-        ))}
-      </ChipRow>
+      <CategoryPicker
+        categories={categories}
+        value={currentCategory}
+        onChange={(v) => updateParam("category", v)}
+        locale={locale}
+        className="w-full"
+      />
 
       <div className="flex items-center gap-2">
         {/* Same searchable dialog as the product form — a market run registers
