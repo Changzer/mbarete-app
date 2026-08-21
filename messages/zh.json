@@ -44,7 +44,7 @@
     "title": "产品目录",
     "addProduct": "添加产品",
     "editProduct": "编辑产品",
-    "allCategories": "所有分类",
+    "allCategories": "全部类目",
     "allSuppliers": "所有供应商",
     "category": "分类",
     "sortBy": "排序方式",
@@ -179,7 +179,8 @@
     "saveReassurance": "先保存在本机 — 即使离开信号区，也会自动上传。",
     "columnProduct": "产品",
     "identityGroup": "产品编码",
-    "aiBoardRead": "识别到的价格板"
+    "aiBoardRead": "识别到的价格板",
+    "noCategoryMatches": "没有匹配的类目"
   },
   "contacts": {
     "title": "联系人",
