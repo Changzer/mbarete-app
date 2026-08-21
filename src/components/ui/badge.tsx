@@ -2,21 +2,30 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
+/**
+ * Status is never colour alone: every one of these carries words, and the
+ * icon-bearing states carry a glyph too. The action red is reserved for
+ * actions — a status that has gone wrong uses the danger tokens, which are
+ * visibly deeper and softer, and its copy leads with a verb ("Retry").
+ */
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors",
+  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors duration-150 [&_svg]:size-3.5 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        default:
-          "border-transparent bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900",
-        secondary: "border-transparent bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100",
-        destructive:
-          "border-transparent bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
-        warning:
-          "border-transparent bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
-        success:
-          "border-transparent bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300",
-        outline: "border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300",
+        default: "bg-ink text-bg",
+        secondary: "bg-surface-2 text-sub",
+        outline: "border border-line text-sub",
+        /** Safe / stored / done. */
+        success: "bg-ok-soft text-ok",
+        /** Needs attention, but nothing is lost. */
+        warning: "bg-warn-soft text-warn",
+        /** A real failure — pair it with a retry. */
+        destructive: "bg-danger-soft text-danger",
+        /** In flight: the neutral middle of the sync ladder. */
+        sync: "bg-surface-2 text-sub",
+        /** Brand-tinted, for counts and quiet emphasis on the action itself. */
+        action: "bg-action-soft text-action-chrome",
       },
     },
     defaultVariants: { variant: "default" },

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { ChevronLeft, ChevronRight, Maximize2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, ImageOff, Maximize2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import {
@@ -13,7 +13,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { deleteProduct } from "@/lib/actions/catalog";
@@ -24,6 +23,8 @@ export type CatalogProduct = {
   id: number;
   sku: string;
   name: string;
+  /** The other language's name, shown beside the primary one when it differs. */
+  altName: string;
   description: string;
   categoryName: string;
   price: number;
@@ -50,7 +51,35 @@ export type CatalogProduct = {
   offers: CardOffer[];
 };
 
-export function ProductCard({ product }: { product: CatalogProduct }) {
+const CURRENCY_MARK: Record<string, string> = { CNY: "¥", USD: "$", EUR: "€" };
+
+/** ¥12.50 — the register a buyer compares prices in, not "12.50 CNY". */
+export function formatMoney(value: number, currency: string) {
+  const mark = CURRENCY_MARK[currency];
+  const amount = value.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return mark ? `${mark}${amount}` : `${amount} ${currency}`;
+}
+
+/**
+ * A product as a row, not a tile.
+ *
+ * The tile grid looked like a shop; this is a working list. Reading order is
+ * fixed: photo, name (EN then ZH), SKU · supplier, price + pack, and status at
+ * the end — so a thumb scrolling a hundred products lands on the same figure
+ * in the same place every time. The whole row is the tap target and there is
+ * no overflow menu: actions live in the detail sheet the row opens.
+ */
+export function ProductCard({
+  product,
+  variant = "row",
+}: {
+  product: CatalogProduct;
+  /** `table` renders the same product as desktop table cells — see CatalogList. */
+  variant?: "row" | "table";
+}) {
   const t = useTranslations("catalog");
   const common = useTranslations("common");
   const [open, setOpen] = useState(false);
@@ -85,59 +114,39 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, count, go]);
 
-  return (
+  const warnings = (
     <>
-      <Card
-        className="group cursor-pointer overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-600/40 hover:shadow-lg dark:hover:border-brand-500/40"
-        onClick={() => openDialog(true)}
-      >
-        <div className="relative aspect-square w-full bg-neutral-100 dark:bg-neutral-800">
-          {count > 0 ? (
-            <Image
-              src={product.images[0]}
-              alt={product.name}
-              fill
-              sizes="(max-width: 768px) 50vw, 25vw"
-              className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-sm text-neutral-400 dark:text-neutral-500">
-              {t("image")}
-            </div>
-          )}
-          {count > 1 ? (
-            <Badge variant="secondary" className="absolute left-2 top-2">
-              {count} {t("photos")}
-            </Badge>
-          ) : null}
-          {!product.active ? (
-            <Badge variant="secondary" className="absolute right-2 top-2">
-              {t("active")}: {common("no")}
-            </Badge>
-          ) : null}
-        </div>
-        <CardContent className="p-3">
-          <p className="truncate text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-            {product.name}
-          </p>
-          <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">{product.categoryName}</p>
-          <div className="mt-2">
-            <SupplierPrices offers={product.offers} sellPrice={product.sellPrice} compact />
-          </div>
-        </CardContent>
-      </Card>
+      {unmeasured ? (
+        <Badge variant="warning" data-testid="row-unmeasured">
+          {t("noCartonSize")}
+        </Badge>
+      ) : null}
+      {estimated ? <Badge variant="warning">{t("estimatedChip")}</Badge> : null}
+      {!product.active ? (
+        <Badge variant="secondary">
+          {t("active")}: {common("no")}
+        </Badge>
+      ) : null}
+    </>
+  );
 
+  const dialogs = (
+    <>
       <Dialog open={open} onOpenChange={openDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{product.name}</DialogTitle>
-            <DialogDescription>{product.categoryName} · {product.sku}</DialogDescription>
+            <DialogDescription>
+              {product.altName ? `${product.altName} · ` : ""}
+              {product.categoryName} ·{" "}
+              <span className="font-mono">{product.sku}</span>
+            </DialogDescription>
           </DialogHeader>
 
           {count > 0 ? (
             <div className="flex flex-col gap-2">
               {/* object-contain so the whole photo is visible, never cropped */}
-              <div className="relative h-72 w-full overflow-hidden rounded-md bg-neutral-100 dark:bg-neutral-800">
+              <div className="relative h-64 w-full overflow-hidden rounded-[10px] bg-surface-2 sm:h-72">
                 <button
                   type="button"
                   aria-label={common("enlarge")}
@@ -151,8 +160,8 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
                     sizes="(max-width: 640px) 90vw, 512px"
                     className="object-contain"
                   />
-                  <span className="absolute left-2 top-2 rounded-full bg-black/60 p-1.5 text-white opacity-80">
-                    <Maximize2 className="h-4 w-4" />
+                  <span className="absolute left-2 top-2 rounded-full bg-[rgba(20,12,8,.6)] p-1.5 text-white">
+                    <Maximize2 className="h-4 w-4" strokeWidth={1.5} />
                   </span>
                 </button>
 
@@ -162,19 +171,19 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
                       type="button"
                       aria-label={common("previous")}
                       onClick={() => go(-1)}
-                      className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/90 dark:bg-neutral-900/90 p-1.5 text-neutral-900 dark:text-neutral-100 shadow hover:bg-white dark:hover:bg-neutral-900"
+                      className="press focus-ring absolute left-1 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-surface/90 text-ink shadow"
                     >
-                      <ChevronLeft className="h-5 w-5" />
+                      <ChevronLeft className="h-5 w-5" strokeWidth={1.5} />
                     </button>
                     <button
                       type="button"
                       aria-label={common("next")}
                       onClick={() => go(1)}
-                      className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/90 dark:bg-neutral-900/90 p-1.5 text-neutral-900 dark:text-neutral-100 shadow hover:bg-white dark:hover:bg-neutral-900"
+                      className="press focus-ring absolute right-1 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-surface/90 text-ink shadow"
                     >
-                      <ChevronRight className="h-5 w-5" />
+                      <ChevronRight className="h-5 w-5" strokeWidth={1.5} />
                     </button>
-                    <span className="absolute bottom-2 right-2 z-10 rounded-full bg-black/60 px-2 py-0.5 text-xs text-white">
+                    <span className="absolute bottom-2 right-2 z-10 rounded-full bg-[rgba(20,12,8,.6)] px-2 py-0.5 font-mono text-[11px] text-white">
                       {index + 1} / {count}
                     </span>
                   </>
@@ -188,10 +197,8 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
                       key={src}
                       type="button"
                       onClick={() => setIndex(i)}
-                      className={`relative h-14 w-14 overflow-hidden rounded border bg-neutral-100 dark:bg-neutral-800 ${
-                        i === index
-                          ? "border-neutral-900 dark:border-neutral-100"
-                          : "border-neutral-200 dark:border-neutral-800"
+                      className={`focus-ring relative h-14 w-14 overflow-hidden rounded-[8px] border-2 bg-surface-2 ${
+                        i === index ? "border-action" : "border-line"
                       }`}
                     >
                       <Image src={src} alt="" fill sizes="56px" className="object-cover" />
@@ -202,64 +209,40 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
             </div>
           ) : null}
 
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-[13px]">
+            {/* Cost is no longer one number: it is whoever is quoting, best
+                first, with the gap to the others. MOQ rides with each quote,
+                which is why it left this grid. */}
             <div className="col-span-2">
-              <dt className="text-neutral-500 dark:text-neutral-400">{t("costPrice")}</dt>
-              <dd className="mt-0.5">
+              <dt className="text-[11px] font-semibold text-sub">{t("costPrice")}</dt>
+              <dd className="mt-1">
                 <SupplierPrices offers={product.offers} sellPrice={product.sellPrice} />
               </dd>
             </div>
-            <div>
-              <dt className="text-neutral-500 dark:text-neutral-400">{t("sellPrice")}</dt>
-              <dd className="font-medium text-neutral-900 dark:text-neutral-100" data-testid="card-sell-price">
-                {product.sellPrice > 0
-                  ? `${product.sellPrice.toFixed(2)} ${product.currency}`
-                  : t("sellsAtCost")}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-neutral-500 dark:text-neutral-400">{t("qtyPerBox")}</dt>
-              <dd className="font-medium text-neutral-900 dark:text-neutral-100">{product.qtyPerBox}</dd>
-            </div>
-            <div>
-              <dt className="text-neutral-500 dark:text-neutral-400">
-                {estimated ? t("pieceSize") : t("size")}
-              </dt>
-              <dd className="font-medium text-neutral-900 dark:text-neutral-100">
-                {unmeasured && !estimated
-                  ? t("notRecorded")
-                  : estimated
-                    ? `${product.pieceLengthCm}×${product.pieceWidthCm}×${product.pieceHeightCm}`
-                    : `${product.lengthCm}×${product.widthCm}×${product.heightCm}`}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-neutral-500 dark:text-neutral-400">{t("weight")}</dt>
-              <dd className="font-medium text-neutral-900 dark:text-neutral-100">
-                {product.weightKg > 0 ? `${formatWeightKg(product.weightKg)} kg` : t("notRecorded")}
-                {estimated ? (
-                  <span className="ml-1 text-xs font-normal text-amber-700 dark:text-amber-400">
-                    ({t("estimated")})
-                  </span>
-                ) : null}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-neutral-500 dark:text-neutral-400">{t("cbm")}</dt>
-              <dd className="font-medium text-neutral-900 dark:text-neutral-100">
-                {product.cbm > 0 ? `${formatCbm(product.cbm)} m³` : t("notRecorded")}
-                {estimated ? (
-                  <span className="ml-1 text-xs font-normal text-amber-700 dark:text-amber-400">
-                    ({t("estimated")})
-                  </span>
-                ) : null}
-              </dd>
-            </div>
+            <Figure label={t("sellPrice")} testId="card-sell-price">
+              {product.sellPrice > 0
+                ? formatMoney(product.sellPrice, product.currency)
+                : t("sellsAtCost")}
+            </Figure>
+            <Figure label={t("qtyPerBox")}>{product.qtyPerBox}</Figure>
+            <Figure label={estimated ? t("pieceSize") : t("size")}>
+              {unmeasured && !estimated
+                ? t("notRecorded")
+                : estimated
+                  ? `${product.pieceLengthCm}×${product.pieceWidthCm}×${product.pieceHeightCm}`
+                  : `${product.lengthCm}×${product.widthCm}×${product.heightCm}`}
+            </Figure>
+            <Figure label={t("weight")} estimated={estimated} estimatedLabel={t("estimated")}>
+              {product.weightKg > 0 ? `${formatWeightKg(product.weightKg)} kg` : t("notRecorded")}
+            </Figure>
+            <Figure label={t("cbm")} estimated={estimated} estimatedLabel={t("estimated")}>
+              {product.cbm > 0 ? `${formatCbm(product.cbm)} m³` : t("notRecorded")}
+            </Figure>
           </dl>
 
           {unmeasured ? (
             <p
-              className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
+              className="rounded-[10px] bg-warn-soft px-3 py-2 text-[12px] leading-relaxed text-warn"
               data-testid="unmeasured-note"
             >
               {t("notMeasuredYet")}
@@ -268,7 +251,7 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
 
           {estimated ? (
             <p
-              className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
+              className="rounded-[10px] bg-warn-soft px-3 py-2 text-[12px] leading-relaxed text-warn"
               data-testid="estimated-note"
             >
               {t("estimatedFromPiece")}
@@ -276,44 +259,32 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
           ) : null}
 
           {product.supplierName ? (
-            <dl className="border-t border-neutral-200 pt-3 text-sm dark:border-neutral-800">
-              <dt className="text-neutral-500 dark:text-neutral-400">{t("supplier")}</dt>
-              <dd className="font-medium text-neutral-900 dark:text-neutral-100" data-testid="card-supplier">
+            <dl className="border-t border-line pt-3">
+              <dt className="text-[11px] font-semibold text-sub">{t("supplier")}</dt>
+              <dd className="mt-0.5 text-[13px] font-semibold text-ink" data-testid="card-supplier">
                 {product.supplierName}
                 {product.supplierBooth ? (
-                  <span className="ml-1 font-normal text-neutral-500 dark:text-neutral-400">
-                    · {product.supplierBooth}
+                  <span className="ml-1.5 font-mono text-[12px] font-normal text-sub">
+                    {product.supplierBooth}
                   </span>
                 ) : null}
               </dd>
             </dl>
           ) : null}
 
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-neutral-200 pt-3 text-sm dark:border-neutral-800">
-            <div>
-              <dt className="text-neutral-500 dark:text-neutral-400">{t("addedBy")}</dt>
-              <dd
-                className="font-medium text-neutral-900 dark:text-neutral-100"
-                data-testid="product-added-by"
-              >
-                {product.createdByName ?? t("unknownUser")}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-neutral-500 dark:text-neutral-400">{t("updatedBy")}</dt>
-              <dd
-                className="font-medium text-neutral-900 dark:text-neutral-100"
-                data-testid="product-updated-by"
-              >
-                {product.updatedByName ?? t("unknownUser")}
-              </dd>
-            </div>
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 border-t border-line pt-3 text-[13px]">
+            <Figure label={t("addedBy")} testId="product-added-by" mono={false}>
+              {product.createdByName ?? t("unknownUser")}
+            </Figure>
+            <Figure label={t("updatedBy")} testId="product-updated-by" mono={false}>
+              {product.updatedByName ?? t("unknownUser")}
+            </Figure>
           </dl>
 
           {product.description ? (
             <div>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">{t("description")}</p>
-              <p className="text-sm text-neutral-800 dark:text-neutral-200 whitespace-pre-wrap">
+              <p className="text-[11px] font-semibold text-sub">{t("description")}</p>
+              <p className="mt-0.5 whitespace-pre-wrap text-[13px] leading-relaxed text-ink">
                 {product.description}
               </p>
             </div>
@@ -356,7 +327,10 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
         because the detail dialog stays open behind this one.
       */}
       <Dialog open={zoom} onOpenChange={setZoom}>
-        <DialogContent className="flex h-[92vh] max-h-[92vh] w-[96vw] max-w-none flex-col overflow-hidden bg-white p-3 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+        <DialogContent
+          hideClose
+          className="flex h-[92vh] max-h-[92vh] w-full flex-col overflow-hidden rounded-t-[20px] bg-surface p-3 sm:h-[92vh] sm:w-[96vw] sm:max-w-none sm:rounded-[16px]"
+        >
           <DialogTitle className="sr-only">{product.name}</DialogTitle>
           <DialogDescription className="sr-only">
             {count > 1 ? `${index + 1} / ${count}` : product.sku}
@@ -387,19 +361,19 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
                     type="button"
                     aria-label={common("previous")}
                     onClick={() => go(-1)}
-                    className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/90 dark:bg-neutral-900/90 p-2 text-neutral-900 dark:text-neutral-100 shadow hover:bg-white dark:hover:bg-neutral-900"
+                    className="press focus-ring absolute left-1 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-surface/90 text-ink shadow"
                   >
-                    <ChevronLeft className="h-6 w-6" />
+                    <ChevronLeft className="h-6 w-6" strokeWidth={1.5} />
                   </button>
                   <button
                     type="button"
                     aria-label={common("next")}
                     onClick={() => go(1)}
-                    className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/90 dark:bg-neutral-900/90 p-2 text-neutral-900 dark:text-neutral-100 shadow hover:bg-white dark:hover:bg-neutral-900"
+                    className="press focus-ring absolute right-1 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-surface/90 text-ink shadow"
                   >
-                    <ChevronRight className="h-6 w-6" />
+                    <ChevronRight className="h-6 w-6" strokeWidth={1.5} />
                   </button>
-                  <span className="absolute bottom-2 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-sm text-white">
+                  <span className="absolute bottom-2 left-1/2 z-10 -translate-x-1/2 rounded-full bg-[rgba(20,12,8,.6)] px-3 py-1 font-mono text-[12px] text-white">
                     {index + 1} / {count}
                   </span>
                 </>
@@ -409,5 +383,141 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
         </DialogContent>
       </Dialog>
     </>
+  );
+
+  if (variant === "table") {
+    return (
+      <>
+        <tr
+          onClick={() => openDialog(true)}
+          data-testid="product-table-row"
+          className="cursor-pointer border-b border-line last:border-0 hover:bg-surface-2"
+        >
+          <td className="px-3 py-2.5">
+            <div className="flex items-center gap-2.5">
+              <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-[6px] bg-surface-2">
+                {count > 0 ? (
+                  <Image src={product.images[0]} alt="" fill sizes="40px" className="object-cover" />
+                ) : null}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-[13px] font-bold text-ink">{product.name}</span>
+                {product.altName ? (
+                  <span className="block truncate text-[11.5px] text-sub">{product.altName}</span>
+                ) : null}
+              </span>
+            </div>
+          </td>
+          <td className="px-3 py-2.5 font-mono text-[12px] text-sub">{product.sku}</td>
+          <td className="px-3 py-2.5 font-mono text-[13px] font-semibold tabular-nums text-ink">
+            {formatMoney(product.price, product.currency)}
+          </td>
+          <td className="px-3 py-2.5 font-mono text-[12px] tabular-nums text-sub">
+            {product.moq} · {product.qtyPerBox}
+          </td>
+          <td className="max-w-48 truncate px-3 py-2.5 text-[12.5px] text-sub">
+            {product.supplierName ?? "—"}
+          </td>
+          <td className="px-3 py-2.5">
+            <span className="flex flex-wrap justify-end gap-1.5">{warnings}</span>
+          </td>
+        </tr>
+        {/* Portalled, so living inside a <tbody> costs it nothing. */}
+        {dialogs}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => openDialog(true)}
+        data-testid="product-row"
+        className="press focus-ring flex w-full items-center gap-3 rounded-[12px] border border-line bg-surface p-2.5 text-left hover:border-line-strong"
+      >
+        <span className="relative h-[74px] w-[74px] shrink-0 overflow-hidden rounded-[8px] bg-surface-2">
+          {count > 0 ? (
+            <Image
+              src={product.images[0]}
+              alt=""
+              fill
+              sizes="74px"
+              className="object-cover"
+            />
+          ) : (
+            <span className="flex h-full w-full items-center justify-center text-faint">
+              <ImageOff className="h-5 w-5" strokeWidth={1.5} />
+            </span>
+          )}
+          {count > 1 ? (
+            <span className="absolute bottom-1 right-1 rounded-full bg-[rgba(20,12,8,.7)] px-1.5 font-mono text-[9px] font-medium text-white">
+              {count}
+            </span>
+          ) : null}
+        </span>
+
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
+          {/* ② Both names on one line: the buyer's and the supplier's. */}
+          <span className="truncate text-[13.5px] font-bold leading-tight text-ink">
+            {product.name}
+            {product.altName ? (
+              <span className="ml-1.5 font-medium text-sub">{product.altName}</span>
+            ) : null}
+          </span>
+
+          {/* ③ The identifier, in the data register. The supplier's name used
+              to sit here; it now belongs to a quote, so it rides on line ④. */}
+          <span className="truncate font-mono text-[11px] font-medium text-sub">
+            {product.sku} · {product.qtyPerBox}
+            {t("unitPerCtn")}
+          </span>
+
+          {/* ④ Who is quoting what — best first, with the gap to the others. */}
+          <SupplierPrices offers={product.offers} sellPrice={product.sellPrice} compact />
+
+          {/* ⑤ Warnings only. A well-measured, active product says nothing. */}
+          {unmeasured || estimated || !product.active ? (
+            <span className="flex flex-wrap gap-1.5 pt-0.5">{warnings}</span>
+          ) : null}
+        </span>
+      </button>
+{dialogs}
+    </>
+  );
+}
+
+
+/** A label above its figure, with the figure in the data register by default. */
+function Figure({
+  label,
+  children,
+  testId,
+  mono = true,
+  estimated,
+  estimatedLabel,
+}: {
+  label: string;
+  children: React.ReactNode;
+  testId?: string;
+  mono?: boolean;
+  estimated?: boolean;
+  estimatedLabel?: string;
+}) {
+  return (
+    <div>
+      <dt className="text-[11px] font-semibold text-sub">{label}</dt>
+      <dd
+        className={`mt-0.5 font-semibold text-ink ${mono ? "font-mono tabular-nums" : ""}`}
+        data-testid={testId}
+      >
+        {children}
+        {estimated ? (
+          <span className="ml-1 font-sans text-[11px] font-medium text-warn">
+            ({estimatedLabel})
+          </span>
+        ) : null}
+      </dd>
+    </div>
   );
 }

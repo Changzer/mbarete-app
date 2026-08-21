@@ -7,7 +7,8 @@
     "appName": "Mbarete",
     "settings": "Settings",
     "users": "Users",
-    "finance": "Finance"
+    "finance": "Finance",
+    "more": "More"
   },
   "login": {
     "title": "Sign in",
@@ -36,7 +37,8 @@
     "next": "Next",
     "enlarge": "Enlarge",
     "selectFile": "Select file",
-    "noFileSelected": "No file selected"
+    "noFileSelected": "No file selected",
+    "more": "More"
   },
   "catalog": {
     "title": "Product Catalog",
@@ -152,7 +154,27 @@
     "reactivate": "Reactivate",
     "inactive": "Inactive",
     "supplierCount": "{count} suppliers",
-    "cost": "Cost"
+    "cost": "Cost",
+    "search": "Search name, SKU or supplier",
+    "searchRecent": "Recent",
+    "searchClear": "Clear search",
+    "noResultsFor": "Nothing matches “{query}”",
+    "noResultsHint": "Try the SKU, or part of the supplier's name.",
+    "emptyTitle": "Register your first product",
+    "emptyHint": "Photos first, then the price — the rest can wait until you are out of the aisle.",
+    "allSuppliersChip": "All suppliers",
+    "allCategoriesChip": "All",
+    "savedToast": "Saved",
+    "commercial": "Commercial",
+    "dimensionsDisclosure": "Size & weight",
+    "dimensionsHint": "Optional here — it can be measured later from the carton.",
+    "belowMoq": "Below MOQ",
+    "noCartonSize": "No carton size",
+    "estimatedChip": "Estimated",
+    "perCarton": "per carton",
+    "unitPcs": "pcs",
+    "unitPerCtn": "/ctn",
+    "status": "Status"
   },
   "contacts": {
     "title": "Contacts",
@@ -259,7 +281,10 @@
     "grossMargin": "Your margin (before expenses)",
     "saveChanges": "Save changes",
     "proformaBank": "Bank on proforma",
-    "proformaBankDefault": "Default: {label}"
+    "proformaBankDefault": "Default: {label}",
+    "totalsTitle": "Totals",
+    "rateSnapshot": "Rate frozen at {rate} when this order was started.",
+    "belowMoqBlocks": "One line is below its MOQ — a draft is fine, confirming is not."
   },
   "settings": {
     "exchangeRates": "Exchange Rates",
@@ -519,5 +544,24 @@
     "retryRead": "Read again",
     "discardConfirm": "Put this capture aside? It leaves this list, but nothing is deleted.",
     "discard": "Put aside"
+  },
+  "more": {
+    "language": "Language",
+    "theme": "Appearance",
+    "themeSystem": "Phone",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeHint": "Phone follows whatever your handset is set to. Choose Light for a market aisle in daylight, Dark for a hotel room at night."
+  },
+  "sync": {
+    "offline": "Offline — safe to continue",
+    "offlineStrip": "Offline — this is the copy on your phone. Captures keep working and upload by themselves.",
+    "savedLocal": "Saved on this phone",
+    "waiting": "Waiting to sync",
+    "syncing": "Syncing…",
+    "synced": "Synced",
+    "failed": "Sync failed — Retry",
+    "conflict": "Conflict — review",
+    "imagePending": "Image upload pending"
   }
 }
