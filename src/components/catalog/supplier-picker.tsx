@@ -88,7 +88,7 @@ export function SupplierPicker({
         onClick={() => setOpen(true)}
         data-testid={testId}
         className={cn(
-          "flex h-10 min-w-0 flex-1 items-center justify-between gap-2 rounded-md border border-line bg-surface px-3 text-sm text-ink",
+          "press focus-ring flex h-11 min-w-0 flex-1 items-center justify-between gap-2 rounded-[10px] border border-line bg-surface px-3 text-[13.5px] text-ink",
           className,
         )}
       >

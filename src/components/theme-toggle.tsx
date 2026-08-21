@@ -89,7 +89,7 @@ export function ThemeToggle() {
             onClick={() => pick(value)}
             aria-pressed={active}
             data-testid={`theme-${value}`}
-            className={`press focus-ring flex h-9 min-w-11 flex-1 items-center justify-center gap-1.5 rounded-full px-3 text-[12px] font-semibold ${
+            className={`press focus-ring flex h-11 min-w-11 flex-1 items-center justify-center gap-1.5 rounded-full px-3 text-[12px] font-semibold ${
               active
                 ? "bg-action text-white"
                 : "text-sub hover:text-ink"

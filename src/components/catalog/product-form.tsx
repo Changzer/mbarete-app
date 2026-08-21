@@ -662,7 +662,7 @@ export function ProductForm({
         </Field>
       </FormSection>
 
-      <FormSection kicker={t("supplier")} className="lg:col-span-2">
+      <FormSection kicker={t("identityGroup")} className="lg:col-span-2">
         <div className="grid grid-cols-2 gap-3">
           <Field label={t("sku")} htmlFor="sku">
             <Input id="sku" name="sku" numeric defaultValue={defaultValues?.sku} />
@@ -752,7 +752,7 @@ export function ProductForm({
                     type="button"
                     aria-pressed={source === mode}
                     onClick={() => setSource(mode)}
-                    className={`press focus-ring min-h-9 flex-1 rounded-[8px] px-3 py-2 text-[12.5px] font-semibold ${
+                    className={`press focus-ring min-h-11 flex-1 rounded-[8px] px-3 py-2 text-[12.5px] font-semibold ${
                       source === mode
                         ? "bg-action text-white"
                         : "text-sub hover:text-ink"

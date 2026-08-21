@@ -42,6 +42,7 @@ export function Stepper({
 
   return (
     <div
+      data-touch-target=""
       className={cn(
         "flex h-11 items-center rounded-[10px] border border-line bg-surface focus-within:border-action",
         className,

@@ -176,7 +176,9 @@
     "unitPerCtn": "/箱",
     "status": "状态",
     "currencyOther": "其他",
-    "saveReassurance": "先保存在本机 — 即使离开信号区，也会自动上传。"
+    "saveReassurance": "先保存在本机 — 即使离开信号区，也会自动上传。",
+    "columnProduct": "产品",
+    "identityGroup": "产品与供应商"
   },
   "contacts": {
     "title": "联系人",

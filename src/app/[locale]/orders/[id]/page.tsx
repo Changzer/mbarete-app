@@ -71,7 +71,7 @@ export default async function OrderDetailPage({
     <div className="mx-auto max-w-4xl px-4 py-6">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-ink">{order.orderNumber}</h1>
+          <h1 className="text-[23px] font-extrabold tracking-tight text-ink">{order.orderNumber}</h1>
           <p className="text-sm text-sub">{client?.companyName}</p>
           <p
             className="mt-1 text-xs text-sub"

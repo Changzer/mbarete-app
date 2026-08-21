@@ -35,7 +35,7 @@ export function CurrencyField({
   const isOther = value !== "CNY" && value !== "USD";
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="col-span-2 flex flex-col gap-1.5">
       <span className="text-[11px] font-semibold leading-none text-sub">{label}</span>
       <input type="hidden" name={name} value={value} />
       <div className="flex gap-1.5">
@@ -51,7 +51,7 @@ export function CurrencyField({
               aria-pressed={value === code}
               data-testid={`currency-${code}`}
               onClick={() => onChange(code)}
-              className={`press focus-ring h-9 flex-1 rounded-[8px] font-mono text-[12.5px] font-semibold ${
+              className={`press focus-ring h-11 flex-1 rounded-[8px] font-mono text-[12.5px] font-semibold ${
                 value === code ? "bg-action text-white" : "text-sub hover:text-ink"
               }`}
             >

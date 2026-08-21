@@ -176,7 +176,9 @@
     "unitPerCtn": "/ctn",
     "status": "Status",
     "currencyOther": "Other",
-    "saveReassurance": "Saved to this phone first — it uploads by itself, even if you walk out of signal."
+    "saveReassurance": "Saved to this phone first — it uploads by itself, even if you walk out of signal.",
+    "columnProduct": "Product",
+    "identityGroup": "Product & supplier"
   },
   "contacts": {
     "title": "Contacts",

@@ -10,32 +10,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
-import type { OutboxState } from "@/components/offline/outbox";
-
-export type SyncStep =
-  | "offline"
-  | "savedLocal"
-  | "waiting"
-  | "syncing"
-  | "synced"
-  | "failed"
-  | "conflict"
-  | "imagePending";
-
-/**
- * The rung of the ladder a given outbox state is standing on.
- *
- * Order matters: a phone that is offline *and* holding captures is still
- * "waiting", because the count is the thing the agent wants — "offline" alone
- * is for a phone with nothing owed.
- */
-export function syncStepFor(state: Pick<OutboxState, "pending" | "blocked" | "syncing" | "needsSignIn" | "offline">): SyncStep | null {
-  if (state.syncing) return "syncing";
-  if (state.blocked > 0 || state.needsSignIn) return "failed";
-  if (state.pending > 0) return "waiting";
-  if (state.offline) return "offline";
-  return null;
-}
+import { syncStepFor, type SyncStep } from "@/lib/offline/sync-step";
 
 const LOOK: Record<
   SyncStep,
@@ -107,3 +82,5 @@ export function SyncedDot({ label }: { label: string }) {
     />
   );
 }
+
+export { syncStepFor, type SyncStep };

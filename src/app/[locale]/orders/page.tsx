@@ -18,7 +18,7 @@ export default async function OrdersPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-ink">{t("title")}</h1>
+        <h1 className="text-[23px] font-extrabold tracking-tight text-ink">{t("title")}</h1>
         <Button asChild size="sm">
           <Link href="/orders/new">{t("newOrder")}</Link>
         </Button>

@@ -52,7 +52,7 @@ export default async function FinancePage({
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-ink">
+        <h1 className="text-[23px] font-extrabold tracking-tight text-ink">
           {t("title")}
         </h1>
         <div className="flex items-center gap-1 text-sm" data-testid="currency-picker">
@@ -87,7 +87,7 @@ export default async function FinancePage({
           <div key={tile.label} className={box}>
             <div className="text-xs text-sub">{tile.label}</div>
             <div
-              className={`mt-1 text-lg font-bold tabular-nums ${
+              className={`mt-1 font-mono text-[20px] font-semibold tabular-nums ${
                 tile.tone === "bad"
                   ? "text-danger"
                   : tile.tone === "warn"

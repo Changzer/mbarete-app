@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Stepper } from "@/components/ui/stepper";
+import { formatMoney } from "@/components/catalog/product-card";
 import {
   Select,
   SelectContent,
@@ -303,7 +304,7 @@ export function OrderBuilder({
                 <div className="min-w-0">
                   <p className="truncate text-[13.5px] font-bold text-ink">{p.name}</p>
                   <p className="truncate font-mono text-[11px] text-sub">
-                    {p.categoryName} · {p.price.toFixed(2)} {p.currency} · {t("moq")} {p.moq}
+                    {p.categoryName} · {formatMoney(p.price, p.currency)} · {t("moq")} {p.moq}
                   </p>
                 </div>
                 {/* Stepping by the carton, because that is the unit that ships:

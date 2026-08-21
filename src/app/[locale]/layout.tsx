@@ -6,7 +6,6 @@ import { routing, type Locale } from "@/i18n/routing";
 import { auth } from "@/lib/auth";
 import { AppNav } from "@/components/app-nav";
 import { OutboxProvider } from "@/components/offline/outbox";
-import { OutboxStatus } from "@/components/offline/outbox-status";
 import { SwRegister } from "@/components/offline/sw-register";
 import { ToastProvider } from "@/components/ui/toast";
 import { themeBootScript } from "@/components/theme-toggle";
@@ -61,7 +60,6 @@ export default async function LocaleLayout({
                 <main className="flex-1 pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:pb-0">
                   {children}
                 </main>
-                <OutboxStatus />
               </ToastProvider>
             </OutboxProvider>
           ) : (

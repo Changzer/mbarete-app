@@ -40,7 +40,7 @@ export function MoreLanguageRow() {
                 { locale: value },
               )
             }
-            className={`press focus-ring h-9 flex-1 rounded-full px-3 text-[12.5px] font-semibold ${
+            className={`press focus-ring h-11 flex-1 rounded-full px-3 text-[12.5px] font-semibold ${
               active ? "bg-action text-white" : "text-sub hover:text-ink"
             }`}
           >

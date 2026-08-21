@@ -112,7 +112,7 @@ export default async function CatalogPage({
       supplierName: p.supplierId
         ? (() => {
             const s = supplierMap.get(p.supplierId);
-            return s ? s.companyName || s.companyNameZh : null;
+            return s ? localizeField(locale as Locale, s.companyName, s.companyNameZh) : null;
           })()
         : null,
       supplierBooth: p.supplierId
@@ -175,15 +175,19 @@ export default async function CatalogPage({
         </div>
       </div>
 
-      <div className="mb-3">
-        <CatalogControls
-          categories={categories}
-          suppliers={filterSuppliers}
-          locale={locale}
-        />
-      </div>
-
-      <CatalogList products={catalogProducts} />
+      <CatalogList
+        products={catalogProducts}
+        filters={
+          // Keyed because it crosses the server/client boundary as a prop:
+          // React reconciles it as a list child on the way through.
+          <CatalogControls
+            key="catalog-filters"
+            categories={categories}
+            suppliers={filterSuppliers}
+            locale={locale}
+          />
+        }
+      />
 
       <CaptureFab />
     </div>

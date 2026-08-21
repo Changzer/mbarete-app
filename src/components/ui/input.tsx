@@ -16,6 +16,9 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     const input = (
       <input
         type={type}
+        // Marks the box a finger is aimed at. On a suffixed field the wrapper
+        // below carries it instead, since that is the frame the user sees.
+        data-touch-target={suffix ? undefined : ""}
         className={cn(
           fieldClass,
           numeric && "font-mono font-medium tabular-nums",
@@ -33,6 +36,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
 
     return (
       <div
+        data-touch-target=""
         className={cn(
           fieldClass,
           "items-center gap-1 px-0 pl-3 pr-3 focus-within:border-action",

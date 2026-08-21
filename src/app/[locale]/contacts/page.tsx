@@ -19,7 +19,7 @@ export default async function ContactsPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
-      <h1 className="mb-6 text-2xl font-semibold text-ink">{t("title")}</h1>
+      <h1 className="mb-6 text-[23px] font-extrabold tracking-tight text-ink">{t("title")}</h1>
 
       <Tabs defaultValue="suppliers">
         <TabsList>

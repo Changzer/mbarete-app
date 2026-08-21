@@ -3,7 +3,6 @@ import { ChevronRight, LogOut, Settings, UserCog } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { auth } from "@/lib/auth";
 import { signOutAction } from "@/lib/actions/auth";
-import { Brand } from "@/components/brand";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MoreLanguageRow } from "@/components/more-language-row";
 import { Button } from "@/components/ui/button";
@@ -31,7 +30,6 @@ export default async function MorePage() {
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-5 px-4 py-5">
       <div className="flex items-center gap-3">
-        <Brand />
         <div className="min-w-0">
           <h1 className="truncate text-[23px] font-extrabold tracking-tight text-ink">
             {session?.user?.name ?? nav("appName")}

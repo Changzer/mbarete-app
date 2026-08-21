@@ -33,7 +33,14 @@ function matches(product: CatalogProduct, query: string) {
   ].some((field) => field.toLowerCase().includes(needle));
 }
 
-export function CatalogList({ products }: { products: CatalogProduct[] }) {
+export function CatalogList({
+  products,
+  filters,
+}: {
+  products: CatalogProduct[];
+  /** The category/supplier/sort controls, rendered under the search field. */
+  filters?: React.ReactNode;
+}) {
   const t = useTranslations("catalog");
   const [query, setQuery] = useState("");
 
@@ -52,6 +59,8 @@ export function CatalogList({ products }: { products: CatalogProduct[] }) {
         recentLabel={t("searchRecent")}
         clearLabel={t("searchClear")}
       />
+
+      {filters}
 
       <OfflineStrip />
 
@@ -113,7 +122,7 @@ function CatalogTable({ products }: { products: CatalogProduct[] }) {
       <table className="w-full min-w-[880px] text-left">
         <thead>
           <tr className="border-b border-line font-mono text-[10.5px] font-bold uppercase tracking-[0.1em] text-sub">
-            <th className="px-3 py-2.5 font-bold">{t("title")}</th>
+            <th className="px-3 py-2.5 font-bold">{t("columnProduct")}</th>
             <th className="px-3 py-2.5 font-bold">{t("sku")}</th>
             <th className="px-3 py-2.5 font-bold">{t("price")}</th>
             <th className="px-3 py-2.5 font-bold">
