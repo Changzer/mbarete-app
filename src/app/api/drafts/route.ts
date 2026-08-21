@@ -20,14 +20,14 @@ import { ingestDraft, readDraft, type IngestFile } from "@/lib/drafts";
  * 4xx means a human has to look. See src/lib/offline/draft.ts.
  */
 
-/** Matches the product form's own ceiling; the phone shrinks photos first. */
-const MAX_IMAGES = 8;
-
 /**
  * Route handlers have no body-size limit of their own, and `formData()`
- * buffers the whole body before any per-file rule can run. Nine 8MB photos
- * plus fields and multipart overhead fit comfortably; anything bigger is not
- * a capture this app produced. Checked against Content-Length before parsing
+ * buffers the whole body before any per-file rule can run. This is the one
+ * cap on a capture — per-photo count is deliberately not limited, because
+ * the online save keeps every photo and a capture must not lose angles for
+ * having been made offline. Phone photos arrive compressed (~300KB), so
+ * this fits far more of them than any booth needs; anything bigger is not a
+ * capture this app produced. Checked against Content-Length before parsing
  * so an oversized body is refused without ever being held in memory.
  */
 const MAX_BODY_BYTES = 80 * 1024 * 1024;
@@ -81,9 +81,9 @@ export async function POST(request: Request) {
       if (f instanceof File && f.size > 0) files.push({ file: f, role: slot.role });
     }
   }
-  // The QR crop rides outside the photo cap: it is one small image, and for a
-  // contact it is the WeChat handle itself — the one file that must never be
-  // the one a cap silently cuts.
+  // The QR crop is collected on its own: there is only ever one, and it is
+  // the contact's WeChat handle — kept last so it lands after the photos in
+  // sortOrder, the same order the live contact form produces.
   const qr = form.getAll("qrImage").find((f): f is File => f instanceof File && f.size > 0);
 
   const result = await ingestDraft({
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     kind,
     capturedAt,
     fields,
-    files: [...files.slice(0, MAX_IMAGES), ...(qr ? [{ file: qr, role: "qr" as const }] : [])],
+    files: [...files, ...(qr ? [{ file: qr, role: "qr" as const }] : [])],
     userId: Number(session.user.id),
   });
 
