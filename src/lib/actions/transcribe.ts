@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@/lib/auth";
+import { requireUser } from "@/lib/authz";
 import { db } from "@/db";
 import { categories as categoriesTable } from "@/db/schema";
 import { getCategories } from "@/lib/queries/catalog";
@@ -42,8 +42,7 @@ async function collectImages(formData: FormData, field: string): Promise<Transcr
 }
 
 export async function transcribeProduct(formData: FormData): Promise<TranscribeResult> {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("unauthorized");
+  await requireUser();
 
   if (!isTranscriptionEnabled()) return { ok: false, error: "not-configured" };
 
@@ -94,8 +93,7 @@ export async function transcribeProduct(formData: FormData): Promise<TranscribeR
 
 /** Reads the business-card photos picked in the contact form into draft fields. */
 export async function transcribeCard(formData: FormData): Promise<CardTranscribeResult> {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("unauthorized");
+  await requireUser();
 
   if (!isTranscriptionEnabled()) return { ok: false, error: "not-configured" };
 

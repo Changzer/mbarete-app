@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
+import { useIsAdmin } from "@/components/role-provider";
 import {
   addPayment,
   deletePayment,
@@ -283,6 +284,7 @@ function PaymentList({
   orderId: number;
   rows: PaymentRow[];
 }) {
+  const isAdmin = useIsAdmin();
   const t = useTranslations("finance");
   if (rows.length === 0) {
     return <p className="text-xs text-sub">{t("none")}</p>;
@@ -304,13 +306,15 @@ function PaymentList({
             {p.note}
           </span>
           {p.receiptPath ? <ReceiptLink path={p.receiptPath} name={p.receiptName} /> : null}
-          <button
-            type="button"
-            onClick={() => deletePayment(orderId, p.id)}
-            className="text-xs text-faint hover:text-danger"
-          >
-            {t("remove")}
-          </button>
+          {isAdmin ? (
+            <button
+              type="button"
+              onClick={() => deletePayment(orderId, p.id)}
+              className="text-xs text-faint hover:text-danger"
+            >
+              {t("remove")}
+            </button>
+          ) : null}
         </li>
       ))}
     </ul>
@@ -328,6 +332,7 @@ function ExpenseSection({
   rows: ExpenseRow[];
   defaultCurrency: string;
 }) {
+  const isAdmin = useIsAdmin();
   const t = useTranslations("finance");
   const errorText = useErrorText();
   const formRef = useRef<HTMLFormElement>(null);
@@ -421,13 +426,15 @@ function ExpenseSection({
                 {e.note}
               </span>
               {e.receiptPath ? <ReceiptLink path={e.receiptPath} name={e.receiptName} /> : null}
-              <button
-                type="button"
-                onClick={() => deleteExpense(orderId, e.id)}
-                className="text-xs text-faint hover:text-danger"
-              >
-                {t("remove")}
-              </button>
+              {isAdmin ? (
+                <button
+                  type="button"
+                  onClick={() => deleteExpense(orderId, e.id)}
+                  className="text-xs text-faint hover:text-danger"
+                >
+                  {t("remove")}
+                </button>
+              ) : null}
             </li>
           ))}
         </ul>
@@ -445,6 +452,7 @@ function DocumentSection({
   orderId: number;
   rows: DocumentRow[];
 }) {
+  const isAdmin = useIsAdmin();
   const t = useTranslations("finance");
   const errorText = useErrorText();
   const formRef = useRef<HTMLFormElement>(null);
@@ -522,15 +530,17 @@ function DocumentSection({
               <span className="shrink-0 text-xs text-faint">
                 {prettyBytes(d.sizeBytes)}
               </span>
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm(t("deleteDocumentConfirm"))) deleteOrderDocument(orderId, d.id);
-                }}
-                className="text-xs text-faint hover:text-danger"
-              >
-                {t("remove")}
-              </button>
+              {isAdmin ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm(t("deleteDocumentConfirm"))) deleteOrderDocument(orderId, d.id);
+                  }}
+                  className="text-xs text-faint hover:text-danger"
+                >
+                  {t("remove")}
+                </button>
+              ) : null}
             </li>
           ))}
         </ul>

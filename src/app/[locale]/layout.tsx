@@ -4,6 +4,8 @@ import { getMessages, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { routing, type Locale } from "@/i18n/routing";
 import { auth } from "@/lib/auth";
+import { sessionUser } from "@/lib/authz";
+import { RoleProvider } from "@/components/role-provider";
 import { AppNav } from "@/components/app-nav";
 import { OutboxProvider } from "@/components/offline/outbox";
 import { SwRegister } from "@/components/offline/sw-register";
@@ -35,6 +37,8 @@ export default async function LocaleLayout({
 
   const messages = await getMessages();
   const session = await auth();
+  // Role comes from the database, not the JWT, so demotions apply immediately.
+  const user = session?.user ? await sessionUser() : null;
 
   return (
     <html lang={locale} className="h-full antialiased">
@@ -53,13 +57,15 @@ export default async function LocaleLayout({
           {session?.user ? (
             <OutboxProvider>
               <ToastProvider>
-                <AppNav userName={session.user.name ?? ""} />
+               <RoleProvider role={user?.role ?? "collaborator"}>
+                <AppNav userName={session.user.name ?? ""} role={user?.role ?? "collaborator"} />
                 {/* Room below for the tab bar plus the phone's safe area — the
                     bar is fixed, so the last row of any list would otherwise
                     sit under it. */}
                 <main className="flex-1 pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:pb-0">
                   {children}
                 </main>
+               </RoleProvider>
               </ToastProvider>
             </OutboxProvider>
           ) : (

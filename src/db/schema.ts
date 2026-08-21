@@ -18,6 +18,11 @@ export const users = sqliteTable("users", {
   // this row, and removing it would erase who did what. An inactive user
   // cannot sign in but still gets credited on everything they entered.
   active: integer("active", { mode: "boolean" }).notNull().default(true),
+  // "admin" sees everything; "collaborator" runs the daily loop (products,
+  // contacts, orders) but cannot delete records, touch settings, manage the
+  // team or read the finance report. The default is the safe one — existing
+  // accounts were promoted to admin by the migration that added the column.
+  role: text("role").$type<"admin" | "collaborator">().notNull().default("collaborator"),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(current_timestamp)`),

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { useIsAdmin } from "@/components/role-provider";
 import {
   Dialog,
   DialogContent,
@@ -58,6 +59,8 @@ export function ContactManager({
     setEditing(contact);
     setDialogOpen(true);
   }
+
+  const isAdmin = useIsAdmin();
 
   /** One delete path, shared by the phone list and the desktop table. */
   async function removeContact(id: number) {
@@ -156,9 +159,11 @@ export function ContactManager({
                       {c.active ? t("deactivate") : t("reactivate")}
                     </Button>
                   ) : null}
-                  <Button variant="ghost" size="sm" onClick={() => removeContact(c.id)}>
-                    {common("delete")}
-                  </Button>
+                  {isAdmin ? (
+                    <Button variant="ghost" size="sm" onClick={() => removeContact(c.id)}>
+                      {common("delete")}
+                    </Button>
+                  ) : null}
                 </div>
               </li>
             ))}
@@ -216,13 +221,15 @@ export function ContactManager({
                       >
                         {c.active ? t("deactivate") : t("reactivate")}
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeContact(c.id)}
-                      >
-                        {common("delete")}
-                      </Button>
+                      {isAdmin ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeContact(c.id)}
+                        >
+                          {common("delete")}
+                        </Button>
+                      ) : null}
                     </div>
                   </td>
                 </tr>

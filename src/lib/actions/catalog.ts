@@ -38,13 +38,11 @@ async function saveUploadedImages(formData: FormData) {
   }
   return paths;
 }
-import { auth } from "@/lib/auth";
+import { requireUser, requireAdmin } from "@/lib/authz";
 
 /** Returns the signed-in user's id, so edits can be attributed to them. */
 async function requireSession() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("unauthorized");
-  return Number(session.user.id);
+  return (await requireUser()).id;
 }
 
 function formToProductInput(formData: FormData) {
@@ -438,7 +436,7 @@ export async function updateProduct(
 }
 
 export async function deleteProduct(id: number): Promise<string | undefined> {
-  await requireSession();
+  await requireAdmin();
 
   // A product on an order is history, not clutter: deleting it would strip
   // the name and SKU off every order that bought it (and the foreign key
@@ -488,7 +486,7 @@ export async function createCategory(
 }
 
 export async function deleteCategory(id: number): Promise<string | undefined> {
-  await requireSession();
+  await requireAdmin();
 
   // Products carry a required category, so the foreign key would reject this
   // with a raw constraint error. Check first and say what is actually wrong:

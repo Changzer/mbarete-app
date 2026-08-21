@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
+import { useIsAdmin } from "@/components/role-provider";
 import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { setOrderStatus, deleteOrder } from "@/lib/actions/orders";
@@ -15,6 +16,7 @@ export function OrderStatusActions({
 }) {
   const t = useTranslations("orders");
   const common = useTranslations("common");
+  const isAdmin = useIsAdmin();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -37,16 +39,18 @@ export function OrderStatusActions({
             <Button size="sm" disabled={isPending} onClick={() => transition("confirmed")}>
               {t("confirmOrder")}
             </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              disabled={isPending}
-              onClick={() => {
-                if (confirm(t("deleteConfirm"))) deleteOrder(orderId);
-              }}
-            >
-              {common("delete")}
-            </Button>
+            {isAdmin ? (
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={isPending}
+                onClick={() => {
+                  if (confirm(t("deleteConfirm"))) deleteOrder(orderId);
+                }}
+              >
+                {common("delete")}
+              </Button>
+            ) : null}
           </>
         ) : null}
         {status === "confirmed" ? (

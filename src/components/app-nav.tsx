@@ -8,23 +8,34 @@ import { HeaderSyncChip } from "@/components/offline/header-sync-chip";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 
-export async function AppNav({ userName }: { userName: string }) {
+export async function AppNav({
+  userName,
+  role,
+}: {
+  userName: string;
+  role: "admin" | "collaborator";
+}) {
   const t = await getTranslations("nav");
   const locale = await getLocale();
   const boundSignOut = signOutAction.bind(null, locale);
+  const isAdmin = role === "admin";
 
   // The daily loop, in the order a market run runs: find a product, put it on
   // an order, look up whose booth it was, see whether it has been paid.
+  // Finance, Users and Settings are admin ground; hiding them here is only
+  // politeness — the pages and actions behind them check the role themselves.
   const primary: NavItem[] = [
     { href: "/catalog", label: t("catalog"), icon: "catalog" },
     { href: "/orders", label: t("orders"), icon: "orders" },
     { href: "/contacts", label: t("contacts"), icon: "contacts" },
-    { href: "/finance", label: t("finance"), icon: "finance" },
+    ...(isAdmin ? [{ href: "/finance", label: t("finance"), icon: "finance" } as NavItem] : []),
   ];
-  const behindMore: NavItem[] = [
-    { href: "/users", label: t("users"), icon: "users" },
-    { href: "/settings", label: t("settings"), icon: "settings" },
-  ];
+  const behindMore: NavItem[] = isAdmin
+    ? [
+        { href: "/users", label: t("users"), icon: "users" },
+        { href: "/settings", label: t("settings"), icon: "settings" },
+      ]
+    : [];
   const tabs: NavItem[] = [...primary, { href: "/more", label: t("more"), icon: "more" }];
 
   return (

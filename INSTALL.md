@@ -754,3 +754,43 @@ Two honest limits remain even on HTTPS:
 - Live data on a page (today's stock of drafts, another user's new products)
   is as fresh as the last online visit. Capturing is unaffected — captures
   never depend on the page being fresh.
+
+## Before putting this on a public server (Tencent Cloud or anywhere else)
+
+On the NAS, the network is the fence: only people on the LAN or the Tailscale
+network can even reach the login page. On a public server that fence is gone —
+every port you expose is visited by scanners within minutes. The app ships
+with the basics (every page and action requires sign-in, roles limit what an
+account can do, sign-in locks after repeated wrong passwords, uploaded files
+get unguessable random names), but the checklist below is what turns "works
+on the NAS" into "safe on the internet".
+
+1. **HTTPS only, via a reverse proxy.** Put Caddy or Nginx in front and let it
+   own port 443 and the certificate (Caddy does this automatically). Never
+   expose port 3000 itself — the app must only be reachable through the proxy,
+   and plain HTTP should redirect to HTTPS. Session cookies carry the login;
+   without TLS they cross the network readable.
+2. **Set a fresh `AUTH_SECRET` for the server.** Generate a new random one
+   (step 7a) — don't reuse the NAS's. Anyone holding this string can forge a
+   login cookie.
+3. **Strong passwords, correct roles.** On a public URL, passwords are the
+   whole fence. Re-issue anything short or shared, and keep accounts that
+   don't manage the business as Collaborator — a leaked collaborator password
+   then can't delete records or read the finance report.
+4. **Keep the database and uploads out of the web root and in backups.**
+   `data/` and `uploads/` are bind-mounted folders; back them up off the
+   server on a schedule. A server you can wipe and restore is a server you
+   can recover from any incident with.
+5. **Update the base system.** `apt upgrade` (or the panel's updates) monthly,
+   and rebuild the app when dependencies patch security issues —
+   `npm audit` in the project folder will tell you.
+6. **Firewall: allow 22, 80, 443 — nothing else.** Tencent's console has a
+   security-group screen; close everything else, including 3000. If only your
+   team's country needs SSH, restricting port 22 by IP cuts the noise to
+   almost nothing.
+7. **Know the one deliberate soft spot.** Product and card photos are served
+   without a login (their long random names are the protection), because the
+   catalog's image pipeline fetches them without cookies. Card photos can show
+   bank details, so treat a leaked photo URL like a leaked document: it's
+   only reachable by someone who was given the exact link. PDFs, spreadsheets
+   and payment slips are stricter — those always require a signed-in session.

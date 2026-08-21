@@ -1,4 +1,6 @@
-import { getTranslations } from "next-intl/server";
+import { getTranslations, getLocale } from "next-intl/server";
+import { redirect } from "@/i18n/navigation";
+import { sessionUser } from "@/lib/authz";
 import { db } from "@/db";
 import { exchangeRates } from "@/db/schema";
 import { asc } from "drizzle-orm";
@@ -8,6 +10,11 @@ import { CompanyProfileForm } from "@/components/settings/company-profile-form";
 import { BankAccountsManager } from "@/components/settings/bank-accounts-manager";
 
 export default async function SettingsPage() {
+  const user = await sessionUser();
+  if (user?.role !== "admin") {
+    redirect({ href: "/catalog", locale: await getLocale() });
+  }
+
   const t = await getTranslations("settings");
   const companyT = await getTranslations("company");
 

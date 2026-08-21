@@ -17,6 +17,7 @@ import {
 } from "@/db/schema";
 import { eq, inArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
+import { requireUser, requireAdmin } from "@/lib/authz";
 import {
   isBelowMoq,
   lineCbm,
@@ -48,6 +49,7 @@ const orderInput = z.object({
 });
 
 async function requireSession() {
+  await requireUser();
   const session = await auth();
   if (!session?.user) throw new Error("unauthorized");
   return session;
@@ -311,7 +313,7 @@ export async function setOrderBankAccount(orderId: number, bankAccountId: number
 }
 
 export async function deleteOrder(id: number) {
-  await requireSession();
+  await requireAdmin();
 
   // Document and receipt rows cascade with the order; the files would stay
   // behind in the uploads volume forever if they were not removed here.

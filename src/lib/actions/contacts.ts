@@ -6,11 +6,10 @@ import { contacts, contactImages, orders, products } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { contactSchema } from "@/lib/validators";
 import { saveUploadedImage, deleteUpload } from "@/lib/uploads";
-import { auth } from "@/lib/auth";
+import { requireUser, requireAdmin } from "@/lib/authz";
 
 async function requireSession() {
-  const session = await auth();
-  if (!session?.user) throw new Error("unauthorized");
+  await requireUser();
 }
 
 function formToContactInput(formData: FormData) {
@@ -168,7 +167,7 @@ export async function updateContact(
 }
 
 export async function deleteContact(id: number): Promise<string | undefined> {
-  await requireSession();
+  await requireAdmin();
 
   // A client with orders is part of the books; deleting the row would tear
   // the name off every one of them (and the foreign key blocks it anyway).

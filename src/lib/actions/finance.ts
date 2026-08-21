@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { orders, orderPayments, orderExpenses, orderDocuments } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
+import { requireUser, requireAdmin } from "@/lib/authz";
 import {
   saveUploadedDocument,
   saveUploadedReceipt,
@@ -17,9 +18,7 @@ import { logOrderEvent } from "@/lib/order-log";
 import { getExchangeRates } from "@/lib/queries/orders";
 
 async function requireSession() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("unauthorized");
-  return Number(session.user.id);
+  return (await requireUser()).id;
 }
 
 /** Rows only ever attach to an order that exists; everything else 404s here. */
@@ -103,7 +102,7 @@ export async function addPayment(
 }
 
 export async function deletePayment(orderId: number, paymentId: number) {
-  await requireSession();
+  await requireAdmin();
   const row = db
     .select()
     .from(orderPayments)
@@ -165,7 +164,7 @@ export async function addExpense(
 }
 
 export async function deleteExpense(orderId: number, expenseId: number) {
-  await requireSession();
+  await requireAdmin();
   const row = db
     .select()
     .from(orderExpenses)
@@ -237,7 +236,7 @@ export async function uploadOrderDocument(
 }
 
 export async function deleteOrderDocument(orderId: number, documentId: number) {
-  await requireSession();
+  await requireAdmin();
   const row = db
     .select()
     .from(orderDocuments)

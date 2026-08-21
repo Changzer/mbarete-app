@@ -2,6 +2,7 @@ import { getTranslations, getLocale } from "next-intl/server";
 import { ChevronRight, LogOut, Settings, UserCog } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { auth } from "@/lib/auth";
+import { sessionUser } from "@/lib/authz";
 import { signOutAction } from "@/lib/actions/auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MoreLanguageRow } from "@/components/more-language-row";
@@ -21,11 +22,15 @@ export default async function MorePage() {
   const locale = await getLocale();
   const session = await auth();
   const boundSignOut = signOutAction.bind(null, locale);
+  const user = await sessionUser();
 
-  const links = [
-    { href: "/users" as const, label: nav("users"), Icon: UserCog },
-    { href: "/settings" as const, label: nav("settings"), Icon: Settings },
-  ];
+  const links =
+    user?.role === "admin"
+      ? [
+          { href: "/users" as const, label: nav("users"), Icon: UserCog },
+          { href: "/settings" as const, label: nav("settings"), Icon: Settings },
+        ]
+      : [];
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-5 px-4 py-5">
@@ -38,6 +43,7 @@ export default async function MorePage() {
         </div>
       </div>
 
+      {links.length > 0 ? (
       <nav className="overflow-hidden rounded-[12px] border border-line bg-surface">
         {links.map(({ href, label, Icon }, i) => (
           <Link
@@ -54,6 +60,7 @@ export default async function MorePage() {
           </Link>
         ))}
       </nav>
+      ) : null}
 
       <section className="flex flex-col gap-2.5 rounded-[12px] border border-line bg-surface p-4">
         <h2 className="font-mono text-[10.5px] font-bold uppercase tracking-[0.1em] text-sub">

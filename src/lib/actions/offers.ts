@@ -5,13 +5,11 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { productSuppliers, contacts } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { requireUser } from "@/lib/authz";
 import { syncProductFromOffers } from "@/lib/queries/offers";
 
 async function requireSession() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("unauthorized");
-  return Number(session.user.id);
+  return (await requireUser()).id;
 }
 
 function refresh() {
