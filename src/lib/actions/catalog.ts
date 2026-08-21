@@ -5,7 +5,7 @@ import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
 import type { Locale } from "@/i18n/routing";
 import { db } from "@/db";
-import { products, categories, productImages, orderItems } from "@/db/schema";
+import { products, categories, productImages, orderItems, productSuppliers } from "@/db/schema";
 import { eq, and, ne } from "drizzle-orm";
 import { productSchema, categorySchema } from "@/lib/validators";
 import {
@@ -15,6 +15,7 @@ import {
 } from "@/lib/calculations";
 import { saveUploadedImage, deleteUpload } from "@/lib/uploads";
 import { suggestNextSku } from "@/lib/queries/catalog";
+import { syncProductFromOffers } from "@/lib/queries/offers";
 
 /** Saves every non-empty file under `images`, preserving the chosen order. */
 async function saveUploadedImages(formData: FormData) {
@@ -179,6 +180,22 @@ export async function createProduct(
   }
 
   const newProductId = Number(inserted.lastInsertRowid);
+
+  // The price typed on the registration form becomes the product's first
+  // supplier quote, with the source left unrecorded — on-site registration
+  // stays one form, and the supplier is attached later when there is time.
+  db.insert(productSuppliers)
+    .values({
+      productId: newProductId,
+      supplierId: null,
+      price: data.price,
+      currency: data.currency,
+      moq: data.moq,
+      quotedOn: new Date().toISOString().slice(0, 10),
+      createdBy: userId,
+    })
+    .run();
+
   uploaded.forEach((path, i) => {
     db.insert(productImages)
       .values({ productId: newProductId, path, sortOrder: i })
@@ -279,6 +296,29 @@ export async function updateProduct(
     })
     .where(eq(products.id, id))
     .run();
+
+  // Editing the price on the product form updates the unrecorded-source
+  // quote it created, so the simple one-supplier case behaves exactly as it
+  // always did. Quotes from named suppliers are only ever edited in the
+  // supplier section, where it is clear whose price is changing.
+  const anonymous = db
+    .select()
+    .from(productSuppliers)
+    .where(eq(productSuppliers.productId, id))
+    .all()
+    .find((o) => o.supplierId === null);
+  if (anonymous) {
+    db.update(productSuppliers)
+      .set({
+        price: data.price,
+        currency: data.currency,
+        moq: data.moq,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(productSuppliers.id, anonymous.id))
+      .run();
+  }
+  await syncProductFromOffers(id);
 
   revalidatePath("/catalog");
   redirect({ href: "/catalog", locale: (await getLocale()) as Locale });

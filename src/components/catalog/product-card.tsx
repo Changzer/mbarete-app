@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { deleteProduct } from "@/lib/actions/catalog";
 import { formatCbm, formatWeightKg, missingCartonFigures } from "@/lib/calculations";
+import { SupplierPrices, type CardOffer } from "@/components/catalog/supplier-prices";
 
 export type CatalogProduct = {
   id: number;
@@ -43,6 +44,8 @@ export type CatalogProduct = {
   pieceHeightCm: number;
   images: string[];
   active: boolean;
+  /** Every supplier selling this, best first. Empty until one is attached. */
+  offers: CardOffer[];
 };
 
 export function ProductCard({ product }: { product: CatalogProduct }) {
@@ -116,6 +119,9 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
             {product.name}
           </p>
           <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">{product.categoryName}</p>
+          <div className="mt-2">
+            <SupplierPrices offers={product.offers} sellPrice={product.sellPrice} compact />
+          </div>
         </CardContent>
       </Card>
 
@@ -195,10 +201,10 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
           ) : null}
 
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-            <div>
+            <div className="col-span-2">
               <dt className="text-neutral-500 dark:text-neutral-400">{t("costPrice")}</dt>
-              <dd className="font-medium text-neutral-900 dark:text-neutral-100">
-                {product.price.toFixed(2)} {product.currency}
+              <dd className="mt-0.5">
+                <SupplierPrices offers={product.offers} sellPrice={product.sellPrice} />
               </dd>
             </div>
             <div>
@@ -208,10 +214,6 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
                   ? `${product.sellPrice.toFixed(2)} ${product.currency}`
                   : t("sellsAtCost")}
               </dd>
-            </div>
-            <div>
-              <dt className="text-neutral-500 dark:text-neutral-400">{t("moq")}</dt>
-              <dd className="font-medium text-neutral-900 dark:text-neutral-100">{product.moq}</dd>
             </div>
             <div>
               <dt className="text-neutral-500 dark:text-neutral-400">{t("qtyPerBox")}</dt>

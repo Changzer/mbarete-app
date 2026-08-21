@@ -12,6 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { ContactForm } from "@/components/contacts/contact-form";
 import { createContact, updateContact, deleteContact } from "@/lib/actions/contacts";
+import { setSupplierActive } from "@/lib/actions/offers";
+import { Badge } from "@/components/ui/badge";
 
 type Contact = {
   id: number;
@@ -23,6 +25,7 @@ type Contact = {
   whatsapp: string;
   wechat: string;
   notes: string;
+  active: boolean;
 };
 
 export function ContactManager({
@@ -92,7 +95,14 @@ export function ContactManager({
             <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
               {contacts.map((c) => (
                 <tr key={c.id}>
-                  <td className="px-4 py-2 font-medium text-neutral-900 dark:text-neutral-100">{c.companyName}</td>
+                  <td className="px-4 py-2 font-medium text-neutral-900 dark:text-neutral-100">
+                    {c.companyName}
+                    {!c.active ? (
+                      <Badge variant="secondary" className="ml-2">
+                        {t("inactive")}
+                      </Badge>
+                    ) : null}
+                  </td>
                   <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">{c.contactPerson}</td>
                   <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">{c.phone}</td>
                   <td className="px-4 py-2 text-neutral-700 dark:text-neutral-300">{c.email}</td>
@@ -102,6 +112,13 @@ export function ContactManager({
                     <div className="flex gap-2">
                       <Button variant="ghost" size="sm" onClick={() => openEdit(c)}>
                         {common("edit")}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSupplierActive(c.id, !c.active)}
+                      >
+                        {c.active ? t("deactivate") : t("reactivate")}
                       </Button>
                       <Button
                         variant="ghost"
