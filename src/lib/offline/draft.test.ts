@@ -8,6 +8,7 @@ import {
   draftBytes,
   draftToFormData,
   nextAttemptDelayMs,
+  retryDraft,
   shouldRetry,
   unsentDrafts,
   type OfflineDraft,
@@ -179,12 +180,22 @@ test("order: oldest capture first, so the day is delivered in the order it happe
   assert.deepEqual(deliveryOrder(queue).map((d) => d.clientId), ["early", "mid", "late"]);
 });
 
-test("order: a blocked draft never holds up the good captures behind it", () => {
+test("order: a blocked draft is never auto-delivered — retrying it is a person's call", () => {
   const queue = [
     draft({ clientId: "stuck", capturedAt: "2026-04-20T08:00:00.000Z", status: "blocked" }),
     draft({ clientId: "good", capturedAt: "2026-04-20T09:00:00.000Z" }),
   ];
-  assert.deepEqual(deliveryOrder(queue).map((d) => d.clientId), ["good", "stuck"]);
+  assert.deepEqual(deliveryOrder(queue).map((d) => d.clientId), ["good"]);
+});
+
+test("retry: re-arming a blocked draft clears its history and delivers immediately", () => {
+  const stuck = draft({ status: "blocked", attempts: 7, lastError: "too-large" });
+  const armed = retryDraft(stuck);
+  assert.equal(armed.status, "pending");
+  assert.equal(armed.attempts, 0);
+  assert.equal(armed.lastError, undefined);
+  assert.equal(nextAttemptDelayMs(armed.attempts), 0);
+  assert.deepEqual(deliveryOrder([armed]).map((d) => d.clientId), [armed.clientId]);
 });
 
 test("order: delivered drafts are not sent twice", () => {

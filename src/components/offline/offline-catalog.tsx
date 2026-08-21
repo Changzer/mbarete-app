@@ -14,6 +14,7 @@ import {
   loadCatalogSnapshot,
   type CatalogSnapshot,
 } from "@/lib/client/catalog-cache";
+import { formatLocalMinute } from "@/lib/format-time";
 
 /**
  * The phone's read-only catalog copy, as a sheet over whatever page is open.
@@ -86,9 +87,7 @@ export function OfflineCatalog({
             </div>
             {snapshot ? (
               <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                {t("catalogCopyAsOf", {
-                  time: snapshot.savedAt.slice(0, 16).replace("T", " "),
-                })}
+                {t("catalogCopyAsOf", { time: formatLocalMinute(snapshot.savedAt) })}
               </p>
             ) : null}
             <div className="-mx-1 flex-1 overflow-y-auto px-1" data-testid="offline-catalog-list">
@@ -108,9 +107,7 @@ export function OfflineCatalog({
                   <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-neutral-500 dark:text-neutral-400">
                     <span>{p.sku}</span>
                     <span>{p.categoryName}</span>
-                    <span>
-                      MOQ {p.moq} · {p.qtyPerBox}/box
-                    </span>
+                    <span>{t("catalogCopyMoqBox", { moq: p.moq, qty: p.qtyPerBox })}</span>
                     {p.supplierName ? <span>{p.supplierName}</span> : null}
                     {p.supplierBooth ? <span>{p.supplierBooth}</span> : null}
                   </div>

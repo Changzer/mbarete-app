@@ -19,7 +19,7 @@
  *   the outbox keep their own semantics.
  */
 
-const VERSION = "v1";
+const VERSION = "v2";
 const STATIC_CACHE = `mbarete-static-${VERSION}`;
 const PAGE_CACHE = `mbarete-pages-${VERSION}`;
 const IMAGE_CACHE = `mbarete-images-${VERSION}`;
@@ -58,7 +58,13 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (url.pathname.startsWith("/uploads/")) {
-    event.respondWith(cacheFirst(IMAGE_CACHE, request, IMAGE_CACHE_CAP));
+    // Only ungated product/card photos are cached. Payment slips (slip-*) and
+    // documents (pdf/xlsx/xls/docx) require a session at the serving route —
+    // a cache would keep answering for them after sign-out, to whoever holds
+    // the browser. Those always go to the server, which checks the cookie.
+    if (/^\/uploads\/(?!slip-)[A-Za-z0-9][A-Za-z0-9-]*\.(jpg|png|webp|gif)$/.test(url.pathname)) {
+      event.respondWith(cacheFirst(IMAGE_CACHE, request, IMAGE_CACHE_CAP));
+    }
     return;
   }
 
@@ -66,6 +72,24 @@ self.addEventListener("fetch", (event) => {
   // their URLs carry state-dependent params and caching them risks serving
   // one page's payload to another.
   if (request.mode === "navigate") {
+    // Arriving at the login page while online means the session ended — by
+    // sign-out or expiry. The cached pages belong to that session: catalog
+    // prices, orders, finance. Purged here so a handed-over or shared device
+    // cannot read them back in airplane mode. (Offline, this navigation
+    // cannot succeed, so a still-signed-in user's cache survives outages.)
+    if (/^\/(en|zh)\/login(\/|$)/.test(url.pathname)) {
+      event.respondWith(
+        (async () => {
+          const response = await networkFirst(PAGE_CACHE, request);
+          if (response.ok) {
+            await caches.delete(PAGE_CACHE);
+            await caches.delete(IMAGE_CACHE);
+          }
+          return response;
+        })(),
+      );
+      return;
+    }
     event.respondWith(networkFirst(PAGE_CACHE, request));
   }
 });
@@ -96,6 +120,17 @@ async function networkFirst(cacheName, request) {
   } catch (error) {
     const hit = await cache.match(request);
     if (hit) return hit;
+    // Unprefixed paths (the manifest's start_url is /catalog) reach the cache
+    // only in their locale-prefixed form — online, the i18n middleware
+    // redirects before anything is stored. Offline, resolve them against
+    // whichever locale's copy of the same page exists.
+    const url = new URL(request.url);
+    if (!/^\/(en|zh)(\/|$)/.test(url.pathname)) {
+      for (const locale of ["en", "zh"]) {
+        const fallback = await cache.match(url.origin + "/" + locale + url.pathname);
+        if (fallback) return fallback;
+      }
+    }
     throw error;
   }
 }

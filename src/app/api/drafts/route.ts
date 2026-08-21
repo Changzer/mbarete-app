@@ -23,12 +23,28 @@ import { ingestDraft, readDraft, type IngestFile } from "@/lib/drafts";
 /** Matches the product form's own ceiling; the phone shrinks photos first. */
 const MAX_IMAGES = 8;
 
+/**
+ * Route handlers have no body-size limit of their own, and `formData()`
+ * buffers the whole body before any per-file rule can run. Nine 8MB photos
+ * plus fields and multipart overhead fit comfortably; anything bigger is not
+ * a capture this app produced. Checked against Content-Length before parsing
+ * so an oversized body is refused without ever being held in memory.
+ */
+const MAX_BODY_BYTES = 80 * 1024 * 1024;
+
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
     // Retryable on purpose: the trip outlasted the session, and signing in
     // again makes every queued capture deliverable.
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  const declaredBytes = Number(request.headers.get("content-length"));
+  if (Number.isFinite(declaredBytes) && declaredBytes > MAX_BODY_BYTES) {
+    // 413 is a refusal retrying cannot fix: the phone parks the capture as
+    // "needs attention" instead of re-sending the same oversized body.
+    return NextResponse.json({ error: "too-large" }, { status: 413 });
   }
 
   let form: FormData;
@@ -58,7 +74,6 @@ export async function POST(request: Request) {
   const slots = [
     { field: "images", role: "image" },
     { field: "cardImages", role: "card" },
-    { field: "qrImage", role: "qr" },
   ] as const;
   const files: IngestFile[] = [];
   for (const slot of slots) {
@@ -66,13 +81,17 @@ export async function POST(request: Request) {
       if (f instanceof File && f.size > 0) files.push({ file: f, role: slot.role });
     }
   }
+  // The QR crop rides outside the photo cap: it is one small image, and for a
+  // contact it is the WeChat handle itself — the one file that must never be
+  // the one a cap silently cuts.
+  const qr = form.getAll("qrImage").find((f): f is File => f instanceof File && f.size > 0);
 
   const result = await ingestDraft({
     clientId,
     kind,
     capturedAt,
     fields,
-    files: files.slice(0, MAX_IMAGES),
+    files: [...files.slice(0, MAX_IMAGES), ...(qr ? [{ file: qr, role: "qr" as const }] : [])],
     userId: Number(session.user.id),
   });
 

@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { getOpenDrafts } from "@/lib/queries/drafts";
+import { isTranscriptionEnabled } from "@/lib/transcribe-product";
 import { DraftList } from "@/components/catalog/draft-list";
 
 /**
@@ -18,7 +19,7 @@ export default async function DraftsPage() {
         {t("title")}
       </h1>
       <p className="mb-6 text-sm text-neutral-500 dark:text-neutral-400">{t("help")}</p>
-      <DraftList drafts={drafts} />
+      <DraftList drafts={drafts} aiEnabled={isTranscriptionEnabled()} />
     </div>
   );
 }

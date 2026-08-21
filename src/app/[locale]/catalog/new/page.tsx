@@ -110,7 +110,9 @@ export default async function NewProductPage({
           pieceHeightCm: num(f.pieceHeightCm),
           pieceWeightKg: num(f.pieceWeightKg),
           packingAllowancePct: num(f.packingAllowancePct),
-          active: f.active === undefined || f.active === "on",
+          // "off" is stored explicitly at capture, so absence really does
+          // mean "not captured" and falls back to the default of active.
+          active: f.active === undefined ? true : f.active === "on",
           ...(catId && categories.some((c) => c.id === catId) ? { categoryId: catId } : {}),
           ...(supId && suppliers.some((s) => s.id === supId) ? { supplierId: supId } : {}),
         };

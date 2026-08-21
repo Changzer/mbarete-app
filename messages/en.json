@@ -466,7 +466,16 @@
     "catalogCopySearch": "Search name, SKU, booth…",
     "catalogCopyAsOf": "As of {time}",
     "catalogCopyEmpty": "No offline copy on this phone yet. Open the catalog once while connected.",
-    "catalogCopyNoMatch": "Nothing matches."
+    "catalogCopyNoMatch": "Nothing matches.",
+    "queueTitle": "Captures on this phone",
+    "queueEmpty": "Nothing waiting — everything is on the server.",
+    "queuePhotos": "{count, plural, =1 {1 photo} other {# photos}}",
+    "queueWaiting": "Waiting for connection — uploads by itself.",
+    "queueBlocked": "The server refused this one — retry after signing in or updating, or put it aside.",
+    "queueRetry": "Try again",
+    "queueDiscard": "Remove from phone",
+    "queueDiscardConfirm": "Remove this capture from the phone? It has NOT reached the server — this cannot be undone.",
+    "catalogCopyMoqBox": "MOQ {moq} · {qty}/box"
   },
   "drafts": {
     "title": "Capture drafts",
@@ -480,6 +489,7 @@
     "openInForm": "Open in form",
     "importContact": "Create contact",
     "retryRead": "Read again",
-    "discardConfirm": "Put this capture aside? It leaves this list, but nothing is deleted."
+    "discardConfirm": "Put this capture aside? It leaves this list, but nothing is deleted.",
+    "discard": "Put aside"
   }
 }

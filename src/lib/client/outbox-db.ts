@@ -49,6 +49,12 @@ function openDb(): Promise<IDBDatabase> {
         db.close();
         opening = null;
       };
+      // The browser can also kill the connection on its own — iOS Safari does
+      // under memory pressure. Without this, the dead handle stays cached and
+      // every save fails until a full reload; with it, the next call reopens.
+      db.onclose = () => {
+        opening = null;
+      };
       resolve(db);
     };
     request.onerror = () => {

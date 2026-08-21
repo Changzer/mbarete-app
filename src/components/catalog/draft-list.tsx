@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { DraftListItem } from "@/lib/queries/drafts";
 import { discardDraft, importContactDraft, retryReadDraft } from "@/lib/actions/drafts";
+import { formatLocalMinute } from "@/lib/format-time";
 
 /**
  * The review queue: everything captured at the market that has not become a
@@ -18,7 +19,15 @@ import { discardDraft, importContactDraft, retryReadDraft } from "@/lib/actions/
  * Product drafts open pre-filled in the normal product form; contact drafts
  * import in one tap and get corrected in the contact editor if needed.
  */
-export function DraftList({ drafts }: { drafts: DraftListItem[] }) {
+export function DraftList({
+  drafts,
+  aiEnabled = false,
+}: {
+  drafts: DraftListItem[];
+  /** Whether a vision provider is configured — without one, "read again"
+   *  could only ever be a button that does nothing. */
+  aiEnabled?: boolean;
+}) {
   const t = useTranslations("drafts");
 
   if (drafts.length === 0) {
@@ -28,15 +37,14 @@ export function DraftList({ drafts }: { drafts: DraftListItem[] }) {
   return (
     <div className="flex flex-col gap-4">
       {drafts.map((draft) => (
-        <DraftCard key={draft.id} draft={draft} />
+        <DraftCard key={draft.id} draft={draft} aiEnabled={aiEnabled} />
       ))}
     </div>
   );
 }
 
-function DraftCard({ draft }: { draft: DraftListItem }) {
+function DraftCard({ draft, aiEnabled }: { draft: DraftListItem; aiEnabled: boolean }) {
   const t = useTranslations("drafts");
-  const common = useTranslations("common");
   const [isPending, startTransition] = useTransition();
   const [importError, setImportError] = useState(false);
 
@@ -53,7 +61,7 @@ function DraftCard({ draft }: { draft: DraftListItem }) {
 
   const price = draft.fields.price || (draft.transcript.price?.toString() ?? "");
   const currency = draft.fields.currency || draft.transcript.currency || "";
-  const captured = draft.capturedAt.slice(0, 16).replace("T", " ");
+  const captured = formatLocalMinute(draft.capturedAt);
 
   return (
     <div
@@ -97,7 +105,7 @@ function DraftCard({ draft }: { draft: DraftListItem }) {
             {price} {currency}
           </span>
         ) : null}
-        <span>{captured}</span>
+        <span suppressHydrationWarning>{captured}</span>
         {draft.userName ? <span>{draft.userName}</span> : null}
       </div>
 
@@ -108,8 +116,9 @@ function DraftCard({ draft }: { draft: DraftListItem }) {
       ) : null}
 
       {/* An unread draft with no error is normal (waiting for its read);
-          a recorded error means someone should press the retry. */}
-      {draft.status === "pending" && draft.transcriptError ? (
+          a recorded error means someone should press the retry. Shown for
+          read drafts too — their re-read can fail just the same. */}
+      {draft.transcriptError ? (
         <p className="text-xs text-amber-700 dark:text-amber-400" data-testid="draft-read-error">
           {t("readFailed")}
         </p>
@@ -143,16 +152,18 @@ function DraftCard({ draft }: { draft: DraftListItem }) {
           </Button>
         )}
 
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={isPending}
-          data-testid="retry-read"
-          onClick={() => startTransition(() => retryReadDraft(draft.id))}
-        >
-          <RefreshCw className="h-4 w-4" />
-          {t("retryRead")}
-        </Button>
+        {aiEnabled ? (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={isPending}
+            data-testid="retry-read"
+            onClick={() => startTransition(() => retryReadDraft(draft.id))}
+          >
+            <RefreshCw className="h-4 w-4" />
+            {t("retryRead")}
+          </Button>
+        ) : null}
 
         <Button
           variant="ghost"
@@ -166,7 +177,7 @@ function DraftCard({ draft }: { draft: DraftListItem }) {
             }
           }}
         >
-          {common("delete")}
+          {t("discard")}
         </Button>
       </div>
     </div>

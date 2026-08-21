@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -281,6 +281,9 @@ export function ProductForm({
   async function saveToPhone(formData: FormData): Promise<undefined> {
     if (!outbox) return undefined;
     if (formData.get("sku") === defaultValues?.sku) formData.set("sku", "");
+    // An unchecked checkbox posts nothing, which a draft cannot tell apart
+    // from "never captured" — so the box's state is written down explicitly.
+    formData.set("active", formData.get("active") === "on" ? "on" : "off");
     const files = formData
       .getAll("images")
       .filter((f): f is File => f instanceof File && f.size > 0)
@@ -323,19 +326,18 @@ export function ProductForm({
    * unreachable → the outbox. The probe asks the server itself because
    * `navigator.onLine` believes any wi-fi, including one with no way out.
    */
-  async function submitAction(
-    prevState: string | undefined,
-    formData: FormData,
-  ): Promise<string | undefined> {
+  async function submitAction(formData: FormData): Promise<string | undefined> {
     setOfflineSaved(null);
-    // Only registration captures offline. An edit delivered later could land
-    // on top of someone else's newer edit; edits stay online-only.
-    if (!showAddAnother || !outbox) return action(prevState, formData);
+    // Only untouched registration captures offline. An edit delivered later
+    // could land on top of someone else's newer edit, and a draft under
+    // review lives on the server (photos included) — going to the phone from
+    // either would fork the data, so both stay online-only.
+    if (!showAddAnother || !outbox || draftId) return action(undefined, formData);
 
     if (!(await probeServer())) return saveToPhone(formData);
 
     try {
-      return await action(prevState, formData);
+      return await action(undefined, formData);
     } catch (error) {
       // The link died mid-save. If the request did reach the server, this
       // re-save makes a duplicate draft — which review catches. The reverse
@@ -353,7 +355,27 @@ export function ProductForm({
     }
   }
 
-  const [errorMessage, formAction, isPending] = useActionState(submitAction, undefined);
+  const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
+  const [isPending, startTransition] = useTransition();
+
+  /**
+   * Submitted by hand rather than through `<form action>`: React 19 resets
+   * every uncontrolled field when a form action settles, which on any failed
+   * save — a duplicate SKU, and above all "could not save to this phone" —
+   * wiped the very capture the error message was telling the user to keep.
+   * Dispatching from onSubmit leaves the fields exactly as typed; the one
+   * reset this form wants (a successful save to the phone) stays explicit in
+   * saveToPhone. Browser validation still runs first, and the clicked
+   * button rides along so "save & add another" keeps its meaning.
+   */
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    const formData = new FormData(event.currentTarget, submitter);
+    startTransition(async () => {
+      setErrorMessage(await submitAction(formData));
+    });
+  }
 
   async function handleTranscribe(auto = false) {
     if (!transcribe) return;
@@ -431,7 +453,7 @@ export function ProductForm({
   const bareCbm = computeCbm(pieceDims.lengthCm, pieceDims.widthCm, pieceDims.heightCm) * perBox;
 
   return (
-    <form ref={formRef} action={formAction} className="flex flex-col gap-5 pb-20 sm:pb-0">
+    <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-5 pb-20 sm:pb-0">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="sku">{t("sku")}</Label>

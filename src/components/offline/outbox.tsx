@@ -15,12 +15,14 @@ import {
   draftToFormData,
   interpretDelivery,
   nextAttemptDelayMs,
+  retryDraft,
   unsentDrafts,
   type DraftImageField,
   type OfflineDraft,
 } from "@/lib/offline/draft";
 import {
   deleteDraft,
+  getDraft,
   listDrafts,
   mintClientId,
   putDraft,
@@ -58,6 +60,12 @@ type OutboxApi = OutboxState & {
   ) => Promise<void>;
   /** Asks for a delivery pass now (e.g. right after saving). */
   kick: () => void;
+  /** What is still on the phone, for the queue sheet. */
+  listUnsent: () => Promise<OfflineDraft[]>;
+  /** Re-arms a blocked capture by hand and delivers it immediately. */
+  retry: (clientId: string) => Promise<void>;
+  /** Removes a capture from the phone for good — always behind a confirm. */
+  discard: (clientId: string) => Promise<void>;
 };
 
 const OutboxContext = createContext<OutboxApi | null>(null);
@@ -94,7 +102,11 @@ export async function probeServer(timeoutMs = 3000): Promise<boolean> {
       signal: controller.signal,
     });
     clearTimeout(timer);
-    const ok = res.ok || res.status === 204;
+    // Strictly 204 — the only thing our HEAD handler ever answers. A captive
+    // portal's 200-with-a-login-page must read as "unreachable", both so the
+    // capture goes to the phone and so the pill (and with it the offline
+    // catalog copy) appears on portal wi-fi.
+    const ok = res.status === 204;
     lastProbe = { at: Date.now(), ok };
     return ok;
   } catch {
@@ -155,6 +167,14 @@ export function OutboxProvider({ children }: { children: React.ReactNode }) {
       do {
         dirty.current = false;
 
+        // Probed even when nothing is queued: the probe's answer doubles as
+        // the app-wide connectivity signal, and with an empty queue it is the
+        // only thing that can notice "wi-fi up, server gone" — the state that
+        // surfaces the pill and, with it, the offline catalog copy.
+        const reachable = await probeServer();
+        setState((prev) => (prev.offline === !reachable ? prev : { ...prev, offline: !reachable }));
+        if (!reachable) break;
+
         let drafts: OfflineDraft[];
         try {
           drafts = deliveryOrder(await listDrafts());
@@ -162,11 +182,6 @@ export function OutboxProvider({ children }: { children: React.ReactNode }) {
           break;
         }
         if (drafts.length === 0) break;
-
-        // The probe's answer doubles as the app-wide connectivity signal.
-        const reachable = await probeServer();
-        setState((prev) => (prev.offline === !reachable ? prev : { ...prev, offline: !reachable }));
-        if (!reachable) break;
 
         for (const draft of drafts) {
           // Pace retries: a draft that just failed waits its turn instead of
@@ -206,6 +221,12 @@ export function OutboxProvider({ children }: { children: React.ReactNode }) {
             if (status === null) {
               // The link is gone again — stop the pass instead of walking the
               // rest of the queue into the same dead socket.
+              break;
+            }
+            if (status === 401 || status === 403) {
+              // One refusal proves the session is dead for every draft in the
+              // queue — the rest would only re-upload their photos to collect
+              // the same answer, every pass, until someone signs in.
               break;
             }
           }
@@ -259,6 +280,42 @@ export function OutboxProvider({ children }: { children: React.ReactNode }) {
     [drain, refreshCounts],
   );
 
+  /** Unsent captures, newest first — the order the queue sheet shows. */
+  const listUnsent = useCallback(async () => {
+    try {
+      return unsentDrafts(await listDrafts()).sort((a, b) =>
+        b.capturedAt.localeCompare(a.capturedAt),
+      );
+    } catch {
+      return [];
+    }
+  }, []);
+
+  /**
+   * A person pressed retry on a stuck capture: back to pending with a clean
+   * slate, delivered right away. The one path a blocked draft has back into
+   * the queue — automatic passes deliberately leave blocked drafts alone.
+   */
+  const retry = useCallback(
+    async (clientId: string) => {
+      const draft = await getDraft(clientId).catch(() => undefined);
+      if (!draft || draft.status === "sent") return;
+      await putDraft(retryDraft(draft)).catch(() => {});
+      await refreshCounts();
+      void drain();
+    },
+    [drain, refreshCounts],
+  );
+
+  /** Deliberate, confirmed removal — the only delete not preceded by a 2xx. */
+  const discard = useCallback(
+    async (clientId: string) => {
+      await deleteDraft(clientId).catch(() => {});
+      await refreshCounts();
+    },
+    [refreshCounts],
+  );
+
   // Deliveries start themselves: on mount (yesterday's leftovers), when the
   // browser announces the network is back, when the app returns to the
   // foreground (walking out of the hall), and on a slow idle sweep for the
@@ -297,7 +354,7 @@ export function OutboxProvider({ children }: { children: React.ReactNode }) {
   }, [drain, refreshCounts]);
 
   return (
-    <OutboxContext.Provider value={{ ...state, enqueue, kick }}>
+    <OutboxContext.Provider value={{ ...state, enqueue, kick, listUnsent, retry, discard }}>
       {children}
     </OutboxContext.Provider>
   );

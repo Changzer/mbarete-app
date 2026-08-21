@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import type { ContactActionResult } from "@/lib/actions/contacts";
 import type { CardTranscribeResult, TranscribedContactFields } from "@/lib/transcribe-card";
 import { findSimilarContact, type MatchCandidate } from "@/lib/contact-match";
@@ -117,10 +117,7 @@ export function ContactForm({
     return {};
   }
 
-  async function wrappedAction(
-    prevState: ContactActionResult | undefined,
-    formData: FormData,
-  ) {
+  async function wrappedAction(formData: FormData): Promise<ContactActionResult> {
     setOfflineSaved(null);
 
     // Same decision as the product form: server actions cannot be queued for
@@ -128,7 +125,7 @@ export function ContactForm({
     if (offlineCapture && outbox) {
       if (!(await probeServer())) return saveToPhone(formData);
       try {
-        const result = await action(prevState, formData);
+        const result = await action(undefined, formData);
         if (!result.error) onSuccess?.(result.id);
         return result;
       } catch (error) {
@@ -147,12 +144,28 @@ export function ContactForm({
       }
     }
 
-    const result = await action(prevState, formData);
+    const result = await action(undefined, formData);
     if (!result.error) onSuccess?.(result.id);
     return result;
   }
 
-  const [result, formAction, isPending] = useActionState(wrappedAction, undefined);
+  const [result, setResult] = useState<ContactActionResult | undefined>(undefined);
+  const [isPending, startTransition] = useTransition();
+
+  /**
+   * Submitted by hand, not through `<form action>`: React 19 resets every
+   * uncontrolled field when a form action settles, which wiped the card's
+   * typed fields on any failed save — including "could not save to this
+   * phone", the one moment the fields must stay put. See the product form.
+   */
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    const formData = new FormData(event.currentTarget, submitter);
+    startTransition(async () => {
+      setResult(await wrappedAction(formData));
+    });
+  }
 
   const formRef = useRef<HTMLFormElement>(null);
   const [removed, setRemoved] = useState<number[]>([]);
@@ -317,7 +330,7 @@ export function ContactForm({
   }
 
   return (
-    <form ref={formRef} action={formAction} className="flex flex-col gap-4">
+    <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-4">
       <input type="hidden" name="type" value={type} />
 
       <div className="flex flex-col gap-2">

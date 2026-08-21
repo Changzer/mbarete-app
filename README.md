@@ -111,6 +111,10 @@ Rules that keep this reliable — worth telling every agent:
   drains — a lost or wiped phone loses whatever was still waiting. iOS can
   also evict a site's storage after ~7 days of Safari use with no visit. The
   pill going away means everything is on the NAS.
+- **Own devices only.** The offline catalog copy (with prices) and any queued
+  captures live in the browser's storage and are not removed by signing out —
+  deleting them on sign-out would also delete captures that never reached the
+  server. Don't sign in from a shared or borrowed browser.
 - The app stays usable offline only while it is **already open** — over plain
   HTTP no browser lets a page load with zero connectivity. Keep the tab/app
   open through the halls (it survives backgrounding). Putting the app behind

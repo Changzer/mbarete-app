@@ -466,7 +466,16 @@
     "catalogCopySearch": "搜索名称、SKU、摊位…",
     "catalogCopyAsOf": "更新于 {time}",
     "catalogCopyEmpty": "手机上还没有离线副本。请联网时打开一次产品目录。",
-    "catalogCopyNoMatch": "没有匹配结果。"
+    "catalogCopyNoMatch": "没有匹配结果。",
+    "queueTitle": "手机上的采集",
+    "queueEmpty": "没有待上传的采集 — 全部已在服务器上。",
+    "queuePhotos": "{count} 张照片",
+    "queueWaiting": "等待网络 — 会自动上传。",
+    "queueBlocked": "服务器拒绝了这条采集 — 登录或更新后重试，或将其移除。",
+    "queueRetry": "重试",
+    "queueDiscard": "从手机移除",
+    "queueDiscardConfirm": "确定从手机移除这条采集？它尚未到达服务器 — 此操作无法撤销。",
+    "catalogCopyMoqBox": "起订量 {moq} · 每箱 {qty}"
   },
   "drafts": {
     "title": "采集草稿",
@@ -480,6 +489,7 @@
     "openInForm": "在表单中打开",
     "importContact": "创建联系人",
     "retryRead": "重新读取",
-    "discardConfirm": "将此采集放到一边？它会从列表中消失，但不会删除任何内容。"
+    "discardConfirm": "将此采集放到一边？它会从列表中消失，但不会删除任何内容。",
+    "discard": "移出列表"
   }
 }

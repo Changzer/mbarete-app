@@ -208,14 +208,27 @@ export function unsentDrafts(drafts: OfflineDraft[]): OfflineDraft[] {
 /**
  * The order drafts are delivered in: oldest capture first.
  *
- * Blocked drafts go last so one unacceptable payload never stands between the
- * queue and a hall's worth of good captures behind it.
+ * Blocked drafts are not delivered at all. The server already refused them
+ * for a reason retrying cannot fix, so re-sending megabytes of photos on
+ * every pass would only burn battery and roaming data collecting the same
+ * refusal — the very loop `shouldRetry` exists to prevent. They wait in the
+ * queue sheet, where a person can retry one deliberately or put it aside.
  */
 export function deliveryOrder(drafts: OfflineDraft[]): OfflineDraft[] {
-  const rank = (d: OfflineDraft) => (d.status === "blocked" ? 1 : 0);
   return [...drafts]
-    .filter((d) => d.status !== "sent")
-    .sort((a, b) => rank(a) - rank(b) || a.capturedAt.localeCompare(b.capturedAt));
+    .filter((d) => d.status === "pending")
+    .sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
+}
+
+/**
+ * A blocked draft, re-armed by hand.
+ *
+ * Attempts restart from zero so the first delivery is immediate — the person
+ * pressing retry has usually just fixed something (signed in on another tab,
+ * updated the app) and deserves the answer now, not after old backoff.
+ */
+export function retryDraft(draft: OfflineDraft): OfflineDraft {
+  return { ...draft, status: "pending", attempts: 0, lastError: undefined };
 }
 
 /** Bytes held on the phone, for the storage figure shown next to the queue. */

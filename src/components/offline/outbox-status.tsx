@@ -5,6 +5,7 @@ import { BookOpen, CloudOff, Loader2, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useOutbox } from "@/components/offline/outbox";
 import { OfflineCatalog } from "@/components/offline/offline-catalog";
+import { OutboxQueue } from "@/components/offline/outbox-queue";
 
 /**
  * The offline machinery's one visible surface: a strip that exists only while
@@ -19,6 +20,7 @@ export function OutboxStatus() {
   const t = useTranslations("offline");
   const outbox = useOutbox();
   const [catalogOpen, setCatalogOpen] = useState(false);
+  const [queueOpen, setQueueOpen] = useState(false);
 
   if (!outbox) return null;
   if (outbox.pending === 0 && !outbox.offline) return null;
@@ -45,14 +47,24 @@ export function OutboxStatus() {
         data-testid="outbox-status"
         className="fixed bottom-32 right-3 z-40 flex max-w-[calc(100vw-1.5rem)] items-center gap-2 rounded-full border border-amber-300 bg-amber-50 py-1.5 pl-3 pr-1.5 text-sm text-amber-900 shadow-lg dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200 md:bottom-3"
       >
-        {outbox.syncing ? (
-          <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-        ) : outbox.blocked > 0 || outbox.needsSignIn ? (
-          <TriangleAlert className="h-4 w-4 shrink-0" />
-        ) : (
-          <CloudOff className="h-4 w-4 shrink-0" />
-        )}
-        <span className="min-w-0 truncate">{label}</span>
+        {/* The label opens the phone's own queue — the only place a stuck
+            capture can be seen, retried, or deliberately given up on. */}
+        <button
+          type="button"
+          data-testid="open-outbox-queue"
+          onClick={() => setQueueOpen(true)}
+          className="flex min-w-0 items-center gap-2"
+          disabled={outbox.pending === 0}
+        >
+          {outbox.syncing ? (
+            <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+          ) : outbox.blocked > 0 || outbox.needsSignIn ? (
+            <TriangleAlert className="h-4 w-4 shrink-0" />
+          ) : (
+            <CloudOff className="h-4 w-4 shrink-0" />
+          )}
+          <span className="min-w-0 truncate">{label}</span>
+        </button>
         {outbox.offline ? (
           <button
             type="button"
@@ -67,6 +79,7 @@ export function OutboxStatus() {
       </div>
 
       <OfflineCatalog open={catalogOpen} onOpenChange={setCatalogOpen} />
+      <OutboxQueue open={queueOpen} onOpenChange={setQueueOpen} />
     </>
   );
 }

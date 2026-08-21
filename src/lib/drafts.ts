@@ -1,6 +1,6 @@
 import path from "node:path";
 import fs from "node:fs/promises";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { captureDrafts, captureDraftImages } from "@/db/schema";
 import { saveUploadedImage, deleteUpload, uploadsDir, CONTENT_TYPES } from "@/lib/uploads";
@@ -69,23 +69,36 @@ export async function ingestDraft(input: {
     return { ok: false, error: "image-error" };
   }
 
+  // One transaction for the row and its photos: the duplicate answer above
+  // vouches for whatever an earlier delivery left behind, so a draft must
+  // never exist without its images — half-committed, a retry would be told
+  // "already have it" and the phone would delete its only complete copy.
   let draftId: number;
   try {
-    const inserted = db
-      .insert(captureDrafts)
-      .values({
-        clientId: input.clientId,
-        kind: input.kind,
-        userId: input.userId,
-        fields: JSON.stringify(input.fields),
-        capturedAt: input.capturedAt,
-        updatedAt: new Date().toISOString(),
-      })
-      .run();
-    draftId = Number(inserted.lastInsertRowid);
+    draftId = db.transaction((tx) => {
+      const inserted = tx
+        .insert(captureDrafts)
+        .values({
+          clientId: input.clientId,
+          kind: input.kind,
+          userId: input.userId,
+          fields: JSON.stringify(input.fields),
+          capturedAt: input.capturedAt,
+          updatedAt: new Date().toISOString(),
+        })
+        .run();
+      const id = Number(inserted.lastInsertRowid);
+      paths.forEach((stored, i) => {
+        tx.insert(captureDraftImages)
+          .values({ draftId: id, path: stored.path, role: stored.role, sortOrder: i })
+          .run();
+      });
+      return id;
+    });
   } catch {
-    // Two deliveries of the same capture raced and the other won. The capture
-    // is stored either way, which is all the phone needs to hear.
+    // Two deliveries of the same capture raced and the other won — or the
+    // write itself failed and nothing at all was stored. Either way this
+    // attempt's files are cleaned up before answering.
     for (const stored of paths) await deleteUpload(stored.path);
     const row = db
       .select({ id: captureDrafts.id })
@@ -96,12 +109,6 @@ export async function ingestDraft(input: {
       ? { ok: true, draftId: row.id, duplicate: true }
       : { ok: false, error: "invalid" };
   }
-
-  paths.forEach((stored, i) => {
-    db.insert(captureDraftImages)
-      .values({ draftId, path: stored.path, role: stored.role, sortOrder: i })
-      .run();
-  });
 
   return { ok: true, draftId, duplicate: false };
 }
@@ -173,6 +180,10 @@ export async function readDraft(draftId: number): Promise<void> {
       fields = result.fields;
       notes = result.notes;
     }
+    // Guarded against the read racing the reviewer: the AI call takes
+    // seconds, and the draft may have been imported or discarded meanwhile.
+    // Writing "read" over either would resurrect a settled draft — worse,
+    // one whose photos have already moved to the product or contact.
     db.update(captureDrafts)
       .set({
         status: "read",
@@ -181,7 +192,12 @@ export async function readDraft(draftId: number): Promise<void> {
         transcriptError: "",
         updatedAt: new Date().toISOString(),
       })
-      .where(eq(captureDrafts.id, draftId))
+      .where(
+        and(
+          eq(captureDrafts.id, draftId),
+          inArray(captureDrafts.status, ["pending", "read"]),
+        ),
+      )
       .run();
   } catch {
     // Network trouble, a refused request, malformed output — all the same to
