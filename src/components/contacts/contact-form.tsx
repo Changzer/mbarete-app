@@ -162,6 +162,15 @@ export function ContactForm({
     event.preventDefault();
     const submitter = (event.nativeEvent as SubmitEvent).submitter;
     const formData = new FormData(event.currentTarget, submitter);
+    // Browsers before Chrome 112 / Safari 16.4 ignore the submitter argument;
+    // carried by hand so a named submit button keeps its meaning there too.
+    if (
+      submitter instanceof HTMLButtonElement &&
+      submitter.name &&
+      !formData.has(submitter.name)
+    ) {
+      formData.append(submitter.name, submitter.value);
+    }
     startTransition(async () => {
       setResult(await wrappedAction(formData));
     });

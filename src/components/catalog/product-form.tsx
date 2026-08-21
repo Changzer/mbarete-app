@@ -372,6 +372,15 @@ export function ProductForm({
     event.preventDefault();
     const submitter = (event.nativeEvent as SubmitEvent).submitter;
     const formData = new FormData(event.currentTarget, submitter);
+    // Browsers before Chrome 112 / Safari 16.4 silently ignore the submitter
+    // argument, which would strip "save & add another" of its meaning.
+    if (
+      submitter instanceof HTMLButtonElement &&
+      submitter.name &&
+      !formData.has(submitter.name)
+    ) {
+      formData.append(submitter.name, submitter.value);
+    }
     startTransition(async () => {
       setErrorMessage(await submitAction(formData));
     });
