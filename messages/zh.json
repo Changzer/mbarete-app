@@ -318,7 +318,10 @@
     "totalsTitle": "合计",
     "rateSnapshot": "汇率已在建单时锁定为 {rate}。",
     "belowMoqBlocks": "有一行低于起订量 — 可存草稿，但不能确认。",
-    "actions": "操作"
+    "actions": "操作",
+    "exportXlsx": "导出 Excel",
+    "exportPdf": "导出 PDF",
+    "exportSellMissingWarning": "有 {count} 个品项未填写销售价 — 导出文件将显示这些品项的成本价。仍要导出吗？"
   },
   "settings": {
     "exchangeRates": "汇率",
@@ -336,7 +339,10 @@
     "lastAutoUpdate": "上次自动更新：{when}",
     "neverAutoUpdated": "尚未自动更新——正在使用初始/手动汇率。",
     "sourceAuto": "自动",
-    "sourceManual": "手动"
+    "sourceManual": "手动",
+    "dataExport": "数据导出",
+    "dataExportHelp": "将本公司的全部数据下载为 CSV 压缩包 — 产品、联系人、订单、付款和历史记录。数据属于您；请保留一份作为备份。",
+    "dataExportButton": "下载备份 (CSV)"
   },
   "users": {
     "title": "用户",
@@ -436,7 +442,8 @@
     "bankName": "开户银行",
     "bankAccountNumber": "账号",
     "bankSwift": "SWIFT",
-    "equivalent": "折合"
+    "equivalent": "折合",
+    "validityNote": "价格自开具之日起 {days} 天内有效。"
   },
   "finance": {
     "documents": "单据",

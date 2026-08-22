@@ -50,6 +50,22 @@ export default async function SettingsPage() {
         </h2>
         <ExchangeRateManager rates={rates} />
       </section>
+
+      <section>
+        <h2 className="mb-2 text-[23px] font-extrabold tracking-tight text-ink">
+          {t("dataExport")}
+        </h2>
+        <p className="mb-4 text-sm text-sub">{t("dataExportHelp")}</p>
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- a
+            file download from a route handler, not a page navigation */}
+        <a
+          href="/api/export/backup"
+          className="inline-flex h-9 items-center rounded-md border border-line bg-surface px-4 text-sm font-medium text-ink hover:bg-surface-2"
+          data-testid="backup-export"
+        >
+          {t("dataExportButton")}
+        </a>
+      </section>
     </div>
   );
 }
