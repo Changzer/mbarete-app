@@ -13,20 +13,22 @@ import { saveCatalogSnapshot, type CachedProduct } from "@/lib/client/catalog-ca
 export function CatalogSnapshot({
   products,
   complete,
+  storageScope,
 }: {
   products: CachedProduct[];
   complete: boolean;
+  storageScope: string;
 }) {
   useEffect(() => {
     if (!complete) return;
     const timer = setTimeout(() => {
-      saveCatalogSnapshot(products).catch(() => {
+      saveCatalogSnapshot(storageScope, products).catch(() => {
         // No IndexedDB (private mode): the live page still works; only the
         // offline copy is unavailable, and the sheet says so when opened.
       });
     }, 0);
     return () => clearTimeout(timer);
-  }, [products, complete]);
+  }, [products, complete, storageScope]);
 
   return null;
 }

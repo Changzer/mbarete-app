@@ -55,7 +55,7 @@ export default async function LocaleLayout({
               It lives in the layout so queued captures keep draining wherever
               in the app the agent happens to be when the signal returns. */}
           {session?.user ? (
-            <OutboxProvider>
+            <OutboxProvider storageScope={`${user!.companyId}:${user!.id}`}>
               <ToastProvider>
                <RoleProvider role={user?.role ?? "collaborator"}>
                 <AppNav userName={session.user.name ?? ""} role={user?.role ?? "collaborator"} />

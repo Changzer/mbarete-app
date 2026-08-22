@@ -52,6 +52,7 @@ export type OutboxState = {
 };
 
 type OutboxApi = OutboxState & {
+  storageScope: string;
   /** Stores a capture durably and starts trying to deliver it. */
   enqueue: (
     kind: "product" | "contact",
@@ -127,7 +128,13 @@ export function forgetProbeMemory() {
 /** How often to look for deliverable drafts even with no event to go on. */
 const IDLE_SWEEP_MS = 30_000;
 
-export function OutboxProvider({ children }: { children: React.ReactNode }) {
+export function OutboxProvider({
+  children,
+  storageScope,
+}: {
+  children: React.ReactNode;
+  storageScope: string;
+}) {
   const [state, setState] = useState<OutboxState>({
     pending: 0,
     blocked: 0,
@@ -143,7 +150,7 @@ export function OutboxProvider({ children }: { children: React.ReactNode }) {
 
   const refreshCounts = useCallback(async () => {
     try {
-      const drafts = await listDrafts();
+      const drafts = await listDrafts(storageScope);
       const open = unsentDrafts(drafts);
       setState((prev) => ({
         ...prev,
@@ -153,7 +160,7 @@ export function OutboxProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // IndexedDB unavailable (private mode): nothing to count.
     }
-  }, []);
+  }, [storageScope]);
 
   const drain = useCallback(async () => {
     if (draining.current) {
@@ -177,7 +184,7 @@ export function OutboxProvider({ children }: { children: React.ReactNode }) {
 
         let drafts: OfflineDraft[];
         try {
-          drafts = deliveryOrder(await listDrafts());
+          drafts = deliveryOrder(await listDrafts(storageScope));
         } catch {
           break;
         }
@@ -215,9 +222,9 @@ export function OutboxProvider({ children }: { children: React.ReactNode }) {
 
           if (after.status === "sent") {
             // The server holds it; only now does the phone let go.
-            await deleteDraft(draft.clientId).catch(() => {});
+            await deleteDraft(storageScope, draft.clientId).catch(() => {});
           } else {
-            await putDraft(after).catch(() => {});
+            await putDraft(storageScope, after).catch(() => {});
             if (status === null) {
               // The link is gone again — stop the pass instead of walking the
               // rest of the queue into the same dead socket.
@@ -238,7 +245,7 @@ export function OutboxProvider({ children }: { children: React.ReactNode }) {
       draining.current = false;
       setState((prev) => ({ ...prev, syncing: false }));
     }
-  }, [refreshCounts]);
+  }, [refreshCounts, storageScope]);
 
   const kick = useCallback(() => {
     void drain();
@@ -273,23 +280,23 @@ export function OutboxProvider({ children }: { children: React.ReactNode }) {
 
       // If this throws, the caller must NOT pretend the save happened — the
       // capture form keeps everything on screen and says so.
-      await putDraft(draft);
+      await putDraft(storageScope, draft);
       await refreshCounts();
       void drain();
     },
-    [drain, refreshCounts],
+    [drain, refreshCounts, storageScope],
   );
 
   /** Unsent captures, newest first — the order the queue sheet shows. */
   const listUnsent = useCallback(async () => {
     try {
-      return unsentDrafts(await listDrafts()).sort((a, b) =>
+      return unsentDrafts(await listDrafts(storageScope)).sort((a, b) =>
         b.capturedAt.localeCompare(a.capturedAt),
       );
     } catch {
       return [];
     }
-  }, []);
+  }, [storageScope]);
 
   /**
    * A person pressed retry on a stuck capture: back to pending with a clean
@@ -298,22 +305,22 @@ export function OutboxProvider({ children }: { children: React.ReactNode }) {
    */
   const retry = useCallback(
     async (clientId: string) => {
-      const draft = await getDraft(clientId).catch(() => undefined);
+      const draft = await getDraft(storageScope, clientId).catch(() => undefined);
       if (!draft || draft.status === "sent") return;
-      await putDraft(retryDraft(draft)).catch(() => {});
+      await putDraft(storageScope, retryDraft(draft)).catch(() => {});
       await refreshCounts();
       void drain();
     },
-    [drain, refreshCounts],
+    [drain, refreshCounts, storageScope],
   );
 
   /** Deliberate, confirmed removal — the only delete not preceded by a 2xx. */
   const discard = useCallback(
     async (clientId: string) => {
-      await deleteDraft(clientId).catch(() => {});
+      await deleteDraft(storageScope, clientId).catch(() => {});
       await refreshCounts();
     },
-    [refreshCounts],
+    [refreshCounts, storageScope],
   );
 
   // Deliveries start themselves: on mount (yesterday's leftovers), when the
@@ -354,7 +361,9 @@ export function OutboxProvider({ children }: { children: React.ReactNode }) {
   }, [drain, refreshCounts]);
 
   return (
-    <OutboxContext.Provider value={{ ...state, enqueue, kick, listUnsent, retry, discard }}>
+    <OutboxContext.Provider
+      value={{ ...state, storageScope, enqueue, kick, listUnsent, retry, discard }}
+    >
       {children}
     </OutboxContext.Provider>
   );

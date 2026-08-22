@@ -22,8 +22,11 @@ import type { OfflineDraft } from "@/lib/offline/draft";
  */
 
 const DB_NAME = "mbarete-outbox";
-const DB_VERSION = 1;
-const STORE = "drafts";
+const DB_VERSION = 2;
+// Keep the v1 store untouched. Its rows predate tenant scoping, so there is no
+// safe way to decide which account owns them. Replaying one after a different
+// company signs in would be worse than leaving it quarantined on the device.
+const STORE = "scoped-drafts";
 
 let opening: Promise<IDBDatabase> | null = null;
 
@@ -38,7 +41,8 @@ function openDb(): Promise<IDBDatabase> {
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains(STORE)) {
-        db.createObjectStore(STORE, { keyPath: "clientId" });
+        const store = db.createObjectStore(STORE, { keyPath: ["scope", "clientId"] });
+        store.createIndex("by-scope", "scope");
       }
     };
     request.onsuccess = () => {
@@ -91,30 +95,36 @@ function transactionDone(tx: IDBTransaction): Promise<void> {
  * Writes a draft and resolves only once the transaction has committed. The
  * capture form must not tell the agent "saved, go ahead" before that.
  */
-export async function putDraft(draft: OfflineDraft): Promise<void> {
+type StoredDraft = OfflineDraft & { scope: string };
+
+export async function putDraft(scope: string, draft: OfflineDraft): Promise<void> {
   const db = await openDb();
   const tx = db.transaction(STORE, "readwrite");
-  tx.objectStore(STORE).put(draft);
+  tx.objectStore(STORE).put({ ...draft, scope } satisfies StoredDraft);
   await transactionDone(tx);
 }
 
-export async function getDraft(clientId: string): Promise<OfflineDraft | undefined> {
+export async function getDraft(scope: string, clientId: string): Promise<OfflineDraft | undefined> {
   const db = await openDb();
   const tx = db.transaction(STORE, "readonly");
-  return requestDone(tx.objectStore(STORE).get(clientId) as IDBRequest<OfflineDraft | undefined>);
+  return requestDone(
+    tx.objectStore(STORE).get([scope, clientId]) as IDBRequest<StoredDraft | undefined>,
+  );
 }
 
-export async function listDrafts(): Promise<OfflineDraft[]> {
+export async function listDrafts(scope: string): Promise<OfflineDraft[]> {
   const db = await openDb();
   const tx = db.transaction(STORE, "readonly");
-  return requestDone(tx.objectStore(STORE).getAll() as IDBRequest<OfflineDraft[]>);
+  return requestDone(
+    tx.objectStore(STORE).index("by-scope").getAll(scope) as IDBRequest<StoredDraft[]>,
+  );
 }
 
 /** Only ever called after the server has confirmed it holds the capture. */
-export async function deleteDraft(clientId: string): Promise<void> {
+export async function deleteDraft(scope: string, clientId: string): Promise<void> {
   const db = await openDb();
   const tx = db.transaction(STORE, "readwrite");
-  tx.objectStore(STORE).delete(clientId);
+  tx.objectStore(STORE).delete([scope, clientId]);
   await transactionDone(tx);
 }
 
