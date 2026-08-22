@@ -86,6 +86,16 @@ export function isGatedUploadName(name: string) {
   return isReceiptUploadName(name) || isDocumentUploadName(name);
 }
 
+/** Whether reading a stored path requires an authenticated owner check. */
+export function requiresUploadAuth(name: string) {
+  const ext = name.split(".").pop() ?? "";
+  return (
+    uploadCompanyId(name) !== null ||
+    isGatedUploadName(name) ||
+    new Set(["pdf", "xlsx", "xls", "docx"]).has(ext)
+  );
+}
+
 export async function saveUploadedImage(companyId: number, file: File): Promise<string> {
   return saveUpload(companyId, file, ALLOWED_TYPES, MAX_IMAGE_BYTES);
 }
@@ -159,4 +169,15 @@ export async function deleteUpload(publicPath: string) {
   if (!isSafeUploadName(filename)) return;
   const target = path.join(/* turbopackIgnore: true */ uploadsDir(), filename);
   await fs.unlink(/* turbopackIgnore: true */ target).catch(() => {});
+
+  // Resized variants use this deterministic prefix. They are derived data,
+  // so deleting the original must not leave them consuming the NAS volume.
+  const variantDir = path.join(/* turbopackIgnore: true */ uploadsDir(), ".variants");
+  const prefix = `${filename.replace("/", "--")}-`;
+  const variants = await fs.readdir(/* turbopackIgnore: true */ variantDir).catch(() => []);
+  await Promise.all(
+    variants
+      .filter((name) => name.startsWith(prefix))
+      .map((name) => fs.unlink(path.join(variantDir, name)).catch(() => {})),
+  );
 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
+import { authenticatedUploadLoader } from "@/lib/client/upload-image-loader";
 import { ChevronLeft, ChevronRight, ImageOff, Maximize2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
@@ -150,6 +151,7 @@ export function ProductCard({
                 >
                   <Image
                     src={product.images[index]}
+                    loader={authenticatedUploadLoader}
                     alt={`${product.name} ${index + 1}/${count}`}
                     fill
                     sizes="(max-width: 640px) 90vw, 512px"
@@ -196,7 +198,14 @@ export function ProductCard({
                         i === index ? "border-action" : "border-line"
                       }`}
                     >
-                      <Image src={src} alt="" fill sizes="56px" className="object-cover" />
+                      <Image
+                        src={src}
+                        alt=""
+                        fill
+                        sizes="56px"
+                        className="object-cover"
+                        loader={authenticatedUploadLoader}
+                      />
                     </button>
                   ))}
                 </div>
@@ -344,6 +353,7 @@ export function ProductCard({
               >
                 <Image
                   src={product.images[index]}
+                  loader={authenticatedUploadLoader}
                   alt={`${product.name} ${index + 1}/${count}`}
                   fill
                   sizes="96vw"
@@ -394,7 +404,14 @@ export function ProductCard({
             <div className="flex items-center gap-2.5">
               <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-[6px] bg-surface-2">
                 {count > 0 ? (
-                  <Image src={product.images[0]} alt="" fill sizes="40px" className="object-cover" />
+                  <Image
+                    src={product.images[0]}
+                    alt=""
+                    fill
+                    sizes="40px"
+                    className="object-cover"
+                    loader={authenticatedUploadLoader}
+                  />
                 ) : null}
               </span>
               <span className="min-w-0">
@@ -444,6 +461,7 @@ export function ProductCard({
           {count > 0 ? (
             <Image
               src={product.images[0]}
+              loader={authenticatedUploadLoader}
               alt=""
               fill
               sizes="74px"
