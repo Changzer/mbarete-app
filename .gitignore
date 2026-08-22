@@ -40,6 +40,7 @@ yarn-error.log*
 # app data (sqlite db + uploaded images, persisted via Docker volumes at runtime)
 /data
 /public/uploads
+/uploads
 
 # typescript
 *.tsbuildinfo
