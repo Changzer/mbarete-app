@@ -50,11 +50,14 @@ export const categorySchema = z.object({
   nameZh: z.string().min(1),
 });
 
-export const contactSchema = z.object({
+export const contactSchema = z
+  .object({
   type: z.enum(["supplier", "client"]),
-  companyName: z.string().min(1),
-  companyNameZh: z.string().default(""),
-  contactPerson: z.string().default(""),
+  // Either language's company name — or just the person — is identity
+  // enough for a market-floor capture; the card photo carries the rest.
+  companyName: z.string().trim().default(""),
+  companyNameZh: z.string().trim().default(""),
+  contactPerson: z.string().trim().default(""),
   phone: z.string().default(""),
   email: z.string().default(""),
   whatsapp: z.string().default(""),
@@ -62,4 +65,7 @@ export const contactSchema = z.object({
   boothLocation: z.string().default(""),
   bankInfo: z.string().default(""),
   notes: z.string().default(""),
-});
+  })
+  .refine((c) => c.companyName || c.companyNameZh || c.contactPerson, {
+    message: "some identity is required",
+  });

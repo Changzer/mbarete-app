@@ -14,7 +14,7 @@ async function requireSession() {
 }
 
 function formToContactInput(formData: FormData) {
-  return contactSchema.parse({
+  const data = contactSchema.parse({
     type: formData.get("type"),
     companyName: formData.get("companyName"),
     companyNameZh: formData.get("companyNameZh") ?? "",
@@ -27,6 +27,10 @@ function formToContactInput(formData: FormData) {
     bankInfo: formData.get("bankInfo") ?? "",
     notes: formData.get("notes") ?? "",
   });
+  // A capture may arrive with only a Chinese name or only a person — the
+  // stored English slot is backfilled so no list ever shows a blank row.
+  if (!data.companyName) data.companyName = data.companyNameZh || data.contactPerson;
+  return data;
 }
 
 /** Saves every non-empty file under `cardImages`, preserving the chosen order. */

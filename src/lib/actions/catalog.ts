@@ -73,11 +73,13 @@ function formToProductInput(formData: FormData) {
     categoryId: formData.get("categoryId"),
     descriptionEn: formData.get("descriptionEn") ?? "",
     descriptionZh: formData.get("descriptionZh") ?? "",
-    price: dec(formData.get("price")),
+    // Market-floor captures may carry no price yet: blank means "not quoted",
+    // stored as 0 and visibly missing, never a reason to block the save.
+    price: dec(formData.get("price")) || 0,
     sellPrice: dec(formData.get("sellPrice")) || 0,
     currency: formData.get("currency"),
-    moq: formData.get("moq"),
-    qtyPerBox: formData.get("qtyPerBox"),
+    moq: formData.get("moq") || 1,
+    qtyPerBox: formData.get("qtyPerBox") || 1,
     lengthCm: dec(formData.get("lengthCm")) || 0,
     widthCm: dec(formData.get("widthCm")) || 0,
     heightCm: dec(formData.get("heightCm")) || 0,
@@ -197,14 +199,19 @@ export async function createProduct(
   let data;
   try {
     data = formToProductInput(formData);
-  } catch {
+  } catch (error) {
+    // "invalid" on the phone is undebuggable without the server knowing why.
+    console.error("[product] form rejected:", error);
     return "invalid";
   }
 
   const carton = resolveCartonFigures(data);
 
   const supplierId = await resolveSupplierId(user.companyId, data.supplierId);
-  if (supplierId === undefined) return "invalid";
+  if (supplierId === undefined) {
+    console.error("[product] rejected: supplier", data.supplierId, "not visible to company", user.companyId);
+    return "invalid";
+  }
 
   // A form can post any category id; only this company's count.
   const category = await db
@@ -213,7 +220,10 @@ export async function createProduct(
     .where(and(eq(categories.companyId, user.companyId), eq(categories.id, data.categoryId)))
     .limit(1)
     .then(one);
-  if (!category) return "invalid";
+  if (!category) {
+    console.error("[product] rejected: category", data.categoryId, "not visible to company", user.companyId);
+    return "invalid";
+  }
 
   // Left blank on purpose, or cleared while entering products in a hurry.
   const sku = data.sku || (await suggestNextSku(user.companyId));
@@ -357,14 +367,19 @@ export async function updateProduct(
   let data;
   try {
     data = formToProductInput(formData);
-  } catch {
+  } catch (error) {
+    // "invalid" on the phone is undebuggable without the server knowing why.
+    console.error("[product] form rejected:", error);
     return "invalid";
   }
 
   const carton = resolveCartonFigures(data);
 
   const supplierId = await resolveSupplierId(user.companyId, data.supplierId);
-  if (supplierId === undefined) return "invalid";
+  if (supplierId === undefined) {
+    console.error("[product] rejected: supplier", data.supplierId, "not visible to company", user.companyId);
+    return "invalid";
+  }
 
   // A form can post any category id; only this company's count.
   const category = await db
@@ -373,7 +388,10 @@ export async function updateProduct(
     .where(and(eq(categories.companyId, user.companyId), eq(categories.id, data.categoryId)))
     .limit(1)
     .then(one);
-  if (!category) return "invalid";
+  if (!category) {
+    console.error("[product] rejected: category", data.categoryId, "not visible to company", user.companyId);
+    return "invalid";
+  }
 
   const existing = await db
     .select()

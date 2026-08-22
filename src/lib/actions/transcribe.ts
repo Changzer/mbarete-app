@@ -57,9 +57,12 @@ export async function transcribeProduct(formData: FormData): Promise<TranscribeR
       images,
       categories.map((c) => ({ id: c.id, nameEn: c.nameEn, nameZh: c.nameZh })),
     );
-  } catch {
+  } catch (error) {
     // Network trouble, a refused request, malformed output — the form still
     // works by hand, so every failure collapses to one retryable message.
+    // The cause goes to the server log: "could not read the photos" on the
+    // phone is undebuggable without it.
+    console.error("[transcribe] failed:", error);
     return { ok: false, error: "failed" };
   }
 
@@ -101,7 +104,8 @@ export async function transcribeCard(formData: FormData): Promise<CardTranscribe
 
   try {
     return await transcribeBusinessCard(images);
-  } catch {
+  } catch (error) {
+    console.error("[transcribe] card failed:", error);
     return { ok: false, error: "failed" };
   }
 }
