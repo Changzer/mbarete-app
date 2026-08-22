@@ -54,6 +54,10 @@ export default async function FinancePage({
     { label: t("tileReceivables"), value: money(report.totals.receivables), tone: report.totals.receivables > 0.005 ? "warn" : undefined },
     { label: t("tilePayables"), value: money(report.totals.payables), tone: report.totals.payables > 0.005 ? "warn" : undefined },
     { label: t("tileNetCash"), value: money(report.totals.netCash), tone: report.totals.netCash >= 0 ? "good" : "bad" },
+    {
+      label: t("tileQuoted", { count: report.totals.quotedOrders }),
+      value: money(report.totals.quotedRevenue),
+    },
   ];
 
   return (
@@ -89,7 +93,7 @@ export default async function FinancePage({
       ) : null}
 
       {/* --- headline tiles --- */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5" data-testid="tiles">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-6" data-testid="tiles">
         {tiles.map((tile) => (
           <div key={tile.label} className={box}>
             <div className="text-xs text-sub">{tile.label}</div>
