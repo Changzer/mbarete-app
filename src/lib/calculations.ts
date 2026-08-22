@@ -89,14 +89,31 @@ export function lineWeightKg(product: ProductForCalc, quantity: number) {
   return (quantity / product.qtyPerBox) * product.weightKg;
 }
 
+/**
+ * A money value rounded to its currency's smallest unit.
+ *
+ * This is where cent-exactness lives: prices and amounts are stored as exact
+ * decimals (numeric columns) and every computed money figure passes through
+ * here before it is stored, summed into a report, or shown. Sums of exact
+ * cents are themselves exact in a double up to far beyond any real order
+ * book, so rounding at the boundaries is all it takes — no decimal library
+ * in the middle.
+ */
+export function roundMoney(value: number, decimals = 2) {
+  const factor = 10 ** decimals;
+  // The epsilon nudge keeps values that are exactly-representable halves
+  // (e.g. 1.005 stored as 1.00499999…) rounding the way the person typed them.
+  return Math.round((value + Number.EPSILON * Math.sign(value)) * factor) / factor;
+}
+
 /** What the supplier charges for this line. */
 export function lineTotal(product: ProductForCalc, quantity: number) {
-  return product.price * quantity;
+  return roundMoney(product.price * quantity);
 }
 
 /** What the client is invoiced for this line. */
 export function lineSellTotal(product: ProductForCalc, quantity: number) {
-  return sellUnitPrice(product) * quantity;
+  return roundMoney(sellUnitPrice(product) * quantity);
 }
 
 /** currency code -> how many USD one unit is worth (e.g. CNY: 0.14) */
@@ -208,9 +225,13 @@ export function computeOrderTotals(
 
   // Commission is charged on what the client is invoiced, so it stacks on
   // top of any per-line markup rather than replacing it.
+  // Conversions run unrounded; each final figure lands on exact cents, and
+  // grand total = goods + commission holds to the cent by construction.
   for (const target of targetCurrencies) {
-    commission[target] = goods[target] * (commissionPct / 100);
-    grandTotal[target] = goods[target] + commission[target];
+    goods[target] = roundMoney(goods[target]);
+    cost[target] = roundMoney(cost[target]);
+    commission[target] = roundMoney(goods[target] * (commissionPct / 100));
+    grandTotal[target] = roundMoney(goods[target] + commission[target]);
   }
 
   return {
@@ -287,8 +308,8 @@ export function computeSnapshotTotals(
     if (isBelowMoq(line.quantity, line.moq)) hasMoqViolation = true;
 
     const sellUnit = line.sellPrice && line.sellPrice > 0 ? line.sellPrice : line.unitPrice;
-    const rawSell = sellUnit * line.quantity;
-    const rawCost = line.unitPrice * line.quantity;
+    const rawSell = roundMoney(sellUnit * line.quantity);
+    const rawCost = roundMoney(line.unitPrice * line.quantity);
     for (const target of targetCurrencies) {
       try {
         goods[target] += convert(rawSell, line.currency, target, rates);
@@ -303,9 +324,13 @@ export function computeSnapshotTotals(
     }
   }
 
+  // Conversions run unrounded; each final figure lands on exact cents, and
+  // grand total = goods + commission holds to the cent by construction.
   for (const target of targetCurrencies) {
-    commission[target] = goods[target] * (commissionPct / 100);
-    grandTotal[target] = goods[target] + commission[target];
+    goods[target] = roundMoney(goods[target]);
+    cost[target] = roundMoney(cost[target]);
+    commission[target] = roundMoney(goods[target] * (commissionPct / 100));
+    grandTotal[target] = roundMoney(goods[target] + commission[target]);
   }
 
   return {
