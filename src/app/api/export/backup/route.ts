@@ -7,6 +7,12 @@ import { pool } from "@/db";
 import { sessionUser } from "@/lib/authz";
 import { uploadsDir } from "@/lib/uploads";
 import { isSaas } from "@/lib/deploy";
+import { makeLimiter } from "@/lib/rate-limit";
+
+// A backup walks every table and streams every file the company owns —
+// the single heaviest thing the app does. Nobody backs up more than a few
+// times an hour by hand.
+const backupLimiter = makeLimiter({ max: 5, windowMs: 60 * 60 * 1000 });
 
 /**
  * GET /api/export/backup — the whole tenant as one zip, admin-only.
@@ -76,6 +82,9 @@ export async function GET() {
   const user = await sessionUser();
   if (!user) return new NextResponse("Unauthorized", { status: 401 });
   if (user.role !== "admin") return new NextResponse("Forbidden", { status: 403 });
+  if (backupLimiter.hit(`u${user.id}`)) {
+    return new NextResponse("Too Many Requests", { status: 429, headers: { "Retry-After": "3600" } });
+  }
 
   const archive = new ZipArchive({ zlib: { level: 6 } });
 

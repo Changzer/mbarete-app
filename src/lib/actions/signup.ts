@@ -1,7 +1,6 @@
 "use server";
 
 import { z } from "zod";
-import { headers } from "next/headers";
 import { AuthError } from "next-auth";
 import { db, one } from "@/db";
 import { users } from "@/db/schema";
@@ -9,6 +8,7 @@ import { eq } from "drizzle-orm";
 import { signIn } from "@/lib/auth";
 import { createCompanyWithOwner } from "@/lib/company";
 import { isSaas, signupCode } from "@/lib/deploy";
+import { makeLimiter, clientIp } from "@/lib/rate-limit";
 
 export type SignupError =
   | "closed"
@@ -30,35 +30,8 @@ const signupSchema = z.object({
   code: z.string().default(""),
 });
 
-/**
- * A brake on a public signup form: a handful of attempts per IP per window.
- * In-memory on purpose — the app is a single process, and a restart clearing
- * the counters costs an abuser their progress, not us our safety.
- */
-const SIGNUP_MAX = 5;
-const SIGNUP_WINDOW_MS = 60 * 60 * 1000;
-const attempts = new Map<string, { count: number; first: number }>();
-
-function rateLimited(ip: string): boolean {
-  const now = Date.now();
-  if (attempts.size > 5000) {
-    for (const [k, v] of attempts) if (now - v.first > SIGNUP_WINDOW_MS) attempts.delete(k);
-  }
-  const entry = attempts.get(ip);
-  if (!entry || now - entry.first > SIGNUP_WINDOW_MS) {
-    attempts.set(ip, { count: 1, first: now });
-    return false;
-  }
-  entry.count += 1;
-  return entry.count > SIGNUP_MAX;
-}
-
-async function clientIp(): Promise<string> {
-  const h = await headers();
-  // Behind the reverse proxy the real address is the first XFF hop; fall back
-  // to a constant so a missing header shares one bucket rather than none.
-  return (h.get("x-forwarded-for")?.split(",")[0].trim() || h.get("x-real-ip") || "unknown");
-}
+/** A brake on a public signup form: a handful of attempts per IP per hour. */
+const signupLimiter = makeLimiter({ max: 5, windowMs: 60 * 60 * 1000 });
 
 export async function signUp(
   _prev: SignupResult | undefined,
@@ -67,7 +40,7 @@ export async function signUp(
   // Signup exists only on a SaaS deployment; self-hosted has its one company.
   if (!isSaas()) return { error: "closed" };
 
-  if (rateLimited(await clientIp())) return { error: "rate-limited" };
+  if (signupLimiter.hit(await clientIp())) return { error: "rate-limited" };
 
   const parsed = signupSchema.safeParse({
     companyName: formData.get("companyName"),
