@@ -34,6 +34,13 @@ services:
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       ADMIN_NAME: ${ADMIN_NAME:-Admin}
+      # Deployment mode. "self-hosted" (default) auto-seeds the single company
+      # above and hides public signup. "saas" seeds nothing on boot and opens
+      # the /signup flow, gated by SIGNUP_CODE.
+      DEPLOY_MODE: ${DEPLOY_MODE:-self-hosted}
+      # The invite code a person must present to create a company at /signup.
+      # Only used in saas mode; an unset code keeps signup closed.
+      SIGNUP_CODE: ${SIGNUP_CODE:-}
       # Optional: comma-separated forex provider URLs, tried in order.
       # Leave unset for the defaults (open.er-api.com, frankfurter.dev).
       FOREX_PROVIDERS: ${FOREX_PROVIDERS:-}

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import { db, one } from "@/db";
-import { users } from "@/db/schema";
+import { users, companies } from "@/db/schema";
 import { eq, ne, and } from "drizzle-orm";
 import { requireAdmin } from "@/lib/authz";
 
@@ -26,9 +26,26 @@ export type UserActionError =
   | "self-deactivate"
   | "self-demote"
   | "last-admin"
-  | "last-user";
+  | "last-user"
+  | "owner-locked";
 
 export type UserActionResult = { error?: UserActionError };
+
+/**
+ * The company owner is the account that created the company at signup. They are
+ * the permanent super-admin: they can never be demoted or deactivated, so a
+ * company can never be left without its owner. (Ownership can be transferred
+ * later — a separate, deliberate action — but not stripped by accident here.)
+ */
+async function isCompanyOwner(companyId: number, userId: number): Promise<boolean> {
+  const company = await db
+    .select({ ownerUserId: companies.ownerUserId })
+    .from(companies)
+    .where(eq(companies.id, companyId))
+    .limit(1)
+    .then(one);
+  return company?.ownerUserId === userId;
+}
 
 const newUserSchema = z.object({
   name: z.string().trim().min(1),
@@ -151,6 +168,8 @@ export async function setUserActive(
   if (!active) {
     // Locking yourself out, or locking out the last way in, is never intended.
     if (id === currentUserId) return { error: "self-deactivate" };
+    // The owner account can never be deactivated by anyone.
+    if (await isCompanyOwner(admin.companyId, id)) return { error: "owner-locked" };
     const activeUsers = await db
       .select()
       .from(users)
@@ -198,6 +217,8 @@ export async function setUserRole(
 
   if (role === "collaborator") {
     if (id === currentUserId) return { error: "self-demote" };
+    // The owner is the permanent super-admin and can never be demoted.
+    if (await isCompanyOwner(admin.companyId, id)) return { error: "owner-locked" };
     const otherAdmin = await db
       .select()
       .from(users)

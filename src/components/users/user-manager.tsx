@@ -47,6 +47,8 @@ function useErrorText() {
         return t("errorLastAdmin");
       case "last-user":
         return t("errorLastUser");
+      case "owner-locked":
+        return t("errorOwnerLocked");
       case "not-found":
         return t("errorNotFound");
       default:
@@ -186,9 +188,11 @@ function EditUserDialog({
 export function UserManager({
   users,
   currentUserId,
+  ownerUserId,
 }: {
   users: TeamUser[];
   currentUserId: number;
+  ownerUserId: number | null;
 }) {
   const t = useTranslations("users");
   const common = useTranslations("common");
@@ -231,7 +235,9 @@ export function UserManager({
             </tr>
           </thead>
           <tbody>
-            {users.map((user) => (
+            {users.map((user) => {
+              const isOwner = user.id === ownerUserId;
+              return (
               <tr
                 key={user.id}
                 data-testid={`user-row-${user.id}`}
@@ -244,13 +250,18 @@ export function UserManager({
                       {t("you")}
                     </span>
                   ) : null}
+                  {isOwner ? (
+                    <span className="ml-2 text-xs font-normal text-sub">
+                      {t("ownerTag")}
+                    </span>
+                  ) : null}
                 </td>
                 <td className="px-4 py-2 text-sub">
                   {user.email}
                 </td>
                 <td className="px-4 py-2">
-                  {user.id === currentUserId ? (
-                    // Demoting yourself would lock you out of this page —
+                  {user.id === currentUserId || isOwner ? (
+                    // Demoting yourself, or the owner, would strand the company —
                     // the server refuses it, so don't offer it.
                     <Badge variant="secondary">{t("roleAdmin")}</Badge>
                   ) : (
@@ -284,7 +295,7 @@ export function UserManager({
                     <Button
                       variant={user.active ? "destructive" : "outline"}
                       size="sm"
-                      disabled={user.active && user.id === currentUserId}
+                      disabled={user.active && (user.id === currentUserId || isOwner)}
                       onClick={() => toggleActive(user)}
                     >
                       {user.active ? t("deactivate") : t("reactivate")}
@@ -299,7 +310,8 @@ export function UserManager({
                   ) : null}
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

@@ -17,7 +17,30 @@
     "email": "Email",
     "password": "Password",
     "submit": "Sign in",
-    "error": "Invalid email or password"
+    "error": "Invalid email or password",
+    "noAccount": "New here?",
+    "createCompany": "Create a company"
+  },
+  "signup": {
+    "title": "Create your company",
+    "subtitle": "Set up your workspace and owner account",
+    "companyName": "Company name",
+    "yourName": "Your name",
+    "email": "Email",
+    "password": "Password",
+    "confirm": "Confirm password",
+    "code": "Invite code",
+    "codeHelp": "Ask your administrator for the invite code.",
+    "submit": "Create company",
+    "submitting": "Creating…",
+    "haveAccount": "Already have an account?",
+    "signIn": "Sign in",
+    "errorBadCode": "That invite code is not valid.",
+    "errorClosed": "Signup is not available on this deployment.",
+    "errorPasswordMismatch": "The passwords do not match.",
+    "errorEmailTaken": "An account with that email already exists.",
+    "errorRateLimited": "Too many attempts. Please try again later.",
+    "errorInvalid": "Please check the form and try again."
   },
   "common": {
     "save": "Save",
@@ -342,7 +365,9 @@
     "errorSelfDemote": "You cannot remove your own admin role.",
     "errorLastAdmin": "This is the last active admin — the team needs at least one.",
     "errorLastUser": "This is the last active account — deactivating it would lock everyone out.",
-    "errorNotFound": "That user no longer exists."
+    "errorNotFound": "That user no longer exists.",
+    "ownerTag": "Owner",
+    "errorOwnerLocked": "The company owner cannot be demoted or deactivated."
   },
   "company": {
     "title": "Company details",

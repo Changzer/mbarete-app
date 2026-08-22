@@ -818,3 +818,33 @@ order before deleting anything.
 Two new `.env` values (see `.env.example`): `DB_PASSWORD` for the bundled
 database, and `COMPANY_NAME` for the install's company. Defaults work on a
 private NAS; set both properly before any public deployment.
+
+## Multi-company (SaaS) mode
+
+Everything above sets up a **self-hosted** install: one company, seeded on
+first boot from the `ADMIN_*` / `COMPANY_NAME` values, and no public signup.
+That is the default (`DEPLOY_MODE=self-hosted`) and the right choice for the
+NAS.
+
+A public deployment that serves **many companies** runs the same image with two
+extra `.env` values:
+
+```
+DEPLOY_MODE=saas
+SIGNUP_CODE=some-hard-to-guess-code
+```
+
+In `saas` mode:
+
+- Nothing is seeded on boot — the `ADMIN_*` / `COMPANY_NAME` values are
+  ignored, so a public server never auto-mints a stray company.
+- A public **/signup** page opens. Anyone with the `SIGNUP_CODE` can create a
+  company; doing so creates its **owner** account (a permanent super-admin who
+  can never be demoted or deactivated) and signs them straight in.
+- Leaving `SIGNUP_CODE` unset keeps signup **closed** rather than open, so a
+  misconfigured public server can't be farmed for free companies. Rotate the
+  code by changing this value and restarting.
+
+Before pointing `saas` mode at the public internet, finish the pre-public
+gates: signed photo/document URLs and Postgres row-level security. Until then,
+keep testing behind the NAS network.
