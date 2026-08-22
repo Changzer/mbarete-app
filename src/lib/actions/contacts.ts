@@ -88,10 +88,14 @@ export async function createContact(
     .returning({ id: contacts.id });
   const contactId = inserted.id;
   for (const [i, path] of uploaded.entries()) {
-    await db.insert(contactImages).values({ contactId, path, sortOrder: i });
+    await db
+      .insert(contactImages)
+      .values({ companyId: user.companyId, contactId, path, sortOrder: i });
   }
   if (qrPath) {
-    await db.insert(contactImages).values({ contactId, path: qrPath, kind: "qr" });
+    await db
+      .insert(contactImages)
+      .values({ companyId: user.companyId, contactId, path: qrPath, kind: "qr" });
   }
 
   await logEntityEvent(user.companyId, "contact", contactId, user.id, "created", {
@@ -166,7 +170,9 @@ export async function updateContact(
       await db.delete(contactImages).where(eq(contactImages.id, old.id));
       await deleteUpload(old.path);
     }
-    await db.insert(contactImages).values({ contactId: id, path: qrPath, kind: "qr" });
+    await db
+      .insert(contactImages)
+      .values({ companyId: user.companyId, contactId: id, path: qrPath, kind: "qr" });
   }
 
   const remaining = await db
@@ -176,7 +182,7 @@ export async function updateContact(
   for (const [i, path] of uploaded.entries()) {
     await db
       .insert(contactImages)
-      .values({ contactId: id, path, sortOrder: remaining.length + i });
+      .values({ companyId: user.companyId, contactId: id, path, sortOrder: remaining.length + i });
   }
 
   await db
@@ -234,7 +240,7 @@ export async function deleteContact(id: number): Promise<string | undefined> {
     .from(contactImages)
     .where(eq(contactImages.contactId, id));
 
-  await db.delete(contacts).where(eq(contacts.id, id));
+  await db.delete(contacts).where(and(eq(contacts.companyId, admin.companyId), eq(contacts.id, id)));
   for (const image of images) {
     await deleteUpload(image.path);
   }

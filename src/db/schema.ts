@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   pgTable,
   numeric,
+  foreignKey,
   text,
   integer,
   serial,
@@ -66,7 +67,11 @@ export const users = pgTable(
     role: text("role").$type<"admin" | "collaborator">().notNull().default("collaborator"),
     createdAt: text("created_at").notNull().default(utcNow),
   },
-  (table) => [index("users_company_idx").on(table.companyId)],
+  (table) => [
+    index("users_company_idx").on(table.companyId),
+    // Composite-FK target: lets referencing tables prove same-company-ness.
+    uniqueIndex("users_company_id_uq").on(table.companyId, table.id),
+  ],
 );
 
 export const categories = pgTable(
@@ -79,7 +84,10 @@ export const categories = pgTable(
     nameEn: text("name_en").notNull(),
     nameZh: text("name_zh").notNull(),
   },
-  (table) => [index("categories_company_idx").on(table.companyId)],
+  (table) => [
+    index("categories_company_idx").on(table.companyId),
+    uniqueIndex("categories_company_id_uq").on(table.companyId, table.id),
+  ],
 );
 
 export const products = pgTable(
@@ -92,9 +100,8 @@ export const products = pgTable(
     sku: text("sku").notNull(),
     nameEn: text("name_en").notNull(),
     nameZh: text("name_zh").notNull(),
-    categoryId: integer("category_id")
-      .notNull()
-      .references(() => categories.id),
+    // Composite FK below proves the category is this company's.
+    categoryId: integer("category_id").notNull(),
     descriptionEn: text("description_en").notNull().default(""),
     descriptionZh: text("description_zh").notNull().default(""),
     price: numeric("price", { precision: 14, scale: 4, mode: "number" }).notNull(),
@@ -130,8 +137,8 @@ export const products = pgTable(
     // Which vendor sells this. Nullable: products registered before suppliers
     // existed have none, and a product can be catalogued before the card is.
     // Deleting a referenced contact is blocked in the action, mirroring how
-    // clients with orders are protected.
-    supplierId: integer("supplier_id").references(() => contacts.id),
+    // clients with orders are protected. Composite FK below.
+    supplierId: integer("supplier_id"),
     // The product this one was duplicated from when comparison-shopping the
     // same item across booths. Write-only lineage for now: it lets offers for
     // one item be grouped later without re-entering anything.
@@ -141,18 +148,42 @@ export const products = pgTable(
     ),
     active: boolean("active").notNull().default(true),
     // Who entered this product and who last changed it. Nullable because rows
-    // written before attribution existed have nobody to credit.
-    createdBy: integer("created_by").references(() => users.id),
-    updatedBy: integer("updated_by").references(() => users.id),
+    // written before attribution existed have nobody to credit. Composite
+    // user FKs below keep attribution inside the company.
+    createdBy: integer("created_by"),
+    updatedBy: integer("updated_by"),
     createdAt: text("created_at").notNull().default(utcNow),
     updatedAt: text("updated_at").notNull().default(utcNow),
   },
   (table) => [
     // SKUs are unique within a company, not across the product's customers.
     uniqueIndex("products_company_sku_idx").on(table.companyId, table.sku),
+    uniqueIndex("products_company_id_uq").on(table.companyId, table.id),
     index("products_company_category_idx").on(table.companyId, table.categoryId),
     index("products_company_active_idx").on(table.companyId, table.active),
     index("products_supplier_idx").on(table.supplierId),
+    // Tenant walls: these references are only satisfiable inside the same
+    // company, whatever id a form posts. The database is the last line.
+    foreignKey({
+      name: "products_company_category_fk",
+      columns: [table.companyId, table.categoryId],
+      foreignColumns: [categories.companyId, categories.id],
+    }),
+    foreignKey({
+      name: "products_company_supplier_fk",
+      columns: [table.companyId, table.supplierId],
+      foreignColumns: [contacts.companyId, contacts.id],
+    }),
+    foreignKey({
+      name: "products_company_created_by_fk",
+      columns: [table.companyId, table.createdBy],
+      foreignColumns: [users.companyId, users.id],
+    }),
+    foreignKey({
+      name: "products_company_updated_by_fk",
+      columns: [table.companyId, table.updatedBy],
+      foreignColumns: [users.companyId, users.id],
+    }),
   ],
 );
 
@@ -165,14 +196,24 @@ export const productImages = pgTable(
   "product_images",
   {
     id: serial("id").primaryKey(),
-    productId: integer("product_id")
+    // Carries the tenant so the composite FK below can prove the product is
+    // this company's — a photo can never hang off another tenant's product.
+    companyId: integer("company_id")
       .notNull()
-      .references(() => products.id, { onDelete: "cascade" }),
+      .references(() => companies.id),
+    productId: integer("product_id").notNull(),
     path: text("path").notNull(),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: text("created_at").notNull().default(utcNow),
   },
-  (table) => [index("product_images_product_idx").on(table.productId)],
+  (table) => [
+    index("product_images_product_idx").on(table.productId),
+    foreignKey({
+      name: "product_images_company_product_fk",
+      columns: [table.companyId, table.productId],
+      foreignColumns: [products.companyId, products.id],
+    }).onDelete("cascade"),
+  ],
 );
 
 export const exchangeRates = pgTable(
@@ -268,7 +309,10 @@ export const bankAccounts = pgTable(
     isDefault: boolean("is_default").notNull().default(false),
     createdAt: text("created_at").notNull().default(utcNow),
   },
-  (table) => [index("bank_accounts_company_idx").on(table.companyId)],
+  (table) => [
+    index("bank_accounts_company_idx").on(table.companyId),
+    uniqueIndex("bank_accounts_company_id_uq").on(table.companyId, table.id),
+  ],
 );
 
 export const contacts = pgTable(
@@ -303,7 +347,10 @@ export const contacts = pgTable(
     active: boolean("active").notNull().default(true),
     createdAt: text("created_at").notNull().default(utcNow),
   },
-  (table) => [index("contacts_company_type_idx").on(table.companyId, table.type)],
+  (table) => [
+    index("contacts_company_type_idx").on(table.companyId, table.type),
+    uniqueIndex("contacts_company_id_uq").on(table.companyId, table.id),
+  ],
 );
 
 /**
@@ -315,9 +362,10 @@ export const contactImages = pgTable(
   "contact_images",
   {
     id: serial("id").primaryKey(),
-    contactId: integer("contact_id")
+    companyId: integer("company_id")
       .notNull()
-      .references(() => contacts.id, { onDelete: "cascade" }),
+      .references(() => companies.id),
+    contactId: integer("contact_id").notNull(),
     // "card": a business-card photo. "qr": the WeChat QR cropped out of one,
     // shown next to the WeChat field so it can be scanned straight away.
     kind: text("kind", { enum: ["card", "qr"] }).notNull().default("card"),
@@ -325,7 +373,14 @@ export const contactImages = pgTable(
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: text("created_at").notNull().default(utcNow),
   },
-  (table) => [index("contact_images_contact_idx").on(table.contactId)],
+  (table) => [
+    index("contact_images_contact_idx").on(table.contactId),
+    foreignKey({
+      name: "contact_images_company_contact_fk",
+      columns: [table.companyId, table.contactId],
+      foreignColumns: [contacts.companyId, contacts.id],
+    }).onDelete("cascade"),
+  ],
 );
 
 /**
@@ -346,10 +401,14 @@ export const productSuppliers = pgTable(
   "product_suppliers",
   {
     id: serial("id").primaryKey(),
-    productId: integer("product_id")
+    // Denormalised from the product on purpose: quotes join supplier names
+    // straight into the catalog, so the row itself must carry the tenant for
+    // the composite FKs to hold both ends inside one company.
+    companyId: integer("company_id")
       .notNull()
-      .references(() => products.id, { onDelete: "cascade" }),
-    supplierId: integer("supplier_id").references(() => contacts.id),
+      .references(() => companies.id),
+    productId: integer("product_id").notNull(),
+    supplierId: integer("supplier_id"),
     price: numeric("price", { precision: 14, scale: 4, mode: "number" }).notNull(),
     currency: text("currency").notNull().default("USD"),
     moq: integer("moq").notNull().default(1),
@@ -364,13 +423,28 @@ export const productSuppliers = pgTable(
     quotedOn: text("quoted_on").notNull(),
     note: text("note").notNull().default(""),
     active: boolean("active").notNull().default(true),
-    createdBy: integer("created_by").references(() => users.id),
+    createdBy: integer("created_by"),
     createdAt: text("created_at").notNull().default(utcNow),
     updatedAt: text("updated_at").notNull().default(utcNow),
   },
   (table) => [
     index("product_suppliers_product_idx").on(table.productId),
     index("product_suppliers_supplier_idx").on(table.supplierId),
+    foreignKey({
+      name: "product_suppliers_company_product_fk",
+      columns: [table.companyId, table.productId],
+      foreignColumns: [products.companyId, products.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "product_suppliers_company_supplier_fk",
+      columns: [table.companyId, table.supplierId],
+      foreignColumns: [contacts.companyId, contacts.id],
+    }),
+    foreignKey({
+      name: "product_suppliers_company_created_by_fk",
+      columns: [table.companyId, table.createdBy],
+      foreignColumns: [users.companyId, users.id],
+    }),
   ],
 );
 
@@ -382,9 +456,8 @@ export const orders = pgTable(
       .notNull()
       .references(() => companies.id),
     orderNumber: text("order_number").notNull(),
-    clientId: integer("client_id")
-      .notNull()
-      .references(() => contacts.id),
+    // Composite FK below proves the client is this company's contact.
+    clientId: integer("client_id").notNull(),
     status: text("status", {
       enum: ["draft", "confirmed", "shipped", "cancelled"],
     })
@@ -403,20 +476,40 @@ export const orders = pgTable(
     ratesSnapshot: text("rates_snapshot").notNull().default("{}"),
     // Which bank account the proforma shows. Null means "the default one",
     // so orders that never chose keep following whatever Settings says.
-    bankAccountId: integer("bank_account_id").references(() => bankAccounts.id, {
-      onDelete: "set null",
-    }),
+    // Composite FK below; deleteBankAccount nulls references by hand first
+    // (a composite SET NULL would null company_id too, so no FK action).
+    bankAccountId: integer("bank_account_id"),
     notes: text("notes").notNull().default(""),
-    createdBy: integer("created_by")
-      .notNull()
-      .references(() => users.id),
-    updatedBy: integer("updated_by").references(() => users.id),
+    // Composite user FKs below prove attribution stays inside the company.
+    createdBy: integer("created_by").notNull(),
+    updatedBy: integer("updated_by"),
     createdAt: text("created_at").notNull().default(utcNow),
     updatedAt: text("updated_at").notNull().default(utcNow),
   },
   (table) => [
     uniqueIndex("orders_company_number_idx").on(table.companyId, table.orderNumber),
+    uniqueIndex("orders_company_id_uq").on(table.companyId, table.id),
     index("orders_company_status_idx").on(table.companyId, table.status),
+    foreignKey({
+      name: "orders_company_client_fk",
+      columns: [table.companyId, table.clientId],
+      foreignColumns: [contacts.companyId, contacts.id],
+    }),
+    foreignKey({
+      name: "orders_company_bank_fk",
+      columns: [table.companyId, table.bankAccountId],
+      foreignColumns: [bankAccounts.companyId, bankAccounts.id],
+    }),
+    foreignKey({
+      name: "orders_company_created_by_fk",
+      columns: [table.companyId, table.createdBy],
+      foreignColumns: [users.companyId, users.id],
+    }),
+    foreignKey({
+      name: "orders_company_updated_by_fk",
+      columns: [table.companyId, table.updatedBy],
+      foreignColumns: [users.companyId, users.id],
+    }),
   ],
 );
 
@@ -424,12 +517,11 @@ export const orderItems = pgTable(
   "order_items",
   {
     id: serial("id").primaryKey(),
-    orderId: integer("order_id")
+    companyId: integer("company_id")
       .notNull()
-      .references(() => orders.id, { onDelete: "cascade" }),
-    productId: integer("product_id")
-      .notNull()
-      .references(() => products.id),
+      .references(() => companies.id),
+    orderId: integer("order_id").notNull(),
+    productId: integer("product_id").notNull(),
     quantity: integer("quantity").notNull(),
     unitPriceSnapshot: numeric("unit_price_snapshot", {
       precision: 14,
@@ -455,7 +547,19 @@ export const orderItems = pgTable(
     // current pack size for those.
     cartonsSnapshot: integer("cartons_snapshot").notNull().default(0),
   },
-  (table) => [index("order_items_order_idx").on(table.orderId)],
+  (table) => [
+    index("order_items_order_idx").on(table.orderId),
+    foreignKey({
+      name: "order_items_company_order_fk",
+      columns: [table.companyId, table.orderId],
+      foreignColumns: [orders.companyId, orders.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "order_items_company_product_fk",
+      columns: [table.companyId, table.productId],
+      foreignColumns: [products.companyId, products.id],
+    }),
+  ],
 );
 
 /**
@@ -467,9 +571,10 @@ export const orderDocuments = pgTable(
   "order_documents",
   {
     id: serial("id").primaryKey(),
-    orderId: integer("order_id")
+    companyId: integer("company_id")
       .notNull()
-      .references(() => orders.id, { onDelete: "cascade" }),
+      .references(() => companies.id),
+    orderId: integer("order_id").notNull(),
     kind: text("kind", {
       enum: ["supplier_invoice", "packing_list", "bill_of_lading", "inspection", "other"],
     })
@@ -480,10 +585,22 @@ export const orderDocuments = pgTable(
     /** The name the file arrived with, used when downloading it back. */
     originalName: text("original_name").notNull(),
     sizeBytes: integer("size_bytes").notNull().default(0),
-    uploadedBy: integer("uploaded_by").references(() => users.id),
+    uploadedBy: integer("uploaded_by"),
     createdAt: text("created_at").notNull().default(utcNow),
   },
-  (table) => [index("order_documents_order_idx").on(table.orderId)],
+  (table) => [
+    index("order_documents_order_idx").on(table.orderId),
+    foreignKey({
+      name: "order_documents_company_order_fk",
+      columns: [table.companyId, table.orderId],
+      foreignColumns: [orders.companyId, orders.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "order_documents_company_uploaded_by_fk",
+      columns: [table.companyId, table.uploadedBy],
+      foreignColumns: [users.companyId, users.id],
+    }),
+  ],
 );
 
 /**
@@ -495,9 +612,10 @@ export const orderPayments = pgTable(
   "order_payments",
   {
     id: serial("id").primaryKey(),
-    orderId: integer("order_id")
+    companyId: integer("company_id")
       .notNull()
-      .references(() => orders.id, { onDelete: "cascade" }),
+      .references(() => companies.id),
+    orderId: integer("order_id").notNull(),
     direction: text("direction", { enum: ["in", "out"] }).notNull(),
     amount: numeric("amount", { precision: 14, scale: 2, mode: "number" }).notNull(),
     currency: text("currency").notNull(),
@@ -519,10 +637,22 @@ export const orderPayments = pgTable(
     receiptPath: text("receipt_path").notNull().default(""),
     receiptName: text("receipt_name").notNull().default(""),
     note: text("note").notNull().default(""),
-    createdBy: integer("created_by").references(() => users.id),
+    createdBy: integer("created_by"),
     createdAt: text("created_at").notNull().default(utcNow),
   },
-  (table) => [index("order_payments_order_idx").on(table.orderId)],
+  (table) => [
+    index("order_payments_order_idx").on(table.orderId),
+    foreignKey({
+      name: "order_payments_company_order_fk",
+      columns: [table.companyId, table.orderId],
+      foreignColumns: [orders.companyId, orders.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "order_payments_company_created_by_fk",
+      columns: [table.companyId, table.createdBy],
+      foreignColumns: [users.companyId, users.id],
+    }),
+  ],
 );
 
 /** Everything an order costs beyond the goods themselves. */
@@ -530,9 +660,10 @@ export const orderExpenses = pgTable(
   "order_expenses",
   {
     id: serial("id").primaryKey(),
-    orderId: integer("order_id")
+    companyId: integer("company_id")
       .notNull()
-      .references(() => orders.id, { onDelete: "cascade" }),
+      .references(() => companies.id),
+    orderId: integer("order_id").notNull(),
     category: text("category", {
       enum: ["freight", "customs", "inspection", "local_transport", "bank_fees", "other"],
     })
@@ -547,10 +678,22 @@ export const orderExpenses = pgTable(
     receiptPath: text("receipt_path").notNull().default(""),
     receiptName: text("receipt_name").notNull().default(""),
     note: text("note").notNull().default(""),
-    createdBy: integer("created_by").references(() => users.id),
+    createdBy: integer("created_by"),
     createdAt: text("created_at").notNull().default(utcNow),
   },
-  (table) => [index("order_expenses_order_idx").on(table.orderId)],
+  (table) => [
+    index("order_expenses_order_idx").on(table.orderId),
+    foreignKey({
+      name: "order_expenses_company_order_fk",
+      columns: [table.companyId, table.orderId],
+      foreignColumns: [orders.companyId, orders.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "order_expenses_company_created_by_fk",
+      columns: [table.companyId, table.createdBy],
+      foreignColumns: [users.companyId, users.id],
+    }),
+  ],
 );
 
 /**
@@ -565,10 +708,11 @@ export const orderEvents = pgTable(
   "order_events",
   {
     id: serial("id").primaryKey(),
-    orderId: integer("order_id")
+    companyId: integer("company_id")
       .notNull()
-      .references(() => orders.id, { onDelete: "cascade" }),
-    userId: integer("user_id").references(() => users.id),
+      .references(() => companies.id),
+    orderId: integer("order_id").notNull(),
+    userId: integer("user_id"),
     kind: text("kind", {
       enum: [
         "created",
@@ -586,7 +730,19 @@ export const orderEvents = pgTable(
     payload: text("payload").notNull().default("{}"),
     createdAt: text("created_at").notNull().default(utcNow),
   },
-  (table) => [index("order_events_order_idx").on(table.orderId)],
+  (table) => [
+    index("order_events_order_idx").on(table.orderId),
+    foreignKey({
+      name: "order_events_company_order_fk",
+      columns: [table.companyId, table.orderId],
+      foreignColumns: [orders.companyId, orders.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "order_events_company_user_fk",
+      columns: [table.companyId, table.userId],
+      foreignColumns: [users.companyId, users.id],
+    }),
+  ],
 );
 
 /**
@@ -606,7 +762,8 @@ export const entityEvents = pgTable(
       .references(() => companies.id),
     entity: text("entity", { enum: ["product", "contact"] }).notNull(),
     entityId: integer("entity_id").notNull(),
-    userId: integer("user_id").references(() => users.id),
+    // Composite FK below: events can only credit this company's user.
+    userId: integer("user_id"),
     kind: text("kind", { enum: ["created", "edited", "deleted"] }).notNull(),
     /** JSON payload; see src/lib/entity-log.ts. */
     payload: text("payload").notNull().default("{}"),
@@ -615,6 +772,11 @@ export const entityEvents = pgTable(
   (table) => [
     index("entity_events_company_idx").on(table.companyId),
     index("entity_events_entity_idx").on(table.entity, table.entityId),
+    foreignKey({
+      name: "entity_events_company_user_fk",
+      columns: [table.companyId, table.userId],
+      foreignColumns: [users.companyId, users.id],
+    }),
   ],
 );
 
@@ -649,7 +811,8 @@ export const captureDrafts = pgTable(
      * the phone mints UUIDs.
      */
     clientId: text("client_id").notNull().unique(),
-    userId: integer("user_id").references(() => users.id),
+    // Composite FK below: a draft can only credit this company's user.
+    userId: integer("user_id"),
     /** What the capture will become: a catalog product, or a contact. */
     kind: text("kind", { enum: ["product", "contact"] })
       .notNull()
@@ -680,16 +843,31 @@ export const captureDrafts = pgTable(
     transcriptNotes: text("transcript_notes").notNull().default(""),
     /** Why the last AI read failed, when one did. Empty otherwise. */
     transcriptError: text("transcript_error").notNull().default(""),
-    /** The product this draft became, once someone promoted it. */
-    productId: integer("product_id").references(() => products.id, {
-      onDelete: "set null",
-    }),
+    /**
+     * The product this draft became, once someone promoted it. Composite FK
+     * below; deleteProduct clears these references by hand first (a
+     * composite SET NULL would null company_id too, so no FK action).
+     */
+    productId: integer("product_id"),
     /** When the photo was taken, per the phone — not when it arrived here. */
     capturedAt: text("captured_at").notNull(),
     createdAt: text("created_at").notNull().default(utcNow),
     updatedAt: text("updated_at").notNull().default(utcNow),
   },
-  (table) => [index("capture_drafts_company_status_idx").on(table.companyId, table.status)],
+  (table) => [
+    index("capture_drafts_company_status_idx").on(table.companyId, table.status),
+    uniqueIndex("capture_drafts_company_id_uq").on(table.companyId, table.id),
+    foreignKey({
+      name: "capture_drafts_company_user_fk",
+      columns: [table.companyId, table.userId],
+      foreignColumns: [users.companyId, users.id],
+    }),
+    foreignKey({
+      name: "capture_drafts_company_product_fk",
+      columns: [table.companyId, table.productId],
+      foreignColumns: [products.companyId, products.id],
+    }),
+  ],
 );
 
 /** The photos of a capture, in the order they were taken. */
@@ -697,9 +875,10 @@ export const captureDraftImages = pgTable(
   "capture_draft_images",
   {
     id: serial("id").primaryKey(),
-    draftId: integer("draft_id")
+    companyId: integer("company_id")
       .notNull()
-      .references(() => captureDrafts.id, { onDelete: "cascade" }),
+      .references(() => companies.id),
+    draftId: integer("draft_id").notNull(),
     // Which slot the photo belongs to. Products only have "image"; contacts
     // keep card photos and the cropped WeChat QR apart, mirroring
     // contact_images.kind, so promoting a draft can tell them apart too.
@@ -710,5 +889,12 @@ export const captureDraftImages = pgTable(
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: text("created_at").notNull().default(utcNow),
   },
-  (table) => [index("capture_draft_images_draft_idx").on(table.draftId)],
+  (table) => [
+    index("capture_draft_images_draft_idx").on(table.draftId),
+    foreignKey({
+      name: "capture_draft_images_company_draft_fk",
+      columns: [table.companyId, table.draftId],
+      foreignColumns: [captureDrafts.companyId, captureDrafts.id],
+    }).onDelete("cascade"),
+  ],
 );

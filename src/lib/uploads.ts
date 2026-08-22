@@ -63,14 +63,27 @@ export function uploadCompanyId(name: string): number | null {
 }
 
 /**
- * Payment slips carry a recognisable prefix so the serving route can demand a
- * session for them even when they are photos — unlike product photos, a slip
- * is a financial record.
+ * Financial files carry a recognisable prefix so the serving route can demand
+ * a session and company ownership for them even when they are photos — unlike
+ * product/card photos, a payment slip or a supplier invoice is a record, and a
+ * supplier invoice arrives as a JPG as often as a PDF. Without the prefix an
+ * image-format invoice would be served on the open photo path.
  */
 const RECEIPT_PREFIX = "slip-";
+const DOCUMENT_PREFIX = "doc-";
 export function isReceiptUploadName(name: string) {
   // The prefix marks slips in either era: flat or inside a company folder.
   return name.replace(/^c\d+\//, "").startsWith(RECEIPT_PREFIX);
+}
+
+/** Order documents (supplier invoices, packing lists) — gated like slips. */
+export function isDocumentUploadName(name: string) {
+  return name.replace(/^c\d+\//, "").startsWith(DOCUMENT_PREFIX);
+}
+
+/** Anything the serving route must never hand out without a session + owner check. */
+export function isGatedUploadName(name: string) {
+  return isReceiptUploadName(name) || isDocumentUploadName(name);
 }
 
 export async function saveUploadedImage(companyId: number, file: File): Promise<string> {
@@ -90,7 +103,7 @@ export async function saveUploadedReceipt(companyId: number, file: File): Promis
 
 /** Same store as photos, wider set of types: invoices arrive as PDFs and sheets. */
 export async function saveUploadedDocument(companyId: number, file: File): Promise<string> {
-  return saveUpload(companyId, file, DOCUMENT_TYPES, MAX_DOCUMENT_BYTES);
+  return saveUpload(companyId, file, DOCUMENT_TYPES, MAX_DOCUMENT_BYTES, DOCUMENT_PREFIX);
 }
 
 /**

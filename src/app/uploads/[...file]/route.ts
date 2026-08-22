@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import {
   uploadsDir,
   isSafeUploadName,
-  isReceiptUploadName,
+  isGatedUploadName,
   uploadCompanyId,
   CONTENT_TYPES,
 } from "@/lib/uploads";
@@ -35,9 +35,11 @@ export async function GET(
 
   const ext = filename.split(".").pop()!;
 
-  // Payment slips are photos as often as PDFs, so they are gated by their
-  // name prefix rather than by extension like other documents.
-  const gated = DOCUMENT_EXTENSIONS.has(ext) || isReceiptUploadName(filename);
+  // Financial files (payment slips, order documents) are gated by their name
+  // prefix, because they arrive as photos as often as PDFs and would otherwise
+  // ride the open photo path. Legacy pre-prefix documents are still caught by
+  // their extension.
+  const gated = DOCUMENT_EXTENSIONS.has(ext) || isGatedUploadName(filename);
   if (gated) {
     const user = await sessionUser();
     if (!user) {

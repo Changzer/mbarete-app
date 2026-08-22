@@ -98,8 +98,9 @@ export async function addPayment(
   // it was recorded must not drift when rates move later.
   const ratesSnapshot = JSON.stringify(await getExchangeRates(user.companyId));
 
-  await db.insert(orderPayments)
-    .values({ orderId, createdBy: user.id, ratesSnapshot, ...receipt, ...parsed.data });
+  await db
+    .insert(orderPayments)
+    .values({ companyId: user.companyId, orderId, createdBy: user.id, ratesSnapshot, ...receipt, ...parsed.data });
   await logOrderEvent(orderId, user.id, "payment_added", parsed.data);
   refresh(orderId);
   return {};
@@ -160,8 +161,9 @@ export async function addExpense(
 
   const ratesSnapshot = JSON.stringify(await getExchangeRates(user.companyId));
 
-  await db.insert(orderExpenses)
-    .values({ orderId, createdBy: user.id, ratesSnapshot, ...receipt, ...parsed.data });
+  await db
+    .insert(orderExpenses)
+    .values({ companyId: user.companyId, orderId, createdBy: user.id, ratesSnapshot, ...receipt, ...parsed.data });
   await logOrderEvent(orderId, user.id, "expense_added", parsed.data);
   refresh(orderId);
   return {};
@@ -224,6 +226,7 @@ export async function uploadOrderDocument(
 
   await db.insert(orderDocuments)
     .values({
+      companyId: user.companyId,
       orderId,
       kind: kind.data,
       path,

@@ -166,7 +166,10 @@ export async function saveBankAccount(
       revalidatePath("/settings");
       return "missing";
     }
-    await db.update(bankAccounts).set(data).where(eq(bankAccounts.id, id));
+    await db
+      .update(bankAccounts)
+      .set(data)
+      .where(and(eq(bankAccounts.companyId, admin.companyId), eq(bankAccounts.id, id)));
   } else {
     // The first account registered becomes the default automatically.
     const existing = await db
@@ -198,7 +201,10 @@ export async function setDefaultBankAccount(id: number) {
       .update(bankAccounts)
       .set({ isDefault: false })
       .where(eq(bankAccounts.companyId, admin.companyId));
-    await tx.update(bankAccounts).set({ isDefault: true }).where(eq(bankAccounts.id, id));
+    await tx
+      .update(bankAccounts)
+      .set({ isDefault: true })
+      .where(and(eq(bankAccounts.companyId, admin.companyId), eq(bankAccounts.id, id)));
   });
   revalidatePath("/settings");
   revalidatePath("/orders");
@@ -220,8 +226,10 @@ export async function deleteBankAccount(id: number) {
     await tx
       .update(orders)
       .set({ bankAccountId: null })
-      .where(eq(orders.bankAccountId, id));
-    await tx.delete(bankAccounts).where(eq(bankAccounts.id, id));
+      .where(and(eq(orders.companyId, admin.companyId), eq(orders.bankAccountId, id)));
+    await tx
+      .delete(bankAccounts)
+      .where(and(eq(bankAccounts.companyId, admin.companyId), eq(bankAccounts.id, id)));
 
     // Never leave the remaining accounts without a default.
     if (target.isDefault) {

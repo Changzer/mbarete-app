@@ -206,6 +206,15 @@ export async function createProduct(
   const supplierId = await resolveSupplierId(user.companyId, data.supplierId);
   if (supplierId === undefined) return "invalid";
 
+  // A form can post any category id; only this company's count.
+  const category = await db
+    .select({ id: categories.id })
+    .from(categories)
+    .where(and(eq(categories.companyId, user.companyId), eq(categories.id, data.categoryId)))
+    .limit(1)
+    .then(one);
+  if (!category) return "invalid";
+
   // Left blank on purpose, or cleared while entering products in a hurry.
   const sku = data.sku || (await suggestNextSku(user.companyId));
   const skuClash = await db
@@ -269,6 +278,7 @@ export async function createProduct(
   // its source, and a real supplier can be attached later.
   await db.insert(productSuppliers)
     .values({
+      companyId: user.companyId,
       productId: newProductId,
       supplierId,
       price: data.price,
@@ -279,7 +289,9 @@ export async function createProduct(
     });
 
   for (const [i, path] of uploaded.entries()) {
-    await db.insert(productImages).values({ productId: newProductId, path, sortOrder: i });
+    await db
+      .insert(productImages)
+      .values({ companyId: user.companyId, productId: newProductId, path, sortOrder: i });
   }
 
   // Saving from a capture draft (photos taken offline at a booth): the photos
@@ -302,9 +314,12 @@ export async function createProduct(
         .where(eq(captureDraftImages.draftId, draftId));
       const draftImages = draftImageRows.sort((a, b) => a.sortOrder - b.sortOrder);
       for (const [i, image] of draftImages.entries()) {
-        await db
-          .insert(productImages)
-          .values({ productId: newProductId, path: image.path, sortOrder: uploaded.length + i });
+        await db.insert(productImages).values({
+          companyId: user.companyId,
+          productId: newProductId,
+          path: image.path,
+          sortOrder: uploaded.length + i,
+        });
       }
       await db.delete(captureDraftImages).where(eq(captureDraftImages.draftId, draftId));
       await db.update(captureDrafts)
@@ -350,6 +365,15 @@ export async function updateProduct(
 
   const supplierId = await resolveSupplierId(user.companyId, data.supplierId);
   if (supplierId === undefined) return "invalid";
+
+  // A form can post any category id; only this company's count.
+  const category = await db
+    .select({ id: categories.id })
+    .from(categories)
+    .where(and(eq(categories.companyId, user.companyId), eq(categories.id, data.categoryId)))
+    .limit(1)
+    .then(one);
+  if (!category) return "invalid";
 
   const existing = await db
     .select()
@@ -403,7 +427,7 @@ export async function updateProduct(
   for (const [i, path] of uploaded.entries()) {
     await db
       .insert(productImages)
-      .values({ productId: id, path, sortOrder: remaining.length + i });
+      .values({ companyId: user.companyId, productId: id, path, sortOrder: remaining.length + i });
   }
 
   await db.update(products)
@@ -427,7 +451,7 @@ export async function updateProduct(
       updatedBy: userId,
       updatedAt: new Date().toISOString(),
     })
-    .where(eq(products.id, id));
+    .where(and(eq(products.companyId, user.companyId), eq(products.id, id)));
 
   // The diff wants display names; resolve the four that can appear before
   // handing it plain lookups.
@@ -482,6 +506,7 @@ export async function updateProduct(
   } else {
     await db.insert(productSuppliers)
       .values({
+        companyId: user.companyId,
         productId: id,
         supplierId,
         ...terms,
@@ -523,7 +548,14 @@ export async function deleteProduct(id: number): Promise<string | undefined> {
     .from(productImages)
     .where(eq(productImages.productId, id));
 
-  await db.delete(products).where(eq(products.id, id));
+  // Drafts that became this product keep existing, but their link is cleared
+  // by hand: the composite tenant FK deliberately has no SET NULL action.
+  await db
+    .update(captureDrafts)
+    .set({ productId: null })
+    .where(eq(captureDrafts.productId, id));
+
+  await db.delete(products).where(and(eq(products.companyId, admin.companyId), eq(products.id, id)));
   for (const image of images) {
     await deleteUpload(image.path);
   }

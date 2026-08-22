@@ -64,6 +64,23 @@ export async function saveOffer(
     .then(one);
   if (!product) return { error: "missing" };
 
+  // Only this company's suppliers can be quoted — the form posts a bare id.
+  if (data.supplierId !== null) {
+    const supplier = await db
+      .select({ id: contacts.id })
+      .from(contacts)
+      .where(
+        and(
+          eq(contacts.companyId, user.companyId),
+          eq(contacts.id, data.supplierId),
+          eq(contacts.type, "supplier"),
+        ),
+      )
+      .limit(1)
+      .then(one);
+    if (!supplier) return { error: "invalid" };
+  }
+
   if (data.supplierId !== null) {
     const rows = await db
       .select({ id: productSuppliers.id, supplierId: productSuppliers.supplierId })
@@ -74,19 +91,30 @@ export async function saveOffer(
   }
 
   if (id) {
+    // Scope the lookup to the caller's company AND to the product just
+    // validated as theirs: an offer id from another tenant is not found, and
+    // an edit cannot be re-pointed at a different product than the one posted.
     const existing = await db
       .select({ id: productSuppliers.id })
       .from(productSuppliers)
-      .where(eq(productSuppliers.id, id))
+      .where(
+        and(
+          eq(productSuppliers.id, id),
+          eq(productSuppliers.companyId, user.companyId),
+          eq(productSuppliers.productId, productId),
+        ),
+      )
       .limit(1)
       .then(one);
     if (!existing) return { error: "missing" };
-    await db.update(productSuppliers)
+    await db
+      .update(productSuppliers)
       .set({ ...data, updatedAt: new Date().toISOString() })
-      .where(eq(productSuppliers.id, id));
+      .where(and(eq(productSuppliers.id, id), eq(productSuppliers.companyId, user.companyId)));
   } else {
-    await db.insert(productSuppliers)
-      .values({ productId, createdBy: userId, ...data });
+    await db
+      .insert(productSuppliers)
+      .values({ companyId: user.companyId, productId, createdBy: userId, ...data });
 
     // The quote created from the registration form stood in for a source
     // nobody had recorded yet. Once a real supplier is named it has served
@@ -127,9 +155,10 @@ export async function setOfferActive(offerId: number, active: boolean) {
     .then(one);
   if (!row || row.companyId !== user.companyId) return;
 
-  await db.update(productSuppliers)
+  await db
+    .update(productSuppliers)
     .set({ active, updatedAt: new Date().toISOString() })
-    .where(eq(productSuppliers.id, offerId));
+    .where(and(eq(productSuppliers.id, offerId), eq(productSuppliers.companyId, user.companyId)));
 
   await syncProductFromOffers(user.companyId, row.offer.productId);
   refresh();
@@ -145,7 +174,10 @@ export async function setSupplierActive(contactId: number, active: boolean) {
     .limit(1)
     .then(one);
   if (!row || row.active === active) return;
-  await db.update(contacts).set({ active }).where(eq(contacts.id, contactId));
+  await db
+    .update(contacts)
+    .set({ active })
+    .where(and(eq(contacts.companyId, user.companyId), eq(contacts.id, contactId)));
   await logEntityEvent(user.companyId, "contact", contactId, user.id, "edited", {
     name: row.companyName || row.companyNameZh,
     changes: [{ field: active ? "activated" : "deactivated" }],
