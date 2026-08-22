@@ -22,6 +22,20 @@
       "when": 1787368387767,
       "tag": "0002_tenant-walls",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787372528069,
+      "tag": "0003_attribution-walls",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787372936323,
+      "tag": "0004_child-walls",
+      "breakpoints": true
     }
   ]
 }

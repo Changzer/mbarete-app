@@ -104,6 +104,7 @@ export async function importContactDraft(id: number): Promise<string | undefined
   const images = imageRows.sort((a, b) => a.sortOrder - b.sortOrder);
   for (const [i, image] of images.entries()) {
     await db.insert(contactImages).values({
+      companyId: user.companyId,
       contactId,
       path: image.path,
       kind: image.role === "qr" ? "qr" : "card",

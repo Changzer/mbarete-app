@@ -289,7 +289,9 @@ export async function createProduct(
     });
 
   for (const [i, path] of uploaded.entries()) {
-    await db.insert(productImages).values({ productId: newProductId, path, sortOrder: i });
+    await db
+      .insert(productImages)
+      .values({ companyId: user.companyId, productId: newProductId, path, sortOrder: i });
   }
 
   // Saving from a capture draft (photos taken offline at a booth): the photos
@@ -312,9 +314,12 @@ export async function createProduct(
         .where(eq(captureDraftImages.draftId, draftId));
       const draftImages = draftImageRows.sort((a, b) => a.sortOrder - b.sortOrder);
       for (const [i, image] of draftImages.entries()) {
-        await db
-          .insert(productImages)
-          .values({ productId: newProductId, path: image.path, sortOrder: uploaded.length + i });
+        await db.insert(productImages).values({
+          companyId: user.companyId,
+          productId: newProductId,
+          path: image.path,
+          sortOrder: uploaded.length + i,
+        });
       }
       await db.delete(captureDraftImages).where(eq(captureDraftImages.draftId, draftId));
       await db.update(captureDrafts)
@@ -422,7 +427,7 @@ export async function updateProduct(
   for (const [i, path] of uploaded.entries()) {
     await db
       .insert(productImages)
-      .values({ productId: id, path, sortOrder: remaining.length + i });
+      .values({ companyId: user.companyId, productId: id, path, sortOrder: remaining.length + i });
   }
 
   await db.update(products)
@@ -446,7 +451,7 @@ export async function updateProduct(
       updatedBy: userId,
       updatedAt: new Date().toISOString(),
     })
-    .where(eq(products.id, id));
+    .where(and(eq(products.companyId, user.companyId), eq(products.id, id)));
 
   // The diff wants display names; resolve the four that can appear before
   // handing it plain lookups.
@@ -550,7 +555,7 @@ export async function deleteProduct(id: number): Promise<string | undefined> {
     .set({ productId: null })
     .where(eq(captureDrafts.productId, id));
 
-  await db.delete(products).where(eq(products.id, id));
+  await db.delete(products).where(and(eq(products.companyId, admin.companyId), eq(products.id, id)));
   for (const image of images) {
     await deleteUpload(image.path);
   }

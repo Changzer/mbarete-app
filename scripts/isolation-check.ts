@@ -5,28 +5,43 @@ import {
   categories,
   contacts,
   products,
+  productImages,
+  contactImages,
   productSuppliers,
   orders,
   orderItems,
+  orderDocuments,
+  orderPayments,
+  orderExpenses,
+  captureDrafts,
+  captureDraftImages,
 } from "../src/db/schema";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getProducts, getProductById, getCategories } from "../src/lib/queries/catalog";
 import { getContactsByType, getContactById } from "../src/lib/queries/contacts";
 import { getOrders, getOrderById, getExchangeRates } from "../src/lib/queries/orders";
 import { getOffersForProduct } from "../src/lib/queries/offers";
 import { getFinanceData } from "../src/lib/queries/finance";
 import { getUserNames } from "../src/lib/queries/users";
+import { isGatedUploadName, isDocumentUploadName } from "../src/lib/uploads";
 
 /**
  * Tenant-isolation check, run against a live database:
  *
  *   npm run check:isolation
  *
- * Creates a throwaway second company with its own data, then attacks company
- * 1 from it two ways — through every scoped query (must come back empty) and
- * through forged cross-tenant references (the composite FKs must reject
- * them). Cleans up after itself. Exits non-zero on any leak, so it can gate
- * a release.
+ * Stands up two throwaway companies (a "victim" A with one of everything, and
+ * an "attacker" B), then attacks A from B four ways:
+ *   1. Scoped queries — every read fn must return nothing for B.
+ *   2. Forged cross-tenant references — the composite FKs must reject them.
+ *   3. Scoped writes — an UPDATE with B's company predicate must touch ZERO of
+ *      A's rows (this is the invariant setOrderStatus/saveOffer now uphold; a
+ *      regression that drops the companyId predicate makes these fail).
+ *   4. Gated-upload classification — order documents and slips are gated.
+ *
+ * Both companies are fully created here (not reusing the seed's company), so
+ * the FK and write probes have real A-owned rows to bounce off. Cleans up
+ * everything and exits non-zero on any leak, so it can gate a release.
  */
 
 let failures = 0;
@@ -38,205 +53,336 @@ function check(name: string, ok: boolean, extra = "") {
 async function expectFkViolation(name: string, run: () => Promise<unknown>) {
   try {
     await run();
-    check(name, false, "insert was accepted");
+    check(name, false, "write was accepted (expected FK violation)");
   } catch (err) {
     const code = (err as { cause?: { code?: string } }).cause?.code;
     check(name, code === "23503", `error code ${code ?? "none"}`);
   }
 }
 
-async function main() {
-  // --- victim: whatever company 1 already has; make sure it has one of each.
-  const victim = await db.select().from(companies).orderBy(companies.id).limit(1).then(one);
-  if (!victim) throw new Error("no company 1 — run the seed first");
-  const victimCategory = (await getCategories(victim.id))[0];
-  const victimContact = await db
-    .select()
-    .from(contacts)
-    .where(eq(contacts.companyId, victim.id))
-    .limit(1)
-    .then(one);
-  const victimProduct = await db
-    .select()
-    .from(products)
-    .where(eq(products.companyId, victim.id))
-    .limit(1)
-    .then(one);
-  if (!victimCategory || !victimContact || !victimProduct) {
-    throw new Error("company 1 needs at least one category, contact and product");
-  }
-
-  // --- attacker: a throwaway second company.
-  const [attacker] = await db
-    .insert(companies)
-    .values({ name: "Isolation Probe Co" })
-    .returning();
-  const [attackerUser] = await db
+/** A full, self-contained company with one of every kind of row. */
+async function makeCompany(name: string) {
+  const [company] = await db.insert(companies).values({ name }).returning();
+  const [user] = await db
     .insert(users)
     .values({
-      companyId: attacker.id,
-      email: `probe-${Date.now()}@isolation.test`,
+      companyId: company.id,
+      email: `probe-${company.id}-${name.replace(/\W+/g, "")}@isolation.test`,
       passwordHash: "x",
-      name: "Probe",
+      name: `${name} admin`,
       role: "admin",
     })
     .returning();
-  const [attackerCategory] = await db
+  const [category] = await db
     .insert(categories)
-    .values({ companyId: attacker.id, nameEn: "Probe", nameZh: "探" })
+    .values({ companyId: company.id, nameEn: `${name} cat`, nameZh: "类" })
     .returning();
+  const [supplier] = await db
+    .insert(contacts)
+    .values({ companyId: company.id, type: "supplier", companyName: `${name} supplier` })
+    .returning();
+  const [client] = await db
+    .insert(contacts)
+    .values({ companyId: company.id, type: "client", companyName: `${name} client` })
+    .returning();
+  const [product] = await db
+    .insert(products)
+    .values({
+      companyId: company.id,
+      sku: `${name}-SKU-1`,
+      nameEn: `${name} product`,
+      nameZh: "品",
+      categoryId: category.id,
+      price: 1,
+      createdBy: user.id,
+      updatedBy: user.id,
+    })
+    .returning();
+  const [offer] = await db
+    .insert(productSuppliers)
+    .values({
+      companyId: company.id,
+      productId: product.id,
+      supplierId: supplier.id,
+      price: 1,
+      currency: "RMB",
+      quotedOn: "2026-01-01",
+      createdBy: user.id,
+    })
+    .returning();
+  const [order] = await db
+    .insert(orders)
+    .values({
+      companyId: company.id,
+      orderNumber: `${name}-ORD-1`,
+      clientId: client.id,
+      createdBy: user.id,
+      updatedBy: user.id,
+    })
+    .returning();
+  const [draft] = await db
+    .insert(captureDrafts)
+    .values({
+      companyId: company.id,
+      clientId: `probe-${company.id}-${Math.round(company.id * 1e6)}`,
+      userId: user.id,
+      capturedAt: "2026-01-01",
+    })
+    .returning();
+  return { company, user, category, supplier, client, product, offer, order, draft };
+}
+
+async function destroyCompany(companyId: number) {
+  // Child rows cascade from their parents via the composite FKs; delete the
+  // parents in dependency order and the children go with them.
+  await db.delete(captureDraftImages).where(eq(captureDraftImages.companyId, companyId));
+  await db.delete(captureDrafts).where(eq(captureDrafts.companyId, companyId));
+  await db.delete(orders).where(eq(orders.companyId, companyId));
+  await db.delete(productSuppliers).where(eq(productSuppliers.companyId, companyId));
+  await db.delete(products).where(eq(products.companyId, companyId));
+  await db.delete(contacts).where(eq(contacts.companyId, companyId));
+  await db.delete(categories).where(eq(categories.companyId, companyId));
+  await db.delete(users).where(eq(users.companyId, companyId));
+  await db.delete(companies).where(eq(companies.id, companyId));
+}
+
+async function main() {
+  const A = await makeCompany("VictimA");
+  const B = await makeCompany("AttackerB");
 
   try {
-    // ---- 1. The query layer: company 1's data through company 2's eyes.
-    const products2 = await getProducts(attacker.id);
-    check("getProducts sees nothing", products2.length === 0);
+    // ---- 1. Scoped queries: A's data through B's eyes must be empty. --------
     check(
-      "getProductById refuses a foreign id",
-      (await getProductById(attacker.id, victimProduct.id)) === undefined,
+      "getProducts sees only B's",
+      (await getProducts(B.company.id)).every((p) => p.id === B.product.id),
     );
     check(
-      "getCategories sees only its own",
-      (await getCategories(attacker.id)).every((c) => c.companyId === attacker.id),
-    );
-    const contactType = victimContact.type;
-    check(
-      "getContactsByType sees nothing",
-      (await getContactsByType(attacker.id, contactType)).length === 0,
+      "getProductById refuses A's product",
+      (await getProductById(B.company.id, A.product.id)) === undefined,
     );
     check(
-      "getContactById refuses a foreign id",
-      (await getContactById(attacker.id, victimContact.id)) === undefined,
-    );
-    check("getOrders sees nothing", (await getOrders(attacker.id)).length === 0);
-    const victimOrder = await db
-      .select()
-      .from(orders)
-      .where(eq(orders.companyId, victim.id))
-      .limit(1)
-      .then(one);
-    if (victimOrder) {
-      check(
-        "getOrderById refuses a foreign id",
-        (await getOrderById(attacker.id, victimOrder.id)) === null,
-      );
-    } else {
-      console.log("SKIP: company 1 has no orders to probe");
-    }
-    check(
-      "getOffersForProduct returns nothing for a foreign product",
-      (await getOffersForProduct(attacker.id, victimProduct.id)).length === 0,
-    );
-    const finance = await getFinanceData(attacker.id);
-    check("finance report is empty", finance.orders.length === 0);
-    check(
-      "getUserNames lists only its own team",
-      ![...(await getUserNames(attacker.id)).keys()].some((id) => id !== attackerUser.id),
+      "getCategories sees only B's",
+      (await getCategories(B.company.id)).every((c) => c.companyId === B.company.id),
     );
     check(
-      "exchange rates are its own (none yet)",
-      Object.keys(await getExchangeRates(attacker.id)).length === 0,
+      "getContactsByType(supplier) sees only B's",
+      (await getContactsByType(B.company.id, "supplier")).every((c) => c.id === B.supplier.id),
+    );
+    check(
+      "getContactById refuses A's contact",
+      (await getContactById(B.company.id, A.client.id)) === undefined,
+    );
+    check("getOrders sees only B's", (await getOrders(B.company.id)).every((o) => o.id === B.order.id));
+    check("getOrderById refuses A's order", (await getOrderById(B.company.id, A.order.id)) === null);
+    check(
+      "getOffersForProduct returns nothing for A's product",
+      (await getOffersForProduct(B.company.id, A.product.id)).length === 0,
+    );
+    const finance = await getFinanceData(B.company.id);
+    check("finance report excludes A's orders", finance.orders.every((o) => o.id === B.order.id));
+    check(
+      "getUserNames lists only B's team",
+      [...(await getUserNames(B.company.id)).keys()].every((id) => id === B.user.id),
+    );
+    check(
+      "exchange rates are B's own",
+      Object.keys(await getExchangeRates(B.company.id)).length === 0,
     );
 
-    // ---- 2. The walls: forged cross-tenant references must be impossible.
-    await expectFkViolation("FK rejects a product using company 1's category", () =>
+    // ---- 2. Forged cross-tenant references: composite FKs must reject. ------
+    await expectFkViolation("FK rejects a product using A's category", () =>
       db.insert(products).values({
-        companyId: attacker.id,
-        sku: "PROBE-1",
-        nameEn: "Probe",
-        nameZh: "探",
-        categoryId: victimCategory.id,
+        companyId: B.company.id,
+        sku: "X-1",
+        nameEn: "x",
+        nameZh: "x",
+        categoryId: A.category.id,
         price: 1,
       }),
     );
-    const supplierId =
-      victimContact.type === "supplier"
-        ? victimContact.id
-        : (
-            await db
-              .select()
-              .from(contacts)
-              .where(and(eq(contacts.companyId, victim.id), eq(contacts.type, "supplier")))
-              .limit(1)
-              .then(one)
-          )?.id;
-    if (supplierId) {
-      await expectFkViolation("FK rejects a product naming company 1's supplier", () =>
-        db.insert(products).values({
-          companyId: attacker.id,
-          sku: "PROBE-2",
-          nameEn: "Probe",
-          nameZh: "探",
-          categoryId: attackerCategory.id,
-          price: 1,
-          supplierId,
-        }),
-      );
-      await expectFkViolation("FK rejects a quote naming company 1's supplier", async () => {
-        const [p] = await db
-          .insert(products)
-          .values({
-            companyId: attacker.id,
-            sku: "PROBE-3",
-            nameEn: "Probe",
-            nameZh: "探",
-            categoryId: attackerCategory.id,
-            price: 1,
-          })
-          .returning();
-        try {
-          await db.insert(productSuppliers).values({
-            companyId: attacker.id,
-            productId: p.id,
-            supplierId,
-            price: 1,
-            quotedOn: "2026-01-01",
-          });
-        } finally {
-          await db.delete(products).where(eq(products.id, p.id));
-        }
-      });
-    }
-    await expectFkViolation("FK rejects an order for company 1's client", () =>
-      db.insert(orders).values({
-        companyId: attacker.id,
-        orderNumber: "PROBE-ORD",
-        clientId: victimContact.id,
-        createdBy: attackerUser.id,
+    await expectFkViolation("FK rejects a product naming A's supplier", () =>
+      db.insert(products).values({
+        companyId: B.company.id,
+        sku: "X-2",
+        nameEn: "x",
+        nameZh: "x",
+        categoryId: B.category.id,
+        price: 1,
+        supplierId: A.supplier.id,
       }),
     );
-    await expectFkViolation("FK rejects attributing rows to company 1's user", async () => {
-      const victimUser = await db
-        .select()
-        .from(users)
-        .where(eq(users.companyId, victim.id))
-        .limit(1)
-        .then(one);
-      await db.insert(orders).values({
-        companyId: attacker.id,
-        orderNumber: "PROBE-ORD-2",
-        clientId: victimContact.id,
-        createdBy: victimUser!.id,
-      });
-    });
-    // Order lines have no company column by design; prove the app layer's
-    // product filter is what a forged payload actually meets.
-    const victimItems = await db
-      .select()
-      .from(orderItems)
-      .where(
-        inArray(
-          orderItems.orderId,
-          db.select({ id: orders.id }).from(orders).where(eq(orders.companyId, attacker.id)),
-        ),
-      );
-    check("no order lines leaked to the attacker", victimItems.length === 0);
+    await expectFkViolation("FK rejects a quote on A's product", () =>
+      db.insert(productSuppliers).values({
+        companyId: B.company.id,
+        productId: A.product.id,
+        supplierId: B.supplier.id,
+        price: 1,
+        currency: "RMB",
+        quotedOn: "2026-01-01",
+      }),
+    );
+    await expectFkViolation("FK rejects an order for A's client", () =>
+      db.insert(orders).values({
+        companyId: B.company.id,
+        orderNumber: "X-ORD",
+        clientId: A.client.id,
+        createdBy: B.user.id,
+      }),
+    );
+    // Attribution isolated: a VALID B order (B's own client) but createdBy = A's
+    // user. Previously this test used A's client too, so the 23503 came from the
+    // client FK and the attribution wall was never exercised — a false pass.
+    await expectFkViolation("FK rejects an order attributed to A's user", () =>
+      db.insert(orders).values({
+        companyId: B.company.id,
+        orderNumber: "X-ORD-ATTR",
+        clientId: B.client.id,
+        createdBy: A.user.id,
+      }),
+    );
+    await expectFkViolation("FK rejects a product attributed to A's user", () =>
+      db.insert(products).values({
+        companyId: B.company.id,
+        sku: "X-3",
+        nameEn: "x",
+        nameZh: "x",
+        categoryId: B.category.id,
+        price: 1,
+        createdBy: A.user.id,
+      }),
+    );
+
+    // ---- 2b. Child tables now carry their own wall: a child row can never
+    //          hang off another tenant's parent, whatever id is posted. ------
+    await expectFkViolation("FK rejects an order line on A's order", () =>
+      db.insert(orderItems).values({
+        companyId: B.company.id,
+        orderId: A.order.id,
+        productId: B.product.id,
+        quantity: 1,
+        unitPriceSnapshot: 1,
+        currencySnapshot: "RMB",
+        moqSnapshot: 1,
+        lineTotal: 1,
+        lineCbm: 0,
+        lineWeightKg: 0,
+      }),
+    );
+    await expectFkViolation("FK rejects an order line referencing A's product", () =>
+      db.insert(orderItems).values({
+        companyId: B.company.id,
+        orderId: B.order.id,
+        productId: A.product.id,
+        quantity: 1,
+        unitPriceSnapshot: 1,
+        currencySnapshot: "RMB",
+        moqSnapshot: 1,
+        lineTotal: 1,
+        lineCbm: 0,
+        lineWeightKg: 0,
+      }),
+    );
+    await expectFkViolation("FK rejects a photo on A's product", () =>
+      db.insert(productImages).values({
+        companyId: B.company.id,
+        productId: A.product.id,
+        path: "/uploads/c1/x.jpg",
+      }),
+    );
+    await expectFkViolation("FK rejects a card photo on A's contact", () =>
+      db.insert(contactImages).values({
+        companyId: B.company.id,
+        contactId: A.client.id,
+        path: "/uploads/c1/x.jpg",
+      }),
+    );
+    await expectFkViolation("FK rejects a document on A's order", () =>
+      db.insert(orderDocuments).values({
+        companyId: B.company.id,
+        orderId: A.order.id,
+        path: "/uploads/c1/doc-x.pdf",
+        originalName: "x.pdf",
+      }),
+    );
+    await expectFkViolation("FK rejects a payment on A's order", () =>
+      db.insert(orderPayments).values({
+        companyId: B.company.id,
+        orderId: A.order.id,
+        direction: "in",
+        amount: 1,
+        currency: "RMB",
+        paidOn: "2026-01-01",
+      }),
+    );
+    await expectFkViolation("FK rejects an expense on A's order", () =>
+      db.insert(orderExpenses).values({
+        companyId: B.company.id,
+        orderId: A.order.id,
+        category: "freight",
+        amount: 1,
+        currency: "RMB",
+        spentOn: "2026-01-01",
+      }),
+    );
+    await expectFkViolation("FK rejects a draft photo on A's draft", () =>
+      db.insert(captureDraftImages).values({
+        companyId: B.company.id,
+        draftId: A.draft.id,
+        path: "/uploads/c1/x.jpg",
+      }),
+    );
+
+    // ---- 3. Scoped writes: B's company predicate must touch 0 of A's rows. --
+    // These encode the setOrderStatus / saveOffer / bank / delete invariants:
+    // every mutation carries company_id, so a foreign id filtered by B's
+    // company matches nothing and A's row is left untouched.
+    const orderTouched = await db
+      .update(orders)
+      .set({ status: "cancelled" })
+      .where(and(eq(orders.companyId, B.company.id), eq(orders.id, A.order.id)))
+      .returning({ id: orders.id });
+    check("scoped order update touches 0 of A's rows (setOrderStatus)", orderTouched.length === 0);
+    const aOrderAfter = await db
+      .select({ status: orders.status })
+      .from(orders)
+      .where(eq(orders.id, A.order.id))
+      .limit(1)
+      .then(one);
+    check("A's order status is unchanged", aOrderAfter?.status === "draft");
+
+    const offerTouched = await db
+      .update(productSuppliers)
+      .set({ price: 999 })
+      .where(and(eq(productSuppliers.companyId, B.company.id), eq(productSuppliers.id, A.offer.id)))
+      .returning({ id: productSuppliers.id });
+    check("scoped offer update touches 0 of A's rows (saveOffer)", offerTouched.length === 0);
+    const aOfferAfter = await db
+      .select({ price: productSuppliers.price })
+      .from(productSuppliers)
+      .where(eq(productSuppliers.id, A.offer.id))
+      .limit(1)
+      .then(one);
+    check("A's offer price is unchanged", aOfferAfter?.price === 1);
+
+    const productDeleted = await db
+      .delete(products)
+      .where(and(eq(products.companyId, B.company.id), eq(products.id, A.product.id)))
+      .returning({ id: products.id });
+    check("scoped product delete removes 0 of A's rows (deleteProduct)", productDeleted.length === 0);
+    check(
+      "A's product still exists",
+      (await db.select({ id: products.id }).from(products).where(eq(products.id, A.product.id)))
+        .length === 1,
+    );
+
+    // ---- 4. Gated-upload classification. ------------------------------------
+    check("order documents are gated by name", isGatedUploadName("c1/doc-abc.jpg"));
+    check("document prefix recognised in a company folder", isDocumentUploadName("c9/doc-x.png"));
+    check("payment slips are gated by name", isGatedUploadName("c1/slip-abc.jpg"));
+    check("plain product photos are NOT gated", !isGatedUploadName("c1/abc.jpg"));
   } finally {
-    // ---- cleanup: the probe company and everything under it.
-    await db.delete(productSuppliers).where(eq(productSuppliers.companyId, attacker.id));
-    await db.delete(products).where(eq(products.companyId, attacker.id));
-    await db.delete(categories).where(eq(categories.companyId, attacker.id));
-    await db.delete(users).where(eq(users.companyId, attacker.id));
-    await db.delete(companies).where(eq(companies.id, attacker.id));
+    await destroyCompany(B.company.id);
+    await destroyCompany(A.company.id);
     await pool.end();
   }
 

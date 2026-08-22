@@ -130,22 +130,22 @@ async function main() {
     }
     await copy("categories", { addCompanyId: true });
     await copy("contacts", { addCompanyId: true, boolCols: ["active"] });
-    await copy("contact_images", {});
+    await copy("contact_images", { addCompanyId: true });
     await copy("products", { addCompanyId: true, boolCols: ["active"] });
-    await copy("product_images", {});
+    await copy("product_images", { addCompanyId: true });
     await copy("product_suppliers", { addCompanyId: true, boolCols: ["active"] });
     await copy("bank_accounts", { addCompanyId: true, boolCols: ["is_default"] });
     await copy("exchange_rates", { addCompanyId: true });
     await copy("exchange_rate_history", { addCompanyId: true });
     await copy("orders", { addCompanyId: true });
-    await copy("order_items", {});
-    await copy("order_documents", {});
-    await copy("order_payments", {});
-    await copy("order_expenses", {});
-    await copy("order_events", {});
+    await copy("order_items", { addCompanyId: true });
+    await copy("order_documents", { addCompanyId: true });
+    await copy("order_payments", { addCompanyId: true });
+    await copy("order_expenses", { addCompanyId: true });
+    await copy("order_events", { addCompanyId: true });
     await copy("entity_events", { addCompanyId: true });
     await copy("capture_drafts", { addCompanyId: true });
-    await copy("capture_draft_images", {});
+    await copy("capture_draft_images", { addCompanyId: true });
 
     // company_profile moved from "always id 1" to "keyed by company".
     if (tableExists(sqlite, "company_profile")) {

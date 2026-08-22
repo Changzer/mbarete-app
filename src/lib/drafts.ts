@@ -56,7 +56,12 @@ export async function ingestDraft(input: {
   const existing = await db
     .select({ id: captureDrafts.id })
     .from(captureDrafts)
-    .where(eq(captureDrafts.clientId, input.clientId))
+    .where(
+      and(
+        eq(captureDrafts.companyId, input.companyId),
+        eq(captureDrafts.clientId, input.clientId),
+      ),
+    )
     .limit(1)
     .then(one);
   if (existing) return { ok: true, draftId: existing.id, duplicate: true };
@@ -91,9 +96,13 @@ export async function ingestDraft(input: {
         })
         .returning({ id: captureDrafts.id });
       for (const [i, stored] of paths.entries()) {
-        await tx
-          .insert(captureDraftImages)
-          .values({ draftId: inserted.id, path: stored.path, role: stored.role, sortOrder: i });
+        await tx.insert(captureDraftImages).values({
+          companyId: input.companyId,
+          draftId: inserted.id,
+          path: stored.path,
+          role: stored.role,
+          sortOrder: i,
+        });
       }
       return inserted.id;
     });
@@ -105,7 +114,12 @@ export async function ingestDraft(input: {
     const row = await db
       .select({ id: captureDrafts.id })
       .from(captureDrafts)
-      .where(eq(captureDrafts.clientId, input.clientId))
+      .where(
+        and(
+          eq(captureDrafts.companyId, input.companyId),
+          eq(captureDrafts.clientId, input.clientId),
+        ),
+      )
       .limit(1)
       .then(one);
     return row

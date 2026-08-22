@@ -1,5 +1,6 @@
-import { db } from "@/db";
-import { orderEvents } from "@/db/schema";
+import { db, one } from "@/db";
+import { orderEvents, orders } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 /**
  * The order changelog's write side.
@@ -39,7 +40,19 @@ export async function logOrderEvent(
   kind: OrderEventKind,
   payload: unknown = {},
 ) {
-  await db.insert(orderEvents).values({ orderId, userId, kind, payload: JSON.stringify(payload) });
+  // The event carries the order's company so it lives behind the same wall as
+  // the order. Derived here rather than threaded through fifteen call sites;
+  // an event for a vanished order is simply not written.
+  const order = await db
+    .select({ companyId: orders.companyId })
+    .from(orders)
+    .where(eq(orders.id, orderId))
+    .limit(1)
+    .then(one);
+  if (!order) return;
+  await db
+    .insert(orderEvents)
+    .values({ companyId: order.companyId, orderId, userId, kind, payload: JSON.stringify(payload) });
 }
 
 type OrderShape = {

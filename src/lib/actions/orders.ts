@@ -16,7 +16,6 @@ import {
   bankAccounts,
 } from "@/db/schema";
 import { and, eq, inArray } from "drizzle-orm";
-import { auth } from "@/lib/auth";
 import { requireUser, requireAdmin } from "@/lib/authz";
 import {
   isBelowMoq,
@@ -138,7 +137,7 @@ export async function createOrder(input: unknown): Promise<OrderActionResult> {
       .returning({ id: orders.id });
 
     for (const row of rows) {
-      await tx.insert(orderItems).values({ orderId: inserted.id, ...row });
+      await tx.insert(orderItems).values({ companyId: user.companyId, orderId: inserted.id, ...row });
     }
     return inserted.id;
   });
@@ -166,6 +165,16 @@ export async function updateOrder(
   }
 
   const ratesSnapshot = JSON.stringify(await getExchangeRates(user.companyId));
+
+  // The client must be this company's contact — a form can post any id, and
+  // the composite FK would otherwise reject the write with a raw 500.
+  const client = await db
+    .select({ id: contacts.id })
+    .from(contacts)
+    .where(and(eq(contacts.companyId, user.companyId), eq(contacts.id, data.clientId)))
+    .limit(1)
+    .then(one);
+  if (!client) return { error: "invalid" };
 
   // The state being replaced, captured for the changelog before it is gone.
   // Scoped: this is also what stops an id from another company being edited.
@@ -195,11 +204,11 @@ export async function updateOrder(
         notes: data.notes,
         updatedAt: new Date().toISOString(),
       })
-      .where(eq(orders.id, id));
+      .where(and(eq(orders.companyId, user.companyId), eq(orders.id, id)));
 
     await tx.delete(orderItems).where(eq(orderItems.orderId, id));
     for (const row of rows) {
-      await tx.insert(orderItems).values({ orderId: id, ...row });
+      await tx.insert(orderItems).values({ companyId: user.companyId, orderId: id, ...row });
     }
   });
 
@@ -250,7 +259,17 @@ export async function setOrderStatus(
   id: number,
   status: "draft" | "confirmed" | "shipped" | "cancelled",
 ): Promise<OrderActionResult> {
-  await requireSession();
+  const user = await requireSession();
+
+  // The order must be this company's before anything is read off it or written
+  // to it — a serial id from another tenant must never be found here.
+  const current = await db
+    .select()
+    .from(orders)
+    .where(and(eq(orders.companyId, user.companyId), eq(orders.id, id)))
+    .limit(1)
+    .then(one);
+  if (!current) return { error: "not-found" };
 
   if (status === "confirmed") {
     const items = await db
@@ -261,16 +280,13 @@ export async function setOrderStatus(
     if (hasMoqViolation) return { error: "moq" };
   }
 
-  const current = await db.select().from(orders).where(eq(orders.id, id)).limit(1).then(one);
-  if (!current) return { error: "not-found" };
-
-  await db.update(orders)
+  await db
+    .update(orders)
     .set({ status, updatedAt: new Date().toISOString() })
-    .where(eq(orders.id, id));
+    .where(and(eq(orders.companyId, user.companyId), eq(orders.id, id)));
 
   if (current.status !== status) {
-    const session = await auth();
-    logOrderEvent(id, Number(session?.user?.id ?? 0) || null, "status", {
+    await logOrderEvent(id, user.id, "status", {
       from: current.status,
       to: status,
     });
@@ -346,7 +362,7 @@ export async function deleteOrder(id: number) {
     db.select().from(orderExpenses).where(eq(orderExpenses.orderId, id)),
   ]);
 
-  await db.delete(orders).where(eq(orders.id, id));
+  await db.delete(orders).where(and(eq(orders.companyId, admin.companyId), eq(orders.id, id)));
   for (const doc of documents) {
     await deleteUpload(doc.path);
   }
