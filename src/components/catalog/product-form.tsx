@@ -646,7 +646,6 @@ export function ProductForm({
               inputMode="decimal"
               placeholder="0.00"
               defaultValue={defaultValues?.price}
-              required
             />
           </Field>
           <CurrencyField
@@ -665,7 +664,6 @@ export function ProductForm({
               inputMode="numeric"
               suffix={t("unitPcs")}
               defaultValue={defaultValues?.moq ?? 1}
-              required
             />
           </Field>
           <Field label={t("qtyPerBox")} htmlFor="qtyPerBox">
@@ -678,7 +676,6 @@ export function ProductForm({
               suffix={t("perCarton")}
               value={qtyPerBox}
               onChange={(e) => setQtyPerBox(e.target.value)}
-              required
             />
           </Field>
 

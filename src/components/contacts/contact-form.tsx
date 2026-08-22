@@ -472,7 +472,6 @@ export function ContactForm({
           id="companyName"
           name="companyName"
           defaultValue={defaultValues?.companyName}
-          required
         />
       </div>
       <div className="flex flex-col gap-1.5">

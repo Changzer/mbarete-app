@@ -1,4 +1,4 @@
-import { Pool, type PoolClient } from "pg";
+import { Pool, type PoolClient, type QueryResult } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "./schema";
 import { currentTenant } from "./tenant-context";
@@ -20,36 +20,88 @@ const appliedScope = new WeakMap<PoolClient, string>();
 
 /**
  * A pool that stamps the current tenant (see tenant-context.ts) into the
- * connection as `app.company_id` on every checkout, so the database's RLS
- * policies see who is asking. Overriding connect() covers both paths drizzle
- * uses: pool.query() checks out through here, and so do transactions.
+ * connection as `app.company_id`, so the database's RLS policies see who is
+ * asking.
  *
- * Connections are reused across tenants, so the scope is re-applied whenever
- * it differs from what the connection last had — one cheap set_config round
- * trip on a tenant switch, none when consecutive requests share a tenant.
+ * The tenant is captured SYNCHRONOUSLY at the query()/connect() call —
+ * still inside the caller's async flow, where the request context is alive —
+ * and carried to the checked-out client by closure. It must never be read
+ * inside the checkout callback: pg fires those from socket/pool events,
+ * outside the caller's async context, which reads as "no tenant" and turns
+ * every request into empty reads and 42501 writes.
+ *
+ * Connections are reused across tenants, so the scope is re-applied only
+ * when it differs from what the connection last had — one cheap set_config
+ * round trip on a tenant switch, none when consecutive queries share one.
  * An empty scope means "no tenant": RLS then yields zero rows, never all.
  */
 class TenantPool extends Pool {
-  private async applyScope(client: PoolClient): Promise<void> {
-    const tenant = currentTenant();
-    const scope = tenant === undefined ? "" : String(tenant);
+  private async scopeClient(client: PoolClient, scope: string): Promise<void> {
     if (appliedScope.get(client) === scope) return;
     await client.query("SELECT set_config('app.company_id', $1, false)", [scope]);
     appliedScope.set(client, scope);
   }
 
+  private capturedScope(): string {
+    const tenant = currentTenant();
+    if (process.env.RLS_DEBUG) console.log("[dbg] captured:", tenant, new Error().stack?.split("\n")[3]?.trim());
+    return tenant === undefined ? "" : String(tenant);
+  }
+
+  // Implemented on top of connect() rather than delegating to pg's own
+  // pool.query, so the captured scope is applied on the very client that
+  // runs the statement.
+  // pg's Pool.query has a tower of generic overloads; this implementation is
+  // signature-compatible at runtime (text/config/values/callback all pass
+  // through to client.query) but typing the tower again buys nothing.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  override query(...args: any[]): any {
+    const scope = this.capturedScope();
+    const callback =
+      typeof args[args.length - 1] === "function"
+        ? (args.pop() as (err: Error | null, result?: QueryResult) => void)
+        : undefined;
+
+    const run = async (): Promise<QueryResult> => {
+      const client = await super.connect();
+      try {
+        await this.scopeClient(client, scope);
+        return await (client.query as (...a: unknown[]) => Promise<QueryResult>)(...args);
+      } finally {
+        client.release();
+      }
+    };
+
+    if (callback) {
+      run().then(
+        (result) => callback(null, result),
+        (error) => callback(error as Error),
+      );
+      return;
+    }
+    return run();
+  }
+
   override connect(): Promise<PoolClient>;
   override connect(
-    callback: (err: Error | undefined, client: PoolClient | undefined, done: (release?: unknown) => void) => void,
+    callback: (
+      err: Error | undefined,
+      client: PoolClient | undefined,
+      done: (release?: unknown) => void,
+    ) => void,
   ): void;
   override connect(
-    callback?: (err: Error | undefined, client: PoolClient | undefined, done: (release?: unknown) => void) => void,
+    callback?: (
+      err: Error | undefined,
+      client: PoolClient | undefined,
+      done: (release?: unknown) => void,
+    ) => void,
   ): Promise<PoolClient> | void {
+    const scope = this.capturedScope();
     if (callback) {
-      // pg's own pool.query() checks out via this callback form.
       super.connect((err, client, done) => {
         if (err || !client) return callback(err as Error | undefined, client, done);
-        this.applyScope(client).then(
+        this.scopeClient(client, scope).then(
           () => callback(undefined, client, done),
           (scopeErr) => {
             done(scopeErr);
@@ -61,7 +113,7 @@ class TenantPool extends Pool {
     }
     return super.connect().then(async (client) => {
       try {
-        await this.applyScope(client);
+        await this.scopeClient(client, scope);
         return client;
       } catch (scopeErr) {
         client.release(scopeErr as Error);
