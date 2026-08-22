@@ -1,5 +1,6 @@
 import {
   convert,
+  roundMoney,
   UnknownCurrencyError,
   type CurrencyRates,
 } from "@/lib/calculations";
@@ -265,15 +266,33 @@ export function computeFinanceReport(
     }
   }
 
-  totals.expectedNet = totals.expectedRevenue - totals.expectedCost - totals.expensesTotal;
+  // Every accumulated figure lands on exact cents before derived values are
+  // taken from it, so the report's rows always reconcile to the totals.
+  totals.expectedRevenue = roundMoney(totals.expectedRevenue);
+  totals.expectedCost = roundMoney(totals.expectedCost);
+  totals.expensesTotal = roundMoney(totals.expensesTotal);
+  totals.cashIn = roundMoney(totals.cashIn);
+  totals.cashOut = roundMoney(totals.cashOut);
+  totals.receivables = roundMoney(totals.receivables);
+  totals.payables = roundMoney(totals.payables);
+  totals.expectedNet = roundMoney(
+    totals.expectedRevenue - totals.expectedCost - totals.expensesTotal,
+  );
   totals.marginPct =
     totals.expectedRevenue > 0 ? (totals.expectedNet / totals.expectedRevenue) * 100 : null;
-  totals.netCash = totals.cashIn - totals.cashOut;
+  totals.netCash = roundMoney(totals.cashIn - totals.cashOut);
 
   for (const row of months.values()) {
-    row.netCash = row.cashIn - row.cashOut;
+    row.cashIn = roundMoney(row.cashIn);
+    row.cashOut = roundMoney(row.cashOut);
+    row.expectedRevenue = roundMoney(row.expectedRevenue);
+    row.expectedNet = roundMoney(row.expectedNet);
+    row.netCash = roundMoney(row.cashIn - row.cashOut);
   }
   for (const row of clients.values()) {
+    row.expectedRevenue = roundMoney(row.expectedRevenue);
+    row.expectedNet = roundMoney(row.expectedNet);
+    row.outstanding = roundMoney(row.outstanding);
     row.marginPct =
       row.expectedRevenue > 0 ? (row.expectedNet / row.expectedRevenue) * 100 : null;
   }

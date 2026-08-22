@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {
   computeCbm,
   computeOrderTotals,
+  lineTotal,
+  roundMoney,
   convert,
   isBelowMoq,
   lineCbm,
@@ -581,4 +583,37 @@ test("the identity holds with per-day rates: actual + outstandings = expected", 
     fin.netActual + fin.clientOutstanding - fin.supplierOutstanding,
     fin.netExpected,
   );
+});
+
+test("roundMoney lands on exact cents for classic float traps", () => {
+  assert.equal(roundMoney(0.1 + 0.2), 0.3);
+  assert.equal(roundMoney(1.005), 1.01);
+  assert.equal(roundMoney(19.99 * 100, 2), 1999);
+  assert.equal(roundMoney(-1.005), -1.01);
+  assert.equal(roundMoney(1.2345, 4), 1.2345);
+});
+
+test("line totals are exact for sub-cent unit prices", () => {
+  // 0.115 RMB per piece × 3000 pieces: raw floats give 344.99999999999994.
+  const cheap = { ...chicken, price: 0.115, sellPrice: 0 };
+  assert.equal(lineTotal(cheap, 3000), 345);
+});
+
+test("summing many rounded lines stays cent-exact", () => {
+  const lines = Array.from({ length: 1000 }, () =>
+    snapshotLine({ quantity: 3, unitPrice: 0.1, sellPrice: 0.1, currency: "USD" }),
+  );
+  const totals = computeSnapshotTotals(lines, ["USD"], { USD: 1 });
+  // 1000 × (3 × 0.10) — naive float summation drifts; rounded sums do not.
+  assert.equal(totals.cost.USD, 300);
+  assert.equal(totals.grandTotal.USD, 300);
+});
+
+test("commission lands on cents and the grand total reconciles exactly", () => {
+  const lines = [snapshotLine({ quantity: 7, unitPrice: 3.33, sellPrice: 3.33, currency: "USD" })];
+  const totals = computeSnapshotTotals(lines, ["USD"], { USD: 1 }, 7.5);
+  assert.equal(totals.goods.USD, 23.31);
+  assert.equal(totals.commission.USD, 1.75);
+  assert.equal(totals.grandTotal.USD, roundMoney(totals.goods.USD + totals.commission.USD));
+  assert.equal(totals.grandTotal.USD, 25.06);
 });

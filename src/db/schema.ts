@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   pgTable,
+  numeric,
   text,
   integer,
   serial,
@@ -96,10 +97,12 @@ export const products = pgTable(
       .references(() => categories.id),
     descriptionEn: text("description_en").notNull().default(""),
     descriptionZh: text("description_zh").notNull().default(""),
-    price: doublePrecision("price").notNull(),
+    price: numeric("price", { precision: 14, scale: 4, mode: "number" }).notNull(),
     // Default selling price for order lines. 0 means none set: the product
     // sells at the supplier price until a price is typed on the order.
-    sellPrice: doublePrecision("sell_price").notNull().default(0),
+    sellPrice: numeric("sell_price", { precision: 14, scale: 4, mode: "number" })
+      .notNull()
+      .default(0),
     currency: text("currency").notNull().default("USD"),
     moq: integer("moq").notNull().default(1),
     qtyPerBox: integer("qty_per_box").notNull().default(1),
@@ -179,7 +182,7 @@ export const exchangeRates = pgTable(
       .notNull()
       .references(() => companies.id),
     currencyCode: text("currency_code").notNull(),
-    rateToUsd: doublePrecision("rate_to_usd").notNull(),
+    rateToUsd: numeric("rate_to_usd", { precision: 18, scale: 8, mode: "number" }).notNull(),
     /** "auto" rows are refreshed daily from the provider; "manual" rows were typed. */
     source: text("source", { enum: ["manual", "auto"] })
       .notNull()
@@ -203,7 +206,7 @@ export const exchangeRateHistory = pgTable(
     /** ISO date, YYYY-MM-DD. */
     day: text("day").notNull(),
     currencyCode: text("currency_code").notNull(),
-    rateToUsd: doublePrecision("rate_to_usd").notNull(),
+    rateToUsd: numeric("rate_to_usd", { precision: 18, scale: 8, mode: "number" }).notNull(),
     source: text("source").notNull().default("auto"),
   },
   (table) => [primaryKey({ columns: [table.companyId, table.day, table.currencyCode] })],
@@ -347,7 +350,7 @@ export const productSuppliers = pgTable(
       .notNull()
       .references(() => products.id, { onDelete: "cascade" }),
     supplierId: integer("supplier_id").references(() => contacts.id),
-    price: doublePrecision("price").notNull(),
+    price: numeric("price", { precision: 14, scale: 4, mode: "number" }).notNull(),
     currency: text("currency").notNull().default("USD"),
     moq: integer("moq").notNull().default(1),
     // Optional: 0 means nobody recorded it. Never blocks saving an offer —
@@ -392,7 +395,9 @@ export const orders = pgTable(
     displayCurrency: text("display_currency").notNull().default("USD"),
     secondaryCurrency: text("secondary_currency").notNull().default("CNY"),
     // The company's margin, charged on top of the goods subtotal.
-    commissionPct: doublePrecision("commission_pct").notNull().default(0),
+    commissionPct: numeric("commission_pct", { precision: 7, scale: 3, mode: "number" })
+      .notNull()
+      .default(0),
     // Rates in force when the order was saved, so a stored quote does not move
     // when the rate table is later edited. JSON: {"CNY":0.14,"USD":1}
     ratesSnapshot: text("rates_snapshot").notNull().default("{}"),
@@ -426,13 +431,23 @@ export const orderItems = pgTable(
       .notNull()
       .references(() => products.id),
     quantity: integer("quantity").notNull(),
-    unitPriceSnapshot: doublePrecision("unit_price_snapshot").notNull(),
+    unitPriceSnapshot: numeric("unit_price_snapshot", {
+      precision: 14,
+      scale: 4,
+      mode: "number",
+    }).notNull(),
     // The invoiced price per unit, frozen with the rest of the line. 0 on
     // rows saved before selling prices existed, which read as "at cost".
-    sellPriceSnapshot: doublePrecision("sell_price_snapshot").notNull().default(0),
+    sellPriceSnapshot: numeric("sell_price_snapshot", {
+      precision: 14,
+      scale: 4,
+      mode: "number",
+    })
+      .notNull()
+      .default(0),
     currencySnapshot: text("currency_snapshot").notNull(),
     moqSnapshot: integer("moq_snapshot").notNull(),
-    lineTotal: doublePrecision("line_total").notNull(),
+    lineTotal: numeric("line_total", { precision: 14, scale: 2, mode: "number" }).notNull(),
     lineCbm: doublePrecision("line_cbm").notNull(),
     lineWeightKg: doublePrecision("line_weight_kg").notNull(),
     // Cartons this line ships as, frozen at save time. Defaults to 0 for rows
@@ -484,7 +499,7 @@ export const orderPayments = pgTable(
       .notNull()
       .references(() => orders.id, { onDelete: "cascade" }),
     direction: text("direction", { enum: ["in", "out"] }).notNull(),
-    amount: doublePrecision("amount").notNull(),
+    amount: numeric("amount", { precision: 14, scale: 2, mode: "number" }).notNull(),
     currency: text("currency").notNull(),
     /** ISO date the money moved, not the date the row was typed in. */
     paidOn: text("paid_on").notNull(),
@@ -523,7 +538,7 @@ export const orderExpenses = pgTable(
     })
       .notNull()
       .default("other"),
-    amount: doublePrecision("amount").notNull(),
+    amount: numeric("amount", { precision: 14, scale: 2, mode: "number" }).notNull(),
     currency: text("currency").notNull(),
     spentOn: text("spent_on").notNull(),
     /** Same freezing as payments; see order_payments.rates_snapshot. */
