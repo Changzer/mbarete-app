@@ -10,7 +10,10 @@ function isPublicPath(pathname: string) {
   return (
     withoutLocale.startsWith("/login") ||
     withoutLocale.startsWith("/signup") ||
-    withoutLocale.startsWith("/invite/")
+    withoutLocale.startsWith("/invite/") ||
+    withoutLocale.startsWith("/forgot") ||
+    withoutLocale.startsWith("/reset/") ||
+    withoutLocale.startsWith("/verify/")
   );
 }
 

@@ -19,7 +19,8 @@
     "submit": "Sign in",
     "error": "Invalid email or password",
     "noAccount": "New here?",
-    "createCompany": "Create a company"
+    "createCompany": "Create a company",
+    "forgotPassword": "Forgot your password?"
   },
   "signup": {
     "title": "Create your company",
@@ -57,6 +58,37 @@
     "errorInvalidLink": "This invite link is no longer valid — ask your admin for a new one.",
     "errorPasswordMismatch": "The passwords do not match.",
     "errorEmailTaken": "An account with that email already exists.",
+    "errorRateLimited": "Too many attempts. Please try again later.",
+    "errorInvalid": "Please check the form and try again."
+  },
+  "account": {
+    "email": "Email",
+    "forgotTitle": "Reset your password",
+    "forgotSubtitle": "Enter your account email and we will send a reset link.",
+    "forgotUnavailable": "Password reset by email is not set up on this server. Ask your admin to reset your password.",
+    "forgotSubmit": "Send reset link",
+    "forgotSent": "If that address has an account, a reset link is on its way. It works once, for 30 minutes.",
+    "sending": "Sending…",
+    "backToLogin": "Back to sign in",
+    "resetTitle": "Choose a new password",
+    "resetSubtitle": "This link works once.",
+    "resetInvalidTitle": "This reset link is not valid",
+    "resetInvalidBody": "It may have been used already or expired. Request a new one from the sign-in page.",
+    "resetSubmit": "Set new password",
+    "resetDone": "Your password has been changed. You can sign in with it now.",
+    "newPassword": "New password",
+    "currentPassword": "Current password",
+    "confirm": "Confirm password",
+    "saving": "Saving…",
+    "changePasswordSubmit": "Change password",
+    "passwordChanged": "Password changed.",
+    "verifyDoneTitle": "Email verified",
+    "verifyDoneBody": "Thanks — this address is now confirmed for your account.",
+    "verifyInvalidTitle": "This verification link is not valid",
+    "verifyInvalidBody": "It may have been used already or expired.",
+    "continueToApp": "Continue to the app",
+    "errorWrongPassword": "The current password is not correct.",
+    "errorPasswordMismatch": "The passwords do not match.",
     "errorRateLimited": "Too many attempts. Please try again later.",
     "errorInvalid": "Please check the form and try again."
   },
@@ -401,7 +433,12 @@
     "inviteCopied": "Copied!",
     "inviteRevoke": "Revoke",
     "inviteMeta": "by {by} · expires {expires}",
-    "inviteFailed": "Could not create the invite. Please try again."
+    "inviteFailed": "Could not create the invite. Please try again.",
+    "emailVerified": "Email verified",
+    "makeOwner": "Make owner",
+    "makeOwnerTitle": "Transfer ownership to {name}?",
+    "makeOwnerBody": "The new owner becomes the permanent super-admin and you lose owner protection. Confirm with your password.",
+    "makeOwnerConfirm": "Transfer ownership"
   },
   "company": {
     "title": "Company details",
@@ -665,7 +702,8 @@
     "themeSystem": "Phone",
     "themeLight": "Light",
     "themeDark": "Dark",
-    "themeHint": "Phone follows whatever your handset is set to. Choose Light for a market aisle in daylight, Dark for a hotel room at night."
+    "themeHint": "Phone follows whatever your handset is set to. Choose Light for a market aisle in daylight, Dark for a hotel room at night.",
+    "changePassword": "Change password"
   },
   "sync": {
     "offline": "Offline — safe to continue",

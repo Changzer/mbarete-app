@@ -50,6 +50,13 @@
       "when": 1787780000000,
       "tag": "0006_invites",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787790000000,
+      "tag": "0007_auth-tokens",
+      "breakpoints": true
     }
   ]
 }

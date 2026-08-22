@@ -4,6 +4,7 @@ import { Brand } from "@/components/brand";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Link } from "@/i18n/navigation";
 import { isSaas } from "@/lib/deploy";
+import { isMailConfigured } from "@/lib/mail";
 
 export default async function LoginPage({
   params,
@@ -31,6 +32,13 @@ export default async function LoginPage({
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <LoginForm callbackUrl={callbackUrl ?? `/${locale}/catalog`} />
+          {isMailConfigured() ? (
+            <p className="text-center text-sm text-sub">
+              <Link href="/forgot" className="font-medium text-brand-600 hover:underline">
+                {t("forgotPassword")}
+              </Link>
+            </p>
+          ) : null}
           {isSaas() ? (
             <p className="text-center text-sm text-sub">
               {t("noAccount")}{" "}

@@ -19,7 +19,8 @@
     "submit": "登录",
     "error": "邮箱或密码错误",
     "noAccount": "还没有账户？",
-    "createCompany": "创建公司"
+    "createCompany": "创建公司",
+    "forgotPassword": "忘记密码？"
   },
   "signup": {
     "title": "创建您的公司",
@@ -57,6 +58,37 @@
     "errorInvalidLink": "此邀请链接已失效 — 请向管理员索取新链接。",
     "errorPasswordMismatch": "两次输入的密码不一致。",
     "errorEmailTaken": "该邮箱已被注册。",
+    "errorRateLimited": "尝试次数过多，请稍后再试。",
+    "errorInvalid": "请检查表单后重试。"
+  },
+  "account": {
+    "email": "邮箱",
+    "forgotTitle": "重置密码",
+    "forgotSubtitle": "输入账户邮箱，我们将发送重置链接。",
+    "forgotUnavailable": "此服务器未配置邮件重置密码。请联系管理员为您重置。",
+    "forgotSubmit": "发送重置链接",
+    "forgotSent": "如果该邮箱已注册，重置链接已发出。链接仅可使用一次，30 分钟内有效。",
+    "sending": "发送中…",
+    "backToLogin": "返回登录",
+    "resetTitle": "设置新密码",
+    "resetSubtitle": "此链接仅可使用一次。",
+    "resetInvalidTitle": "此重置链接无效",
+    "resetInvalidBody": "链接可能已被使用或已过期。请在登录页重新申请。",
+    "resetSubmit": "设置新密码",
+    "resetDone": "密码已修改，现在可以用新密码登录。",
+    "newPassword": "新密码",
+    "currentPassword": "当前密码",
+    "confirm": "确认密码",
+    "saving": "保存中…",
+    "changePasswordSubmit": "修改密码",
+    "passwordChanged": "密码已修改。",
+    "verifyDoneTitle": "邮箱已验证",
+    "verifyDoneBody": "感谢 — 此邮箱已与您的账户确认绑定。",
+    "verifyInvalidTitle": "此验证链接无效",
+    "verifyInvalidBody": "链接可能已被使用或已过期。",
+    "continueToApp": "进入应用",
+    "errorWrongPassword": "当前密码不正确。",
+    "errorPasswordMismatch": "两次输入的密码不一致。",
     "errorRateLimited": "尝试次数过多，请稍后再试。",
     "errorInvalid": "请检查表单后重试。"
   },
@@ -401,7 +433,12 @@
     "inviteCopied": "已复制！",
     "inviteRevoke": "撤销",
     "inviteMeta": "由 {by} 创建 · {expires} 过期",
-    "inviteFailed": "无法创建邀请，请重试。"
+    "inviteFailed": "无法创建邀请，请重试。",
+    "emailVerified": "邮箱已验证",
+    "makeOwner": "设为所有者",
+    "makeOwnerTitle": "将所有权转让给 {name}？",
+    "makeOwnerBody": "新所有者将成为永久超级管理员，您将失去所有者保护。请输入密码确认。",
+    "makeOwnerConfirm": "转让所有权"
   },
   "company": {
     "title": "公司信息",
@@ -665,7 +702,8 @@
     "themeSystem": "跟随手机",
     "themeLight": "浅色",
     "themeDark": "深色",
-    "themeHint": "跟随手机即使用手机的设置。白天在市场用浅色，夜里在酒店用深色。"
+    "themeHint": "跟随手机即使用手机的设置。白天在市场用浅色，夜里在酒店用深色。",
+    "changePassword": "修改密码"
   },
   "sync": {
     "offline": "离线 — 可继续使用",

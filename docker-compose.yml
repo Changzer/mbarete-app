@@ -45,6 +45,14 @@ services:
       # The invite code a person must present to create a company at /signup.
       # Only used in saas mode; an unset code keeps signup closed.
       SIGNUP_CODE: ${SIGNUP_CODE:-}
+      # Outbound email (reset/verification links). Unset = features hidden.
+      # For Exmail/WeCom, SMTP_PASS is the client authorization code.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      APP_ORIGIN: ${APP_ORIGIN:-}
       # Optional: comma-separated forex provider URLs, tried in order.
       # Leave unset for the defaults (open.er-api.com, frankfurter.dev).
       FOREX_PROVIDERS: ${FOREX_PROVIDERS:-}

@@ -9,6 +9,7 @@ import {
   setUserRole,
   type UserActionResult,
 } from "@/lib/actions/users";
+import { transferOwnership } from "@/lib/actions/account";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,6 +29,7 @@ export type TeamUser = {
   email: string;
   role: "admin" | "collaborator";
   active: boolean;
+  emailVerified: boolean;
   createdAt: string;
 };
 
@@ -185,6 +187,57 @@ function EditUserDialog({
   );
 }
 
+function TransferOwnershipDialog({
+  user,
+  open,
+  onOpenChange,
+}: {
+  user: TeamUser;
+  open: boolean;
+  onOpenChange: (next: boolean) => void;
+}) {
+  const t = useTranslations("users");
+  const account = useTranslations("account");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(formData: FormData) {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await transferOwnership(user.id, formData);
+      if (res.error) {
+        setError(res.error === "wrong-password" ? account("errorWrongPassword") : t("errorInvalid"));
+      } else {
+        onOpenChange(false);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("makeOwnerTitle", { name: user.name })}</DialogTitle>
+          <DialogDescription>{t("makeOwnerBody")}</DialogDescription>
+        </DialogHeader>
+        <form action={submit} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="owner-password">{account("currentPassword")}</Label>
+            <Input id="owner-password" name="password" type="password" required autoFocus />
+          </div>
+          {error ? <p className="text-sm text-danger">{error}</p> : null}
+          <Button type="submit" variant="destructive" disabled={busy}>
+            {t("makeOwnerConfirm")}
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function UserManager({
   users,
   currentUserId,
@@ -198,6 +251,7 @@ export function UserManager({
   const common = useTranslations("common");
   const errorText = useErrorText();
   const [editing, setEditing] = useState<number | null>(null);
+  const [transferring, setTransferring] = useState<number | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   async function toggleActive(user: TeamUser) {
@@ -258,6 +312,11 @@ export function UserManager({
                 </td>
                 <td className="px-4 py-2 text-sub">
                   {user.email}
+                  {user.emailVerified ? (
+                    <span className="ml-2 text-xs text-success" title={t("emailVerified")}>
+                      ✓
+                    </span>
+                  ) : null}
                 </td>
                 <td className="px-4 py-2">
                   {user.id === currentUserId || isOwner ? (
@@ -292,6 +351,18 @@ export function UserManager({
                     >
                       {common("edit")}
                     </Button>
+                    {currentUserId === ownerUserId &&
+                    !isOwner &&
+                    user.role === "admin" &&
+                    user.active ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setTransferring(user.id)}
+                      >
+                        {t("makeOwner")}
+                      </Button>
+                    ) : null}
                     <Button
                       variant={user.active ? "destructive" : "outline"}
                       size="sm"
@@ -306,6 +377,13 @@ export function UserManager({
                       user={user}
                       open
                       onOpenChange={(next) => setEditing(next ? user.id : null)}
+                    />
+                  ) : null}
+                  {transferring === user.id ? (
+                    <TransferOwnershipDialog
+                      user={user}
+                      open
+                      onOpenChange={(next) => setTransferring(next ? user.id : null)}
                     />
                   ) : null}
                 </td>
