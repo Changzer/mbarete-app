@@ -5,6 +5,7 @@ import {
   uploadsDir,
   isSafeUploadName,
   requiresUploadAuth,
+  isGatedUploadName,
   uploadCompanyId,
   CONTENT_TYPES,
 } from "@/lib/uploads";
@@ -93,12 +94,18 @@ export async function GET(
         "Content-Type": width && responseBytes !== fileBytes
           ? "image/webp"
           : CONTENT_TYPES[ext] ?? "application/octet-stream",
-        // Gated files were served with a session check — "private" keeps a
-        // shared proxy or CDN from caching one signed-in user's invoice and
-        // handing it to the next visitor.
-        "Cache-Control": gated
-          ? "private, no-store"
-          : "public, max-age=31536000, immutable",
+        // Auth-checked files must never sit in a shared proxy or CDN cache —
+        // one user's file handed to the next visitor. But the browser's own
+        // cache is fine for photos: their names are immutable UUIDs, and
+        // no-store on every catalog image would mean re-downloading the whole
+        // catalog on each visit. Financial files (slips, order documents) and
+        // non-image files stay no-store — they are the sensitive ones, and
+        // they are opened rarely enough that caching buys nothing.
+        "Cache-Control": !gated
+          ? "public, max-age=31536000, immutable"
+          : isGatedUploadName(filename) || !IMAGE_EXTENSIONS.has(ext)
+            ? "private, no-store"
+            : "private, max-age=31536000, immutable",
       },
     });
   } catch {
