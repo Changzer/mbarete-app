@@ -1,19 +1,28 @@
 import { NextResponse } from "next/server";
 import { ZipArchive } from "archiver";
-import { PassThrough } from "stream";
+import { Readable } from "stream";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { pool } from "@/db";
 import { sessionUser } from "@/lib/authz";
+import { uploadsDir } from "@/lib/uploads";
+import { isSaas } from "@/lib/deploy";
 
 /**
- * GET /api/export/backup — the whole tenant as a zip of CSVs, admin-only.
+ * GET /api/export/backup — the whole tenant as one zip, admin-only.
  *
  * Tenants own their data: this is the take-it-with-you export and the poor
  * man's backup in one. Every business table the company owns, one CSV each,
- * scoped by company_id in SQL — the same wall every query in the app uses.
+ * scoped by company_id in SQL — the same wall every query in the app uses —
+ * plus every uploaded file under files/: product photos, business cards,
+ * order documents, payment slips. The paper trail travels with the records.
  *
  * Deliberately excluded: password hashes (a backup must never become a
- * credential dump) and other tenants' anything. Uploaded files are not in the
- * zip — they live in the uploads volume; the CSVs carry their paths.
+ * credential dump), other tenants' anything, and the .variants resize cache
+ * (derived data, regenerated on demand).
+ *
+ * The response streams: with years of photos the archive can run to
+ * gigabytes, and it must never be held in memory whole.
  */
 
 // Table name → WHERE column. All constants — nothing user-supplied ever
@@ -56,27 +65,47 @@ function toCsv(rows: Record<string, unknown>[], omit: string[] = []): string {
   return lines.join("\r\n") + "\r\n";
 }
 
+async function isDir(p: string): Promise<boolean> {
+  return fs
+    .stat(p)
+    .then((s) => s.isDirectory())
+    .catch(() => false);
+}
+
 export async function GET() {
   const user = await sessionUser();
   if (!user) return new NextResponse("Unauthorized", { status: 401 });
   if (user.role !== "admin") return new NextResponse("Forbidden", { status: 403 });
 
   const archive = new ZipArchive({ zlib: { level: 6 } });
-  const out = new PassThrough();
-  const chunks: Buffer[] = [];
-  out.on("data", (c: Buffer) => chunks.push(c));
-  const done = new Promise<Buffer>((resolve, reject) => {
-    out.on("finish", () => resolve(Buffer.concat(chunks)));
-    archive.on("error", reject);
-  });
-  archive.pipe(out);
 
+  // The database rows are gathered up front (they are small); the file
+  // entries are only registered here — archiver reads each from disk with
+  // backpressure while the response streams.
   for (const table of TABLES) {
     const { rows } = await pool.query(
       `SELECT * FROM ${table.name} WHERE ${table.scope} = $1 ORDER BY 1`,
       [user.companyId],
     );
     archive.append(toCsv(rows, table.omit), { name: `${table.name}.csv` });
+  }
+
+  // The company's uploads folder: photos, cards, documents, slips.
+  const base = uploadsDir();
+  const companyDir = path.join(/* turbopackIgnore: true */ base, `c${user.companyId}`);
+  if (await isDir(companyDir)) {
+    archive.directory(companyDir, `files/c${user.companyId}`);
+  }
+  // A self-hosted install's pre-tenancy files sit flat in the uploads root
+  // and all belong to its one company. In saas mode flat files are ownerless
+  // legacy and stay out — a tenant only ever receives its own folder.
+  if (!isSaas() && (await isDir(base))) {
+    const entries = await fs.readdir(/* turbopackIgnore: true */ base, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isFile()) {
+        archive.file(path.join(base, entry.name), { name: `files/${entry.name}` });
+      }
+    }
   }
 
   const stamp = new Date().toISOString().slice(0, 10);
@@ -87,17 +116,21 @@ export async function GET() {
       "",
       "One CSV per table, scoped to this company only.",
       "users.csv omits password hashes by design.",
-      "Uploaded files are not included; their paths are in the *_images,",
-      "order_documents, order_payments and order_expenses CSVs.",
+      "Uploaded files (product photos, business cards, order documents,",
+      "payment slips) are under files/ with the same paths the *_images,",
+      "order_documents, order_payments and order_expenses CSVs reference.",
       "",
     ].join("\r\n"),
     { name: "README.txt" },
   );
 
-  await archive.finalize();
-  const body = await done;
+  // Finalize without awaiting: entries are read and compressed as the client
+  // consumes the stream. An error mid-stream can only truncate the download —
+  // the zip's central directory then fails to parse, so a bad backup is
+  // detectable, never silently partial.
+  archive.finalize();
 
-  return new NextResponse(new Uint8Array(body), {
+  return new NextResponse(Readable.toWeb(archive) as ReadableStream, {
     headers: {
       "Content-Type": "application/zip",
       "Content-Disposition": `attachment; filename="backup-${stamp}.zip"`,
