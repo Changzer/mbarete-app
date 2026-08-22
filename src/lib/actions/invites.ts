@@ -11,6 +11,8 @@ import { requireAdmin } from "@/lib/authz";
 import { signIn } from "@/lib/auth";
 import { makeLimiter, clientIp } from "@/lib/rate-limit";
 import { INVITE_TTL_MS, hashInviteToken, newInviteToken, isoNow, isoIn } from "@/lib/invites";
+import { sendVerificationEmail } from "@/lib/actions/account";
+import { getLocale } from "next-intl/server";
 
 /**
  * Invite links: an admin mints a link and shares it over WeChat/WhatsApp;
@@ -170,7 +172,7 @@ export async function acceptInvite(
           ),
         )
         .returning({ id: invites.id, companyId: invites.companyId, role: invites.role });
-      if (!claimed) return false;
+      if (!claimed) return null;
 
       const [created] = await tx
         .insert(users)
@@ -180,9 +182,11 @@ export async function acceptInvite(
         .update(invites)
         .set({ usedByUserId: created.id })
         .where(eq(invites.id, claimed.id));
-      return true;
+      return created.id;
     });
     if (!accepted) return { error: "invalid-link" };
+    // Best-effort verify link for the new account; a no-op without SMTP.
+    await sendVerificationEmail(accepted, email, await getLocale()).catch(() => {});
   } catch {
     // A race can still lose the unique-email check; collapse to retryable.
     return { error: "failed" };

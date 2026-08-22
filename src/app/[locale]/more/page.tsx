@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { sessionUser } from "@/lib/authz";
 import { signOutAction } from "@/lib/actions/auth";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { ChangePasswordForm } from "@/components/change-password-form";
 import { MoreLanguageRow } from "@/components/more-language-row";
 import { Button } from "@/components/ui/button";
 
@@ -76,6 +77,13 @@ export default async function MorePage() {
         </h2>
         <ThemeToggle />
         <p className="text-[11px] leading-relaxed text-sub">{t("themeHint")}</p>
+      </section>
+
+      <section className="flex flex-col gap-2.5 rounded-[12px] border border-line bg-surface p-4">
+        <h2 className="font-mono text-[10.5px] font-bold uppercase tracking-[0.1em] text-sub">
+          {t("changePassword")}
+        </h2>
+        <ChangePasswordForm />
       </section>
 
       <form action={boundSignOut}>

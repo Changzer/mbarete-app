@@ -36,6 +36,7 @@ export default async function UsersPage() {
     email: u.email,
     role: u.role,
     active: u.active,
+    emailVerified: Boolean(u.emailVerifiedAt),
     createdAt: u.createdAt,
   }));
 

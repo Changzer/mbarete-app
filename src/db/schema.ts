@@ -65,6 +65,10 @@ export const users = pgTable(
     // contacts, orders) but cannot delete records, touch settings, manage the
     // team or read the finance report.
     role: text("role").$type<"admin" | "collaborator">().notNull().default("collaborator"),
+    // Set when the address's owner clicks a verification link. Reset links
+    // are only ever sent to the address on file, so verification is a trust
+    // signal, not a login gate.
+    emailVerifiedAt: text("email_verified_at"),
     createdAt: text("created_at").notNull().default(utcNow),
   },
   (table) => [
@@ -938,4 +942,26 @@ export const invites = pgTable(
       foreignColumns: [users.companyId, users.id],
     }),
   ],
+);
+
+/**
+ * Single-use account tokens: password resets and email verification. Like
+ * invites, an auth-bootstrap table — reset links are opened by people with
+ * no session — so it sits outside row-level security; rows are reachable
+ * only through their token's sha256 anyway.
+ */
+export const authTokens = pgTable(
+  "auth_tokens",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    kind: text("kind").$type<"reset" | "verify">().notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    createdAt: text("created_at").notNull().default(utcNow),
+    expiresAt: text("expires_at").notNull(),
+    usedAt: text("used_at"),
+  },
+  (table) => [index("auth_tokens_user_idx").on(table.userId, table.kind)],
 );

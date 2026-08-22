@@ -9,6 +9,8 @@ import { signIn } from "@/lib/auth";
 import { createCompanyWithOwner } from "@/lib/company";
 import { isSaas, signupCode } from "@/lib/deploy";
 import { makeLimiter, clientIp } from "@/lib/rate-limit";
+import { sendVerificationEmail } from "@/lib/actions/account";
+import { getLocale } from "next-intl/server";
 
 export type SignupError =
   | "closed"
@@ -66,7 +68,15 @@ export async function signUp(
   if (clash) return { error: "email-taken" };
 
   try {
-    await createCompanyWithOwner({ companyName, ownerName, ownerEmail: email, ownerPassword: password });
+    const { ownerId } = await createCompanyWithOwner({
+      companyName,
+      ownerName,
+      ownerEmail: email,
+      ownerPassword: password,
+    });
+    // Best-effort: with SMTP configured the new owner gets a verify link;
+    // without it, signup works exactly as before.
+    await sendVerificationEmail(ownerId, email, await getLocale()).catch(() => {});
   } catch {
     // A race could still lose the unique-email check; collapse anything here
     // to a retryable failure rather than leaking internals.
