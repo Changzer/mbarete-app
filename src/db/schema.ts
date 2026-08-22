@@ -898,3 +898,44 @@ export const captureDraftImages = pgTable(
     }).onDelete("cascade"),
   ],
 );
+
+/**
+ * Team invite links. An admin mints a link, shares it over WeChat/WhatsApp,
+ * and whoever opens it creates their own account in the admin's company with
+ * the invited role — no email delivery needed. Auth-bootstrap table like
+ * users and companies: the accept page reads it before any session exists,
+ * so it stays OUTSIDE row-level security and is company-scoped in the app
+ * layer instead.
+ *
+ * Only the token's sha256 lands here — a database leak must not hand out
+ * live invite links. Links are single-use and expire.
+ */
+export const invites = pgTable(
+  "invites",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    tokenHash: text("token_hash").notNull().unique(),
+    role: text("role").$type<"admin" | "collaborator">().notNull().default("collaborator"),
+    createdBy: integer("created_by").notNull(),
+    createdAt: text("created_at").notNull().default(utcNow),
+    expiresAt: text("expires_at").notNull(),
+    usedAt: text("used_at"),
+    usedByUserId: integer("used_by_user_id"),
+  },
+  (table) => [
+    index("invites_company_idx").on(table.companyId),
+    foreignKey({
+      name: "invites_company_created_by_fk",
+      columns: [table.companyId, table.createdBy],
+      foreignColumns: [users.companyId, users.id],
+    }),
+    foreignKey({
+      name: "invites_company_used_by_fk",
+      columns: [table.companyId, table.usedByUserId],
+      foreignColumns: [users.companyId, users.id],
+    }),
+  ],
+);

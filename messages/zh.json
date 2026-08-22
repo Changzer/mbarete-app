@@ -42,6 +42,24 @@
     "errorRateLimited": "尝试次数过多，请稍后再试。",
     "errorInvalid": "请检查表单后重试。"
   },
+  "invite": {
+    "title": "加入团队",
+    "subtitle": "您受邀加入 {company}。请在下方创建您的账户。",
+    "yourName": "您的姓名",
+    "email": "邮箱",
+    "password": "密码",
+    "confirm": "确认密码",
+    "submit": "创建账户",
+    "submitting": "创建中…",
+    "invalidTitle": "此邀请链接无效",
+    "invalidBody": "链接可能已被使用、过期或撤销。请向管理员索取新链接。",
+    "goToLogin": "前往登录",
+    "errorInvalidLink": "此邀请链接已失效 — 请向管理员索取新链接。",
+    "errorPasswordMismatch": "两次输入的密码不一致。",
+    "errorEmailTaken": "该邮箱已被注册。",
+    "errorRateLimited": "尝试次数过多，请稍后再试。",
+    "errorInvalid": "请检查表单后重试。"
+  },
   "common": {
     "save": "保存",
     "cancel": "取消",
@@ -373,7 +391,17 @@
     "errorLastUser": "这是最后一个启用的账号——停用后将无人可登录。",
     "errorNotFound": "该用户已不存在。",
     "ownerTag": "所有者",
-    "errorOwnerLocked": "公司所有者不能被降级或停用。"
+    "errorOwnerLocked": "公司所有者不能被降级或停用。",
+    "invitesTitle": "邀请链接",
+    "invitesHelp": "通过微信或 WhatsApp 分享链接；每个链接只能创建一个账户，7 天后过期。",
+    "inviteCollaborator": "邀请协作者",
+    "inviteAdmin": "邀请管理员",
+    "inviteFreshHelp": "请立即复制此链接 — 它只显示一次。",
+    "inviteCopy": "复制链接",
+    "inviteCopied": "已复制！",
+    "inviteRevoke": "撤销",
+    "inviteMeta": "由 {by} 创建 · {expires} 过期",
+    "inviteFailed": "无法创建邀请，请重试。"
   },
   "company": {
     "title": "公司信息",
