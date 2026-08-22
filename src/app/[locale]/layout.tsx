@@ -54,8 +54,11 @@ export default async function LocaleLayout({
               with the session cookie, and the login page has nothing to send.
               It lives in the layout so queued captures keep draining wherever
               in the app the agent happens to be when the signal returns. */}
-          {session?.user ? (
-            <OutboxProvider>
+          {/* Both checks: a deleted or deactivated user can still hold a live
+              JWT, in which case sessionUser() is null and the signed-out shell
+              must render — not a crash on user!. */}
+          {session?.user && user ? (
+            <OutboxProvider storageScope={`${user.companyId}:${user.id}`}>
               <ToastProvider>
                <RoleProvider role={user?.role ?? "collaborator"}>
                 <AppNav userName={session.user.name ?? ""} role={user?.role ?? "collaborator"} />

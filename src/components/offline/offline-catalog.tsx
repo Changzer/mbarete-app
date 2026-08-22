@@ -15,6 +15,7 @@ import {
   type CatalogSnapshot,
 } from "@/lib/client/catalog-cache";
 import { formatLocalMinute } from "@/lib/format-time";
+import { useOutbox } from "@/components/offline/outbox";
 
 /**
  * The phone's read-only catalog copy, as a sheet over whatever page is open.
@@ -33,13 +34,15 @@ export function OfflineCatalog({
   onOpenChange: (open: boolean) => void;
 }) {
   const t = useTranslations("offline");
+  const storageScope = useOutbox()?.storageScope;
   const [snapshot, setSnapshot] = useState<CatalogSnapshot | null | undefined>(undefined);
   const [query, setQuery] = useState("");
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    loadCatalogSnapshot()
+    if (!storageScope) return;
+    loadCatalogSnapshot(storageScope)
       .then((loaded) => {
         if (!cancelled) setSnapshot(loaded ?? null);
       })
@@ -49,7 +52,7 @@ export function OfflineCatalog({
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [open, storageScope]);
 
   const needle = query.trim().toLowerCase();
   const rows = useMemo(() => {

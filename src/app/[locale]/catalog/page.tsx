@@ -50,7 +50,7 @@ export default async function CatalogPage({
   const { category, supplier, sort } = await searchParams;
   const t = await getTranslations("catalog");
 
-  const { companyId } = await requireUser();
+  const { companyId, id: userId } = await requireUser();
   const categories = await getCategories(companyId);
   const openDrafts = await countOpenDrafts(companyId);
   const categoryId = category ? Number(category) : undefined;
@@ -141,6 +141,7 @@ export default async function CatalogPage({
     <div className="mx-auto max-w-6xl px-4 py-4 md:py-6">
       {/* Every full catalog view refreshes the phone's offline copy. */}
       <CatalogSnapshot
+        storageScope={`${companyId}:${userId}`}
         complete={!categoryId && !supplierId}
         products={catalogProducts.map((p) => ({
           id: p.id,

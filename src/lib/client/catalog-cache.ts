@@ -15,7 +15,9 @@
 const DB_NAME = "mbarete-catalog";
 const DB_VERSION = 1;
 const STORE = "snapshot";
-const KEY = "catalog";
+function keyFor(scope: string) {
+  return `catalog:${scope}`;
+}
 
 /** One catalog row, as the offline sheet shows it. */
 export type CachedProduct = {
@@ -54,13 +56,13 @@ function openDb(): Promise<IDBDatabase> {
   });
 }
 
-export async function saveCatalogSnapshot(products: CachedProduct[]): Promise<void> {
+export async function saveCatalogSnapshot(scope: string, products: CachedProduct[]): Promise<void> {
   const db = await openDb();
   try {
     const tx = db.transaction(STORE, "readwrite");
     tx.objectStore(STORE).put(
       { savedAt: new Date().toISOString(), products } satisfies CatalogSnapshot,
-      KEY,
+      keyFor(scope),
     );
     await new Promise<void>((resolve, reject) => {
       tx.oncomplete = () => resolve();
@@ -72,11 +74,13 @@ export async function saveCatalogSnapshot(products: CachedProduct[]): Promise<vo
   }
 }
 
-export async function loadCatalogSnapshot(): Promise<CatalogSnapshot | undefined> {
+export async function loadCatalogSnapshot(scope: string): Promise<CatalogSnapshot | undefined> {
   const db = await openDb();
   try {
     const tx = db.transaction(STORE, "readonly");
-    const request = tx.objectStore(STORE).get(KEY) as IDBRequest<CatalogSnapshot | undefined>;
+    const request = tx.objectStore(STORE).get(keyFor(scope)) as IDBRequest<
+      CatalogSnapshot | undefined
+    >;
     return await new Promise((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error ?? new Error("indexeddb-request-failed"));
