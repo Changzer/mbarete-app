@@ -1,6 +1,7 @@
 import { db, one } from "@/db";
 import { companies, exchangeRates, exchangeRateHistory } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
+import { runWithTenant } from "@/db/tenant-context";
 
 /**
  * Automatic exchange rates.
@@ -97,6 +98,18 @@ async function fetchDailyRates(): Promise<{
 
 /** Write one day's fetched rates into one company's live table and history. */
 async function writeRatesForCompany(
+  companyId: number,
+  rates: Record<string, number>,
+  source: string,
+) {
+  // The scheduled refresh runs with no signed-in request behind it; adopt the
+  // company being written so its RLS-guarded rate tables are reachable. (For
+  // the Settings button this matches the caller's own tenant — requireAdmin
+  // scoped it to the same id.)
+  return runWithTenant(companyId, () => writeRatesScoped(companyId, rates, source));
+}
+
+async function writeRatesScoped(
   companyId: number,
   rates: Record<string, number>,
   source: string,

@@ -4,6 +4,7 @@ import { companies, users } from "./schema";
 import { eq } from "drizzle-orm";
 import { seedCompanyDefaults } from "../lib/company";
 import { isSaas } from "../lib/deploy";
+import { runWithTenant } from "./tenant-context";
 
 /**
  * Self-hosted bootstrap: one company, owned by the admin the env names.
@@ -71,7 +72,9 @@ export async function seed() {
   }
 
   // Starter categories and rates — the same set signup gives a new company.
-  await seedCompanyDefaults(companyId);
+  // Wrapped because the boot seed runs outside any signed-in request, and the
+  // defaults live in RLS-guarded tables.
+  await runWithTenant(companyId, () => seedCompanyDefaults(companyId));
 
   console.log("[seed] done");
 }

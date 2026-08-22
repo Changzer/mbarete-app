@@ -36,6 +36,13 @@
       "when": 1787372936323,
       "tag": "0004_child-walls",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1787770000000,
+      "tag": "0005_row-level-security",
+      "breakpoints": true
     }
   ]
 }

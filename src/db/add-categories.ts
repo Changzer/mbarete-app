@@ -1,4 +1,5 @@
 import { db, one, pool } from "./index";
+import { runWithTenant } from "./tenant-context";
 import { categories, companies } from "./schema";
 import { eq } from "drizzle-orm";
 
@@ -43,10 +44,16 @@ export async function addStarterCategories(list = STARTER_CATEGORIES) {
   // Run by hand on a self-hosted install: there is exactly one company.
   const company = await db.select().from(companies).limit(1).then(one);
   if (!company) throw new Error("no company yet — start the app once first");
+  // Hand-run script, no signed-in request: adopt the install's one tenant so
+  // the RLS-guarded categories table is reachable.
+  return runWithTenant(company.id, () => addForCompany(company.id, list));
+}
+
+async function addForCompany(companyId: number, list: typeof STARTER_CATEGORIES) {
   const existing = await db
     .select()
     .from(categories)
-    .where(eq(categories.companyId, company.id));
+    .where(eq(categories.companyId, companyId));
   const haveEn = new Set(existing.map((c) => c.nameEn.trim().toLowerCase()));
   const haveZh = new Set(existing.map((c) => c.nameZh.trim()));
 
@@ -57,7 +64,7 @@ export async function addStarterCategories(list = STARTER_CATEGORIES) {
       skipped.push(candidate.nameEn);
       continue;
     }
-    await db.insert(categories).values({ ...candidate, companyId: company.id });
+    await db.insert(categories).values({ ...candidate, companyId });
     // Guards against duplicates inside the list itself, too.
     haveEn.add(candidate.nameEn.toLowerCase());
     haveZh.add(candidate.nameZh);
