@@ -16,7 +16,8 @@ import {
   captureDrafts,
   captureDraftImages,
 } from "../src/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
+import { runWithTenant } from "../src/db/tenant-context";
 import { getProducts, getProductById, getCategories } from "../src/lib/queries/catalog";
 import { getContactsByType, getContactById } from "../src/lib/queries/contacts";
 import { getOrders, getOrderById, getExchangeRates } from "../src/lib/queries/orders";
@@ -73,6 +74,8 @@ async function makeCompany(name: string) {
       role: "admin",
     })
     .returning();
+  // Business rows live behind RLS; create them as the company they belong to.
+  return runWithTenant(company.id, async () => {
   const [category] = await db
     .insert(categories)
     .values({ companyId: company.id, nameEn: `${name} cat`, nameZh: "类" })
@@ -130,18 +133,23 @@ async function makeCompany(name: string) {
     })
     .returning();
   return { company, user, category, supplier, client, product, offer, order, draft };
+  });
 }
 
 async function destroyCompany(companyId: number) {
   // Child rows cascade from their parents via the composite FKs; delete the
-  // parents in dependency order and the children go with them.
-  await db.delete(captureDraftImages).where(eq(captureDraftImages.companyId, companyId));
-  await db.delete(captureDrafts).where(eq(captureDrafts.companyId, companyId));
-  await db.delete(orders).where(eq(orders.companyId, companyId));
-  await db.delete(productSuppliers).where(eq(productSuppliers.companyId, companyId));
-  await db.delete(products).where(eq(products.companyId, companyId));
-  await db.delete(contacts).where(eq(contacts.companyId, companyId));
-  await db.delete(categories).where(eq(categories.companyId, companyId));
+  // parents in dependency order and the children go with them. Business rows
+  // are behind RLS, so clean up as their own tenant; users and companies are
+  // exempt and go last.
+  await runWithTenant(companyId, async () => {
+    await db.delete(captureDraftImages).where(eq(captureDraftImages.companyId, companyId));
+    await db.delete(captureDrafts).where(eq(captureDrafts.companyId, companyId));
+    await db.delete(orders).where(eq(orders.companyId, companyId));
+    await db.delete(productSuppliers).where(eq(productSuppliers.companyId, companyId));
+    await db.delete(products).where(eq(products.companyId, companyId));
+    await db.delete(contacts).where(eq(contacts.companyId, companyId));
+    await db.delete(categories).where(eq(categories.companyId, companyId));
+  });
   await db.delete(users).where(eq(users.companyId, companyId));
   await db.delete(companies).where(eq(companies.id, companyId));
 }
@@ -151,6 +159,9 @@ async function main() {
   const B = await makeCompany("AttackerB");
 
   try {
+    // Sections 1–3 all act as company B — the attacker probing for A's data —
+    // so they run under B's tenant context, exactly as B's requests would.
+    await runWithTenant(B.company.id, async () => {
     // ---- 1. Scoped queries: A's data through B's eyes must be empty. --------
     check(
       "getProducts sees only B's",
@@ -342,12 +353,14 @@ async function main() {
       .where(and(eq(orders.companyId, B.company.id), eq(orders.id, A.order.id)))
       .returning({ id: orders.id });
     check("scoped order update touches 0 of A's rows (setOrderStatus)", orderTouched.length === 0);
-    const aOrderAfter = await db
-      .select({ status: orders.status })
-      .from(orders)
-      .where(eq(orders.id, A.order.id))
-      .limit(1)
-      .then(one);
+    const aOrderAfter = await runWithTenant(A.company.id, () =>
+      db
+        .select({ status: orders.status })
+        .from(orders)
+        .where(eq(orders.id, A.order.id))
+        .limit(1)
+        .then(one),
+    );
     check("A's order status is unchanged", aOrderAfter?.status === "draft");
 
     const offerTouched = await db
@@ -356,12 +369,14 @@ async function main() {
       .where(and(eq(productSuppliers.companyId, B.company.id), eq(productSuppliers.id, A.offer.id)))
       .returning({ id: productSuppliers.id });
     check("scoped offer update touches 0 of A's rows (saveOffer)", offerTouched.length === 0);
-    const aOfferAfter = await db
-      .select({ price: productSuppliers.price })
-      .from(productSuppliers)
-      .where(eq(productSuppliers.id, A.offer.id))
-      .limit(1)
-      .then(one);
+    const aOfferAfter = await runWithTenant(A.company.id, () =>
+      db
+        .select({ price: productSuppliers.price })
+        .from(productSuppliers)
+        .where(eq(productSuppliers.id, A.offer.id))
+        .limit(1)
+        .then(one),
+    );
     check("A's offer price is unchanged", aOfferAfter?.price === 1);
 
     const productDeleted = await db
@@ -371,15 +386,64 @@ async function main() {
     check("scoped product delete removes 0 of A's rows (deleteProduct)", productDeleted.length === 0);
     check(
       "A's product still exists",
-      (await db.select({ id: products.id }).from(products).where(eq(products.id, A.product.id)))
-        .length === 1,
+      (
+        await runWithTenant(A.company.id, () =>
+          db.select({ id: products.id }).from(products).where(eq(products.id, A.product.id)),
+        )
+      ).length === 1,
     );
+    }); // end of tenant-B scope
 
     // ---- 4. Gated-upload classification. ------------------------------------
     check("order documents are gated by name", isGatedUploadName("c1/doc-abc.jpg"));
     check("document prefix recognised in a company folder", isDocumentUploadName("c9/doc-x.png"));
     check("payment slips are gated by name", isGatedUploadName("c1/slip-abc.jpg"));
     check("plain product photos are NOT gated", !isGatedUploadName("c1/abc.jpg"));
+
+    // ---- 5. RLS: the database itself is the wall, not just the queries. -----
+    // First the posture: a superuser or BYPASSRLS role walks straight through
+    // every policy, which would leave all of the below silently inert.
+    const posture = await db.execute(
+      sql`select rolsuper, rolbypassrls from pg_roles where rolname = current_user`,
+    );
+    const role = posture.rows[0] as { rolsuper: boolean; rolbypassrls: boolean };
+    check(
+      "app role cannot bypass RLS",
+      role.rolsuper === false && role.rolbypassrls === false,
+      `rolsuper=${role.rolsuper} rolbypassrls=${role.rolbypassrls}`,
+    );
+    check(
+      "RLS hides A's rows from tenant B even when asked for by id",
+      (
+        await runWithTenant(B.company.id, () =>
+          db.select({ id: products.id }).from(products).where(eq(products.companyId, A.company.id)),
+        )
+      ).length === 0,
+    );
+    check(
+      "RLS filters an UNSCOPED select down to tenant B's own rows",
+      (
+        await runWithTenant(B.company.id, () =>
+          db.select({ companyId: products.companyId }).from(products),
+        )
+      ).every((r) => r.companyId === B.company.id),
+    );
+    check(
+      "RLS with no tenant context returns no rows at all (fails closed)",
+      (await db.select({ id: products.id }).from(products)).length === 0,
+    );
+    try {
+      await runWithTenant(B.company.id, () =>
+        db
+          .insert(categories)
+          .values({ companyId: A.company.id, nameEn: "smuggled", nameZh: "走私" }),
+      );
+      check("RLS rejects tenant B writing a row into company A", false, "insert was accepted");
+    } catch (err) {
+      const code =
+        (err as { cause?: { code?: string } }).cause?.code ?? (err as { code?: string }).code;
+      check("RLS rejects tenant B writing a row into company A", code === "42501", `error code ${code ?? "none"}`);
+    }
   } finally {
     await destroyCompany(B.company.id);
     await destroyCompany(A.company.id);

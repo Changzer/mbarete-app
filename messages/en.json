@@ -497,7 +497,8 @@
     "accountUsd": "USD account",
     "accountOther": "Other / none",
     "fxGainLoss": "FX gain/loss so far",
-    "gatewayHint": "Record what actually landed in the bank. If the gateway (e.g. XTransfer) converted on arrival, enter the RMB amount received and tag the RMB account — not the amount the client sent."
+    "gatewayHint": "Record what actually landed in the bank. If the gateway (e.g. XTransfer) converted on arrival, enter the RMB amount received and tag the RMB account — not the amount the client sent.",
+    "tileQuoted": "Quoted · {count} drafts"
   },
   "financeReport": {
     "title": "Finance",

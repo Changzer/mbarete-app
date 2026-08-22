@@ -247,3 +247,44 @@ test("report: a converted settlement counts once, in its landed form only", () =
   assert.equal(r.receivedByAccount.length, 1);
   closeTo(r.totals.cashIn, 994, 1e-9);
 });
+
+test("report: a draft is a quote — pipeline only, never expected money or a receivable", () => {
+  const r = computeFinanceReport(
+    [
+      order({ id: 1, status: "draft", expectedRevenue: 5000, expectedCost: 4000 }),
+      order({ id: 2, orderNumber: "ORD-2", status: "confirmed" }),
+    ],
+    "USD",
+    RATES,
+  );
+  // Only the confirmed order carries expectations and open balances.
+  closeTo(r.totals.expectedRevenue, 1000);
+  closeTo(r.totals.receivables, 1000);
+  assert.ok(r.receivablesList.every((x) => x.orderId === 2));
+  // The draft shows up as quoted pipeline instead.
+  closeTo(r.totals.quotedRevenue, 5000);
+  assert.equal(r.totals.quotedOrders, 1);
+});
+
+test("report: a deposit taken on a draft is real cash, still no receivable", () => {
+  const r = computeFinanceReport(
+    [
+      order({
+        status: "draft",
+        payments: [{ direction: "in", amount: 300, currency: "USD", paidOn: "2026-03-10" }],
+      }),
+    ],
+    "USD",
+    RATES,
+  );
+  closeTo(r.totals.cashIn, 300);
+  closeTo(r.totals.expectedRevenue, 0);
+  closeTo(r.totals.receivables, 0);
+  closeTo(r.totals.quotedRevenue, 1000);
+});
+
+test("report: shipped orders count as expected money just like confirmed", () => {
+  const r = computeFinanceReport([order({ status: "shipped" })], "USD", RATES);
+  closeTo(r.totals.expectedRevenue, 1000);
+  closeTo(r.totals.quotedRevenue, 0);
+});

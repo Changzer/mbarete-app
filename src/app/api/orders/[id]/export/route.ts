@@ -4,6 +4,11 @@ import { getOrderExportData } from "@/lib/export/order-export";
 import { buildOrderXlsx } from "@/lib/export/order-xlsx";
 import { buildOrderPdf } from "@/lib/export/order-pdf";
 import { routing, type Locale } from "@/i18n/routing";
+import { makeLimiter } from "@/lib/rate-limit";
+
+// Generating a PDF/XLSX costs real CPU. Sixty per five minutes is far more
+// than any person exports by hand and far less than a runaway loop.
+const exportLimiter = makeLimiter({ max: 60, windowMs: 5 * 60 * 1000 });
 
 /**
  * GET /api/orders/:id/export?format=xlsx|pdf&locale=en|zh
@@ -19,6 +24,9 @@ export async function GET(
 ) {
   const user = await sessionUser();
   if (!user) return new NextResponse("Unauthorized", { status: 401 });
+  if (exportLimiter.hit(`u${user.id}`)) {
+    return new NextResponse("Too Many Requests", { status: 429, headers: { "Retry-After": "300" } });
+  }
 
   const { id } = await params;
   const orderId = Number(id);

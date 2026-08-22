@@ -845,6 +845,21 @@ In `saas` mode:
   misconfigured public server can't be farmed for free companies. Rotate the
   code by changing this value and restarting.
 
-Before pointing `saas` mode at the public internet, finish the pre-public
-gates: signed photo/document URLs and Postgres row-level security. Until then,
-keep testing behind the NAS network.
+### Row-level security
+
+Tenant isolation is enforced by the database itself, not only by the app: every
+business table carries a row-level-security policy that admits only rows of the
+company the current request is signed in as, and refuses everything when no
+tenant is known. This is applied automatically by the migrations on upgrade —
+nothing to configure.
+
+One consequence for admins: the app now connects as a dedicated non-superuser
+role (`mbarete_app`, created automatically on upgrade with the same
+`DB_PASSWORD`), because a superuser bypasses row-level security entirely. The
+original `mbarete` role stays for migrations, backups, and hand-run admin
+work — nothing about your routine changes. If you poke at the database as
+`mbarete_app`, business tables will look empty until you adopt a company:
+
+```sql
+select set_config('app.company_id', '1', false);  -- act as company 1
+```

@@ -497,7 +497,8 @@
     "accountUsd": "美元账户",
     "accountOther": "其他 / 无",
     "fxGainLoss": "汇率损益（至今）",
-    "gatewayHint": "请按实际到账金额记录。若支付平台（如 XTransfer）到账时已结汇，请填写实际收到的人民币金额并标记人民币账户——而不是客户汇出的金额。"
+    "gatewayHint": "请按实际到账金额记录。若支付平台（如 XTransfer）到账时已结汇，请填写实际收到的人民币金额并标记人民币账户——而不是客户汇出的金额。",
+    "tileQuoted": "报价中 · {count} 份草稿"
   },
   "financeReport": {
     "title": "财务",

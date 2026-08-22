@@ -4,43 +4,25 @@ import bcrypt from "bcryptjs";
 import { db, one } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { makeLimiter, clientIp } from "@/lib/rate-limit";
 
 /**
- * Brute-force brake on the password check. Five wrong passwords for one
- * account locks that account's sign-in for fifteen minutes; a correct
- * password clears the count. In-memory on purpose: the app runs as a single
- * process, and a restart clearing the counters costs an attacker their
- * progress, not us our security.
+ * Brute-force brakes on the password check, two of them:
+ *
+ * - Per (IP, email) pair: five wrong passwords lock that pair for fifteen
+ *   minutes. Keyed by the PAIR, never the email alone — an email-keyed
+ *   lockout would let anyone lock a victim's account from anywhere just by
+ *   spamming wrong passwords at their address (a lockout DoS). This way the
+ *   attacker locks only their own address out; the real owner signs in
+ *   normally from theirs.
+ * - Per IP across all emails: an address probing many accounts (credential
+ *   stuffing) loses login entirely for the window, so switching target
+ *   emails does not buy fresh attempts.
+ *
+ * A correct password clears the pair's streak.
  */
-const LOCKOUT_AFTER = 5;
-const LOCKOUT_MS = 15 * 60 * 1000;
-const failedLogins = new Map<string, { count: number; lastFailAt: number }>();
-
-function isLockedOut(email: string) {
-  const entry = failedLogins.get(email);
-  if (!entry) return false;
-  if (Date.now() - entry.lastFailAt > LOCKOUT_MS) {
-    failedLogins.delete(email);
-    return false;
-  }
-  return entry.count >= LOCKOUT_AFTER;
-}
-
-function recordFailedLogin(email: string) {
-  // Random probe emails must not grow the map forever.
-  if (failedLogins.size > 1000) {
-    for (const [key, entry] of failedLogins) {
-      if (Date.now() - entry.lastFailAt > LOCKOUT_MS) failedLogins.delete(key);
-    }
-  }
-  const entry = failedLogins.get(email);
-  if (entry && Date.now() - entry.lastFailAt <= LOCKOUT_MS) {
-    entry.count += 1;
-    entry.lastFailAt = Date.now();
-  } else {
-    failedLogins.set(email, { count: 1, lastFailAt: Date.now() });
-  }
-}
+const pairLockout = makeLimiter({ max: 5, windowMs: 15 * 60 * 1000 });
+const ipFailures = makeLimiter({ max: 30, windowMs: 15 * 60 * 1000 });
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   session: { strategy: "jwt" },
@@ -57,25 +39,27 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const password = credentials?.password as string | undefined;
         if (!email || !password) return null;
 
-        if (isLockedOut(email)) return null;
+        const ip = await clientIp();
+        const pair = `${ip}|${email}`;
+        if (pairLockout.isLimited(pair) || ipFailures.isLimited(ip)) return null;
 
-        const user = await db.select().from(users).where(eq(users.email, email)).limit(1).then(one);
-        if (!user) {
+        const fail = () => {
           // Unknown addresses count too, or the lockout itself would reveal
           // which emails exist.
-          recordFailedLogin(email);
+          pairLockout.hit(pair);
+          ipFailures.hit(ip);
           return null;
-        }
+        };
+
+        const user = await db.select().from(users).where(eq(users.email, email)).limit(1).then(one);
+        if (!user) return fail();
         // Deactivated accounts keep their history but lose their access.
         if (!user.active) return null;
 
         const valid = await bcrypt.compare(password, user.passwordHash);
-        if (!valid) {
-          recordFailedLogin(email);
-          return null;
-        }
+        if (!valid) return fail();
 
-        failedLogins.delete(email);
+        pairLockout.clear(pair);
         return { id: String(user.id), email: user.email, name: user.name };
       },
     }),

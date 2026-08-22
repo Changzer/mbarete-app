@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { db, one } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { enterTenant } from "@/db/tenant-context";
 
 export type Role = "admin" | "collaborator";
 
@@ -25,6 +26,9 @@ export async function sessionUser(): Promise<SessionUser | null> {
   if (!id) return null;
   const row = await db.select().from(users).where(eq(users.id, id)).limit(1).then(one);
   if (!row || !row.active) return null;
+  // From here on, every query this request makes carries its tenant — the
+  // pool stamps it into the connection and RLS enforces it (tenant-context.ts).
+  enterTenant(row.companyId);
   return {
     id: row.id,
     companyId: row.companyId,

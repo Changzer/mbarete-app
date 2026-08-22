@@ -101,6 +101,9 @@ export type FinanceReport = {
     cashIn: number;
     cashOut: number;
     netCash: number;
+    /** Value of draft orders — 报价, quotes sent but not yet 下单/confirmed. */
+    quotedRevenue: number;
+    quotedOrders: number;
   };
   months: MonthRow[];
   expensesByCategory: { category: string; amount: number; pct: number }[];
@@ -116,10 +119,12 @@ const month = (isoDate: string) => isoDate.slice(0, 7);
 /**
  * The whole business, one report.
  *
- * Cancelled orders are excluded from every expected figure — a dead quote is
- * not revenue and not a receivable — but any money that actually moved on
- * them (payments, expenses) stays in the cash flow and the expense
- * breakdown, because the bank account does not forget a cancelled order.
+ * Only confirmed and shipped orders (下单) carry expected figures and open
+ * balances: a draft is a quote (报价) — money you hope for, not money you are
+ * owed — so drafts roll up separately as the quoted pipeline, and cancelled
+ * orders count nowhere. Money that actually moved (payments, expenses) stays
+ * in the cash flow whatever the status, because the bank account does not
+ * forget a deposit taken on a draft or a cost sunk into a cancelled order.
  */
 export function computeFinanceReport(
   orders: FinanceOrderInput[],
@@ -154,6 +159,8 @@ export function computeFinanceReport(
     cashIn: 0,
     cashOut: 0,
     netCash: 0,
+    quotedRevenue: 0,
+    quotedOrders: 0,
   };
   const months = new Map<string, MonthRow>();
   const landing = new Map<string, { native: Record<string, number>; value: number }>();
@@ -172,7 +179,9 @@ export function computeFinanceReport(
   };
 
   for (const order of orders) {
-    const live = order.status !== "cancelled";
+    // Only a confirmed or shipped order (下单) is expected money; a draft is
+    // still just a quote (报价) and a cancelled order is nothing at all.
+    const counted = order.status === "confirmed" || order.status === "shipped";
 
     // --- cash and expenses: real money, counted whatever the status --------
     let received = 0;
@@ -211,7 +220,15 @@ export function computeFinanceReport(
       totals.cashOut += amount;
     }
 
-    if (!live) continue;
+    if (!counted) {
+      if (order.status === "draft") {
+        // The quoted pipeline: visible as its own figure, never as a
+        // receivable — nobody owes money on an unconfirmed quote.
+        totals.quotedOrders += 1;
+        totals.quotedRevenue += conv(order.expectedRevenue, order.quoteCurrency);
+      }
+      continue;
+    }
 
     // --- expected figures: only orders that are still real -----------------
     const revenue = conv(order.expectedRevenue, order.quoteCurrency);
@@ -275,6 +292,7 @@ export function computeFinanceReport(
   totals.cashOut = roundMoney(totals.cashOut);
   totals.receivables = roundMoney(totals.receivables);
   totals.payables = roundMoney(totals.payables);
+  totals.quotedRevenue = roundMoney(totals.quotedRevenue);
   totals.expectedNet = roundMoney(
     totals.expectedRevenue - totals.expectedCost - totals.expensesTotal,
   );

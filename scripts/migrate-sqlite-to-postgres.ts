@@ -69,6 +69,11 @@ async function main() {
       companyId = created.rows[0].id;
     }
 
+    // This is a dedicated connection with no request behind it; adopt the
+    // install's one tenant for the whole session so the RLS-guarded tables
+    // accept the imported rows.
+    await pg.query("select set_config('app.company_id', $1, false)", [String(companyId)]);
+
     await pg.query("begin");
 
     // The boot seed has usually already made the admin account, starter

@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { companies, users, categories, exchangeRates } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 /**
@@ -73,6 +73,14 @@ export async function createCompanyWithOwner(
       .insert(companies)
       .values({ name: input.companyName })
       .returning({ id: companies.id });
+
+    // The connection was checked out before this company existed, so its RLS
+    // scope can't cover it. SET LOCAL adopts the newborn tenant for the rest
+    // of the transaction (and only the transaction) so the seeded defaults
+    // pass the policies' WITH CHECK.
+    await tx.execute(
+      sql`SELECT set_config('app.company_id', ${String(company.id)}, true)`,
+    );
 
     const [owner] = await tx
       .insert(users)
