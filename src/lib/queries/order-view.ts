@@ -13,6 +13,8 @@ export type OrderViewRow = {
   unitPriceSnapshot: number;
   /** the invoiced price per unit; equals the cost on pre-sell-price orders */
   sellPrice: number;
+  /** true when no sell price was set, so customer documents show the cost */
+  sellMissing: boolean;
   sellTotal: number;
   currencySnapshot: string;
   moqSnapshot: number;
@@ -75,6 +77,7 @@ export async function getOrderView(companyId: number, orderId: number, locale: L
       unitPriceSnapshot: item.unitPriceSnapshot,
       sellPrice:
         item.sellPriceSnapshot > 0 ? item.sellPriceSnapshot : item.unitPriceSnapshot,
+      sellMissing: !(item.sellPriceSnapshot > 0),
       sellTotal:
         (item.sellPriceSnapshot > 0 ? item.sellPriceSnapshot : item.unitPriceSnapshot) *
         item.quantity,

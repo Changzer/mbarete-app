@@ -9,6 +9,7 @@ import {
 import type { Locale } from "@/i18n/routing";
 import { formatCbm, formatWeightKg } from "@/lib/calculations";
 import { PrintButton } from "@/components/orders/print-button";
+import { OrderExportButtons } from "@/components/orders/order-export-buttons";
 import { FreshOnRestore } from "@/components/fresh-on-restore";
 import { Brand } from "@/components/brand";
 import { Link } from "@/i18n/navigation";
@@ -88,7 +89,13 @@ export default async function ProformaPage({
         >
           ← {orderT("title")}
         </Link>
-        <PrintButton />
+        <div className="flex items-center gap-2">
+          <OrderExportButtons
+            orderId={order.id}
+            sellMissingCount={rows.filter((r) => r.sellMissing).length}
+          />
+          <PrintButton />
+        </div>
       </div>
 
       {!company.companyName ? (

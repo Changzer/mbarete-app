@@ -318,7 +318,10 @@
     "totalsTitle": "Totals",
     "rateSnapshot": "Rate frozen at {rate} when this order was started.",
     "belowMoqBlocks": "One line is below its MOQ — a draft is fine, confirming is not.",
-    "actions": "Actions"
+    "actions": "Actions",
+    "exportXlsx": "Export Excel",
+    "exportPdf": "Export PDF",
+    "exportSellMissingWarning": "{count} line(s) have no sell price — the export will show your cost for those lines. Export anyway?"
   },
   "settings": {
     "exchangeRates": "Exchange Rates",
@@ -336,7 +339,10 @@
     "lastAutoUpdate": "Last automatic update: {when}",
     "neverAutoUpdated": "No automatic update yet — using seeded/manual rates.",
     "sourceAuto": "auto",
-    "sourceManual": "manual"
+    "sourceManual": "manual",
+    "dataExport": "Data export",
+    "dataExportHelp": "Download everything this company owns as a zip of CSV files — products, contacts, orders, payments and history. Your data is yours; keep a copy as a backup.",
+    "dataExportButton": "Download backup (CSV)"
   },
   "users": {
     "title": "Users",
@@ -436,7 +442,8 @@
     "bankName": "Bank",
     "bankAccountNumber": "Account",
     "bankSwift": "SWIFT",
-    "equivalent": "Equivalent"
+    "equivalent": "Equivalent",
+    "validityNote": "Prices are valid for {days} days from the date of issue."
   },
   "finance": {
     "documents": "Documents",

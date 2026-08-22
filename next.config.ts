@@ -6,6 +6,15 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 const nextConfig: NextConfig = {
   output: "standalone",
   serverExternalPackages: ["pg"],
+  // The PDF export reads the CJK font files (and pdfkit its bundled data)
+  // from disk at runtime; the standalone tracer can't see fs reads, so they
+  // must be traced in by hand or the docker image 500s on export.
+  outputFileTracingIncludes: {
+    "/api/orders/[id]/export": [
+      "./src/assets/fonts/**",
+      "./node_modules/pdfkit/js/data/**",
+    ],
+  },
   experimental: {
     serverActions: {
       // Product photos and supplier documents are submitted through server

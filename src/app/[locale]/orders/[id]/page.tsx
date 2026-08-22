@@ -15,6 +15,7 @@ import { OrderFinance } from "@/components/orders/order-finance";
 import { OrderResult } from "@/components/orders/order-result";
 import { OrderChangelog } from "@/components/orders/order-changelog";
 import { ProformaBankSelect } from "@/components/orders/proforma-bank-select";
+import { OrderExportButtons } from "@/components/orders/order-export-buttons";
 import { requireUser } from "@/lib/authz";
 
 const STATUS_VARIANT = {
@@ -110,6 +111,10 @@ export default async function OrderDetailPage({
             <Button asChild variant="outline" size="sm">
               <Link href={`/orders/${order.id}/proforma`}>{proformaT("open")}</Link>
             </Button>
+            <OrderExportButtons
+              orderId={order.id}
+              sellMissingCount={rows.filter((r) => r.sellMissing).length}
+            />
           </OrderActionsSheet>
         </div>
       </div>
