@@ -402,7 +402,7 @@ export function ProductForm({
     if (!transcribe) return;
     const input = formRef.current?.elements.namedItem("images");
     const files = input instanceof HTMLInputElement ? Array.from(input.files ?? []) : [];
-    if (files.length === 0) {
+    if (files.length === 0 && existingImages.length === 0) {
       // Auto runs fire from photo-set changes; an emptied set is not an error.
       if (!auto) setAiError("no-photos");
       return;
@@ -416,6 +416,11 @@ export function ProductForm({
     try {
       const data = new FormData();
       for (const file of files) data.append("images", file);
+      // Editing an existing product: its photos live on the server, not in
+      // the file input — send their paths and let the server read them.
+      if (files.length === 0) {
+        for (const img of existingImages) data.append("existingPaths", img.path);
+      }
       const result = await transcribe(data);
       if (run !== aiRun.current) return; // superseded by a newer run
       if (result.ok) {
