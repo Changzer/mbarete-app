@@ -1,15 +1,12 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Stepper } from "@/components/ui/stepper";
-import { formatMoney } from "@/lib/money";
 import {
   Select,
   SelectContent,
@@ -20,17 +17,18 @@ import {
 import {
   computeOrderTotals,
   formatCbm,
-  fullCartons,
   isBelowMoq,
   isPartialCarton,
   suggestedQuantity,
-  lineTotal,
   type CurrencyRates,
   missingCartonFigures,
   sellUnitPrice,
-  lineSellTotal,
 } from "@/lib/calculations";
 import { createOrder, updateOrder, type OrderActionResult } from "@/lib/actions/orders";
+import { LineCard } from "@/components/orders/line-card";
+import { OrderKeypad } from "@/components/orders/order-keypad";
+import { ProductPicker } from "@/components/orders/product-picker";
+import { AlertTriangle, Plus } from "lucide-react";
 import { createContact, updateContact } from "@/lib/actions/contacts";
 import { ContactForm } from "@/components/contacts/contact-form";
 import {
@@ -120,9 +118,14 @@ export function OrderBuilder({
     });
     return map;
   });
-  const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
   const [error, setError] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [keypad, setKeypad] = useState<{ id: number; tab: "qty" | "price" } | null>(null);
+  // A removed line lingers here for a few seconds so a mis-tap costs nothing.
+  const [undo, setUndo] = useState<{ id: number; entry: { qty: number; sellPrice: string } } | null>(
+    null,
+  );
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
 
   // A client created here is held locally as well as revalidated, so the new
@@ -150,16 +153,6 @@ export function OrderBuilder({
   }
 
   const productMap = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
-
-  const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
-      if (categoryFilter !== "all" && String(p.categoryId) !== categoryFilter) return false;
-      if (search && !p.name.toLowerCase().includes(search.toLowerCase()) && !p.sku.toLowerCase().includes(search.toLowerCase())) {
-        return false;
-      }
-      return true;
-    });
-  }, [products, search, categoryFilter]);
 
   const cartLines = useMemo(() => {
     return Object.entries(cart)
@@ -226,6 +219,56 @@ export function OrderBuilder({
     }));
   }
 
+  function removeLine(productId: number) {
+    setCart((prev) => {
+      const entry = prev[productId];
+      if (!entry) return prev;
+      if (undoTimer.current) clearTimeout(undoTimer.current);
+      setUndo({ id: productId, entry });
+      undoTimer.current = setTimeout(() => setUndo(null), 5000);
+      const next = { ...prev };
+      delete next[productId];
+      return next;
+    });
+  }
+
+  function restoreLine() {
+    if (!undo) return;
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    setCart((prev) => ({ ...prev, [undo.id]: undo.entry }));
+    setUndo(null);
+  }
+
+  /** ± one carton (or one piece without carton data), snapping a partial
+   *  carton to its boundary first; stepping to zero removes the line. */
+  function stepLine(productId: number, dir: 1 | -1) {
+    const entry = cart[productId];
+    const product = productMap.get(productId);
+    if (!entry || !product) return;
+    const per = product.qtyPerBox > 1 ? product.qtyPerBox : 1;
+    const clean = entry.qty % per === 0;
+    const next =
+      dir > 0
+        ? clean
+          ? entry.qty + per
+          : Math.ceil(entry.qty / per) * per
+        : clean
+          ? entry.qty - per
+          : Math.floor(entry.qty / per) * per;
+    if (next <= 0) removeLine(productId);
+    else setQuantity(productId, next);
+  }
+
+  function addProducts(ids: number[]) {
+    for (const id of ids) {
+      const product = productMap.get(id);
+      if (!product || cart[id]?.qty) continue;
+      // Added at the smallest quantity that clears both MOQ and full cartons.
+      setQuantity(id, suggestedQuantity(product, product.moq));
+    }
+    setPickerOpen(false);
+  }
+
   async function handleSubmit(status: "draft" | "confirmed") {
     setError(null);
     if (cartLines.length === 0) {
@@ -265,91 +308,56 @@ export function OrderBuilder({
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
       <div className="lg:col-span-2">
-        <div className="mb-4 flex flex-wrap gap-3">
-          <Input
-            placeholder={common("search")}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="max-w-xs"
-          />
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t("allCategories")}</SelectItem>
-              {categories.map((c) => (
-                <SelectItem key={c.id} value={String(c.id)}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-          {filteredProducts.map((p) => {
-            const qty = cart[p.id]?.qty ?? 0;
-            const below = isBelowMoq(qty, p.moq);
-            const partial = isPartialCarton(p, qty);
-            const suggestion = suggestedQuantity(p, qty);
-            return (
-              <div
-                key={p.id}
-                data-testid={`picker-${p.sku}`}
-                className={`flex flex-col gap-2 rounded-[12px] border bg-surface p-3 ${
-                  qty > 0 ? "border-action" : "border-line"
-                }`}
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-[13.5px] font-bold text-ink">{p.name}</p>
-                  <p className="truncate font-mono text-[11px] text-sub">
-                    {p.categoryName} · {formatMoney(p.price, p.currency)} · {t("moq")} {p.moq}
-                  </p>
-                </div>
-                {/* Stepping by the carton, because that is the unit that ships:
-                    a supplier does not sell 37 of anything. Typing still works
-                    for a buyer who already knows the number. */}
-                <Stepper
-                  value={qty}
-                  onChange={(next) => setQuantity(p.id, next)}
-                  step={p.qtyPerBox > 0 ? p.qtyPerBox : 1}
-                  label={p.name}
-                  suffix={`/${p.qtyPerBox}`}
-                  data-testid={`qty-${p.sku}`}
-                />
-                {qty > 0 || below ? (
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {qty > 0 ? (
-                      <Badge variant={partial ? "warning" : "secondary"}>
-                        {partial
-                          ? t("partialCarton", {
-                              cartons: fullCartons(p, qty),
-                              perCarton: p.qtyPerBox,
-                            })
-                          : t("cartons", { count: fullCartons(p, qty) })}
-                      </Badge>
-                    ) : null}
-                    {below ? (
-                      <Badge variant="warning" data-testid={`below-moq-${p.sku}`}>
-                        {t("moqWarning", { moq: p.moq })}
-                      </Badge>
-                    ) : null}
-                    {qty > 0 && suggestion !== qty ? (
-                      <button
-                        type="button"
-                        onClick={() => setQuantity(p.id, suggestion)}
-                        className="focus-ring min-h-11 px-1 text-[11px] font-semibold text-action-chrome underline"
-                      >
-                        {t("roundTo", { qty: suggestion })}
-                      </button>
-                    ) : null}
-                  </div>
-                ) : null}
+        {(() => {
+          const nBelow = cartLines.filter((l) => isBelowMoq(l.quantity, l.product.moq)).length;
+          const nPart = cartLines.filter((l) => isPartialCarton(l.product, l.quantity)).length;
+          const nIssues = nBelow + nPart;
+          if (nIssues === 0) return null;
+          return (
+            <div
+              className="mb-3 flex items-center gap-2.5 rounded-2xl border-[1.5px] border-action bg-action-soft px-4 py-3"
+              data-testid="issues-banner"
+            >
+              <AlertTriangle size={18} className="shrink-0 text-action-chrome" />
+              <div className="text-[13.5px] font-bold text-action-chrome">
+                {t("linesNeedAttention", { count: nIssues })}
+                <span className="ml-1.5 font-mono text-[11.5px] font-normal">
+                  {nBelow ? t("nBelowMoq", { count: nBelow }) : ""}
+                  {nBelow && nPart ? " · " : ""}
+                  {nPart ? t("nPartCarton", { count: nPart }) : ""}
+                </span>
               </div>
-            );
-          })}
-        </div>
+            </div>
+          );
+        })()}
+
+        {cartLines.map(({ product, quantity }) => (
+          <LineCard
+            key={product.id}
+            product={productMap.get(product.id)!}
+            qty={quantity}
+            sellPrice={product.sellPrice}
+            onStep={stepLine}
+            onOpenKeypad={(id, tab) => setKeypad({ id, tab })}
+            onFix={(id, qty) => setQuantity(id, qty)}
+            onRemove={removeLine}
+          />
+        ))}
+
+        {cartLines.length === 0 ? (
+          <p className="mb-3 mt-6 px-8 text-center font-mono text-[12.5px] text-sub">
+            {t("emptyCart")}
+          </p>
+        ) : null}
+
+        <button
+          type="button"
+          onClick={() => setPickerOpen(true)}
+          className="mb-2 flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-action py-3.5 text-[15.5px] font-extrabold text-action-chrome active:scale-95"
+          data-testid="open-picker"
+        >
+          <Plus size={20} strokeWidth={3} /> {t("addProductsTitle")}
+        </button>
       </div>
 
       <div className="lg:col-span-1">
@@ -442,83 +450,6 @@ export function OrderBuilder({
               onChange={(e) => setCommissionPct(e.target.value)}
             />
           </div>
-
-          {cartLines.length === 0 ? (
-            <p className="text-[12.5px] text-sub">{t("emptyCart")}</p>
-          ) : (
-            <ul className="flex flex-col gap-2 max-h-64 overflow-y-auto">
-              {cartLines.map(({ product, quantity }) => (
-                <li key={product.id} className="flex flex-col gap-1 border-b border-line pb-2 text-[13px] last:border-0">
-                  <div className="flex items-center justify-between">
-                    <span className="min-w-0 truncate font-bold text-ink">{product.name}</span>
-                    <button
-                      type="button"
-                      className="focus-ring min-h-11 shrink-0 px-2 text-[11px] font-semibold text-faint hover:text-danger"
-                      onClick={() => setQuantity(product.id, 0)}
-                    >
-                      {t("removeLine")}
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between font-mono text-[11px] text-sub">
-                    <span>
-                      {t("lineCost")}: {quantity} × {product.price.toFixed(2)} {product.currency}
-                    </span>
-                    <span>{lineTotal(product, quantity).toFixed(2)} {product.currency}</span>
-                  </div>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <label className="flex items-center gap-1.5 text-[11px] text-sub">
-                      {t("sellPriceLabel")}
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                        min="0"
-                        value={cart[product.id]?.sellPrice ?? ""}
-                        onChange={(e) => setSellPrice(product.id, e.target.value)}
-                        className="h-9 w-24"
-                        data-testid={`sell-price-${product.sku}`}
-                      />
-                      {product.currency}
-                    </label>
-                    <span className="font-mono text-[13px] font-semibold tabular-nums text-ink">
-                      {lineSellTotal(product, quantity).toFixed(2)} {product.currency}
-                    </span>
-                  </div>
-                  {product.price > 0 ? (
-                    <span
-                      className={`w-fit font-mono text-[11px] ${
-                        product.sellPrice && product.sellPrice < product.price
-                          ? "font-semibold text-danger"
-                          : "text-sub"
-                      }`}
-                      data-testid={`line-markup-${product.sku}`}
-                    >
-                      {t("lineMarkup", {
-                        pct: (((sellUnitPrice(product) - product.price) / product.price) * 100).toFixed(1),
-                      })}
-                    </span>
-                  ) : null}
-                  <div className="flex items-center justify-between font-mono text-[11px] text-faint">
-                    <span>{t("cartons", { count: fullCartons(product, quantity) })}</span>
-                    <span>{quantity} / {product.qtyPerBox} {t("perCarton")}</span>
-                  </div>
-                  {isBelowMoq(quantity, product.moq) ? (
-                    <Badge variant="warning" className="w-fit">
-                      {t("moqWarning", { moq: product.moq })}
-                    </Badge>
-                  ) : null}
-                  {isPartialCarton(product, quantity) ? (
-                    <Badge variant="warning" className="w-fit">
-                      {t("partialCarton", {
-                        cartons: fullCartons(product, quantity),
-                        perCarton: product.qtyPerBox,
-                      })}
-                    </Badge>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
 
           {totals.missingRates.length > 0 ? (
             <p className="rounded-[10px] bg-warn-soft px-3 py-2 text-[11px] leading-relaxed text-warn">
@@ -673,6 +604,55 @@ export function OrderBuilder({
           </div>
         </div>
       </div>
+
+      {pickerOpen ? (
+        <ProductPicker
+          products={products}
+          categories={categories}
+          inOrder={new Map(cartLines.map((l) => [l.product.id, l.quantity]))}
+          onClose={() => setPickerOpen(false)}
+          onAdd={addProducts}
+          onEditLine={(id) => {
+            setPickerOpen(false);
+            setKeypad({ id, tab: "qty" });
+          }}
+        />
+      ) : null}
+
+      {keypad && cart[keypad.id] ? (
+        <OrderKeypad
+          product={productMap.get(keypad.id)!}
+          qty={cart[keypad.id].qty}
+          sellPrice={
+            cartLines.find((l) => l.product.id === keypad.id)?.product.sellPrice ??
+            sellUnitPrice(productMap.get(keypad.id)!)
+          }
+          initialTab={keypad.tab}
+          onSetQty={setQuantity}
+          onSetSellPrice={(id, price) => setSellPrice(id, String(price))}
+          onClose={() => setKeypad(null)}
+        />
+      ) : null}
+
+      {undo ? (
+        <div
+          className="fixed inset-x-4 z-50 mx-auto flex max-w-[540px] items-center justify-between rounded-2xl bg-ink px-4 py-3 text-surface"
+          style={{ bottom: 88 }}
+          data-testid="undo-toast"
+        >
+          <span className="min-w-0 truncate pr-3 text-[13.5px] font-semibold">
+            {t("removedLine", { name: productMap.get(undo.id)?.name ?? "" })}
+          </span>
+          <button
+            type="button"
+            onClick={restoreLine}
+            className="shrink-0 text-[13.5px] font-extrabold text-warn"
+            data-testid="undo-restore"
+          >
+            {t("undo")}
+          </button>
+        </div>
+      ) : null}
 
       {/* Add or correct a client without losing the order being built. */}
       <Dialog
