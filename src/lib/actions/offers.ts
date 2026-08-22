@@ -64,6 +64,23 @@ export async function saveOffer(
     .then(one);
   if (!product) return { error: "missing" };
 
+  // Only this company's suppliers can be quoted — the form posts a bare id.
+  if (data.supplierId !== null) {
+    const supplier = await db
+      .select({ id: contacts.id })
+      .from(contacts)
+      .where(
+        and(
+          eq(contacts.companyId, user.companyId),
+          eq(contacts.id, data.supplierId),
+          eq(contacts.type, "supplier"),
+        ),
+      )
+      .limit(1)
+      .then(one);
+    if (!supplier) return { error: "invalid" };
+  }
+
   if (data.supplierId !== null) {
     const rows = await db
       .select({ id: productSuppliers.id, supplierId: productSuppliers.supplierId })
@@ -85,8 +102,9 @@ export async function saveOffer(
       .set({ ...data, updatedAt: new Date().toISOString() })
       .where(eq(productSuppliers.id, id));
   } else {
-    await db.insert(productSuppliers)
-      .values({ productId, createdBy: userId, ...data });
+    await db
+      .insert(productSuppliers)
+      .values({ companyId: user.companyId, productId, createdBy: userId, ...data });
 
     // The quote created from the registration form stood in for a source
     // nobody had recorded yet. Once a real supplier is named it has served

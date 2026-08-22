@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { productSuppliers, contacts, orderItems, orders, products } from "@/db/schema";
-import { eq, inArray, asc } from "drizzle-orm";
+import { and, eq, inArray, asc } from "drizzle-orm";
 import { getExchangeRates } from "@/lib/queries/orders";
 import { pickPrimaryOffer, rankOffers, offerSpread, type Offer } from "@/lib/offers";
 
@@ -46,7 +46,12 @@ export async function getOffersByProduct(
       })
       .from(productSuppliers)
       .leftJoin(contacts, eq(productSuppliers.supplierId, contacts.id))
-      .where(inArray(productSuppliers.productId, productIds))
+      .where(
+        and(
+          eq(productSuppliers.companyId, companyId),
+          inArray(productSuppliers.productId, productIds),
+        ),
+      )
       .orderBy(asc(productSuppliers.id)),
     getExchangeRates(companyId),
     orderedProductIds(companyId),
@@ -97,7 +102,12 @@ export async function getAllOffersForProduct(
       .select({ offer: productSuppliers, supplierName: contacts.companyName })
       .from(productSuppliers)
       .leftJoin(contacts, eq(productSuppliers.supplierId, contacts.id))
-      .where(eq(productSuppliers.productId, productId))
+      .where(
+        and(
+          eq(productSuppliers.companyId, companyId),
+          eq(productSuppliers.productId, productId),
+        ),
+      )
       .orderBy(asc(productSuppliers.id)),
     getExchangeRates(companyId),
   ]);
@@ -141,7 +151,12 @@ export async function syncProductFromOffers(companyId: number, productId: number
     db
       .select()
       .from(productSuppliers)
-      .where(eq(productSuppliers.productId, productId)),
+      .where(
+        and(
+          eq(productSuppliers.companyId, companyId),
+          eq(productSuppliers.productId, productId),
+        ),
+      ),
     getExchangeRates(companyId),
   ]);
   const winner = pickPrimaryOffer(offers, { basis: OFFER_BASIS, rates });

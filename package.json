@@ -12,6 +12,7 @@
     "db:seed": "tsx src/db/seed.ts",
     "db:add-categories": "tsx src/db/add-categories.ts",
     "db:import-sqlite": "tsx scripts/migrate-sqlite-to-postgres.ts",
+    "check:isolation": "tsx scripts/isolation-check.ts",
     "test": "node --import tsx --test 'src/**/*.test.ts'",
     "test:ui": "node --test 'src/ui-tests/*.spec.mjs'"
   },

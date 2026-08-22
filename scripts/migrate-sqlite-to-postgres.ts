@@ -133,7 +133,7 @@ async function main() {
     await copy("contact_images", {});
     await copy("products", { addCompanyId: true, boolCols: ["active"] });
     await copy("product_images", {});
-    await copy("product_suppliers", { boolCols: ["active"] });
+    await copy("product_suppliers", { addCompanyId: true, boolCols: ["active"] });
     await copy("bank_accounts", { addCompanyId: true, boolCols: ["is_default"] });
     await copy("exchange_rates", { addCompanyId: true });
     await copy("exchange_rate_history", { addCompanyId: true });
