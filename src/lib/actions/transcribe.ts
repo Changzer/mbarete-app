@@ -12,6 +12,11 @@ import {
   type TranscribeResult,
 } from "@/lib/transcribe-product";
 import { transcribeBusinessCard, type CardTranscribeResult } from "@/lib/transcribe-card";
+import { productImages } from "@/db/schema";
+import { and, eq, inArray } from "drizzle-orm";
+import { uploadsDir, isSafeUploadName } from "@/lib/uploads";
+import fs from "node:fs/promises";
+import path from "node:path";
 
 // The formats Claude's vision accepts — the same set the catalog stores, so
 // anything the photo picker produces can also be transcribed.
@@ -41,12 +46,59 @@ async function collectImages(formData: FormData, field: string): Promise<Transcr
   );
 }
 
+const EXT_TYPES: Record<string, TranscribeImage["mediaType"]> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  gif: "image/gif",
+};
+
+/**
+ * Editing an existing product: its photos live on the uploads volume, not in
+ * the form's file input, so the client sends their stored paths instead.
+ * Every path is verified against this company's product_images rows before
+ * anything is read from disk — a posted path is a claim, not a right.
+ */
+async function collectStoredImages(
+  companyId: number,
+  formData: FormData,
+): Promise<TranscribeImage[]> {
+  const requested = formData
+    .getAll("existingPaths")
+    .filter((p): p is string => typeof p === "string" && p.length > 0 && p.length < 300)
+    .slice(0, MAX_TRANSCRIBE_IMAGES);
+  if (requested.length === 0) return [];
+
+  const owned = await db
+    .select({ path: productImages.path })
+    .from(productImages)
+    .where(and(eq(productImages.companyId, companyId), inArray(productImages.path, requested)));
+  const allowed = new Set(owned.map((r) => r.path));
+
+  const images: TranscribeImage[] = [];
+  for (const publicPath of requested) {
+    if (!allowed.has(publicPath)) continue;
+    const filename = publicPath.replace(/^\/uploads\//, "");
+    if (!isSafeUploadName(filename)) continue;
+    const mediaType = EXT_TYPES[filename.split(".").pop() ?? ""];
+    if (!mediaType) continue;
+    const bytes = await fs
+      .readFile(path.join(/* turbopackIgnore: true */ uploadsDir(), filename))
+      .catch(() => null);
+    if (!bytes || bytes.length === 0 || bytes.length > MAX_IMAGE_BYTES) continue;
+    images.push({ mediaType, data: bytes.toString("base64") });
+  }
+  return images;
+}
+
 export async function transcribeProduct(formData: FormData): Promise<TranscribeResult> {
   const user = await requireUser();
 
   if (!isTranscriptionEnabled()) return { ok: false, error: "not-configured" };
 
-  const images = await collectImages(formData, "images");
+  let images = await collectImages(formData, "images");
+  if (images.length === 0) images = await collectStoredImages(user.companyId, formData);
   if (images.length === 0) return { ok: false, error: "no-photos" };
 
   const categories = await getCategories(user.companyId);
