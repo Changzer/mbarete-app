@@ -42,6 +42,24 @@
     "errorRateLimited": "Too many attempts. Please try again later.",
     "errorInvalid": "Please check the form and try again."
   },
+  "invite": {
+    "title": "Join the team",
+    "subtitle": "You were invited to join {company}. Create your account below.",
+    "yourName": "Your name",
+    "email": "Email",
+    "password": "Password",
+    "confirm": "Confirm password",
+    "submit": "Create account",
+    "submitting": "Creating…",
+    "invalidTitle": "This invite link is not valid",
+    "invalidBody": "It may have been used already, expired, or revoked. Ask your admin for a new one.",
+    "goToLogin": "Go to sign in",
+    "errorInvalidLink": "This invite link is no longer valid — ask your admin for a new one.",
+    "errorPasswordMismatch": "The passwords do not match.",
+    "errorEmailTaken": "An account with that email already exists.",
+    "errorRateLimited": "Too many attempts. Please try again later.",
+    "errorInvalid": "Please check the form and try again."
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",
@@ -373,7 +391,17 @@
     "errorLastUser": "This is the last active account — deactivating it would lock everyone out.",
     "errorNotFound": "That user no longer exists.",
     "ownerTag": "Owner",
-    "errorOwnerLocked": "The company owner cannot be demoted or deactivated."
+    "errorOwnerLocked": "The company owner cannot be demoted or deactivated.",
+    "invitesTitle": "Invite links",
+    "invitesHelp": "Share a link over WeChat or WhatsApp; it creates one account and expires in 7 days.",
+    "inviteCollaborator": "Invite collaborator",
+    "inviteAdmin": "Invite admin",
+    "inviteFreshHelp": "Copy this link now — it is shown only once.",
+    "inviteCopy": "Copy link",
+    "inviteCopied": "Copied!",
+    "inviteRevoke": "Revoke",
+    "inviteMeta": "by {by} · expires {expires}",
+    "inviteFailed": "Could not create the invite. Please try again."
   },
   "company": {
     "title": "Company details",

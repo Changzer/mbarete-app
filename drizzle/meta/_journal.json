@@ -43,6 +43,13 @@
       "when": 1787770000000,
       "tag": "0005_row-level-security",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787780000000,
+      "tag": "0006_invites",
+      "breakpoints": true
     }
   ]
 }

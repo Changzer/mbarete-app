@@ -6,6 +6,8 @@ import { users, companies } from "@/db/schema";
 import { asc, eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { UserManager, type TeamUser } from "@/components/users/user-manager";
+import { InviteManager } from "@/components/users/invite-manager";
+import { listPendingInvites } from "@/lib/actions/invites";
 
 export default async function UsersPage() {
   const current = await sessionUser();
@@ -42,6 +44,9 @@ export default async function UsersPage() {
       <h1 className="mb-6 text-[23px] font-extrabold tracking-tight text-ink">
         {t("title")}
       </h1>
+      <div className="mb-6">
+        <InviteManager invites={await listPendingInvites(current!.companyId)} />
+      </div>
       <UserManager
         users={teamUsers}
         currentUserId={Number(session?.user?.id ?? 0)}
