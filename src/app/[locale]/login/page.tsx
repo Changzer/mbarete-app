@@ -2,6 +2,8 @@ import { getTranslations } from "next-intl/server";
 import { LoginForm } from "@/components/login-form";
 import { Brand } from "@/components/brand";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Link } from "@/i18n/navigation";
+import { isSaas } from "@/lib/deploy";
 
 export default async function LoginPage({
   params,
@@ -27,8 +29,16 @@ export default async function LoginPage({
           <CardTitle className="text-xl">{t("title")}</CardTitle>
           <CardDescription>{t("subtitle")}</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col gap-4">
           <LoginForm callbackUrl={callbackUrl ?? `/${locale}/catalog`} />
+          {isSaas() ? (
+            <p className="text-center text-sm text-sub">
+              {t("noAccount")}{" "}
+              <Link href="/signup" className="font-medium text-brand-600 hover:underline">
+                {t("createCompany")}
+              </Link>
+            </p>
+          ) : null}
         </CardContent>
       </Card>
     </div>

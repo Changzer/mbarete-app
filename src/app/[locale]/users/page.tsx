@@ -1,8 +1,8 @@
 import { getTranslations, getLocale } from "next-intl/server";
 import { redirect } from "@/i18n/navigation";
 import { sessionUser } from "@/lib/authz";
-import { db } from "@/db";
-import { users } from "@/db/schema";
+import { db, one } from "@/db";
+import { users, companies } from "@/db/schema";
 import { asc, eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { UserManager, type TeamUser } from "@/components/users/user-manager";
@@ -15,6 +15,13 @@ export default async function UsersPage() {
 
   const t = await getTranslations("users");
   const session = await auth();
+
+  const company = await db
+    .select({ ownerUserId: companies.ownerUserId })
+    .from(companies)
+    .where(eq(companies.id, current!.companyId))
+    .limit(1)
+    .then(one);
 
   const rows = await db
     .select()
@@ -38,6 +45,7 @@ export default async function UsersPage() {
       <UserManager
         users={teamUsers}
         currentUserId={Number(session?.user?.id ?? 0)}
+        ownerUserId={company?.ownerUserId ?? null}
       />
     </div>
   );
