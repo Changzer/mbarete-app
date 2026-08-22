@@ -2,7 +2,9 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     const { runMigrations } = await import("./src/db/migrate");
     const { seed } = await import("./src/db/seed");
-    runMigrations();
+    // Seed queries the migrated schema, and requests must not reach an app
+    // whose database is still changing in the background.
+    await runMigrations();
     await seed();
 
     // Exchange rates refresh themselves from here on; see src/lib/forex.ts.
