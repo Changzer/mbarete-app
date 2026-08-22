@@ -224,7 +224,18 @@ export function ProductForm({
    * their pristine defaults (currency USD, MOQ 1, 1 per box, the initial
    * category). Anything already typed is theirs and stays.
    */
-  function applyTranscription(fields: TranscribedFields, justCreated?: Category) {
+  /**
+   * `overwrite` separates the two ways a read arrives. An automatic run
+   * (photos just added) must never clobber what the agent already typed. An
+   * explicit press of "Fill from photos" is the agent ASKING for the
+   * reading — on the edit page every field already holds its stored value,
+   * so without overwrite the button would visibly do nothing.
+   */
+  function applyTranscription(
+    fields: TranscribedFields,
+    justCreated?: Category,
+    overwrite = false,
+  ) {
     const form = formRef.current;
     if (!form) return;
 
@@ -236,7 +247,7 @@ export function ProductForm({
       if (value === undefined) return;
       const el = form.elements.namedItem(name);
       if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return;
-      if (el.value.trim() !== "" && !pristine.includes(el.value.trim())) return;
+      if (!overwrite && el.value.trim() !== "" && !pristine.includes(el.value.trim())) return;
       el.value = String(value);
     };
 
@@ -248,7 +259,7 @@ export function ProductForm({
     // Currency is state, so it takes the same "only if untouched" rule by
     // hand: USD is the pristine default nobody chose.
     if (fields.currency) {
-      setCurrency((prev) => (prev === "USD" ? String(fields.currency) : prev));
+      setCurrency((prev) => (overwrite || prev === "USD" ? String(fields.currency) : prev));
     }
     setIfUntouched("moq", fields.moq, ["1"]);
     // Carton figures off the board. These inputs only exist in carton mode;
@@ -259,7 +270,9 @@ export function ProductForm({
     setIfUntouched("weightKg", fields.weightKg);
     setIfUntouched("cbmOverride", fields.cbm);
     if (fields.qtyPerBox !== undefined) {
-      setQtyPerBox((prev) => (prev === "" || prev === "1" ? String(fields.qtyPerBox) : prev));
+      setQtyPerBox((prev) =>
+        overwrite || prev === "" || prev === "1" ? String(fields.qtyPerBox) : prev,
+      );
     }
     // `justCreated` is passed explicitly because setCreatedCategories has not
     // re-rendered yet when this runs: `allCategories` is still the array from
@@ -272,7 +285,7 @@ export function ProductForm({
       selectable.some((c) => c.id === fields.categoryId)
     ) {
       setCategoryId((prev) =>
-        prev === initialCategoryId.current ? String(fields.categoryId) : prev,
+        overwrite || prev === initialCategoryId.current ? String(fields.categoryId) : prev,
       );
     }
   }
@@ -431,7 +444,7 @@ export function ProductForm({
             prev.some((c) => c.id === created.id) ? prev : [...prev, created],
           );
         }
-        applyTranscription(result.fields, result.newCategory);
+        applyTranscription(result.fields, result.newCategory, !auto);
         setAiNotes(result.notes);
         setAiBoardText(result.boardText);
       } else if (result.error === "no-photos") {
