@@ -853,11 +853,12 @@ company the current request is signed in as, and refuses everything when no
 tenant is known. This is applied automatically by the migrations on upgrade —
 nothing to configure.
 
-One consequence for admins: the migration strips the superuser bit from the
-app's database role (`mbarete`), because a superuser bypasses row-level
-security entirely. Day-to-day operation, backups with `pg_dump -U postgres`,
-and future migrations are unaffected. If you poke at the database by hand as
-`mbarete`, business tables will look empty until you adopt a company:
+One consequence for admins: the app now connects as a dedicated non-superuser
+role (`mbarete_app`, created automatically on upgrade with the same
+`DB_PASSWORD`), because a superuser bypasses row-level security entirely. The
+original `mbarete` role stays for migrations, backups, and hand-run admin
+work — nothing about your routine changes. If you poke at the database as
+`mbarete_app`, business tables will look empty until you adopt a company:
 
 ```sql
 select set_config('app.company_id', '1', false);  -- act as company 1

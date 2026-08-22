@@ -71,7 +71,7 @@ CREATE POLICY "tenant_isolation" ON "capture_drafts" AS PERMISSIVE FOR ALL TO PU
 ALTER TABLE "capture_draft_images" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "capture_draft_images" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "capture_draft_images" AS PERMISSIVE FOR ALL TO PUBLIC USING (company_id = NULLIF(current_setting('app.company_id', true), '')::integer) WITH CHECK (company_id = NULLIF(current_setting('app.company_id', true), '')::integer);--> statement-breakpoint
--- Demote the app role so RLS actually applies to it. Runs as that very role:
--- a superuser may strip its own superuser bit, and afterwards it remains the
--- owner of every table, which is all migrations and the app need.
-ALTER ROLE CURRENT_USER NOSUPERUSER NOCREATEROLE NOBYPASSRLS;
+-- Role posture is handled in code (src/db/migrate.ts), not here: the docker
+-- image's POSTGRES_USER is the cluster's bootstrap role, and Postgres refuses
+-- to strip SUPERUSER from it. Instead the migration runner ensures a separate
+-- non-superuser "<user>_app" login for the app to connect as.

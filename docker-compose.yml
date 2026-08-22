@@ -29,7 +29,11 @@ services:
       - "3000:3000"
     environment:
       AUTH_SECRET: ${AUTH_SECRET}
-      DATABASE_URL: postgres://mbarete:${DB_PASSWORD:-mbarete}@mbarete-db:5432/mbarete
+      # The app runs as a non-superuser role so row-level security binds it;
+      # the migration runner (admin URL below) creates and maintains that role.
+      DATABASE_URL: postgres://mbarete_app:${DB_PASSWORD:-mbarete}@mbarete-db:5432/mbarete
+      # Owner role: migrations and role upkeep only.
+      DATABASE_ADMIN_URL: postgres://mbarete:${DB_PASSWORD:-mbarete}@mbarete-db:5432/mbarete
       COMPANY_NAME: ${COMPANY_NAME:-Mbarete}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
