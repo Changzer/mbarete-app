@@ -92,6 +92,10 @@ export default async function NewProductPage({
         const supId = num(f.supplierId);
         return {
           sku: f.sku || undefined,
+          supplierCode: f.supplierCode || tr.supplierCode,
+          // The offline read already cropped and saved a thumbnail; the save
+          // re-verifies the path names a real thumb in this company's folder.
+          thumbPath: tr.thumbPath,
           nameEn: f.nameEn || tr.nameEn,
           nameZh: f.nameZh || tr.nameZh,
           descriptionEn: f.descriptionEn || tr.descriptionEn,

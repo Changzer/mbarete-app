@@ -14,7 +14,8 @@ import {
 import { transcribeBusinessCard, type CardTranscribeResult } from "@/lib/transcribe-card";
 import { productImages } from "@/db/schema";
 import { and, eq, inArray } from "drizzle-orm";
-import { uploadsDir, isSafeUploadName, saveThumbnail } from "@/lib/uploads";
+import { uploadsDir, isSafeUploadName } from "@/lib/uploads";
+import { cropAndSaveThumb } from "@/lib/thumb-crop";
 import fs from "node:fs/promises";
 import path from "node:path";
 
@@ -143,34 +144,9 @@ export async function transcribeProduct(formData: FormData): Promise<TranscribeR
   }
 
   // The model located the main product in one of the photos: crop it out and
-  // save it as the product's thumbnail. Best-effort on purpose — a failed
-  // crop must never turn a good field reading into a failed transcription.
+  // save it as the product's thumbnail.
   if (result.ok && result.thumb) {
-    try {
-      const { imageIndex, box } = result.thumb;
-      const source = Buffer.from(images[imageIndex - 1].data, "base64");
-      const { default: sharp } = await import("sharp");
-      const meta = await sharp(source).rotate().metadata();
-      const width = meta.width ?? 0;
-      const height = meta.height ?? 0;
-      if (width > 0 && height > 0) {
-        const left = Math.floor((box.left / 1000) * width);
-        const top = Math.floor((box.top / 1000) * height);
-        const cropWidth = Math.min(width - left, Math.ceil(((box.right - box.left) / 1000) * width));
-        const cropHeight = Math.min(height - top, Math.ceil(((box.bottom - box.top) / 1000) * height));
-        if (cropWidth > 16 && cropHeight > 16) {
-          const jpeg = await sharp(source)
-            .rotate()
-            .extract({ left, top, width: cropWidth, height: cropHeight })
-            .resize(512, 512, { fit: "inside", withoutEnlargement: true })
-            .jpeg({ quality: 82 })
-            .toBuffer();
-          result.thumbPath = await saveThumbnail(user.companyId, jpeg);
-        }
-      }
-    } catch (error) {
-      console.error("[transcribe] thumbnail crop failed:", error);
-    }
+    result.thumbPath = await cropAndSaveThumb(user.companyId, images, result.thumb);
   }
 
   return result;

@@ -72,6 +72,8 @@ export type RawTranscription = z.infer<typeof transcriptionSchema>;
 /** The subset of product-form fields a photo can fill. */
 export type TranscribedFields = {
   supplierCode?: string;
+  /** Set by the offline draft read: the cropped thumbnail it already saved. */
+  thumbPath?: string;
   nameEn?: string;
   nameZh?: string;
   descriptionEn?: string;
