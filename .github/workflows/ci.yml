@@ -52,3 +52,26 @@ jobs:
       - run: npm run build
       - run: npm run db:migrate
       - run: npm run check:isolation
+
+      # The golden path, end to end in a real browser: capture → draft →
+      # AI read (stubbed vision API) → product → order → quote → invoice.
+      # This chain is the product's whole promise, so it gates the merge.
+      - run: npm run db:seed
+        env:
+          ADMIN_EMAIL: admin@example.com
+          ADMIN_PASSWORD: change-me
+      - run: npx playwright install --with-deps chromium
+      - name: Start app against the vision stub
+        env:
+          MOONSHOT_API_KEY: stub
+          MOONSHOT_BASE_URL: http://localhost:9099
+          UPLOADS_DIR: ${{ runner.temp }}/uploads
+        run: |
+          node scripts/e2e/vision-stub.mjs &
+          npm start &
+          for i in $(seq 1 60); do
+            curl -sf -o /dev/null -I http://localhost:3000/api/drafts && exit 0
+            sleep 1
+          done
+          echo "app never became healthy" && exit 1
+      - run: npm run test:e2e

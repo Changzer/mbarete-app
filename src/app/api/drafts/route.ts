@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { sessionUser } from "@/lib/authz";
 import { ingestDraft, readDraft, type IngestFile } from "@/lib/drafts";
+import { makeLimiter } from "@/lib/rate-limit";
 
 /**
  * Where a phone's offline captures land.
@@ -32,12 +33,22 @@ import { ingestDraft, readDraft, type IngestFile } from "@/lib/drafts";
  */
 const MAX_BODY_BYTES = 80 * 1024 * 1024;
 
+// The most expensive endpoint per call (a multi-photo body, a disk write and
+// an AI read), so it gets its own brake. A phone flushing a day of offline
+// captures sends a few dozen in a burst; 120 per ten minutes never touches
+// that, and the outbox treats 429 as retry-later, so a throttled capture
+// waits instead of being lost.
+const draftLimiter = makeLimiter({ max: 120, windowMs: 10 * 60 * 1000 });
+
 export async function POST(request: Request) {
   const user = await sessionUser();
   if (!user) {
     // Retryable on purpose: the trip outlasted the session, and signing in
     // again makes every queued capture deliverable.
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  if (draftLimiter.hit(`u${user.id}`)) {
+    return NextResponse.json({ error: "rate limited" }, { status: 429 });
   }
 
   const declaredBytes = Number(request.headers.get("content-length"));

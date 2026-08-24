@@ -14,7 +14,8 @@
     "db:import-sqlite": "tsx scripts/migrate-sqlite-to-postgres.ts",
     "check:isolation": "tsx scripts/isolation-check.ts",
     "test": "node --import tsx --test 'src/**/*.test.ts'",
-    "test:ui": "node --test 'src/ui-tests/*.spec.mjs'"
+    "test:ui": "node --test 'src/ui-tests/*.spec.mjs'",
+    "test:e2e": "node --test src/ui-tests/golden-path.spec.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",

@@ -12,6 +12,7 @@ import {
   type TranscribeImage,
 } from "@/lib/transcribe-product";
 import { transcribeBusinessCard } from "@/lib/transcribe-card";
+import { cropAndSaveThumb } from "@/lib/thumb-crop";
 
 /**
  * Storing a capture that came off a phone, and reading it once there is a
@@ -199,7 +200,14 @@ export async function readDraft(companyId: number, draftId: number): Promise<voi
         await recordReadFailure(draftId, result.error);
         return;
       }
-      fields = result.fields;
+      // The model located the main product: crop the thumbnail now, while
+      // the photos are already decoded, and carry its path in the transcript
+      // so promoting the draft stores it — the offline capture ends up with
+      // the same thumbnail a live scan would.
+      const thumbPath = result.thumb
+        ? await cropAndSaveThumb(companyId, payload, result.thumb)
+        : undefined;
+      fields = thumbPath ? { ...result.fields, thumbPath } : result.fields;
       notes = result.notes;
     }
     // Guarded against the read racing the reviewer: the AI call takes
