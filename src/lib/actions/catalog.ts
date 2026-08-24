@@ -22,7 +22,15 @@ import {
   estimateCartonCbm,
   estimateCartonWeightKg,
 } from "@/lib/calculations";
-import { saveUploadedImage, deleteUpload } from "@/lib/uploads";
+import {
+  saveUploadedImage,
+  deleteUpload,
+  isSafeUploadName,
+  uploadCompanyId,
+  uploadsDir,
+} from "@/lib/uploads";
+import fs from "node:fs/promises";
+import nodePath from "node:path";
 import { normalizeDecimalInput } from "@/lib/decimal-input";
 import { suggestNextSku } from "@/lib/queries/catalog";
 import { syncProductFromOffers } from "@/lib/queries/offers";
@@ -68,6 +76,7 @@ function formToProductInput(formData: FormData) {
     typeof v === "string" ? normalizeDecimalInput(v) : v;
   return productSchema.parse({
     sku: formData.get("sku"),
+    supplierCode: formData.get("supplierCode") ?? "",
     nameEn: formData.get("nameEn"),
     nameZh: formData.get("nameZh"),
     categoryId: formData.get("categoryId"),
@@ -132,6 +141,25 @@ async function resolveDuplicatedFromId(companyId: number, duplicatedFromId: numb
 }
 
 type ProductInput = ReturnType<typeof formToProductInput>;
+
+/**
+ * The transcription pass saves its cropped thumbnail to the uploads volume
+ * and the form posts the path back on save. A posted path is a claim: it only
+ * sticks when it names a thumb file inside THIS company's folder that really
+ * exists. Anything else quietly stores no thumbnail.
+ */
+async function resolveThumbPath(companyId: number, formData: FormData): Promise<string> {
+  const posted = formData.get("thumbPath");
+  if (typeof posted !== "string" || !posted || posted.length > 300) return "";
+  const filename = posted.replace(/^\/uploads\//, "");
+  if (!isSafeUploadName(filename)) return "";
+  if (uploadCompanyId(filename) !== companyId) return "";
+  if (!filename.replace(/^c\d+\//, "").startsWith("thumb-")) return "";
+  const stat = await fs
+    .stat(nodePath.join(/* turbopackIgnore: true */ uploadsDir(), filename))
+    .catch(() => null);
+  return stat?.isFile() ? posted : "";
+}
 
 /**
  * The carton figures to store, whichever way the product was registered.
@@ -251,6 +279,8 @@ export async function createProduct(
       .values({
         companyId: user.companyId,
         sku,
+        supplierCode: data.supplierCode,
+        thumbPath: await resolveThumbPath(user.companyId, formData),
         nameEn: data.nameEn,
       nameZh: data.nameZh,
       categoryId: data.categoryId,
@@ -448,9 +478,17 @@ export async function updateProduct(
       .values({ companyId: user.companyId, productId: id, path, sortOrder: remaining.length + i });
   }
 
+  // A fresh crop replaces the old thumbnail; no crop this save keeps the old.
+  const newThumb = await resolveThumbPath(user.companyId, formData);
+  if (newThumb && existing.thumbPath && newThumb !== existing.thumbPath) {
+    await deleteUpload(existing.thumbPath);
+  }
+
   await db.update(products)
     .set({
       sku,
+      supplierCode: data.supplierCode,
+      thumbPath: newThumb || existing.thumbPath,
       nameEn: data.nameEn,
       nameZh: data.nameZh,
       categoryId: data.categoryId,
@@ -577,6 +615,7 @@ export async function deleteProduct(id: number): Promise<string | undefined> {
   for (const image of images) {
     await deleteUpload(image.path);
   }
+  if (existing.thumbPath) await deleteUpload(existing.thumbPath);
 
   await logEntityEvent(admin.companyId, "product", id, admin.id, "deleted", {
     name: productLogName(existing),

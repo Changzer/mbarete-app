@@ -164,6 +164,19 @@ async function saveUpload(
   return `/uploads/c${companyId}/${filename}`;
 }
 
+/**
+ * A product thumbnail produced server-side (the transcription pass crops the
+ * main product out of the booth photo). Already-encoded JPEG bytes, same
+ * per-company folder as every other upload.
+ */
+export async function saveThumbnail(companyId: number, jpeg: Buffer): Promise<string> {
+  const dir = path.join(/* turbopackIgnore: true */ uploadsDir(), `c${companyId}`);
+  await fs.mkdir(dir, { recursive: true });
+  const filename = `thumb-${crypto.randomUUID()}.jpg`;
+  await fs.writeFile(path.join(/* turbopackIgnore: true */ dir, filename), jpeg);
+  return `/uploads/c${companyId}/${filename}`;
+}
+
 export async function deleteUpload(publicPath: string) {
   const filename = publicPath.replace(/^\/uploads\//, "");
   if (!isSafeUploadName(filename)) return;

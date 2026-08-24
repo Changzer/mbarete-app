@@ -8,6 +8,8 @@ export type OrderViewRow = {
   id: number;
   productId: number;
   sku: string;
+  /** the factory's own style/model number; "" when none recorded */
+  supplierCode: string;
   name: string;
   quantity: number;
   unitPriceSnapshot: number;
@@ -70,6 +72,7 @@ export async function getOrderView(companyId: number, orderId: number, locale: L
       id: item.id,
       productId: item.productId,
       sku: product?.sku ?? `#${item.productId}`,
+      supplierCode: product?.supplierCode ?? "",
       name: product
         ? localizeField(locale, product.nameEn, product.nameZh)
         : `#${item.productId}`,

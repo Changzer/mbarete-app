@@ -1,5 +1,5 @@
 import { getTranslations } from "next-intl/server";
-import { getCategories, getProducts } from "@/lib/queries/catalog";
+import { getCategories, getProducts, getImagesByProduct } from "@/lib/queries/catalog";
 import { getContactsByType } from "@/lib/queries/contacts";
 import { getExchangeRates } from "@/lib/queries/orders";
 import { localizeField } from "@/lib/localize";
@@ -16,12 +16,14 @@ export default async function NewOrderPage({
   const { locale } = await params;
   const t = await getTranslations("orders");
 
-  const [products, categories, clients, rates] = await Promise.all([
+  const [products, categories, clients, suppliers, rates] = await Promise.all([
     getProducts(companyId, { activeOnly: true }),
     getCategories(companyId),
     getContactsByType(companyId, "client"),
+    getContactsByType(companyId, "supplier"),
     getExchangeRates(companyId),
   ]);
+  const imagesByProduct = await getImagesByProduct(products.map((p) => p.id));
 
   const categoryMap = new Map(categories.map((c) => [c.id, c]));
 
@@ -33,6 +35,8 @@ export default async function NewOrderPage({
       name: localizeField(locale as Locale, p.nameEn, p.nameZh),
       categoryId: p.categoryId,
       categoryName: cat ? localizeField(locale as Locale, cat.nameEn, cat.nameZh) : "",
+      thumbPath: p.thumbPath || imagesByProduct.get(p.id)?.[0] || null,
+      supplierId: p.supplierId,
       price: p.price,
       sellPrice: p.sellPrice,
       currency: p.currency,
@@ -49,6 +53,15 @@ export default async function NewOrderPage({
     name: localizeField(locale as Locale, c.nameEn, c.nameZh),
   }));
 
+  // Only suppliers that can actually return a product from this list.
+  const supplierIdsInList = new Set(builderProducts.map((p) => p.supplierId));
+  const builderSuppliers = suppliers
+    .filter((s) => supplierIdsInList.has(s.id))
+    .map((s) => ({
+      id: s.id,
+      name: localizeField(locale as Locale, s.companyName, s.companyNameZh),
+    }));
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
       <h1 className="mb-6 text-[23px] font-extrabold tracking-tight text-ink">{t("newOrder")}</h1>
@@ -56,6 +69,7 @@ export default async function NewOrderPage({
         mode="create"
         products={builderProducts}
         categories={builderCategories}
+        suppliers={builderSuppliers}
         clients={clients}
         rates={rates}
       />

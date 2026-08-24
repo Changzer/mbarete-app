@@ -58,6 +58,7 @@ describe("diffContactEdit", () => {
 
 const product = {
   sku: "MB-0042",
+  supplierCode: "AA012604240",
   nameEn: "Scented Candle",
   nameZh: "香薰蜡烛",
   categoryId: 1,

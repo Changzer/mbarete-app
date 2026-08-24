@@ -6,6 +6,8 @@ import {
   resolveProformaBank,
 } from "@/lib/queries/settings";
 import { formatCbm, formatWeightKg } from "@/lib/calculations";
+import { getImagesByProduct, getProducts } from "@/lib/queries/catalog";
+import { readExportThumb } from "./thumbs";
 import type { Locale } from "@/i18n/routing";
 
 /**
@@ -20,6 +22,10 @@ import type { Locale } from "@/i18n/routing";
 export type OrderExportLine = {
   name: string;
   sku: string;
+  /** the factory's own style/model number; "" when none recorded */
+  supplierCode: string;
+  /** small product photo as JPEG bytes; null when the product has none */
+  thumb: Buffer | null;
   quantity: number;
   cartons: number | null;
   unitPrice: number;
@@ -42,6 +48,12 @@ export type OrderExportData = {
     validUntil: string | null;
     validityDays: number;
     currency: string;
+    /**
+     * A draft is a price quote — the client is still deciding — so the file
+     * says "Price Quote" and carries no bill-to or terms block. Only a
+     * confirmed/shipped order exports as a proforma invoice.
+     */
+    kind: "quote" | "invoice";
   };
   client: {
     name: string;
@@ -98,6 +110,22 @@ export async function getOrderExportData(
   ]);
   if (!view) return null;
   const { order, client, rows, targets, totals } = view;
+  // A draft is still a negotiation: the file is a price quote, not an invoice.
+  const isQuote = order.status === "draft";
+
+  // Product photos for the line items: the cropped thumbnail when the
+  // transcription pass made one, else the first catalog photo.
+  const productRows = await getProducts(companyId);
+  const productMap = new Map(productRows.map((p) => [p.id, p]));
+  const imagesByProduct = await getImagesByProduct(rows.map((r) => r.productId));
+  const thumbs = await Promise.all(
+    rows.map((r) => {
+      const product = productMap.get(r.productId);
+      return readExportThumb(
+        product?.thumbPath || imagesByProduct.get(r.productId)?.[0] || null,
+      );
+    }),
+  );
 
   const bank = resolveProformaBank(accounts, order.bankAccountId, company);
   const quote = order.displayCurrency;
@@ -121,8 +149,10 @@ export async function getOrderExportData(
         company.validityDays > 0 ? validUntil.toLocaleDateString(locale) : null,
       validityDays: company.validityDays,
       currency: quote,
+      kind: isQuote ? "quote" : "invoice",
     },
-    client: client
+    // No bill-to on a quote: nothing is owed by anyone yet.
+    client: !isQuote && client
       ? {
           name: client.companyName,
           contactPerson: client.contactPerson ?? "",
@@ -139,9 +169,11 @@ export async function getOrderExportData(
       totalCbm: formatCbm(totals.totalCbm),
       totalWeightKg: formatWeightKg(totals.totalWeightKg),
     },
-    lines: rows.map((r) => ({
+    lines: rows.map((r, i) => ({
       name: r.name,
       sku: r.sku,
+      supplierCode: r.supplierCode,
+      thumb: thumbs[i],
       quantity: r.quantity,
       cartons: r.cartons,
       unitPrice: r.sellPrice,
@@ -170,7 +202,8 @@ export async function getOrderExportData(
     footerNote: splitLines(company.footerNote),
     sellMissingCount: rows.filter((r) => r.sellMissing).length,
     labels: {
-      title: t("title"),
+      title: isQuote ? t("quoteTitle") : t("title"),
+      photo: t("photo"),
       number: t("number"),
       date: t("date"),
       validUntil: t("validUntil"),

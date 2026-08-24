@@ -1,9 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, X, Check, ChevronLeft } from "lucide-react";
+import Image from "next/image";
+import { Search, X, Check, ChevronLeft, Package } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { formatMoney } from "@/lib/money";
+import { authenticatedUploadLoader } from "@/lib/client/upload-image-loader";
 import { sellUnitPrice, suggestedQuantity } from "@/lib/calculations";
 import type { BuilderProduct } from "@/components/orders/order-builder";
 
@@ -15,6 +17,7 @@ import type { BuilderProduct } from "@/components/orders/order-builder";
 export function ProductPicker({
   products,
   categories,
+  suppliers = [],
   inOrder,
   onClose,
   onAdd,
@@ -22,6 +25,8 @@ export function ProductPicker({
 }: {
   products: BuilderProduct[];
   categories: { id: number; name: string }[];
+  /** suppliers with products in the list; empty hides the filter */
+  suppliers?: { id: number; name: string }[];
   /** productId → current qty for lines already in the order. */
   inOrder: Map<number, number>;
   onClose: () => void;
@@ -32,16 +37,18 @@ export function ProductPicker({
   const common = useTranslations("common");
   const [query, setQuery] = useState("");
   const [cat, setCat] = useState("all");
+  const [sup, setSup] = useState("all");
   const [sel, setSel] = useState<Set<number>>(() => new Set());
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     return products.filter((p) => {
       if (cat !== "all" && String(p.categoryId) !== cat) return false;
+      if (sup !== "all" && String(p.supplierId ?? "") !== sup) return false;
       if (q && !p.name.toLowerCase().includes(q) && !p.sku.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [products, query, cat]);
+  }, [products, query, cat, sup]);
 
   const toggle = (id: number) =>
     setSel((prev) => {
@@ -87,6 +94,24 @@ export function ProductPicker({
             ) : null}
           </div>
 
+          {suppliers.length > 0 ? (
+            // A dropdown, not chips: a season's market run collects dozens of
+            // suppliers, and a native select stays usable at that count.
+            <select
+              value={sup}
+              onChange={(e) => setSup(e.target.value)}
+              className="mt-3 w-full rounded-xl border border-line bg-surface px-3 py-2.5 font-mono text-[13px] text-ink outline-none"
+              data-testid="picker-supplier"
+            >
+              <option value="all">{t("allSuppliers")}</option>
+              {suppliers.map((s) => (
+                <option key={s.id} value={String(s.id)}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          ) : null}
+
           <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
             {[{ id: "all", name: t("allCategories") }, ...categories.map((c) => ({ id: String(c.id), name: c.name }))].map(
               (c) => {
@@ -129,6 +154,22 @@ export function ProductPicker({
                   }`}
                 >
                   {owned || on ? <Check size={14} strokeWidth={3.5} /> : null}
+                </span>
+                <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-line bg-surface-2">
+                  {p.thumbPath ? (
+                    <Image
+                      loader={authenticatedUploadLoader}
+                      src={p.thumbPath}
+                      alt=""
+                      fill
+                      sizes="56px"
+                      className="object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center text-sub">
+                      <Package size={22} strokeWidth={1.5} />
+                    </span>
+                  )}
                 </span>
                 <span className="min-w-0">
                   <span className="block text-[14.5px] font-bold leading-tight text-ink">{p.name}</span>

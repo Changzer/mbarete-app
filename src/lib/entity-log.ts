@@ -86,6 +86,7 @@ export function diffContactEdit(before: ContactShape, after: ContactShape): Fiel
 
 type ProductShape = {
   sku: string;
+  supplierCode: string;
   nameEn: string;
   nameZh: string;
   categoryId: number;
@@ -120,6 +121,7 @@ export function diffProductEdit(
 
   const changes = [
     changed("sku", before.sku, after.sku),
+    changed("supplierCode", before.supplierCode, after.supplierCode),
     changed("nameEn", before.nameEn, after.nameEn),
     changed("nameZh", before.nameZh, after.nameZh),
     before.categoryId !== after.categoryId

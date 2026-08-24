@@ -17,6 +17,7 @@ export async function buildOrderXlsx(data: OrderExportData): Promise<Buffer> {
     pageSetup: { paperSize: 9 /* A4 */, orientation: "portrait", fitToPage: true, fitToWidth: 1 },
   });
   ws.columns = [
+    { width: 7 }, // line photo
     { width: 36 },
     { width: 14 },
     { width: 10 },
@@ -46,8 +47,8 @@ export async function buildOrderXlsx(data: OrderExportData): Promise<Buffer> {
 
   // Company header
   set(r, 1, data.company.name, { bold: true, size: 16, color: BRAND });
-  set(r, 5, data.labels.title, { bold: true, size: 14, align: "right" });
-  ws.mergeCells(r, 5, r, 6);
+  set(r, 6, data.labels.title, { bold: true, size: 14, align: "right" });
+  ws.mergeCells(r, 6, r, 7);
   r += 1;
   for (const line of data.company.addressLines) set(r++, 1, line, { color: SUB });
   const contactBits = [
@@ -60,20 +61,21 @@ export async function buildOrderXlsx(data: OrderExportData): Promise<Buffer> {
 
   // Document meta on the right, aligned with the top of the header block
   let metaRow = 2;
-  set(metaRow, 5, data.labels.number, { color: SUB, align: "right" });
-  set(metaRow++, 6, data.doc.number, { align: "right" });
-  set(metaRow, 5, data.labels.date, { color: SUB, align: "right" });
-  set(metaRow++, 6, data.doc.issuedOn, { align: "right" });
+  set(metaRow, 6, data.labels.number, { color: SUB, align: "right" });
+  set(metaRow++, 7, data.doc.number, { align: "right" });
+  set(metaRow, 6, data.labels.date, { color: SUB, align: "right" });
+  set(metaRow++, 7, data.doc.issuedOn, { align: "right" });
   if (data.doc.validUntil) {
-    set(metaRow, 5, data.labels.validUntil, { color: SUB, align: "right" });
-    set(metaRow++, 6, data.doc.validUntil, { align: "right" });
+    set(metaRow, 6, data.labels.validUntil, { color: SUB, align: "right" });
+    set(metaRow++, 7, data.doc.validUntil, { align: "right" });
   }
   r = Math.max(r, metaRow) + 1;
 
-  // Bill-to and terms
+  // Bill-to and terms. A quote exports with client=null, so neither block
+  // prints — nothing is billed or agreed while the client is still deciding.
   if (data.client) {
     set(r, 1, data.labels.billTo.toUpperCase(), { bold: true, size: 9, color: SUB });
-    set(r, 4, data.labels.terms.toUpperCase(), { bold: true, size: 9, color: SUB });
+    set(r, 5, data.labels.terms.toUpperCase(), { bold: true, size: 9, color: SUB });
     r += 1;
     const left: string[] = [
       data.client.name,
@@ -92,13 +94,14 @@ export async function buildOrderXlsx(data: OrderExportData): Promise<Buffer> {
     ].filter(Boolean) as string[];
     for (let i = 0; i < Math.max(left.length, right.length); i++) {
       if (left[i]) set(r + i, 1, left[i], { bold: i === 0 });
-      if (right[i]) set(r + i, 4, right[i]);
+      if (right[i]) set(r + i, 5, right[i]);
     }
     r += Math.max(left.length, right.length) + 1;
   }
 
   // Line items
   const header = [
+    data.labels.photo,
     data.labels.item,
     data.labels.sku,
     data.labels.quantity,
@@ -107,34 +110,51 @@ export async function buildOrderXlsx(data: OrderExportData): Promise<Buffer> {
     data.labels.amount,
   ];
   header.forEach((h, i) => {
-    const cell = set(r, i + 1, h, { bold: true, size: 9, color: "FFFFFFFF", align: i >= 2 ? "right" : "left" });
+    const cell = set(r, i + 1, h, { bold: true, size: 9, color: "FFFFFFFF", align: i >= 3 ? "right" : "left" });
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND } };
   });
   r += 1;
   for (const line of data.lines) {
-    set(r, 1, line.name);
-    set(r, 2, line.sku, { color: SUB });
-    set(r, 3, line.quantity, { align: "right" });
-    set(r, 4, line.cartons ?? "—", { align: "right" });
-    set(r, 5, line.unitPrice, { align: "right", numFmt: "#,##0.00" });
-    set(r, 6, line.amount, { align: "right", numFmt: "#,##0.00" });
+    // The name cell carries the supplier's own style number on a second line,
+    // so the factory can match the row to their catalog at a glance.
+    const nameCell = set(
+      r,
+      2,
+      line.supplierCode ? `${line.name}\n${line.supplierCode}` : line.name,
+    );
+    nameCell.alignment = { ...nameCell.alignment, wrapText: true, vertical: "middle" };
+    set(r, 3, line.sku, { color: SUB });
+    set(r, 4, line.quantity, { align: "right" });
+    set(r, 5, line.cartons ?? "—", { align: "right" });
+    set(r, 6, line.unitPrice, { align: "right", numFmt: "#,##0.00" });
+    set(r, 7, line.amount, { align: "right", numFmt: "#,##0.00" });
+    if (line.thumb) {
+      // Photo rows are taller so a 42px image fits; ext is in pixels.
+      ws.getRow(r).height = 36;
+      const imageId = wb.addImage({ buffer: line.thumb as never, extension: "jpeg" });
+      ws.addImage(imageId, {
+        tl: { col: 0.15, row: r - 1 + 0.08 } as never,
+        ext: { width: 42, height: 42 },
+        editAs: "oneCell",
+      });
+    }
     r += 1;
   }
   r += 1;
 
   // Totals
   const money = "#,##0.00";
-  set(r, 5, data.labels.goodsSubtotal, { color: SUB, align: "right" });
-  set(r++, 6, data.totals.goods, { align: "right", numFmt: money });
+  set(r, 6, data.labels.goodsSubtotal, { color: SUB, align: "right" });
+  set(r++, 7, data.totals.goods, { align: "right", numFmt: money });
   if (data.totals.commissionPct > 0) {
-    set(r, 5, `${data.labels.commissionAmount} (${data.totals.commissionPct}%)`, { color: SUB, align: "right" });
-    set(r++, 6, data.totals.commission, { align: "right", numFmt: money });
+    set(r, 6, `${data.labels.commissionAmount} (${data.totals.commissionPct}%)`, { color: SUB, align: "right" });
+    set(r++, 7, data.totals.commission, { align: "right", numFmt: money });
   }
-  set(r, 5, `${data.labels.grandTotal} (${data.doc.currency})`, { bold: true, align: "right" });
-  set(r++, 6, data.totals.grandTotal, { bold: true, align: "right", numFmt: money });
+  set(r, 6, `${data.labels.grandTotal} (${data.doc.currency})`, { bold: true, align: "right" });
+  set(r++, 7, data.totals.grandTotal, { bold: true, align: "right", numFmt: money });
   for (const eq of data.totals.equivalents) {
-    set(r, 5, `${data.labels.equivalent} (${eq.currency})`, { color: SUB, align: "right" });
-    set(r++, 6, eq.amount, { color: SUB, align: "right", numFmt: money });
+    set(r, 6, `${data.labels.equivalent} (${eq.currency})`, { color: SUB, align: "right" });
+    set(r++, 7, eq.amount, { color: SUB, align: "right", numFmt: money });
   }
   r += 1;
 

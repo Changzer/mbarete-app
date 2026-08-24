@@ -12,6 +12,8 @@ export const productSchema = z
   .object({
     // Blank is allowed; the next free number is assigned on save.
     sku: z.string().trim().default(""),
+    // The factory's own style/model number; blank when the booth had none.
+    supplierCode: z.string().trim().max(80).default(""),
     // One language is enough: the catalog falls back to whichever exists.
     nameEn: z.string().trim().default(""),
     nameZh: z.string().trim().default(""),

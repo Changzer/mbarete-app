@@ -51,6 +51,8 @@ const blankIfZero = (v: number | undefined) => (v ? String(v) : "");
 
 type ProductFormValues = {
   sku: string;
+  supplierCode: string;
+  thumbPath: string;
   nameEn: string;
   nameZh: string;
   categoryId: number;
@@ -147,6 +149,10 @@ export function ProductForm({
   const formRef = useRef<HTMLFormElement>(null);
   // What the category started as, so a suggestion never overrides a manual pick.
   const initialCategoryId = useRef(categoryId);
+
+  // The cropped product shot the AI pass produced. Posted with the save; the
+  // server re-verifies it names a real thumb file in this company's folder.
+  const [thumbPath, setThumbPath] = useState(defaultValues?.thumbPath ?? "");
 
   const [aiPending, setAiPending] = useState(false);
   const [aiError, setAiError] = useState<"no-photos" | "failed" | null>(null);
@@ -251,6 +257,7 @@ export function ProductForm({
       el.value = String(value);
     };
 
+    setIfUntouched("supplierCode", fields.supplierCode);
     setIfUntouched("nameEn", fields.nameEn);
     setIfUntouched("nameZh", fields.nameZh);
     setIfUntouched("descriptionEn", fields.descriptionEn);
@@ -445,6 +452,7 @@ export function ProductForm({
           );
         }
         applyTranscription(result.fields, result.newCategory, !auto);
+        if (result.thumbPath) setThumbPath(result.thumbPath);
         setAiNotes(result.notes);
         setAiBoardText(result.boardText);
       } else if (result.error === "no-photos") {
@@ -726,9 +734,18 @@ export function ProductForm({
       </FormSection>
 
       <FormSection kicker={t("identityGroup")} className="lg:col-span-2">
+        <input type="hidden" name="thumbPath" value={thumbPath} />
         <div className="grid grid-cols-2 gap-3">
           <Field label={t("sku")} htmlFor="sku">
             <Input id="sku" name="sku" numeric defaultValue={defaultValues?.sku} />
+          </Field>
+          <Field label={t("supplierCode")} htmlFor="supplierCode" hint={t("supplierCodeHelp")}>
+            <Input
+              id="supplierCode"
+              name="supplierCode"
+              defaultValue={defaultValues?.supplierCode}
+              data-testid="supplier-code"
+            />
           </Field>
           <Field label={t("category")} htmlFor="categoryId">
             <input type="hidden" name="categoryId" value={categoryId} />
