@@ -143,6 +143,14 @@ export const products = pgTable(
     // Deleting a referenced contact is blocked in the action, mirroring how
     // clients with orders are protected. Composite FK below.
     supplierId: integer("supplier_id"),
+    // The factory's own style/model number, read off the packaging or spec
+    // card (e.g. "AA012604240"). Printed on order sheets so the supplier can
+    // match each line against their catalog; distinct from our internal SKU.
+    supplierCode: text("supplier_code").notNull().default(""),
+    // A cropped shot of just the product, cut out of the booth photo by the
+    // transcription pass. Shown in the order picker and on order sheets;
+    // empty until a photo read produced one.
+    thumbPath: text("thumb_path").notNull().default(""),
     // The product this one was duplicated from when comparison-shopping the
     // same item across booths. Write-only lineage for now: it lets offers for
     // one item be grouped later without re-entering anything.

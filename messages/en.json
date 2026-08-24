@@ -133,6 +133,8 @@
     "weight": "Carton weight (kg)",
     "cbm": "CBM per carton (m³)",
     "sku": "SKU",
+    "supplierCode": "Supplier item no.",
+    "supplierCodeHelp": "The factory's own style/model number, printed on order sheets so the supplier can match your lines to their catalog.",
     "nameEn": "Name (English)",
     "nameZh": "Name (Chinese)",
     "descriptionEn": "Description (English)",
@@ -406,7 +408,8 @@
     "chipRoundUp": "Round up to {qty}",
     "removeLineNamed": "Remove {name}",
     "removedLine": "Removed {name}",
-    "undo": "Undo"
+    "undo": "Undo",
+    "allSuppliers": "All suppliers"
   },
   "settings": {
     "exchangeRates": "Exchange Rates",
@@ -512,6 +515,7 @@
   },
   "proforma": {
     "title": "Proforma invoice",
+    "quoteTitle": "Price quote",
     "savePdf": "Save as PDF",
     "open": "Proforma invoice",
     "companyMissing": "Your company details are empty — fill them in under Settings so this invoice carries your letterhead and bank details.",
@@ -529,6 +533,7 @@
     "totalWeight": "Total weight",
     "item": "Description",
     "sku": "SKU",
+    "photo": "Photo",
     "quantity": "Qty",
     "cartons": "Cartons",
     "unitPrice": "Unit price",
@@ -682,6 +687,7 @@
     "field_bankInfo": "Bank details",
     "field_notes": "Notes",
     "field_sku": "SKU",
+    "field_supplierCode": "Supplier item no.",
     "field_nameEn": "Name (English)",
     "field_nameZh": "Name (Chinese)",
     "field_category": "Category",

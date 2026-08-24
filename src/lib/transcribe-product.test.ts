@@ -52,6 +52,7 @@ test("a full reading passes through", () => {
 test("nulls become absent fields, not empty strings or zeros", () => {
   const { fields, notes } = sanitizeTranscription(raw({}), CATEGORY_IDS);
   assert.deepEqual(fields, {
+    supplierCode: undefined,
     nameEn: undefined,
     nameZh: undefined,
     descriptionEn: undefined,
@@ -68,6 +69,44 @@ test("nulls become absent fields, not empty strings or zeros", () => {
     cbm: undefined,
   });
   assert.equal(notes, null);
+});
+
+test("a printed style number passes through trimmed", () => {
+  const { fields } = sanitizeTranscription(raw({ supplierCode: " AA012604240 " }), CATEGORY_IDS);
+  assert.equal(fields.supplierCode, "AA012604240");
+});
+
+test("thumbnail crops survive only when the box is sane", () => {
+  const box = { left: 100, top: 100, right: 800, bottom: 900 };
+  const ok = sanitizeTranscription(raw({ thumbImage: 1, thumbBox: box }), CATEGORY_IDS, 2).thumb;
+  assert.deepEqual(ok, { imageIndex: 1, box });
+
+  // index out of range, inverted box, sliver box, missing pieces: all dropped
+  assert.equal(sanitizeTranscription(raw({ thumbImage: 3, thumbBox: box }), CATEGORY_IDS, 2).thumb, null);
+  assert.equal(
+    sanitizeTranscription(
+      raw({ thumbImage: 1, thumbBox: { left: 800, top: 100, right: 100, bottom: 900 } }),
+      CATEGORY_IDS,
+      2,
+    ).thumb,
+    null,
+  );
+  assert.equal(
+    sanitizeTranscription(
+      raw({ thumbImage: 1, thumbBox: { left: 100, top: 100, right: 120, bottom: 900 } }),
+      CATEGORY_IDS,
+      2,
+    ).thumb,
+    null,
+  );
+  assert.equal(sanitizeTranscription(raw({ thumbImage: 1 }), CATEGORY_IDS, 2).thumb, null);
+  // values outside the frame clamp rather than fail
+  const wild = sanitizeTranscription(
+    raw({ thumbImage: 1, thumbBox: { left: -50, top: 0, right: 1400, bottom: 1000 } }),
+    CATEGORY_IDS,
+    1,
+  ).thumb;
+  assert.deepEqual(wild, { imageIndex: 1, box: { left: 0, top: 0, right: 1000, bottom: 1000 } });
 });
 
 test("blank and whitespace strings are dropped", () => {

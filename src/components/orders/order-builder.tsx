@@ -44,6 +44,9 @@ export type BuilderProduct = {
   name: string;
   categoryName: string;
   categoryId: number;
+  /** cropped product shot, else the first catalog photo; null = no photo */
+  thumbPath: string | null;
+  supplierId: number | null;
   price: number;
   currency: string;
   moq: number;
@@ -66,10 +69,12 @@ type Client = {
   notes?: string;
 };
 type Category = { id: number; name: string };
+type Supplier = { id: number; name: string };
 
 export function OrderBuilder({
   products,
   categories,
+  suppliers = [],
   clients,
   rates,
   mode,
@@ -78,6 +83,8 @@ export function OrderBuilder({
 }: {
   products: BuilderProduct[];
   categories: Category[];
+  /** suppliers that actually have products in the list, for the picker filter */
+  suppliers?: Supplier[];
   clients: Client[];
   rates: CurrencyRates;
   mode: "create" | "edit";
@@ -609,6 +616,7 @@ export function OrderBuilder({
         <ProductPicker
           products={products}
           categories={categories}
+          suppliers={suppliers}
           inOrder={new Map(cartLines.map((l) => [l.product.id, l.quantity]))}
           onClose={() => setPickerOpen(false)}
           onAdd={addProducts}

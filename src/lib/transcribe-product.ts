@@ -25,6 +25,24 @@ const transcriptionSchema = z.object({
    * it lets a person see what the model thought it saw.
    */
   boardText: z.string().nullable(),
+  /**
+   * The factory's own style/model number printed on the packaging, label or
+   * spec card (e.g. "AA012604240"). Optional so older stub servers and
+   * truncated replies degrade to "no code", never to a failed parse.
+   */
+  supplierCode: z.string().nullable().optional(),
+  /** 1-based index of the photo that best shows the product itself. */
+  thumbImage: z.number().nullable().optional(),
+  /** Tight box around the main product, in permille of that photo's size. */
+  thumbBox: z
+    .object({
+      left: z.number(),
+      top: z.number(),
+      right: z.number(),
+      bottom: z.number(),
+    })
+    .nullable()
+    .optional(),
   nameEn: z.string().nullable(),
   nameZh: z.string().nullable(),
   descriptionEn: z.string().nullable(),
@@ -47,12 +65,13 @@ const transcriptionSchema = z.object({
 // Keep in sync with transcriptionSchema — this is what the JSON-mode backend
 // is told to return.
 const JSON_SPEC =
-  '{"boardText": string|null, "nameEn": string|null, "nameZh": string|null, "descriptionEn": string|null, "descriptionZh": string|null, "price": number|null, "currency": string|null, "moq": number|null, "qtyPerBox": number|null, "categoryId": number|null, "newCategoryEn": string|null, "newCategoryZh": string|null, "lengthCm": number|null, "widthCm": number|null, "heightCm": number|null, "weightKg": number|null, "cbm": number|null, "notes": string|null}';
+  '{"boardText": string|null, "supplierCode": string|null, "thumbImage": number|null, "thumbBox": {"left": number, "top": number, "right": number, "bottom": number}|null, "nameEn": string|null, "nameZh": string|null, "descriptionEn": string|null, "descriptionZh": string|null, "price": number|null, "currency": string|null, "moq": number|null, "qtyPerBox": number|null, "categoryId": number|null, "newCategoryEn": string|null, "newCategoryZh": string|null, "lengthCm": number|null, "widthCm": number|null, "heightCm": number|null, "weightKg": number|null, "cbm": number|null, "notes": string|null}';
 
 export type RawTranscription = z.infer<typeof transcriptionSchema>;
 
 /** The subset of product-form fields a photo can fill. */
 export type TranscribedFields = {
+  supplierCode?: string;
   nameEn?: string;
   nameZh?: string;
   descriptionEn?: string;
@@ -81,6 +100,10 @@ export type TranscribeResult =
       proposedCategory: { nameEn: string; nameZh: string } | null;
       /** Set by the server action when the proposal became a real category. */
       newCategory?: { id: number; nameEn: string; nameZh: string };
+      /** Where the main product sits in which photo, for the thumbnail crop. */
+      thumb: { imageIndex: number; box: ThumbBox } | null;
+      /** Set by the server action once the crop is saved to the uploads volume. */
+      thumbPath?: string;
     }
   | { ok: false; error: "no-photos" | "not-configured" | "failed" };
 
@@ -95,6 +118,8 @@ The board is frequently photographed sideways or upside-down, because the paper 
 Handwriting on these boards is quick and uneven. Take care with digits that look alike: 0 and 6, 1 and 7, 4 and 9, and a decimal point that is barely a dot. When two readings are genuinely possible, choose the one that makes commercial sense for a wholesale unit price and say so in notes.
 
 Rules:
+- supplierCode is the factory's own style/model number printed on the packaging, label or spec sheet (e.g. "AA012604240", "XH-238"). Copy it exactly as printed. A booth number, a price or a barcode's digits are NOT a style number; null when nothing printed reads as one. Never put this code inside nameEn or nameZh.
+- thumbImage and thumbBox locate the main product for a thumbnail crop: thumbImage is the 1-based index of the photo that shows the product itself most clearly (never a photo that is mostly the price board), and thumbBox is the tight bounding box around that product in permille of the photo's width and height — integers 0-1000, left < right, top < bottom. Both null when no photo clearly shows the product.
 - Transcribe ONLY the main, centered product and the price board that belongs to it. Ignore products or boards partly visible at the edges of the frame.
 - Boards are often handwritten with a comma as the decimal separator: "10,20" means 10.20. But a comma followed by exactly three digits ("1,200") is a thousands separator, so that means 1200. A "¥" sign or an unmarked price at a Chinese market means CNY.
 - "160/box", "160/ctn" or "160/箱" means 160 pieces per carton (qtyPerBox).
@@ -126,8 +151,36 @@ export async function transcribeProductPhotos(
 
   return {
     ok: true,
-    ...sanitizeTranscription(raw, new Set(categories.map((c) => c.id))),
+    ...sanitizeTranscription(raw, new Set(categories.map((c) => c.id)), images.length),
   };
+}
+
+export type ThumbBox = { left: number; top: number; right: number; bottom: number };
+
+/**
+ * The crop the model proposed, or null when it is unusable: a permille box
+ * must sit inside the photo, read left-to-right and top-to-bottom, and cover
+ * a sensible area — a sliver or the whole frame crops nothing worth showing.
+ */
+export function sanitizeThumb(
+  imageIndex: number | null | undefined,
+  box: ThumbBox | null | undefined,
+  imageCount: number,
+): { imageIndex: number; box: ThumbBox } | null {
+  if (!box || imageIndex == null) return null;
+  if (!Number.isInteger(imageIndex) || imageIndex < 1 || imageIndex > imageCount) return null;
+  const values = [box.left, box.top, box.right, box.bottom];
+  if (!values.every((v) => Number.isFinite(v))) return null;
+  const clamp = (v: number) => Math.min(1000, Math.max(0, Math.round(v)));
+  const clean = {
+    left: clamp(box.left),
+    top: clamp(box.top),
+    right: clamp(box.right),
+    bottom: clamp(box.bottom),
+  };
+  // Under 5% of a side is a misfire, not a product.
+  if (clean.right - clean.left < 50 || clean.bottom - clean.top < 50) return null;
+  return { imageIndex, box: clean };
 }
 
 const CURRENCY_ALIASES: Record<string, string> = {
@@ -144,11 +197,13 @@ const CURRENCY_ALIASES: Record<string, string> = {
 export function sanitizeTranscription(
   raw: RawTranscription,
   validCategoryIds: Set<number>,
+  imageCount = 0,
 ): {
   fields: TranscribedFields;
   notes: string | null;
   boardText: string | null;
   proposedCategory: { nameEn: string; nameZh: string } | null;
+  thumb: { imageIndex: number; box: ThumbBox } | null;
 } {
   const text = (v: string | null) => {
     const trimmed = v?.trim();
@@ -186,6 +241,7 @@ export function sanitizeTranscription(
 
   return {
     fields: {
+      supplierCode: text(raw.supplierCode ?? null),
       nameEn: text(raw.nameEn),
       nameZh: text(raw.nameZh),
       descriptionEn: text(raw.descriptionEn),
@@ -204,5 +260,6 @@ export function sanitizeTranscription(
     notes: text(raw.notes) ?? null,
     boardText: text(raw.boardText) ?? null,
     proposedCategory,
+    thumb: sanitizeThumb(raw.thumbImage, raw.thumbBox ?? null, imageCount),
   };
 }
