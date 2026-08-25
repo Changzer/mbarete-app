@@ -64,6 +64,13 @@
       "when": 1787800000000,
       "tag": "0008_supplier-code-thumbs",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787810000000,
+      "tag": "0009_platform-admin",
+      "breakpoints": true
     }
   ]
 }

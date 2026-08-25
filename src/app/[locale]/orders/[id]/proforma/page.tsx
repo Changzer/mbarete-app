@@ -13,7 +13,7 @@ import { OrderExportButtons } from "@/components/orders/order-export-buttons";
 import { FreshOnRestore } from "@/components/fresh-on-restore";
 import { Brand } from "@/components/brand";
 import { Link } from "@/i18n/navigation";
-import { requireUser } from "@/lib/authz";
+import { requireUser, requireModulePage } from "@/lib/authz";
 
 /** Blank lines are dropped so an unfilled address does not leave gaps. */
 function Lines({ text, className }: { text: string; className?: string }) {
@@ -43,7 +43,9 @@ export default async function ProformaPage({
 }: {
   params: Promise<{ id: string; locale: string }>;
 }) {
-  const { companyId } = await requireUser();
+  const _mbUser = await requireUser();
+  const { companyId } = _mbUser;
+  await requireModulePage(_mbUser, "orders");
   const { id, locale } = await params;
   const t = await getTranslations("proforma");
   const orderT = await getTranslations("orders");

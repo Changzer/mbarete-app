@@ -4,7 +4,7 @@ import { getMessages, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { routing, type Locale } from "@/i18n/routing";
 import { auth } from "@/lib/auth";
-import { sessionUser } from "@/lib/authz";
+import { sessionUser, getCompanyModules } from "@/lib/authz";
 import { RoleProvider } from "@/components/role-provider";
 import { AppNav } from "@/components/app-nav";
 import { OutboxProvider } from "@/components/offline/outbox";
@@ -61,7 +61,11 @@ export default async function LocaleLayout({
             <OutboxProvider storageScope={`${user.companyId}:${user.id}`}>
               <ToastProvider>
                <RoleProvider role={user?.role ?? "collaborator"}>
-                <AppNav userName={session.user.name ?? ""} role={user?.role ?? "collaborator"} />
+                <AppNav
+                  userName={session.user.name ?? ""}
+                  role={user?.role ?? "collaborator"}
+                  modules={await getCompanyModules(user!.companyId)}
+                />
                 {/* Room below for the tab bar plus the phone's safe area — the
                     bar is fixed, so the last row of any list would otherwise
                     sit under it. */}

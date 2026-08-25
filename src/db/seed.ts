@@ -15,6 +15,9 @@ import { runWithTenant } from "./tenant-context";
  */
 export async function seed() {
   if (isSaas()) {
+    // The operator signs up like any tenant; the grant picks the account up
+    // on the boot after it exists.
+    await ensurePlatformAdmin();
     console.log("[seed] SaaS mode — companies come from signup, nothing to seed");
     return;
   }
@@ -76,6 +79,9 @@ export async function seed() {
   // defaults live in RLS-guarded tables.
   await runWithTenant(companyId, () => seedCompanyDefaults(companyId));
 
+  // After the admin user exists, so the very first boot already grants it.
+  await ensurePlatformAdmin();
+
   console.log("[seed] done");
 }
 
@@ -89,4 +95,24 @@ if (require.main === module) {
       await pool.end();
       process.exit(1);
     });
+}
+
+/**
+ * Grants the hidden cross-company panel to the operator's own account.
+ *
+ * Runs in BOTH deploy modes on every boot, and is the only way the flag is
+ * ever set — there is deliberately no UI for it. PLATFORM_ADMIN_EMAIL names
+ * the account; self-hosted installs fall back to ADMIN_EMAIL, so the
+ * bootstrap admin is the operator without extra configuration. The account
+ * must already exist (in SaaS: sign up first, then boot picks it up).
+ */
+async function ensurePlatformAdmin() {
+  const email = (process.env.PLATFORM_ADMIN_EMAIL || process.env.ADMIN_EMAIL || "")
+    .toLowerCase()
+    .trim();
+  if (!email) return;
+  const row = await db.select().from(users).where(eq(users.email, email)).limit(1).then(one);
+  if (!row || row.platformAdmin) return;
+  await db.update(users).set({ platformAdmin: true }).where(eq(users.id, row.id));
+  console.log(`[seed] granted platform admin to ${email}`);
 }

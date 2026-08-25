@@ -1,7 +1,7 @@
 import { Pool, type PoolClient, type QueryResult } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "./schema";
-import { currentTenant } from "./tenant-context";
+import { currentTenant, currentPlatform } from "./tenant-context";
 
 /**
  * One shared pool for the whole process. Next.js can evaluate this module
@@ -38,14 +38,22 @@ const appliedScope = new WeakMap<PoolClient, string>();
 class TenantPool extends Pool {
   private async scopeClient(client: PoolClient, scope: string): Promise<void> {
     if (appliedScope.get(client) === scope) return;
-    await client.query("SELECT set_config('app.company_id', $1, false)", [scope]);
+    // scope is "<tenant>|<platform>"; both settings travel together so a
+    // connection can never keep one half of a previous caller's identity.
+    const [tenant, platform] = scope.split("|");
+    await client.query(
+      "SELECT set_config('app.company_id', $1, false), set_config('app.platform', $2, false)",
+      [tenant, platform],
+    );
     appliedScope.set(client, scope);
   }
 
   private capturedScope(): string {
     const tenant = currentTenant();
     if (process.env.RLS_DEBUG) console.log("[dbg] captured:", tenant, new Error().stack?.split("\n")[3]?.trim());
-    return tenant === undefined ? "" : String(tenant);
+    const tenantPart = tenant === undefined ? "" : String(tenant);
+    const platformPart = currentPlatform() ? "1" : "";
+    return `${tenantPart}|${platformPart}`;
   }
 
   // Implemented on top of connect() rather than delegating to pg's own

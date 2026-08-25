@@ -11,9 +11,12 @@ import { LogOut } from "lucide-react";
 export async function AppNav({
   userName,
   role,
+  modules,
 }: {
   userName: string;
   role: "admin" | "collaborator";
+  /** Which switchable modules this company has; gated pages 404 regardless. */
+  modules: { orders: boolean; finance: boolean };
 }) {
   const t = await getTranslations("nav");
   const locale = await getLocale();
@@ -26,9 +29,11 @@ export async function AppNav({
   // politeness — the pages and actions behind them check the role themselves.
   const primary: NavItem[] = [
     { href: "/catalog", label: t("catalog"), icon: "catalog" },
-    { href: "/orders", label: t("orders"), icon: "orders" },
+    ...(modules.orders ? [{ href: "/orders", label: t("orders"), icon: "orders" } as NavItem] : []),
     { href: "/contacts", label: t("contacts"), icon: "contacts" },
-    ...(isAdmin ? [{ href: "/finance", label: t("finance"), icon: "finance" } as NavItem] : []),
+    ...(isAdmin && modules.finance
+      ? [{ href: "/finance", label: t("finance"), icon: "finance" } as NavItem]
+      : []),
   ];
   const behindMore: NavItem[] = isAdmin
     ? [

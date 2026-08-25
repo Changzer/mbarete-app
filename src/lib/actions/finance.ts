@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db, one } from "@/db";
 import { orders, orderPayments, orderExpenses, orderDocuments } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
-import { requireUser, requireAdmin, type SessionUser } from "@/lib/authz";
+import { requireUser, requireAdmin, requireModuleAction, type SessionUser } from "@/lib/authz";
 import {
   saveUploadedDocument,
   saveUploadedReceipt,
@@ -17,7 +17,11 @@ import { logOrderEvent } from "@/lib/order-log";
 import { getExchangeRates } from "@/lib/queries/orders";
 
 async function requireSession() {
-  return await requireUser();
+  const user = await requireUser();
+  // Payments, expenses and documents live on orders: they gate on the orders
+  // module. The finance REPORT is the finance module, gated at its page.
+  await requireModuleAction(user, "orders");
+  return user;
 }
 
 /** Rows only attach to an order of the caller's company; anything else 404s. */
@@ -108,6 +112,7 @@ export async function addPayment(
 
 export async function deletePayment(orderId: number, paymentId: number) {
   const admin = await requireAdmin();
+  await requireModuleAction(admin, "orders");
   await requireOrder(admin, orderId);
   const row = await db
     .select()
@@ -171,6 +176,7 @@ export async function addExpense(
 
 export async function deleteExpense(orderId: number, expenseId: number) {
   const admin = await requireAdmin();
+  await requireModuleAction(admin, "orders");
   await requireOrder(admin, orderId);
   const row = await db
     .select()
@@ -244,6 +250,7 @@ export async function uploadOrderDocument(
 
 export async function deleteOrderDocument(orderId: number, documentId: number) {
   const admin = await requireAdmin();
+  await requireModuleAction(admin, "orders");
   await requireOrder(admin, orderId);
   const row = await db
     .select()

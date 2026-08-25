@@ -1,6 +1,6 @@
 import { getTranslations, getLocale } from "next-intl/server";
 import { Link, redirect } from "@/i18n/navigation";
-import { sessionUser } from "@/lib/authz";
+import { sessionUser, requireModulePage } from "@/lib/authz";
 import { getFinanceData } from "@/lib/queries/finance";
 import { computeFinanceReport } from "@/lib/finance-report";
 
@@ -20,6 +20,7 @@ export default async function FinancePage({
   if (user?.role !== "admin") {
     redirect({ href: "/catalog", locale: await getLocale() });
   }
+  await requireModulePage(user!, "finance");
 
   const { currency } = await searchParams;
   const t = await getTranslations("financeReport");
