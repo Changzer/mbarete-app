@@ -150,6 +150,8 @@ export default async function ProformaPage({
               {client?.companyName ?? "—"}
             </div>
             <div className="text-sub">
+              {/* The contact's booth/address field is the client's address. */}
+              <Row label={t("address")} value={client?.boothLocation} />
               <Row label={t("taxId")} value={client?.taxId} />
               <Row label={t("attn")} value={client?.contactPerson} />
               <Row label={t("phone")} value={client?.phone} />

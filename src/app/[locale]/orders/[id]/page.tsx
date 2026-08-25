@@ -90,20 +90,31 @@ export default async function OrderDetailPage({
               : ""}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant={STATUS_VARIANT[order.status]}>
-            {t(`status${order.status.charAt(0).toUpperCase()}${order.status.slice(1)}` as "statusDraft")}
-          </Badge>
-          {/* One button on a phone, a column of them on a desk. */}
-          <OrderActionsSheet
-            status={t(
-              `status${order.status.charAt(0).toUpperCase()}${order.status.slice(1)}` as "statusDraft",
-            )}
-          >
-            <OrderStatusActions orderId={order.id} status={order.status} />
-            {order.status === "draft" || order.status === "confirmed" ? (
-              <CatalogRefresh orderId={order.id} />
-            ) : null}
+        <Badge variant={STATUS_VARIANT[order.status]}>
+          {t(`status${order.status.charAt(0).toUpperCase()}${order.status.slice(1)}` as "statusDraft")}
+        </Badge>
+      </div>
+
+      {/* One button on a phone, a grouped toolbar row on a desk. */}
+      <div className="mb-6">
+        <OrderActionsSheet
+          status={t(
+            `status${order.status.charAt(0).toUpperCase()}${order.status.slice(1)}` as "statusDraft",
+          )}
+        >
+          <OrderStatusActions orderId={order.id} status={order.status} />
+          {order.status === "draft" || order.status === "confirmed" ? (
+            <CatalogRefresh orderId={order.id} />
+          ) : null}
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/orders/${order.id}/proforma`}>{proformaT("open")}</Link>
+          </Button>
+          <OrderExportButtons
+            orderId={order.id}
+            sellMissingCount={rows.filter((r) => r.sellMissing).length}
+          />
+          {/* The one setting among the actions keeps to the row's far end. */}
+          <div className="lg:ml-auto">
             <ProformaBankSelect
               orderId={order.id}
               accounts={bankAccounts.map((a) => ({
@@ -114,15 +125,8 @@ export default async function OrderDetailPage({
               }))}
               selectedId={order.bankAccountId}
             />
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/orders/${order.id}/proforma`}>{proformaT("open")}</Link>
-            </Button>
-            <OrderExportButtons
-              orderId={order.id}
-              sellMissingCount={rows.filter((r) => r.sellMissing).length}
-            />
-          </OrderActionsSheet>
-        </div>
+          </div>
+        </OrderActionsSheet>
       </div>
 
       {/* A phone reads the lines as cards: six columns of frozen figures do

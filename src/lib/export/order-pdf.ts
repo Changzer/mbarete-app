@@ -93,6 +93,8 @@ export async function buildOrderPdf(data: OrderExportData): Promise<Buffer> {
     doc.font("bold").fontSize(10).fillColor(INK).text(data.client.name || "—", { width: colW });
     doc.font("regular").fontSize(8.5).fillColor(SUB);
     const clientBits = [
+      data.client.address,
+      data.client.taxId && `${data.labels.taxId}: ${data.client.taxId}`,
       data.client.contactPerson && `${data.labels.attn}: ${data.client.contactPerson}`,
       data.client.phone && `${data.labels.phone}: ${data.client.phone}`,
       data.client.email && `${data.labels.email}: ${data.client.email}`,

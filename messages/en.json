@@ -564,6 +564,7 @@
     "email": "Email",
     "website": "Web",
     "taxId": "Tax ID",
+    "address": "Address",
     "bankAccountName": "Account name",
     "bankName": "Bank",
     "bankAccountNumber": "Account",
