@@ -281,7 +281,7 @@
     "deleteHasProducts": "This contact is the supplier of catalog products, so it cannot be deleted.",
     "companyNameEn": "Company name (English)",
     "companyNameZh": "Company name (Chinese)",
-    "taxId": "Tax ID (RUC / CNPJ / \u7a0e\u53f7)",
+    "taxId": "Tax ID (RUC / CNPJ / 税号)",
     "boothLocation": "Booth / address",
     "bankInfo": "Bank details",
     "bankInfoHelp": "Read from the card — always check against the card photo before paying.",
@@ -426,7 +426,8 @@
     "removeLineNamed": "Remove {name}",
     "removedLine": "Removed {name}",
     "undo": "Undo",
-    "allSuppliers": "All suppliers"
+    "allSuppliers": "All suppliers",
+    "orderConflict": "This order changed while you were working — refresh the page to see the latest version, then try again."
   },
   "settings": {
     "exchangeRates": "Exchange Rates",

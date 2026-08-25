@@ -42,10 +42,11 @@ export default async function EditOrderPage({
   const imagesByProduct = await getImagesByProduct(products.map((p) => p.id));
 
   const categoryMap = new Map(categories.map((c) => [c.id, c]));
+  const itemByProduct = new Map(items.map((i) => [i.productId, i]));
 
   const builderProducts: BuilderProduct[] = products.map((p) => {
     const cat = categoryMap.get(p.categoryId);
-    return {
+    const base = {
       id: p.id,
       sku: p.sku,
       name: localizeField(locale as Locale, p.nameEn, p.nameZh),
@@ -61,6 +62,28 @@ export default async function EditOrderPage({
       weightKg: p.weightKg,
       cbm: p.cbm,
       dimensionSource: p.dimensionSource,
+    };
+    // A product already on the order shows the LINE's frozen terms, not the
+    // live catalog — the builder's preview then matches exactly what the
+    // server preserves on save. Newly picked products use live values,
+    // which is exactly what the server snapshots for a new line.
+    const line = itemByProduct.get(p.id);
+    if (!line) return base;
+    const snapName = localizeField(locale as Locale, line.nameEnSnapshot, line.nameZhSnapshot);
+    return {
+      ...base,
+      price: line.unitPriceSnapshot,
+      currency: line.currencySnapshot,
+      moq: line.moqSnapshot,
+      sku: line.skuSnapshot || base.sku,
+      name: snapName || base.name,
+      ...(line.qtyPerBoxSnapshot > 0
+        ? {
+            qtyPerBox: line.qtyPerBoxSnapshot,
+            cbm: line.cartonCbmSnapshot,
+            weightKg: line.cartonWeightSnapshot,
+          }
+        : {}),
     };
   });
 
@@ -93,6 +116,7 @@ export default async function EditOrderPage({
         rates={rates}
         initial={{
           status: order.status === "confirmed" ? "confirmed" : "draft",
+          version: order.version,
           clientId: order.clientId,
           displayCurrency: order.displayCurrency,
           secondaryCurrency: order.secondaryCurrency,

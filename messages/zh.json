@@ -426,7 +426,8 @@
     "removeLineNamed": "移除 {name}",
     "removedLine": "已移除 {name}",
     "undo": "撤销",
-    "allSuppliers": "全部供应商"
+    "allSuppliers": "全部供应商",
+    "orderConflict": "该订单在您操作期间已被修改——请刷新页面查看最新版本后重试。"
   },
   "settings": {
     "exchangeRates": "汇率",

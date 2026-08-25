@@ -252,6 +252,42 @@ export function computeOrderTotals(
 }
 
 /**
+ * The catalog facts a line carries with it, frozen at add time. Enough to
+ * recompute every quantity-derived figure without the live product — which
+ * is exactly what an ordinary edit must never consult.
+ */
+export type LineInputs = {
+  unitPrice: number;
+  qtyPerBox: number;
+  /** volume of one full carton, m³ */
+  cartonCbm: number;
+  /** weight of one full carton, kg */
+  cartonWeightKg: number;
+};
+
+/**
+ * Everything a quantity change recomputes, from the line's OWN snapshots.
+ * Mirrors lineTotal/lineCbm/lineWeightKg/fullCartons exactly — same carton
+ * rounding, same money rounding — so a re-derived line equals a fresh one.
+ */
+export function deriveLineFigures(inputs: LineInputs, quantity: number) {
+  const asProduct = {
+    price: inputs.unitPrice,
+    currency: "",
+    moq: 0,
+    qtyPerBox: inputs.qtyPerBox,
+    weightKg: inputs.cartonWeightKg,
+    cbm: inputs.cartonCbm,
+  };
+  return {
+    lineTotal: lineTotal(asProduct, quantity),
+    lineCbm: lineCbm(asProduct, quantity),
+    lineWeightKg: lineWeightKg(asProduct, quantity),
+    cartons: quantity > 0 ? fullCartons(asProduct, quantity) : 0,
+  };
+}
+
+/**
  * One order line as it was frozen when the order was saved.
  *
  * Volume, weight and carton count are stored per line at save time, so a
@@ -265,6 +301,12 @@ export type SnapshotLine = {
   /** the invoiced price per unit; 0 on orders saved before selling prices */
   sellPrice?: number;
   currency: string;
+  /**
+   * The currency the SELL price was quoted in. Absent on rows from before
+   * the split, which always meant the cost currency — so that is the
+   * fallback, reproducing exactly what those orders showed.
+   */
+  sellCurrency?: string;
   moq: number;
   lineCbm: number;
   lineWeightKg: number;
@@ -314,9 +356,12 @@ export function computeSnapshotTotals(
     const sellUnit = line.sellPrice && line.sellPrice > 0 ? line.sellPrice : line.unitPrice;
     const rawSell = roundMoney(sellUnit * line.quantity);
     const rawCost = roundMoney(line.unitPrice * line.quantity);
+    // The sell side converts from ITS OWN quoted currency; a catalog refresh
+    // that moved the cost currency must not silently re-denominate the quote.
+    const sellCurrency = line.sellCurrency || line.currency;
     for (const target of targetCurrencies) {
       try {
-        goods[target] += convert(rawSell, line.currency, target, rates);
+        goods[target] += convert(rawSell, sellCurrency, target, rates);
         cost[target] += convert(rawCost, line.currency, target, rates);
       } catch (err) {
         if (err instanceof UnknownCurrencyError) {

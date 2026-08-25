@@ -8,6 +8,7 @@ import {
 } from "@/lib/queries/settings";
 import type { Locale } from "@/i18n/routing";
 import { formatCbm, formatWeightKg } from "@/lib/calculations";
+import { parsePartiesSnapshot, usesFrozenParties } from "@/lib/parties-snapshot";
 import { PrintButton } from "@/components/orders/print-button";
 import { OrderExportButtons } from "@/components/orders/order-export-buttons";
 import { FreshOnRestore } from "@/components/fresh-on-restore";
@@ -58,14 +59,49 @@ export default async function ProformaPage({
   if (!view) notFound();
   const { order, client, rows, targets, totals } = view;
 
+  // A confirmed or shipped proforma renders the parties as they stood at
+  // confirmation — editing a contact, the company profile or a bank account
+  // afterwards must not rewrite an agreed document. Drafts render live.
+  const frozen = usesFrozenParties(order.status)
+    ? parsePartiesSnapshot(order.partiesSnapshot)
+    : null;
+
+  const seller = frozen?.seller ?? {
+    companyName: company.companyName,
+    addressLines: company.addressLines,
+    phone: company.phone,
+    email: company.email,
+    website: company.website,
+    taxId: company.taxId,
+    incoterms: company.incoterms,
+    paymentTerms: company.paymentTerms,
+    footerNote: company.footerNote,
+    validityDays: company.validityDays,
+  };
+  const billTo = frozen
+    ? frozen.client
+    : client
+      ? {
+          companyName: client.companyName,
+          // The contact's booth/address field is the client's address.
+          address: client.boothLocation ?? "",
+          taxId: client.taxId ?? "",
+          contactPerson: client.contactPerson ?? "",
+          phone: client.phone ?? "",
+          email: client.email ?? "",
+          whatsapp: client.whatsapp ?? "",
+          wechat: client.wechat ?? "",
+        }
+      : null;
+
   // The order's chosen account, the default one, or the pre-multi-account
-  // company fields — in that order.
-  const bank = resolveProformaBank(accounts, order.bankAccountId, company);
+  // company fields — in that order; frozen orders print their frozen copy.
+  const bank = frozen ? frozen.bank : resolveProformaBank(accounts, order.bankAccountId, company);
 
   const quote = order.displayCurrency;
   const issued = new Date(order.createdAt);
   const validUntil = new Date(issued);
-  validUntil.setDate(validUntil.getDate() + company.validityDays);
+  validUntil.setDate(validUntil.getDate() + seller.validityDays);
   const money = (n: number) => n.toFixed(2);
 
   return (
@@ -100,7 +136,7 @@ export default async function ProformaPage({
         </div>
       </div>
 
-      {!company.companyName ? (
+      {!seller.companyName ? (
         <p
           className="mb-6 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 print:hidden"
           data-testid="company-missing"
@@ -120,11 +156,11 @@ export default async function ProformaPage({
           <div className="min-w-0">
             <Brand size="doc" />
             <div className="mt-3 text-[13.5px] font-bold leading-snug" data-testid="vendor-name">
-              {company.companyName || t("yourCompany")}
+              {seller.companyName || t("yourCompany")}
             </div>
             <div className="mt-0.5 max-w-[430px] text-[11.5px] leading-relaxed text-sub">
               <p>
-                {company.addressLines
+                {seller.addressLines
                   .split(/\r?\n/)
                   .map((l) => l.trim())
                   .filter(Boolean)
@@ -132,16 +168,16 @@ export default async function ProformaPage({
               </p>
               <p>
                 {[
-                  company.phone && `${t("phone")}: ${company.phone}`,
-                  company.email && `${t("email")}: ${company.email}`,
-                  company.website && `${t("website")}: ${company.website}`,
+                  seller.phone && `${t("phone")}: ${seller.phone}`,
+                  seller.email && `${t("email")}: ${seller.email}`,
+                  seller.website && `${t("website")}: ${seller.website}`,
                 ]
                   .filter(Boolean)
                   .join(" · ")}
               </p>
-              {company.taxId ? (
+              {seller.taxId ? (
                 <p>
-                  {t("taxId")}: {company.taxId}
+                  {t("taxId")}: {seller.taxId}
                 </p>
               ) : null}
             </div>
@@ -151,7 +187,7 @@ export default async function ProformaPage({
             <div className="mt-2 text-[12px] text-sub">
               <Row label={t("number")} value={order.orderNumber} />
               <Row label={t("date")} value={issued.toLocaleDateString()} />
-              {company.validityDays > 0 ? (
+              {seller.validityDays > 0 ? (
                 <Row label={t("validUntil")} value={validUntil.toLocaleDateString()} />
               ) : null}
             </div>
@@ -164,17 +200,17 @@ export default async function ProformaPage({
               {t("billTo")}
             </div>
             <div className="font-semibold" data-testid="client-name">
-              {client?.companyName ?? "—"}
+              {billTo?.companyName ?? "—"}
             </div>
             <div className="text-sub">
               {/* The contact's booth/address field is the client's address. */}
-              <Row label={t("address")} value={client?.boothLocation} />
-              <Row label={t("taxId")} value={client?.taxId} />
-              <Row label={t("attn")} value={client?.contactPerson} />
-              <Row label={t("phone")} value={client?.phone} />
-              <Row label={t("email")} value={client?.email} />
-              <Row label="WhatsApp" value={client?.whatsapp} />
-              <Row label="WeChat" value={client?.wechat} />
+              <Row label={t("address")} value={billTo?.address} />
+              <Row label={t("taxId")} value={billTo?.taxId} />
+              <Row label={t("attn")} value={billTo?.contactPerson} />
+              <Row label={t("phone")} value={billTo?.phone} />
+              <Row label={t("email")} value={billTo?.email} />
+              <Row label="WhatsApp" value={billTo?.whatsapp} />
+              <Row label="WeChat" value={billTo?.wechat} />
             </div>
           </div>
           <div>
@@ -182,13 +218,13 @@ export default async function ProformaPage({
               {t("terms")}
             </div>
             <div className="text-sub">
-              <Row label={t("incoterms")} value={company.incoterms} />
+              <Row label={t("incoterms")} value={seller.incoterms} />
               <Row label={t("currency")} value={quote} />
               <Row label={t("totalCartons")} value={String(totals.totalCartons)} />
               <Row label={t("totalCbm")} value={`${formatCbm(totals.totalCbm)} m³`} />
               <Row label={t("totalWeight")} value={`${formatWeightKg(totals.totalWeightKg)} kg`} />
             </div>
-            <Lines text={company.paymentTerms} className="mt-2 text-sub" />
+            <Lines text={seller.paymentTerms} className="mt-2 text-sub" />
           </div>
         </div>
 
@@ -211,10 +247,10 @@ export default async function ProformaPage({
                 <td className="py-2 pr-2 text-right">{r.quantity}</td>
                 <td className="py-2 pr-2 text-right">{r.cartons ?? "—"}</td>
                 <td className="py-2 pr-2 text-right">
-                  {money(r.sellPrice)} {r.currencySnapshot}
+                  {money(r.sellPrice)} {r.sellCurrency}
                 </td>
                 <td className="py-2 text-right">
-                  {money(r.sellTotal)} {r.currencySnapshot}
+                  {money(r.sellTotal)} {r.sellCurrency}
                 </td>
               </tr>
             ))}
@@ -283,7 +319,7 @@ export default async function ProformaPage({
         ) : null}
 
         <Lines
-          text={company.footerNote}
+          text={seller.footerNote}
           className="mt-8 border-t border-line pt-4 text-xs text-sub"
         />
       </div>

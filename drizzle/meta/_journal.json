@@ -99,6 +99,13 @@
       "when": 1787850000000,
       "tag": "0013_password-changed-at",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1787855000000,
+      "tag": "0014_order-snapshots",
+      "breakpoints": true
     }
   ]
 }

@@ -104,7 +104,7 @@ export default async function OrderDetailPage({
         >
           {/* Row one: the workflow — status moves and the catalog utility. */}
           <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-3 lg:gap-y-2">
-            <OrderStatusActions orderId={order.id} status={order.status} />
+            <OrderStatusActions orderId={order.id} status={order.status} version={order.version} />
             {order.status === "draft" || order.status === "confirmed" ? (
               <>
                 <span aria-hidden className="hidden w-px self-stretch bg-line lg:block" />

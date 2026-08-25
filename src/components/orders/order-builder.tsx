@@ -91,6 +91,8 @@ export function OrderBuilder({
   orderId?: number;
   initial?: {
     status?: "draft" | "confirmed";
+    /** the order row's version this edit was loaded from (edit mode only) */
+    version?: number;
     clientId: number;
     displayCurrency: string;
     secondaryCurrency: string;
@@ -304,7 +306,9 @@ export function OrderBuilder({
     startTransition(async () => {
       const result: OrderActionResult =
         mode === "edit" && orderId
-          ? await updateOrder(orderId, payload)
+          ? // The version this edit was built on rides along; the server
+            // refuses if the order moved since the page loaded.
+            await updateOrder(orderId, { ...payload, version: initial?.version ?? 1 })
           : await createOrder(payload);
       if (result?.error) {
         setError(result.error);
@@ -578,6 +582,11 @@ export function OrderBuilder({
           ) : null}
           {error === "frozen" ? (
             <p className="text-[12px] font-semibold text-danger">{t("orderFrozen")}</p>
+          ) : null}
+          {error === "conflict" ? (
+            <p className="text-[12px] font-semibold text-danger" data-testid="order-conflict">
+              {t("orderConflict")}
+            </p>
           ) : null}
 
           <div className="flex flex-col gap-2">
