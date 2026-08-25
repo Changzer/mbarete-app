@@ -13,29 +13,9 @@ Take it one step at a time. Nothing here can break your NAS or your files.
 - Your Ugreen NAS, turned on and connected to your network
 - The admin username and password you use to log into the NAS web interface
 - A computer on the **same network** as the NAS (same Wi-Fi / same router)
-- A GitHub account that can see the `mbarete-app` repository (yours: `Changzer`)
 
----
-
-## Step 0: Get the code onto the `main` branch first
-
-**Read this before anything else, or Step 6 will download an empty folder.**
-
-The app was delivered as a pull request that hasn't been merged yet. The code physically lives on a branch called `claude/trading-internal-tool-bzi4h6`, not on `main`.
-
-You have two options. **Option A is recommended.**
-
-### Option A — Merge the pull request (recommended)
-
-1. On your computer, open: https://github.com/Changzer/mbarete-app/pull/1
-2. The PR is marked as a **draft**. Click the **"Ready for review"** button.
-3. Click the green **"Merge pull request"** button, then **"Confirm merge"**.
-
-That's it. The code is now on `main`, and the rest of this guide works as written.
-
-### Option B — Install from the branch without merging
-
-If you'd rather not merge yet, you can install directly from the branch. Everything in this guide stays the same **except** the download command in Step 6 — I've noted the alternative there.
+The `mbarete-app` repository is public, so no GitHub account or token is
+needed to download it.
 
 ---
 
@@ -143,36 +123,13 @@ cd /volume1/docker
 
 **You should see** no output at all. That means it worked. (In terminals, silence = success.)
 
-### 6b. Create a GitHub access token
+### 6b. Download the code
 
-Because your repository is **private**, the NAS needs permission to download it. GitHub no longer accepts your normal password for this, so you create a one-off "token" that acts as a password.
-
-On your computer, in a browser:
-
-1. Go to https://github.com/settings/tokens
-2. Click **Generate new token** → **Generate new token (classic)**
-3. **Note:** type something like `ugreen-nas`
-4. **Expiration:** choose whatever you like (90 days is fine; you'd just make a new one later)
-5. **Select scopes:** tick the box named **`repo`** (the top one — it selects the sub-items automatically)
-6. Scroll down, click **Generate token**
-7. **Copy the token now** — it looks like `ghp_xxxxxxxxxxxxxxxxxxxx`. GitHub will never show it to you again. Paste it somewhere safe for the next minute.
-
-### 6c. Download the code
-
-Back in the SSH window, paste this:
+The repository is public — no account, no token. Paste this:
 
 ```
 git clone https://github.com/Changzer/mbarete-app.git
 ```
-
-> **Following Option B from Step 0 instead (not merging)?** Use this command instead:
-> ```
-> git clone -b claude/trading-internal-tool-bzi4h6 https://github.com/Changzer/mbarete-app.git
-> ```
-
-It will ask for:
-- **Username:** `Changzer`
-- **Password:** paste the `ghp_...` token (again, you'll see nothing as you paste — that's normal)
 
 **You should see** lines like `Cloning into 'mbarete-app'...` and `Resolving deltas: 100%`.
 
@@ -190,7 +147,7 @@ Check the code is really there:
 ls
 ```
 
-**You should see** a list including `Dockerfile`, `docker-compose.yml`, `package.json`, `src`. If you only see `README.md`, you cloned `main` before merging the PR — go back and do Step 0.
+**You should see** a list including `Dockerfile`, `docker-compose.yml`, `package.json`, `src`.
 
 ---
 

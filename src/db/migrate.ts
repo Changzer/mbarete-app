@@ -73,6 +73,31 @@ async function ensureAppRole(client: Client) {
   );
 }
 
+/**
+ * How far ahead the shipped code is of the database: journal entries on
+ * disk minus migrations recorded as applied. 0 on an up-to-date install;
+ * `applied` 0 means a fresh database with nothing to protect yet.
+ */
+export async function migrationGap(): Promise<{ applied: number; pending: number }> {
+  const journal = JSON.parse(
+    await (await import("node:fs/promises")).readFile(
+      path.join(process.cwd(), "drizzle", "meta", "_journal.json"),
+      "utf8",
+    ),
+  ) as { entries: unknown[] };
+  const client = new Client({ connectionString: adminUrl() });
+  await client.connect();
+  try {
+    const applied = await client
+      .query('SELECT count(*)::int AS n FROM drizzle."__drizzle_migrations"')
+      .then((r) => (r.rows[0]?.n as number) ?? 0)
+      .catch(() => 0);
+    return { applied, pending: Math.max(0, journal.entries.length - applied) };
+  } finally {
+    await client.end();
+  }
+}
+
 export async function runMigrations() {
   const client = new Client({ connectionString: adminUrl() });
   await client.connect();

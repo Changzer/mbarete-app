@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:generate": "drizzle-kit generate",
+    "db:generate": "echo 'REFUSED: migrations are hand-written \u2014 see drizzle/README.md' && exit 1",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts",
     "db:add-categories": "tsx src/db/add-categories.ts",
@@ -16,7 +16,8 @@
     "test": "node --import tsx --test 'src/**/*.test.ts'",
     "test:ui": "node --test 'src/ui-tests/*.spec.mjs'",
     "test:e2e": "node --test src/ui-tests/golden-path.spec.mjs",
-    "test:entitlements": "tsx scripts/test-entitlements.ts"
+    "test:entitlements": "tsx scripts/test-entitlements.ts",
+    "test:backup": "tsx scripts/test-backup-roundtrip.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",
