@@ -26,8 +26,14 @@ public server. What holds, what was fixed, and what the operator must do.
   validated (no traversal), types come from an allowlist, sizes are capped,
   and the resize cache only accepts a fixed set of widths.
 - **The platform panel does not exist** for anyone without the env-granted
-  flag (404, not 403), and the flag can only be set at boot from
-  PLATFORM_ADMIN_EMAIL.
+  flag (404, not 403). The flag is RECONCILED at every boot from
+  PLATFORM_ADMIN_EMAIL — changing the variable dethrones the old operator,
+  unsetting it (with no ADMIN_EMAIL fallback) leaves nobody. Panel sessions
+  pass the same validation as tenant sessions, so a password rotation or
+  deactivation kills panel access identically. Cross-tenant WRITES (plans,
+  seats, modules, backups) additionally demand step-up authentication: the
+  operator's password again, opening a 15-minute window checked server-side
+  on every mutation — a stolen signed-in session can look, not touch.
 - **Headers**: X-Frame-Options DENY, nosniff, same-origin referrer,
   restrictive Permissions-Policy, HSTS (inert on plain http, binding behind
   TLS).

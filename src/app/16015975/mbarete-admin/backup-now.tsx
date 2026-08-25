@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { backupNow } from "@/lib/platform/actions";
+import { nudgeReauth } from "./unlock-panel";
 
 /** The "before I touch anything" button. Result stays visible in place. */
 export function BackupNow() {
@@ -16,6 +17,11 @@ export function BackupNow() {
         onClick={() =>
           startTransition(async () => {
             const r = await backupNow();
+            if (!r.ok && r.detail === "reauth") {
+              nudgeReauth();
+              setNote(null);
+              return;
+            }
             setNote(r.ok ? `done — ${r.detail}` : `failed — ${r.detail}`);
           })
         }

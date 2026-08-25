@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import { db, one, pool } from "./index";
 import { companies, users } from "./schema";
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { seedCompanyDefaults } from "../lib/company";
 import { isSaas } from "../lib/deploy";
 import { runWithTenant } from "./tenant-context";
@@ -98,21 +98,55 @@ if (require.main === module) {
 }
 
 /**
- * Grants the hidden cross-company panel to the operator's own account.
+ * Reconciles the platform-panel flag against the environment — the env var
+ * is the single source of truth, and the database follows it on every boot.
  *
- * Runs in BOTH deploy modes on every boot, and is the only way the flag is
- * ever set — there is deliberately no UI for it. PLATFORM_ADMIN_EMAIL names
- * the account; self-hosted installs fall back to ADMIN_EMAIL, so the
- * bootstrap admin is the operator without extra configuration. The account
- * must already exist (in SaaS: sign up first, then boot picks it up).
+ * Runs in BOTH deploy modes, and is the only way the flag is ever set —
+ * there is deliberately no UI for it. PLATFORM_ADMIN_EMAIL names the
+ * account; self-hosted installs fall back to ADMIN_EMAIL, so the bootstrap
+ * admin is the operator without extra configuration.
+ *
+ * Reconcile, not merely grant: changing the variable dethrones the old
+ * operator, unsetting it (with no fallback) leaves nobody, and naming an
+ * account that does not exist or is deactivated grants nobody — each with
+ * a loud log line, because a panel whose operator silently changed is how
+ * an ex-employee keeps the keys.
  */
 async function ensurePlatformAdmin() {
   const email = (process.env.PLATFORM_ADMIN_EMAIL || process.env.ADMIN_EMAIL || "")
     .toLowerCase()
     .trim();
-  if (!email) return;
-  const row = await db.select().from(users).where(eq(users.email, email)).limit(1).then(one);
-  if (!row || row.platformAdmin) return;
-  await db.update(users).set({ platformAdmin: true }).where(eq(users.id, row.id));
-  console.log(`[seed] granted platform admin to ${email}`);
+  await db.transaction(async (tx) => {
+    // Whoever holds the flag but is not the configured account loses it.
+    const revoked = await tx
+      .update(users)
+      .set({ platformAdmin: false })
+      .where(email ? and(eq(users.platformAdmin, true), ne(users.email, email)) : eq(users.platformAdmin, true))
+      .returning({ email: users.email });
+    for (const r of revoked) {
+      console.warn(`[seed] revoked platform admin from ${r.email} (no longer configured)`);
+    }
+    if (!email) {
+      console.warn("[seed] PLATFORM_ADMIN_EMAIL unset — the platform panel has no operator");
+      return;
+    }
+    const row = await tx.select().from(users).where(eq(users.email, email)).limit(1).then(one);
+    if (!row) {
+      console.warn(`[seed] PLATFORM_ADMIN_EMAIL ${email} matches no account — nobody granted`);
+      return;
+    }
+    if (!row.active) {
+      // The gate checks active anyway; stripping the flag keeps the truth
+      // in one place instead of an inert grant waiting to surprise someone.
+      if (row.platformAdmin) {
+        await tx.update(users).set({ platformAdmin: false }).where(eq(users.id, row.id));
+      }
+      console.warn(`[seed] PLATFORM_ADMIN_EMAIL ${email} is deactivated — nobody granted`);
+      return;
+    }
+    if (!row.platformAdmin) {
+      await tx.update(users).set({ platformAdmin: true }).where(eq(users.id, row.id));
+      console.log(`[seed] granted platform admin to ${email}`);
+    }
+  });
 }

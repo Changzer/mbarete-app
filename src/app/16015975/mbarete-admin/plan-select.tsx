@@ -3,6 +3,7 @@
 import { useTransition } from "react";
 import { setCompanyPlan } from "@/lib/platform/actions";
 import { PLAN_IDS, type PlanId } from "@/lib/plans";
+import { nudgeReauth } from "./unlock-panel";
 
 /**
  * The plan picker on a company row. Choosing a plan also applies its module
@@ -17,7 +18,10 @@ export function PlanSelect({ companyId, plan }: { companyId: number; plan: strin
       disabled={pending}
       data-testid={`plan-select-${companyId}`}
       onChange={(e) =>
-        startTransition(() => setCompanyPlan(companyId, e.target.value as PlanId))
+        startTransition(async () => {
+          const r = await setCompanyPlan(companyId, e.target.value as PlanId);
+          if (r.error === "reauth") nudgeReauth();
+        })
       }
       className={`h-7 rounded-[8px] border border-line bg-surface px-1.5 text-xs text-ink ${
         pending ? "opacity-50" : ""

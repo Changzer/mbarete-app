@@ -8,6 +8,7 @@ import { db, one } from "@/db";
 import { users, companies } from "@/db/schema";
 import { eq, ne, and } from "drizzle-orm";
 import { requireAdmin } from "@/lib/authz";
+import { platformReauth } from "@/lib/platform/reauth";
 
 /**
  * Team management is admin ground: an admin adds accounts, resets passwords
@@ -152,6 +153,8 @@ export async function updateUser(
         : {}),
     })
     .where(eq(users.id, id));
+  // A new password ends any step-up window the old one had opened.
+  if (password) platformReauth.clear(id);
 
   revalidatePath("/users");
   revalidatePath("/catalog");

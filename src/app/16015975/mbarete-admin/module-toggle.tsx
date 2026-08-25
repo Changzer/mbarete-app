@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 import { setCompanyModule } from "@/lib/platform/actions";
+import { nudgeReauth } from "./unlock-panel";
 
 /**
  * One module switch on one company row. Optimism-free on purpose: the row
@@ -25,7 +26,12 @@ export function ModuleToggle({
       aria-checked={enabled}
       disabled={pending}
       data-testid={`module-${module}-${companyId}`}
-      onClick={() => startTransition(() => setCompanyModule(companyId, module, !enabled))}
+      onClick={() =>
+        startTransition(async () => {
+          const r = await setCompanyModule(companyId, module, !enabled);
+          if (r.error === "reauth") nudgeReauth();
+        })
+      }
       className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
         enabled ? "bg-action" : "bg-line"
       } ${pending ? "opacity-50" : ""}`}
