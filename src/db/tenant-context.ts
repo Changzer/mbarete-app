@@ -36,10 +36,14 @@ import { workUnitAsyncStorage } from "next/dist/server/app-render/work-unit-asyn
 const g = globalThis as unknown as {
   __mbTenantStorage?: AsyncLocalStorage<number>;
   __mbTenantByRequest?: WeakMap<object, number>;
+  __mbPlatformStorage?: AsyncLocalStorage<boolean>;
+  __mbPlatformByRequest?: WeakMap<object, boolean>;
 };
 
 const storage = (g.__mbTenantStorage ??= new AsyncLocalStorage<number>());
 const byRequest = (g.__mbTenantByRequest ??= new WeakMap<object, number>());
+const platformStorage = (g.__mbPlatformStorage ??= new AsyncLocalStorage<boolean>());
+const platformByRequest = (g.__mbPlatformByRequest ??= new WeakMap<object, boolean>());
 
 function requestStore(): object | undefined {
   try {
@@ -78,4 +82,26 @@ export function runWithTenant<T>(companyId: number, fn: () => Promise<T>): Promi
   // drizzle queries execute lazily on .then(), so handing the bare thenable
   // back would run the query in the caller's context instead of this one.
   return storage.run(companyId, async () => await fn());
+}
+
+/**
+ * Whether the current execution is the platform operator's cross-tenant
+ * view. Same two carriers as the tenant, for the same reasons. The pool
+ * stamps this as `app.platform`; the database's platform_read policies open
+ * SELECT — and only SELECT — on the tables the panel aggregates. It is set
+ * in exactly one place: requirePlatformAdmin(), after users.platform_admin
+ * has been checked.
+ */
+export function currentPlatform(): boolean {
+  const scoped = platformStorage.getStore();
+  if (scoped !== undefined) return scoped;
+  const request = requestStore();
+  return request ? platformByRequest.get(request) ?? false : false;
+}
+
+/** Adopts platform scope for the remainder of the current request. */
+export function enterPlatform(): void {
+  const request = requestStore();
+  if (request) platformByRequest.set(request, true);
+  platformStorage.enterWith(true);
 }

@@ -16,7 +16,7 @@ import {
   bankAccounts,
 } from "@/db/schema";
 import { and, eq, inArray } from "drizzle-orm";
-import { requireUser, requireAdmin } from "@/lib/authz";
+import { requireUser, requireAdmin, requireModuleAction } from "@/lib/authz";
 import {
   isBelowMoq,
   lineCbm,
@@ -48,7 +48,11 @@ const orderInput = z.object({
 });
 
 async function requireSession() {
-  return await requireUser();
+  const user = await requireUser();
+  // The whole file is the orders module; a company without it gets refusals,
+  // not writes, whatever the UI claimed.
+  await requireModuleAction(user, "orders");
+  return user;
 }
 
 async function buildOrderItemRows(
@@ -345,6 +349,7 @@ export async function setOrderBankAccount(orderId: number, bankAccountId: number
 
 export async function deleteOrder(id: number) {
   const admin = await requireAdmin();
+  await requireModuleAction(admin, "orders");
 
   const existing = await db
     .select({ id: orders.id })

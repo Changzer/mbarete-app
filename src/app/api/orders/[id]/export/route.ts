@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { sessionUser } from "@/lib/authz";
+import { sessionUser, getCompanyModules } from "@/lib/authz";
 import { getOrderExportData } from "@/lib/export/order-export";
 import { buildOrderXlsx } from "@/lib/export/order-xlsx";
 import { buildOrderPdf } from "@/lib/export/order-pdf";
@@ -24,6 +24,10 @@ export async function GET(
 ) {
   const user = await sessionUser();
   if (!user) return new NextResponse("Unauthorized", { status: 401 });
+  // Exports are the orders module leaving the building.
+  if (!(await getCompanyModules(user.companyId)).orders) {
+    return new NextResponse("Not found", { status: 404 });
+  }
   if (exportLimiter.hit(`u${user.id}`)) {
     return new NextResponse("Too Many Requests", { status: 429, headers: { "Retry-After": "300" } });
   }

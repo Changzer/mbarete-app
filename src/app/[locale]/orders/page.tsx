@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ClipboardList } from "lucide-react";
-import { requireUser } from "@/lib/authz";
+import { requireUser, requireModulePage } from "@/lib/authz";
 
 const STATUS_VARIANT = {
   draft: "secondary",
@@ -16,7 +16,9 @@ const STATUS_VARIANT = {
 
 export default async function OrdersPage() {
   const t = await getTranslations("orders");
-  const { companyId } = await requireUser();
+  const _mbUser = await requireUser();
+  const { companyId } = _mbUser;
+  await requireModulePage(_mbUser, "orders");
   const orders = await getOrders(companyId);
 
   return (

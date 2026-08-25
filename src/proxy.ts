@@ -36,6 +36,6 @@ export const config = {
   // PWA files — the manifest, its icons, and the service worker script,
   // which must additionally be served from the origin root to control it.
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|logo.png|uploads|manifest.webmanifest|sw.js|icon-192.png|icon-512.png).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|logo.png|uploads|manifest.webmanifest|sw.js|icon-192.png|icon-512.png|16015975).*)",
   ],
 };

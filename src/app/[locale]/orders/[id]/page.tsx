@@ -16,7 +16,7 @@ import { OrderResult } from "@/components/orders/order-result";
 import { OrderChangelog } from "@/components/orders/order-changelog";
 import { ProformaBankSelect } from "@/components/orders/proforma-bank-select";
 import { OrderExportButtons } from "@/components/orders/order-export-buttons";
-import { requireUser } from "@/lib/authz";
+import { requireUser, requireModulePage } from "@/lib/authz";
 
 const STATUS_VARIANT = {
   draft: "secondary",
@@ -30,7 +30,9 @@ export default async function OrderDetailPage({
 }: {
   params: Promise<{ id: string; locale: string }>;
 }) {
-  const { companyId } = await requireUser();
+  const _mbUser = await requireUser();
+  const { companyId } = _mbUser;
+  await requireModulePage(_mbUser, "orders");
   const { id, locale } = await params;
   const t = await getTranslations("orders");
   const catalogT = await getTranslations("catalog");

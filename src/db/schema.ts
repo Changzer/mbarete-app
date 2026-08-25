@@ -41,6 +41,12 @@ export const companies = pgTable("companies", {
   ownerUserId: integer("owner_user_id").references((): AnyPgColumn => users.id),
   /** Monetization hook, unenforced for now: "free" until plans exist. */
   plan: text("plan").notNull().default("free"),
+  // Module visibility, flipped from the platform panel. Catalog and contacts
+  // are the product's core and have no switch; these two are where premium
+  // tiers will start. Off means the module's pages, actions and nav entries
+  // do not exist for that company — not merely hidden buttons.
+  moduleOrders: boolean("module_orders").notNull().default(true),
+  moduleFinance: boolean("module_finance").notNull().default(true),
   createdAt: text("created_at").notNull().default(utcNow),
 });
 
@@ -65,6 +71,12 @@ export const users = pgTable(
     // contacts, orders) but cannot delete records, touch settings, manage the
     // team or read the finance report.
     role: text("role").$type<"admin" | "collaborator">().notNull().default("collaborator"),
+    /**
+     * Operator of the whole platform, not a tenant role: unlocks the hidden
+     * cross-company panel. Granted only via PLATFORM_ADMIN_EMAIL at boot —
+     * deliberately no UI can set it.
+     */
+    platformAdmin: boolean("platform_admin").notNull().default(false),
     // Set when the address's owner clicks a verification link. Reset links
     // are only ever sent to the address on file, so verification is a trust
     // signal, not a login gate.
@@ -808,6 +820,42 @@ export const entityEvents = pgTable(
  * here, read by the AI when there is a connection to read them with, and
  * promoted into the catalog by a human who has checked the price.
  */
+/**
+ * One row per user per day they touched the app — the platform's pulse.
+ *
+ * Written fire-and-forget from the session path with an in-memory throttle,
+ * so tracking costs at most one small upsert a minute per user and can never
+ * fail a request. Active seconds are the sum of gaps between consecutive
+ * touches short enough to be one sitting; days active and last-seen fall out
+ * of the same rows. Counts and timestamps only — deliberately nothing about
+ * what the money columns hold.
+ */
+export const userActivityDays = pgTable(
+  "user_activity_days",
+  {
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    userId: integer("user_id").notNull(),
+    /** UTC day, YYYY-MM-DD. */
+    day: text("day").notNull(),
+    firstSeenAt: text("first_seen_at").notNull(),
+    lastSeenAt: text("last_seen_at").notNull(),
+    activeSeconds: integer("active_seconds").notNull().default(0),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.day] }),
+    index("user_activity_company_idx").on(table.companyId),
+    // Same-company proof, like entity_events: activity can only credit a
+    // user of the company it is filed under.
+    foreignKey({
+      columns: [table.companyId, table.userId],
+      foreignColumns: [users.companyId, users.id],
+      name: "user_activity_company_user_fk",
+    }),
+  ],
+);
+
 export const captureDrafts = pgTable(
   "capture_drafts",
   {

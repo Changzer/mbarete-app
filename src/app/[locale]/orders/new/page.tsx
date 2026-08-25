@@ -5,14 +5,16 @@ import { getExchangeRates } from "@/lib/queries/orders";
 import { localizeField } from "@/lib/localize";
 import type { Locale } from "@/i18n/routing";
 import { OrderBuilder, type BuilderProduct } from "@/components/orders/order-builder";
-import { requireUser } from "@/lib/authz";
+import { requireUser, requireModulePage } from "@/lib/authz";
 
 export default async function NewOrderPage({
   params,
 }: {
   params: Promise<{ locale: string }>;
 }) {
-  const { companyId } = await requireUser();
+  const _mbUser = await requireUser();
+  const { companyId } = _mbUser;
+  await requireModulePage(_mbUser, "orders");
   const { locale } = await params;
   const t = await getTranslations("orders");
 
