@@ -39,6 +39,10 @@ const nextConfig: NextConfig = {
           // Internal URLs (order ids, filenames) stay out of third-party logs.
           { key: "Referrer-Policy", value: "same-origin" },
           { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
+          // Browsers ignore HSTS on plain http, so this is inert on the NAS
+          // and binds the moment the app sits behind TLS. Half a year, no
+          // includeSubDomains — the domain may host other things.
+          { key: "Strict-Transport-Security", value: "max-age=15552000" },
         ],
       },
     ];
