@@ -80,6 +80,8 @@ export async function buildOrderXlsx(data: OrderExportData): Promise<Buffer> {
     r += 1;
     const left: string[] = [
       data.client.name,
+      data.client.address,
+      data.client.taxId && `${data.labels.taxId}: ${data.client.taxId}`,
       data.client.contactPerson && `${data.labels.attn}: ${data.client.contactPerson}`,
       data.client.phone && `${data.labels.phone}: ${data.client.phone}`,
       data.client.whatsapp && `WhatsApp: ${data.client.whatsapp}`,

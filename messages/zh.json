@@ -564,6 +564,7 @@
     "email": "邮箱",
     "website": "网站",
     "taxId": "税号",
+    "address": "地址",
     "bankAccountName": "账户名称",
     "bankName": "开户银行",
     "bankAccountNumber": "账号",

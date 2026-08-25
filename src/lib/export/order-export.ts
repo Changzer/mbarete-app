@@ -57,6 +57,8 @@ export type OrderExportData = {
   };
   client: {
     name: string;
+    address: string;
+    taxId: string;
     contactPerson: string;
     phone: string;
     email: string;
@@ -155,6 +157,8 @@ export async function getOrderExportData(
     client: !isQuote && client
       ? {
           name: client.companyName,
+          address: client.boothLocation ?? "",
+          taxId: client.taxId ?? "",
           contactPerson: client.contactPerson ?? "",
           phone: client.phone ?? "",
           email: client.email ?? "",
@@ -208,6 +212,7 @@ export async function getOrderExportData(
       date: t("date"),
       validUntil: t("validUntil"),
       billTo: t("billTo"),
+      address: t("address"),
       attn: t("attn"),
       phone: t("phone"),
       email: t("email"),
