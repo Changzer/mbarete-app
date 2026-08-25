@@ -6,6 +6,7 @@ import {
   resolveProformaBank,
 } from "@/lib/queries/settings";
 import { formatCbm, formatWeightKg } from "@/lib/calculations";
+import { parsePartiesSnapshot, usesFrozenParties } from "@/lib/parties-snapshot";
 import { getImagesByProduct, getProducts } from "@/lib/queries/catalog";
 import { readExportThumb } from "./thumbs";
 import type { Locale } from "@/i18n/routing";
@@ -129,34 +130,28 @@ export async function getOrderExportData(
     }),
   );
 
-  const bank = resolveProformaBank(accounts, order.bankAccountId, company);
-  const quote = order.displayCurrency;
-  const issued = new Date(order.createdAt);
-  const validUntil = new Date(issued);
-  validUntil.setDate(validUntil.getDate() + company.validityDays);
-
-  return {
-    company: {
-      name: company.companyName || t("yourCompany"),
-      addressLines: splitLines(company.addressLines),
-      phone: company.phone,
-      email: company.email,
-      website: company.website,
-      taxId: company.taxId,
-    },
-    doc: {
-      number: order.orderNumber,
-      issuedOn: issued.toLocaleDateString(locale),
-      validUntil:
-        company.validityDays > 0 ? validUntil.toLocaleDateString(locale) : null,
-      validityDays: company.validityDays,
-      currency: quote,
-      kind: isQuote ? "quote" : "invoice",
-    },
-    // No bill-to on a quote: nothing is owed by anyone yet.
-    client: !isQuote && client
+  // Confirmed and shipped documents render the parties frozen at
+  // confirmation; a draft quote renders live data (see parties-snapshot.ts).
+  const frozen = usesFrozenParties(order.status)
+    ? parsePartiesSnapshot(order.partiesSnapshot)
+    : null;
+  const seller = frozen?.seller ?? {
+    companyName: company.companyName,
+    addressLines: company.addressLines,
+    phone: company.phone,
+    email: company.email,
+    website: company.website,
+    taxId: company.taxId,
+    incoterms: company.incoterms,
+    paymentTerms: company.paymentTerms,
+    footerNote: company.footerNote,
+    validityDays: company.validityDays,
+  };
+  const billTo = frozen
+    ? frozen.client
+    : client
       ? {
-          name: client.companyName,
+          companyName: client.companyName,
           address: client.boothLocation ?? "",
           taxId: client.taxId ?? "",
           contactPerson: client.contactPerson ?? "",
@@ -165,10 +160,47 @@ export async function getOrderExportData(
           whatsapp: client.whatsapp ?? "",
           wechat: client.wechat ?? "",
         }
+      : null;
+  const bank = frozen ? frozen.bank : resolveProformaBank(accounts, order.bankAccountId, company);
+  const quote = order.displayCurrency;
+  const issued = new Date(order.createdAt);
+  const validUntil = new Date(issued);
+  validUntil.setDate(validUntil.getDate() + seller.validityDays);
+
+  return {
+    company: {
+      name: seller.companyName || t("yourCompany"),
+      addressLines: splitLines(seller.addressLines),
+      phone: seller.phone,
+      email: seller.email,
+      website: seller.website,
+      taxId: seller.taxId,
+    },
+    doc: {
+      number: order.orderNumber,
+      issuedOn: issued.toLocaleDateString(locale),
+      validUntil:
+        seller.validityDays > 0 ? validUntil.toLocaleDateString(locale) : null,
+      validityDays: seller.validityDays,
+      currency: quote,
+      kind: isQuote ? "quote" : "invoice",
+    },
+    // No bill-to on a quote: nothing is owed by anyone yet.
+    client: !isQuote && billTo
+      ? {
+          name: billTo.companyName,
+          address: billTo.address,
+          taxId: billTo.taxId,
+          contactPerson: billTo.contactPerson,
+          phone: billTo.phone,
+          email: billTo.email,
+          whatsapp: billTo.whatsapp,
+          wechat: billTo.wechat,
+        }
       : null,
     terms: {
-      incoterms: company.incoterms,
-      paymentTerms: splitLines(company.paymentTerms),
+      incoterms: seller.incoterms,
+      paymentTerms: splitLines(seller.paymentTerms),
       totalCartons: totals.totalCartons,
       totalCbm: formatCbm(totals.totalCbm),
       totalWeightKg: formatWeightKg(totals.totalWeightKg),
@@ -182,7 +214,7 @@ export async function getOrderExportData(
       cartons: r.cartons,
       unitPrice: r.sellPrice,
       amount: r.sellTotal,
-      currency: r.currencySnapshot,
+      currency: r.sellCurrency,
     })),
     totals: {
       goods: totals.goods[quote] ?? 0,
@@ -203,7 +235,7 @@ export async function getOrderExportData(
         }
       : null,
     notes: order.notes ?? "",
-    footerNote: splitLines(company.footerNote),
+    footerNote: splitLines(seller.footerNote),
     sellMissingCount: rows.filter((r) => r.sellMissing).length,
     labels: {
       title: isQuote ? t("quoteTitle") : t("title"),

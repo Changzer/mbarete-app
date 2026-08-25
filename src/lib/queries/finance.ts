@@ -86,6 +86,7 @@ export async function getFinanceData(companyId: number): Promise<{
         unitPrice: i.unitPriceSnapshot,
         sellPrice: i.sellPriceSnapshot,
         currency: i.currencySnapshot,
+        sellCurrency: i.sellCurrencySnapshot || i.currencySnapshot,
         moq: i.moqSnapshot,
         lineCbm: i.lineCbm,
         lineWeightKg: i.lineWeightKg,

@@ -528,6 +528,17 @@ export const orders = pgTable(
     // (a composite SET NULL would null company_id too, so no FK action).
     bankAccountId: integer("bank_account_id"),
     notes: text("notes").notNull().default(""),
+    // Optimistic concurrency: every mutation sends the version it read and
+    // the UPDATE carries WHERE version = that — two people editing at once
+    // produce a visible conflict, never silent last-write-wins.
+    version: integer("version").notNull().default(1),
+    // The parties as they stood when the order was CONFIRMED — client,
+    // seller and bank block, JSON (see lib/parties-snapshot.ts). Confirmed
+    // and shipped documents render from this, so editing a contact, the
+    // company profile or a bank account can never rewrite an agreed
+    // document. NULL on drafts and never-confirmed orders (they render
+    // live); reopening to draft clears it, re-confirming re-freezes.
+    partiesSnapshot: text("parties_snapshot"),
     // Composite user FKs below prove attribution stays inside the company.
     createdBy: integer("created_by").notNull(),
     updatedBy: integer("updated_by"),
@@ -594,6 +605,22 @@ export const orderItems = pgTable(
     // written before this column existed; readers fall back to the product's
     // current pack size for those.
     cartonsSnapshot: integer("cartons_snapshot").notNull().default(0),
+    // --- the line's own copy of the catalog facts it was quoted with ---
+    // Identity for documents (a renamed product must not rewrite an old
+    // proforma) and the carton inputs for recomputing logistics on a
+    // quantity edit without ever consulting the live product. "" / 0 on
+    // rows from before these columns; readers fall back to the product.
+    skuSnapshot: text("sku_snapshot").notNull().default(""),
+    nameEnSnapshot: text("name_en_snapshot").notNull().default(""),
+    nameZhSnapshot: text("name_zh_snapshot").notNull().default(""),
+    supplierCodeSnapshot: text("supplier_code_snapshot").notNull().default(""),
+    qtyPerBoxSnapshot: integer("qty_per_box_snapshot").notNull().default(0),
+    cartonCbmSnapshot: doublePrecision("carton_cbm_snapshot").notNull().default(0),
+    cartonWeightSnapshot: doublePrecision("carton_weight_snapshot").notNull().default(0),
+    // The currency the SELL price was quoted in, frozen at line creation.
+    // The intentional catalog refresh may change the cost currency; it must
+    // never relabel what the client was quoted.
+    sellCurrencySnapshot: text("sell_currency_snapshot").notNull().default(""),
   },
   (table) => [
     index("order_items_order_idx").on(table.orderId),

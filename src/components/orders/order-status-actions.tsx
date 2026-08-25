@@ -10,9 +10,12 @@ import { setOrderStatus, deleteOrder } from "@/lib/actions/orders";
 export function OrderStatusActions({
   orderId,
   status,
+  version,
 }: {
   orderId: number;
   status: "draft" | "confirmed" | "shipped" | "cancelled";
+  /** the order version this page rendered from — transitions carry it */
+  version?: number;
 }) {
   const t = useTranslations("orders");
   const common = useTranslations("common");
@@ -23,7 +26,7 @@ export function OrderStatusActions({
   function transition(next: "draft" | "confirmed" | "shipped" | "cancelled") {
     setError(null);
     startTransition(async () => {
-      const result = await setOrderStatus(orderId, next);
+      const result = await setOrderStatus(orderId, next, version);
       if (result?.error) setError(result.error);
     });
   }
@@ -98,6 +101,11 @@ export function OrderStatusActions({
         ) : null}
       </div>
       {error === "moq" ? <p className="text-xs text-danger">{t("moqBlocksConfirm")}</p> : null}
+      {error === "conflict" ? (
+        <p className="text-xs text-danger" data-testid="status-conflict">
+          {t("orderConflict")}
+        </p>
+      ) : null}
     </div>
   );
 }

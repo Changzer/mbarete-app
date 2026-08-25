@@ -23,6 +23,7 @@ import {
   missingCartonFigures,
   computeOrderFinance,
   sellUnitPrice,
+  deriveLineFigures,
 } from "./calculations";
 import type { SnapshotLine } from "./calculations";
 
@@ -623,4 +624,38 @@ test("commission lands on cents and the grand total reconciles exactly", () => {
   assert.equal(totals.commission.USD, 1.75);
   assert.equal(totals.grandTotal.USD, roundMoney(totals.goods.USD + totals.commission.USD));
   assert.equal(totals.grandTotal.USD, 25.06);
+});
+
+test("a line's own carton inputs re-derive its figures exactly as a fresh line would", () => {
+  const product = { price: 4.5, currency: "CNY", moq: 100, qtyPerBox: 50, weightKg: 12, cbm: 0.06 };
+  const derived = deriveLineFigures(
+    { unitPrice: 4.5, qtyPerBox: 50, cartonCbm: 0.06, cartonWeightKg: 12 },
+    175,
+  );
+  assert.equal(derived.lineTotal, lineTotal(product, 175));
+  assert.equal(derived.lineCbm, lineCbm(product, 175)); // 4 cartons: partials take full space
+  assert.equal(derived.lineWeightKg, lineWeightKg(product, 175)); // weight stays proportional
+  assert.equal(derived.cartons, fullCartons(product, 175));
+});
+
+test("the sell side converts from ITS currency; a moved cost currency cannot relabel the quote", () => {
+  // Cost was refreshed from 10 CNY to 1.40 USD; the client was quoted 15 CNY.
+  const line = {
+    quantity: 10,
+    unitPrice: 1.4,
+    sellPrice: 15,
+    currency: "USD",
+    sellCurrency: "CNY",
+    moq: 1,
+    lineCbm: 0,
+    lineWeightKg: 0,
+    cartons: 1,
+  };
+  const rates = { USD: 1, CNY: 0.14 };
+  const totals = computeSnapshotTotals([line], ["USD"], rates);
+  assert.equal(totals.goods.USD, 21); // 150 CNY × 0.14 — not 150 USD
+  assert.equal(totals.cost.USD, 14);
+  // Old rows carry no sellCurrency and keep meaning the cost currency.
+  const old = { ...line, sellCurrency: undefined, unitPrice: 10, currency: "CNY" };
+  assert.equal(computeSnapshotTotals([old], ["USD"], rates).goods.USD, 21);
 });

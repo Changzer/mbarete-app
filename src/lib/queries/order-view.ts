@@ -19,6 +19,8 @@ export type OrderViewRow = {
   sellMissing: boolean;
   sellTotal: number;
   currencySnapshot: string;
+  /** the currency the sell price was quoted in; the cost currency on old rows */
+  sellCurrency: string;
   moqSnapshot: number;
   lineTotal: number;
   lineCbm: number;
@@ -60,22 +62,27 @@ export async function getOrderView(companyId: number, orderId: number, locale: L
   const effectiveRates = { ...rates, ...snapshot };
 
   const rows: OrderViewRow[] = items.map((item) => {
+    // The line's own snapshots first; the live product only fills rows from
+    // before the snapshots existed. A renamed, repacked or deleted product
+    // must not change what a saved order shows.
     const product = productMap.get(item.productId);
-    const perCarton = product?.qtyPerBox ?? 0;
+    const perCarton =
+      item.qtyPerBoxSnapshot > 0 ? item.qtyPerBoxSnapshot : (product?.qtyPerBox ?? 0);
     const cartons =
       item.cartonsSnapshot > 0
         ? item.cartonsSnapshot
         : perCarton > 0
           ? Math.ceil(item.quantity / perCarton)
           : null;
+    const snapName = localizeField(locale, item.nameEnSnapshot, item.nameZhSnapshot);
     return {
       id: item.id,
       productId: item.productId,
-      sku: product?.sku ?? `#${item.productId}`,
-      supplierCode: product?.supplierCode ?? "",
-      name: product
-        ? localizeField(locale, product.nameEn, product.nameZh)
-        : `#${item.productId}`,
+      sku: item.skuSnapshot || (product?.sku ?? `#${item.productId}`),
+      supplierCode: item.supplierCodeSnapshot || (product?.supplierCode ?? ""),
+      name:
+        snapName ||
+        (product ? localizeField(locale, product.nameEn, product.nameZh) : `#${item.productId}`),
       quantity: item.quantity,
       unitPriceSnapshot: item.unitPriceSnapshot,
       sellPrice:
@@ -85,6 +92,7 @@ export async function getOrderView(companyId: number, orderId: number, locale: L
         (item.sellPriceSnapshot > 0 ? item.sellPriceSnapshot : item.unitPriceSnapshot) *
         item.quantity,
       currencySnapshot: item.currencySnapshot,
+      sellCurrency: item.sellCurrencySnapshot || item.currencySnapshot,
       moqSnapshot: item.moqSnapshot,
       lineTotal: item.lineTotal,
       lineCbm: item.lineCbm,
@@ -102,6 +110,7 @@ export async function getOrderView(companyId: number, orderId: number, locale: L
       unitPrice: r.unitPriceSnapshot,
       sellPrice: r.sellPrice,
       currency: r.currencySnapshot,
+      sellCurrency: r.sellCurrency,
       moq: r.moqSnapshot,
       lineCbm: r.lineCbm,
       lineWeightKg: r.lineWeightKg,

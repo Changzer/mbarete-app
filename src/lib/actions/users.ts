@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { canAddUser } from "@/lib/entitlements";
+import { canAddUser, seatAvailableLocked } from "@/lib/entitlements";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import { db, one } from "@/db";
@@ -88,13 +88,21 @@ export async function createUser(
     return { error: "duplicate-email" };
   }
 
-  await db.insert(users).values({
-    companyId: admin.companyId,
-    name,
-    email,
-    role,
-    passwordHash: await bcrypt.hash(password, 10),
+  const passwordHash = await bcrypt.hash(password, 10);
+  // Cap re-checked under the company's row lock, in the same transaction as
+  // the insert — two admins racing for the last seat get exactly one yes.
+  const won = await db.transaction(async (tx) => {
+    if (!(await seatAvailableLocked(tx, admin.companyId))) return false;
+    await tx.insert(users).values({
+      companyId: admin.companyId,
+      name,
+      email,
+      role,
+      passwordHash,
+    });
+    return true;
   });
+  if (!won) return { error: "limit" };
 
   revalidatePath("/users");
   return {};
