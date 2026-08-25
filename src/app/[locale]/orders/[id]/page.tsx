@@ -104,8 +104,12 @@ export default async function OrderDetailPage({
         >
           <OrderStatusActions orderId={order.id} status={order.status} />
           {order.status === "draft" || order.status === "confirmed" ? (
-            <CatalogRefresh orderId={order.id} />
+            <>
+              <span aria-hidden className="hidden w-px self-stretch bg-line lg:block" />
+              <CatalogRefresh orderId={order.id} />
+            </>
           ) : null}
+          <span aria-hidden className="hidden w-px self-stretch bg-line lg:block" />
           <Button asChild variant="outline" size="sm">
             <Link href={`/orders/${order.id}/proforma`}>{proformaT("open")}</Link>
           </Button>

@@ -49,8 +49,9 @@ export function CatalogRefresh({ orderId }: { orderId: number }) {
 
   return (
     <>
+      {/* A utility, not a workflow step — ghost keeps it out of the way. */}
       <Button
-        variant="outline"
+        variant="ghost"
         size="sm"
         disabled={isPending}
         onClick={check}

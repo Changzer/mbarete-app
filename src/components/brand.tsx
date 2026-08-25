@@ -13,8 +13,9 @@ import { useEffect, useRef, useState } from "react";
 export function Brand({
   size = "nav",
 }: {
-  /** nav: compact for the header · hero: large for the login page */
-  size?: "nav" | "hero";
+  /** nav: compact for the header · hero: large for the login page ·
+   *  doc: a letterhead — present but not shouting over the document */
+  size?: "nav" | "hero" | "doc";
 }) {
   const [logoMissing, setLogoMissing] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -29,7 +30,12 @@ export function Brand({
   // The lockup is wide (seal + wordmark + trading name), so the height is
   // the constraint and the width follows; the caps stop a huge intrinsic
   // size from shoving the nav links off a phone screen.
-  const imgClass = size === "hero" ? "h-24 w-auto max-w-[320px]" : "h-9 w-auto max-w-[190px]";
+  const imgClass =
+    size === "hero"
+      ? "h-24 w-auto max-w-[320px]"
+      : size === "doc"
+        ? "h-14 w-auto max-w-[220px]"
+        : "h-9 w-auto max-w-[190px]";
   if (!logoMissing) {
     return (
       /* eslint-disable-next-line @next/next/no-img-element */
