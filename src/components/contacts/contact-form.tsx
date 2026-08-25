@@ -17,6 +17,7 @@ import { useOutbox, probeServer } from "@/components/offline/outbox";
 type ContactFormValues = {
   companyName: string;
   companyNameZh: string;
+  taxId: string;
   contactPerson: string;
   phone: string;
   email: string;
@@ -481,6 +482,10 @@ export function ContactForm({
           name="companyNameZh"
           defaultValue={defaultValues?.companyNameZh}
         />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="taxId">{t("taxId")}</Label>
+        <Input id="taxId" name="taxId" numeric defaultValue={defaultValues?.taxId} />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="contactPerson">{t("contactPerson")}</Label>

@@ -85,6 +85,13 @@
       "when": 1787830000000,
       "tag": "0011_extra-seats",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1787840000000,
+      "tag": "0012_contact-tax-id",
+      "breakpoints": true
     }
   ]
 }

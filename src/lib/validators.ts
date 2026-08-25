@@ -59,6 +59,7 @@ export const contactSchema = z
   // enough for a market-floor capture; the card photo carries the rest.
   companyName: z.string().trim().default(""),
   companyNameZh: z.string().trim().default(""),
+  taxId: z.string().trim().default(""),
   contactPerson: z.string().trim().default(""),
   phone: z.string().default(""),
   email: z.string().default(""),

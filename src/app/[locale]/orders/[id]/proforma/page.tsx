@@ -149,6 +149,7 @@ export default async function ProformaPage({
               {client?.companyName ?? "—"}
             </div>
             <div className="text-sub">
+              <Row label={t("taxId")} value={client?.taxId} />
               <Row label={t("attn")} value={client?.contactPerson} />
               <Row label={t("phone")} value={client?.phone} />
               <Row label={t("email")} value={client?.email} />
