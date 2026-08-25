@@ -218,14 +218,39 @@ export async function runBackup(): Promise<BackupResult> {
     await fs.mkdir(path.join(tmp, "db"), { recursive: true });
     await client.connect();
 
+    // The dump must see everything. Under FORCEd row-level security a
+    // non-bypassing role (the app's own DATABASE_URL role, if the admin URL
+    // fell back to it) reads business tables as EMPTY — and a dump taken
+    // that way looks complete, has a manifest, and restores to a data loss.
+    // Refuse loudly instead of backing up blind; the panel shows the error.
+    const seesAll = await client
+      .query(
+        "SELECT rolsuper OR rolbypassrls AS sees_all FROM pg_roles WHERE rolname = current_user",
+      )
+      .then((r) => Boolean(r.rows[0]?.sees_all));
+    if (!seesAll) {
+      throw new Error(
+        "backup role cannot bypass row-level security — set DATABASE_ADMIN_URL to the admin role",
+      );
+    }
+
+    // One snapshot for every table: rows written mid-backup land wholly in
+    // the next backup instead of tearing this one (an order without its
+    // items, a payment without its order).
+    await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+
     const tables = await tableNames(client);
     const counts: Record<string, number> = {};
     for (const table of tables) {
       counts[table] = await dumpTable(client, table, path.join(tmp, "db", `${table}.jsonl.gz`));
     }
 
+    await client.query("COMMIT");
+
     // Migration state travels with the dump so restore can refuse a backup
     // from a different schema generation instead of loading it crooked.
+    // Outside the snapshot on purpose: its .catch would poison an open
+    // transaction on installs where the drizzle schema is absent.
     const mig = await client
       .query('SELECT count(*)::int AS n FROM drizzle."__drizzle_migrations"')
       .then((r) => r.rows[0]?.n ?? 0)

@@ -34,6 +34,17 @@ Details worth knowing:
   postgres client tools; the restore script below is the matching loader.
 - A crash mid-backup leaves only a `.tmp-*` directory, cleaned up on the next
   run. Anything named `backup-*` with a `manifest.json` is complete.
+- **The database dump is one consistent snapshot** (a single `REPEATABLE
+  READ` transaction): an order saved mid-backup lands wholly in the next
+  backup, never half in this one. The **uploads mirror is best-effort** by
+  contrast — files are copied while the app may still be writing, so a photo
+  uploaded during the backup window can be in the dump's rows but missing
+  from that snapshot's files (it is in the next one). Restores tolerate
+  this: a missing file shows as a broken image, nothing worse.
+- **The dump refuses to run blind.** It must connect as a role that bypasses
+  row-level security (`DATABASE_ADMIN_URL`); connected as the RLS-bound app
+  role it would silently dump empty tables, so it errors instead and the
+  panel shows the error.
 
 ## Configuration
 
@@ -109,3 +120,9 @@ docker compose restart mbarete-app
 - **Point-in-time recovery.** Snapshots are daily; work since the last one
   is lost on restore. For a busy SaaS on a real server, add continuous WAL
   archiving at the Postgres level later.
+- **Rolling back an update.** The auto-updater moves the schema forward;
+  restoring a backup taken *before* an update into the *updated* schema is
+  exactly the migration-count mismatch the script aborts on. To truly roll
+  back, check out the older code first so its migrations match the snapshot,
+  then restore. When in doubt, press **Back up now** before merging anything
+  risky — a fresh snapshot on the current schema always restores cleanly.
