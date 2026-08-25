@@ -26,7 +26,10 @@ export function Brand({
     if (img && img.complete && img.naturalWidth === 0) setLogoMissing(true);
   }, []);
 
-  const imgClass = size === "hero" ? "h-24 w-24" : "h-9 w-9";
+  // The lockup is wide (seal + wordmark + trading name), so the height is
+  // the constraint and the width follows; the caps stop a huge intrinsic
+  // size from shoving the nav links off a phone screen.
+  const imgClass = size === "hero" ? "h-24 w-auto max-w-[320px]" : "h-9 w-auto max-w-[190px]";
   if (!logoMissing) {
     return (
       /* eslint-disable-next-line @next/next/no-img-element */
