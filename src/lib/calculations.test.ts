@@ -184,7 +184,14 @@ test("small CBM values keep enough precision to reconcile", () => {
   assert.equal(formatCbm(0.00024), "0.000240");
   assert.equal(formatCbm(0.0024), "0.002400");
   assert.equal(formatCbm(0.3), "0.3000");
-  assert.equal(formatCbm(0), "0.0000");
+});
+
+test("CBM at order-total scale shows two decimals, never thousand-lookalikes", () => {
+  // "6.0000" misreads as six thousand; a metre and up is two decimals.
+  assert.equal(formatCbm(6), "6.00");
+  assert.equal(formatCbm(1), "1.00");
+  assert.equal(formatCbm(12.3456), "12.35");
+  assert.equal(formatCbm(0), "0.00");
 });
 
 test("a part-filled carton is flagged and still ships as a whole carton", () => {
