@@ -553,20 +553,38 @@ function DocumentSection({
 
 // --- the assembled workspace sections ---------------------------------------
 
+/**
+ * The documents card alone: the page pairs it with the money summary in one
+ * row, so neither sits as a lonely island with dead space beside it.
+ */
+export function OrderDocumentsCard({
+  orderId,
+  documents,
+}: {
+  orderId: number;
+  documents: DocumentRow[];
+}) {
+  const t = useTranslations("finance");
+  return (
+    <div className="rounded-lg border border-line bg-surface p-4" data-testid="section-documents">
+      <h2 className="mb-3 text-sm font-semibold text-ink">{t("documents")}</h2>
+      <DocumentSection orderId={orderId} rows={documents} />
+    </div>
+  );
+}
+
 export function OrderFinance({
   orderId,
   quoteCurrency,
   supplierCurrency,
   payments,
   expenses,
-  documents,
 }: {
   orderId: number;
   quoteCurrency: string;
   supplierCurrency: string;
   payments: PaymentRow[];
   expenses: ExpenseRow[];
-  documents: DocumentRow[];
 }) {
   const t = useTranslations("finance");
   const paymentsIn = payments.filter((p) => p.direction === "in");
@@ -578,11 +596,6 @@ export function OrderFinance({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className={box} data-testid="section-documents">
-        <h2 className={heading}>{t("documents")}</h2>
-        <DocumentSection orderId={orderId} rows={documents} />
-      </div>
-
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className={box} data-testid="section-payments-in">
           <h2 className={heading}>{t("paymentsIn")}</h2>

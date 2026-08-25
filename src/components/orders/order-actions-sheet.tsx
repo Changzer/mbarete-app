@@ -57,7 +57,9 @@ export function OrderActionsSheet({
         </div>
       </BottomSheet>
 
-      <div className="hidden w-full flex-wrap items-center gap-x-3 gap-y-2 rounded-[12px] border border-line bg-surface px-3 py-2.5 lg:flex">
+      {/* Two deliberate rows, not one that wraps wherever it runs out:
+          the page hands rows in, this frame just stacks them. */}
+      <div className="hidden w-full flex-col gap-2.5 rounded-[12px] border border-line bg-surface px-3 py-2.5 lg:flex">
         {children}
       </div>
     </>

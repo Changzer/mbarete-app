@@ -12,7 +12,7 @@ import { Link } from "@/i18n/navigation";
 import { OrderStatusActions } from "@/components/orders/order-status-actions";
 import { CatalogRefresh } from "@/components/orders/catalog-refresh";
 import { OrderActionsSheet } from "@/components/orders/order-actions-sheet";
-import { OrderFinance } from "@/components/orders/order-finance";
+import { OrderFinance, OrderDocumentsCard } from "@/components/orders/order-finance";
 import { OrderResult } from "@/components/orders/order-result";
 import { OrderChangelog } from "@/components/orders/order-changelog";
 import { ProformaBankSelect } from "@/components/orders/proforma-bank-select";
@@ -102,33 +102,37 @@ export default async function OrderDetailPage({
             `status${order.status.charAt(0).toUpperCase()}${order.status.slice(1)}` as "statusDraft",
           )}
         >
-          <OrderStatusActions orderId={order.id} status={order.status} />
-          {order.status === "draft" || order.status === "confirmed" ? (
-            <>
-              <span aria-hidden className="hidden w-px self-stretch bg-line lg:block" />
-              <CatalogRefresh orderId={order.id} />
-            </>
-          ) : null}
-          <span aria-hidden className="hidden w-px self-stretch bg-line lg:block" />
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/orders/${order.id}/proforma`}>{proformaT("open")}</Link>
-          </Button>
-          <OrderExportButtons
-            orderId={order.id}
-            sellMissingCount={rows.filter((r) => r.sellMissing).length}
-          />
-          {/* The one setting among the actions keeps to the row's far end. */}
-          <div className="lg:ml-auto">
-            <ProformaBankSelect
+          {/* Row one: the workflow — status moves and the catalog utility. */}
+          <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-3 lg:gap-y-2">
+            <OrderStatusActions orderId={order.id} status={order.status} />
+            {order.status === "draft" || order.status === "confirmed" ? (
+              <>
+                <span aria-hidden className="hidden w-px self-stretch bg-line lg:block" />
+                <CatalogRefresh orderId={order.id} />
+              </>
+            ) : null}
+          </div>
+          {/* Row two: the documents, with the bank setting at the far end. */}
+          <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center lg:gap-x-2 lg:gap-y-2 lg:border-t lg:border-line lg:pt-2.5">
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/orders/${order.id}/proforma`}>{proformaT("open")}</Link>
+            </Button>
+            <OrderExportButtons
               orderId={order.id}
-              accounts={bankAccounts.map((a) => ({
-                id: a.id,
-                label: a.label,
-                currency: a.currency,
-                isDefault: a.isDefault,
-              }))}
-              selectedId={order.bankAccountId}
+              sellMissingCount={rows.filter((r) => r.sellMissing).length}
             />
+            <div className="lg:ml-auto">
+              <ProformaBankSelect
+                orderId={order.id}
+                accounts={bankAccounts.map((a) => ({
+                  id: a.id,
+                  label: a.label,
+                  currency: a.currency,
+                  isDefault: a.isDefault,
+                }))}
+                selectedId={order.bankAccountId}
+              />
+            </div>
           </div>
         </OrderActionsSheet>
       </div>
@@ -206,7 +210,11 @@ export default async function OrderDetailPage({
         </table>
       </div>
 
-      <div className="mt-4 flex flex-col gap-2 rounded-lg border border-line bg-surface p-4 text-sm sm:w-80 sm:self-end">
+      {/* Documents and the money summary share one row — neither is an
+          island with half the page empty beside it. */}
+      <div className="mt-4 grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+      <OrderDocumentsCard orderId={order.id} documents={finance.documents} />
+      <div className="flex flex-col gap-2 rounded-lg border border-line bg-surface p-4 text-sm">
         {totals.missingRates.length > 0 ? (
           <p className="rounded-md bg-warn-soft px-3 py-2 text-xs text-warn">
             {t("missingRate", { codes: totals.missingRates.join(", ") })}
@@ -277,6 +285,7 @@ export default async function OrderDetailPage({
           </p>
         ) : null}
       </div>
+      </div>
 
       {order.notes ? (
         <div className="mt-4">
@@ -297,7 +306,6 @@ export default async function OrderDetailPage({
           supplierCurrency={supplierCurrency}
           payments={finance.payments}
           expenses={finance.expenses}
-          documents={finance.documents}
         />
       </div>
 
