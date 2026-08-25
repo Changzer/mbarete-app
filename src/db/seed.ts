@@ -31,7 +31,7 @@ export async function seed() {
   // other seeded row and everything the app writes afterwards.
   let company = await db.select().from(companies).limit(1).then(one);
   if (!company) {
-    [company] = await db.insert(companies).values({ name: companyName }).returning();
+    [company] = await db.insert(companies).values({ name: companyName, plan: "pro" }).returning();
     console.log(`[seed] created company ${companyName}`);
   }
   const companyId = company.id;

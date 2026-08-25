@@ -28,7 +28,7 @@ function useErrorText() {
   };
 }
 
-export function SignupForm() {
+export function SignupForm({ referralCode }: { referralCode?: string }) {
   const t = useTranslations("signup");
   const [result, formAction, isPending] = useActionState(signUp, undefined);
   const message = useErrorText()(result);
@@ -58,9 +58,15 @@ export function SignupForm() {
         </div>
       </div>
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="code">{t("code")}</Label>
-        <Input id="code" name="code" required />
-        <p className="text-xs text-sub">{t("codeHelp")}</p>
+        {referralCode ? (
+          <input type="hidden" name="ref" value={referralCode} />
+        ) : (
+          <>
+            <Label htmlFor="code">{t("code")}</Label>
+            <Input id="code" name="code" required />
+            <p className="text-xs text-sub">{t("codeHelp")}</p>
+          </>
+        )}
       </div>
       {message ? <p className="text-sm text-danger">{message}</p> : null}
       <Button type="submit" disabled={isPending} className="mt-2">

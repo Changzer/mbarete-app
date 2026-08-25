@@ -1,9 +1,7 @@
 import { count, countDistinct, eq, max, sql, sum } from "drizzle-orm";
-import path from "node:path";
-import fs from "node:fs/promises";
 import { db } from "@/db";
 import { companies, users, products, orders, contacts, userActivityDays, invites } from "@/db/schema";
-import { uploadsDir } from "@/lib/uploads";
+import { companyStorageBytes } from "@/lib/uploads";
 
 /**
  * Everything the operator panel shows, in one pass.
@@ -21,6 +19,10 @@ export type CompanyMetrics = {
   name: string;
   plan: string;
   createdAt: string;
+  /** Who referred this company in, when anyone did. */
+  referredByName: string | null;
+  /** Companies that joined through this one's link. */
+  referrals: number;
   moduleOrders: boolean;
   moduleFinance: boolean;
   users: number;
@@ -45,24 +47,10 @@ export type PlatformOverview = {
     usersTotal: number;
     activeLast7d: number;
     newLast30d: number;
+    /** Companies that arrived through another company's link. */
+    referred: number;
   };
 };
-
-/** Bytes on disk under one company's upload folder; 0 when it has none. */
-async function companyStorageBytes(companyId: number): Promise<number> {
-  const dir = path.join(uploadsDir(), `c${companyId}`);
-  try {
-    const entries = await fs.readdir(dir, { withFileTypes: true });
-    let total = 0;
-    for (const entry of entries) {
-      if (!entry.isFile()) continue;
-      total += (await fs.stat(path.join(dir, entry.name))).size;
-    }
-    return total;
-  } catch {
-    return 0;
-  }
-}
 
 export async function loadPlatformOverview(): Promise<PlatformOverview> {
   const [
@@ -129,6 +117,17 @@ export async function loadPlatformOverview(): Promise<PlatformOverview> {
     companyRows.map(async (c) => storage.set(c.id, await companyStorageBytes(c.id))),
   );
 
+  const nameById = new Map(companyRows.map((c) => [c.id, c.name]));
+  const referralsBy = new Map<number, number>();
+  for (const c of companyRows) {
+    if (c.referredByCompanyId !== null) {
+      referralsBy.set(
+        c.referredByCompanyId,
+        (referralsBy.get(c.referredByCompanyId) ?? 0) + 1,
+      );
+    }
+  }
+
   const metrics: CompanyMetrics[] = companyRows.map((c) => {
     const contactRows = contactsBy.get(c.id) ?? [];
     const orderRows = ordersBy.get(c.id) ?? [];
@@ -139,6 +138,9 @@ export async function loadPlatformOverview(): Promise<PlatformOverview> {
       name: c.name,
       plan: c.plan,
       createdAt: c.createdAt,
+      referredByName:
+        c.referredByCompanyId !== null ? nameById.get(c.referredByCompanyId) ?? null : null,
+      referrals: referralsBy.get(c.id) ?? 0,
       moduleOrders: c.moduleOrders,
       moduleFinance: c.moduleFinance,
       users: usersBy.get(c.id)?.[0]?.n ?? 0,
@@ -167,6 +169,7 @@ export async function loadPlatformOverview(): Promise<PlatformOverview> {
     totals: {
       companies: metrics.length,
       usersTotal: metrics.reduce((n, m) => n + m.users, 0),
+      referred: metrics.filter((m) => m.referredByName !== null).length,
       activeLast7d: metrics.filter((m) => seenWithin(m, 7)).length,
       newLast30d: metrics.filter(
         (m) => now - Date.parse(m.createdAt.replace(" ", "T") + "Z") <= 30 * 86_400_000,

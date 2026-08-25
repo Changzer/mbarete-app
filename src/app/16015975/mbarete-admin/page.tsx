@@ -1,6 +1,8 @@
 import { requirePlatformAdmin } from "@/lib/authz";
 import { loadPlatformOverview, type CompanyMetrics } from "@/lib/platform/metrics";
 import { ModuleToggle } from "./module-toggle";
+import { PlanSelect } from "./plan-select";
+import { planOf, usageLabel } from "@/lib/plans";
 
 /**
  * The operator's chair: every company on the platform, what they use, and
@@ -91,11 +93,12 @@ export default async function PlatformAdminPage() {
         </div>
       </header>
 
-      <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4" data-testid="platform-tiles">
+      <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-5" data-testid="platform-tiles">
         <Tile label="Companies" value={totals.companies} />
         <Tile label="Users" value={totals.usersTotal} />
         <Tile label="Active last 7 days" value={totals.activeLast7d} />
         <Tile label="New last 30 days" value={totals.newLast30d} />
+        <Tile label="Referred" value={totals.referred} />
       </div>
 
       <div className="overflow-x-auto rounded-[12px] border border-line bg-surface">
@@ -114,6 +117,7 @@ export default async function PlatformAdminPage() {
               <th className="px-3 py-2 text-right font-medium">Time in app</th>
               <th className="px-3 py-2 font-medium">Last seen</th>
               <th className="px-3 py-2 text-right font-medium">Storage</th>
+              <th className="px-3 py-2 text-center font-medium">Plan</th>
               <th className="px-3 py-2 text-center font-medium">Orders</th>
               <th className="px-3 py-2 text-center font-medium">Finance</th>
             </tr>
@@ -124,16 +128,22 @@ export default async function PlatformAdminPage() {
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-ink">{m.name}</span>
-                    <span className="text-[11px] text-faint">#{m.id} · {m.plan}</span>
+                    <span className="text-[11px] text-faint">#{m.id}</span>
                     <ActivityChip idleDays={idleDaysOf(m, now)} />
                   </div>
                   <div className="text-[11px] text-faint">
                     since {m.createdAt.slice(0, 10)}
+                    {m.referredByName ? ` · referred by ${m.referredByName}` : ""}
+                    {m.referrals > 0 ? ` · ${m.referrals} referral${m.referrals > 1 ? "s" : ""}` : ""}
                     {m.pendingInvites > 0 ? ` · ${m.pendingInvites} invite${m.pendingInvites > 1 ? "s" : ""} pending` : ""}
                   </div>
                 </td>
-                <td className="px-3 py-2 text-right tabular-nums text-ink">{m.users}</td>
-                <td className="px-3 py-2 text-right tabular-nums text-ink">{m.products}</td>
+                <td className="px-3 py-2 text-right tabular-nums text-ink">
+                  {usageLabel(m.users, planOf(m.plan).maxUsers)}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums text-ink">
+                  {usageLabel(m.products, planOf(m.plan).maxProducts)}
+                </td>
                 <td className="px-3 py-2 text-right tabular-nums text-ink">{m.suppliers}</td>
                 <td className="px-3 py-2 text-right tabular-nums text-ink">{m.clients}</td>
                 <td className="px-3 py-2 text-right tabular-nums text-ink">{m.ordersDraft}</td>
@@ -143,6 +153,9 @@ export default async function PlatformAdminPage() {
                 <td className="px-3 py-2 text-right tabular-nums text-sub">{hours(m.activeSeconds)}</td>
                 <td className="px-3 py-2 text-sub">{ago(m.lastSeenAt)}</td>
                 <td className="px-3 py-2 text-right tabular-nums text-sub">{bytes(m.storageBytes)}</td>
+                <td className="px-3 py-2 text-center">
+                  <PlanSelect companyId={m.id} plan={m.plan} />
+                </td>
                 <td className="px-3 py-2 text-center">
                   <ModuleToggle companyId={m.id} module="orders" enabled={m.moduleOrders} />
                 </td>
@@ -158,7 +171,9 @@ export default async function PlatformAdminPage() {
       <p className="mt-4 text-[11px] leading-relaxed text-faint">
         Catalog and Contacts are core and always on. Switching a module off makes its pages,
         actions and nav entries stop existing for that company — their data stays untouched
-        and returns the moment the switch comes back.
+        and returns the moment the switch comes back. Picking a plan applies its module
+        defaults and its limits (users, products, storage); the switches stay individually
+        overridable after.
       </p>
     </div>
   );

@@ -5,8 +5,13 @@ import { Brand } from "@/components/brand";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Link } from "@/i18n/navigation";
 import { isSaas } from "@/lib/deploy";
+import { companyByReferralCode } from "@/lib/referrals";
 
-export default async function SignupPage() {
+export default async function SignupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ref?: string }>;
+}) {
   // Public signup exists only on a SaaS deployment. A self-hosted install has
   // its one company already, so send anyone here straight to the login door.
   if (!isSaas()) {
@@ -14,6 +19,11 @@ export default async function SignupPage() {
   }
 
   const t = await getTranslations("signup");
+
+  // A referral link admits the visitor without the platform code; a bogus
+  // ref is simply ignored and the code field appears as usual.
+  const { ref } = await searchParams;
+  const referrer = ref ? await companyByReferralCode(ref) : null;
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-surface-2 px-4 py-12">
@@ -28,7 +38,15 @@ export default async function SignupPage() {
           <CardDescription>{t("subtitle")}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <SignupForm />
+          {referrer ? (
+            <p
+              className="rounded-[10px] bg-surface-2 px-3 py-2 text-sm text-sub"
+              data-testid="referred-by"
+            >
+              {t("referredBy", { company: referrer.name })}
+            </p>
+          ) : null}
+          <SignupForm referralCode={referrer ? ref!.trim().toUpperCase() : undefined} />
           <p className="text-center text-sm text-sub">
             {t("haveAccount")}{" "}
             <Link href="/login" className="font-medium text-brand-600 hover:underline">

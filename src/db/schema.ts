@@ -47,6 +47,16 @@ export const companies = pgTable("companies", {
   // do not exist for that company — not merely hidden buttons.
   moduleOrders: boolean("module_orders").notNull().default(true),
   moduleFinance: boolean("module_finance").notNull().default(true),
+  /**
+   * This company's shareable signup code, minted the first time its admin
+   * opens the referral card. A /signup?ref=<code> link admits a new company
+   * without the platform-wide SIGNUP_CODE — referrals are the growth loop.
+   */
+  referralCode: text("referral_code").unique(),
+  /** Which company's link brought this one in; the referral graph. */
+  referredByCompanyId: integer("referred_by_company_id").references(
+    (): AnyPgColumn => companies.id,
+  ),
   createdAt: text("created_at").notNull().default(utcNow),
 });
 
