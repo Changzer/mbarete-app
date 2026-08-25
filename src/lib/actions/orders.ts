@@ -26,7 +26,7 @@ import {
 } from "@/lib/calculations";
 import { nextOrderNumber, getExchangeRates } from "@/lib/queries/orders";
 import { deleteUpload } from "@/lib/uploads";
-import { logOrderEvent, diffOrderEdit } from "@/lib/order-log";
+import { logOrderEvent, diffOrderEdit, type OrderChange } from "@/lib/order-log";
 import { defaultBankAccount } from "@/lib/proforma-bank";
 import { contacts } from "@/db/schema";
 
@@ -377,4 +377,142 @@ export async function deleteOrder(id: number) {
 
   revalidatePath("/orders");
   redirect({ href: "/orders", locale: (await getLocale()) as Locale });
+}
+
+/**
+ * Update-from-catalog: the deliberate counterpart to line snapshots.
+ *
+ * Lines freeze the product at add time so a confirmed, paid quote can never
+ * drift when the catalog moves — but a product registered incomplete (no
+ * carton data yet) used to force delete-and-re-add once the supplier filled
+ * it in. This pulls the CATALOG'S half of a line up to date — unit cost,
+ * currency, MOQ, carton count, CBM, weight — and never touches the DEAL'S
+ * half: the quantity and the sell price quoted to the client stay exactly
+ * as agreed. Preview first, apply on confirmation, every change logged.
+ */
+
+export type LineRefreshDiff = {
+  sku: string;
+  name: string;
+  cost?: { from: number; to: number; fromCurrency: string; toCurrency: string };
+  moq?: { from: number; to: number };
+  cbm?: { from: number; to: number };
+  weightKg?: { from: number; to: number };
+  cartons?: { from: number; to: number };
+};
+
+const near = (a: number, b: number) => Math.abs(a - b) < 0.0005;
+
+async function computeCatalogRefresh(companyId: number, orderId: number) {
+  const order = await db
+    .select()
+    .from(orders)
+    .where(and(eq(orders.companyId, companyId), eq(orders.id, orderId)))
+    .limit(1)
+    .then(one);
+  if (!order) return { error: "invalid" as const };
+  // Shipped and cancelled orders are records of what happened; they hold.
+  if (order.status !== "draft" && order.status !== "confirmed") {
+    return { error: "frozen" as const };
+  }
+
+  const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+  const productRows = await db
+    .select()
+    .from(products)
+    .where(
+      and(eq(products.companyId, companyId), inArray(products.id, items.map((i) => i.productId))),
+    );
+  const productMap = new Map(productRows.map((p) => [p.id, p]));
+
+  const updates: { itemId: number; fresh: Record<string, number | string>; diff: LineRefreshDiff }[] = [];
+  for (const item of items) {
+    const product = productMap.get(item.productId);
+    if (!product) continue; // a deleted product has nothing fresh to offer
+
+    const fresh = {
+      unitPriceSnapshot: product.price,
+      currencySnapshot: product.currency,
+      moqSnapshot: product.moq,
+      lineTotal: lineTotal(product, item.quantity),
+      lineCbm: lineCbm(product, item.quantity),
+      lineWeightKg: lineWeightKg(product, item.quantity),
+      cartonsSnapshot: fullCartons(product, item.quantity),
+    };
+
+    const diff: LineRefreshDiff = { sku: product.sku, name: product.nameEn || product.nameZh };
+    if (!near(item.unitPriceSnapshot, fresh.unitPriceSnapshot) || item.currencySnapshot !== fresh.currencySnapshot) {
+      diff.cost = {
+        from: item.unitPriceSnapshot,
+        to: fresh.unitPriceSnapshot,
+        fromCurrency: item.currencySnapshot,
+        toCurrency: fresh.currencySnapshot,
+      };
+    }
+    if (item.moqSnapshot !== fresh.moqSnapshot) diff.moq = { from: item.moqSnapshot, to: fresh.moqSnapshot };
+    if (!near(item.lineCbm, fresh.lineCbm)) diff.cbm = { from: item.lineCbm, to: fresh.lineCbm };
+    if (!near(item.lineWeightKg, fresh.lineWeightKg)) {
+      diff.weightKg = { from: item.lineWeightKg, to: fresh.lineWeightKg };
+    }
+    if (item.cartonsSnapshot !== fresh.cartonsSnapshot) {
+      diff.cartons = { from: item.cartonsSnapshot, to: fresh.cartonsSnapshot };
+    }
+
+    if (diff.cost || diff.moq || diff.cbm || diff.weightKg || diff.cartons) {
+      updates.push({ itemId: item.id, fresh, diff });
+    }
+  }
+  return { updates };
+}
+
+/** What an update would change, line by line — nothing is written. */
+export async function previewCatalogRefresh(
+  orderId: number,
+): Promise<{ error?: string; diffs?: LineRefreshDiff[] }> {
+  const user = await requireSession();
+  const result = await computeCatalogRefresh(user.companyId, orderId);
+  if ("error" in result) return { error: result.error };
+  return { diffs: result.updates.map((u) => u.diff) };
+}
+
+/** Applies the refresh. Recomputed here — a stale preview never gets written. */
+export async function applyCatalogRefresh(
+  orderId: number,
+): Promise<{ error?: string; updated?: number }> {
+  const user = await requireSession();
+  const result = await computeCatalogRefresh(user.companyId, orderId);
+  if ("error" in result) return { error: result.error };
+  if (result.updates.length === 0) return { updated: 0 };
+
+  const changes: OrderChange[] = [];
+  for (const { itemId, fresh, diff } of result.updates) {
+    await db.update(orderItems).set(fresh).where(eq(orderItems.id, itemId));
+    if (diff.cost) {
+      changes.push({
+        code: "line_cost",
+        sku: diff.sku,
+        from: `${diff.cost.from.toFixed(2)} ${diff.cost.fromCurrency}`,
+        to: `${diff.cost.to.toFixed(2)} ${diff.cost.toCurrency}`,
+      });
+    }
+    if (diff.cbm || diff.weightKg || diff.cartons) {
+      changes.push({
+        code: "line_specs",
+        sku: diff.sku,
+        cbmFrom: diff.cbm?.from ?? null,
+        cbmTo: diff.cbm?.to ?? null,
+        kgFrom: diff.weightKg?.from ?? null,
+        kgTo: diff.weightKg?.to ?? null,
+      });
+    }
+    if (diff.moq) changes.push({ code: "line_moq", sku: diff.sku, from: diff.moq.from, to: diff.moq.to });
+  }
+
+  await db.update(orders).set({ updatedAt: new Date().toISOString() }).where(eq(orders.id, orderId));
+  await logOrderEvent(orderId, user.id, "refreshed", { changes });
+
+  revalidatePath("/[locale]/orders/[id]", "page");
+  revalidatePath("/[locale]/orders/[id]/proforma", "page");
+  revalidatePath("/orders");
+  return { updated: result.updates.length };
 }

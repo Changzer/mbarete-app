@@ -759,6 +759,7 @@ export const orderEvents = pgTable(
       enum: [
         "created",
         "edited",
+        "refreshed",
         "status",
         "payment_added",
         "payment_removed",

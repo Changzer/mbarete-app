@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
 import { OrderStatusActions } from "@/components/orders/order-status-actions";
+import { CatalogRefresh } from "@/components/orders/catalog-refresh";
 import { OrderActionsSheet } from "@/components/orders/order-actions-sheet";
 import { OrderFinance } from "@/components/orders/order-finance";
 import { OrderResult } from "@/components/orders/order-result";
@@ -100,6 +101,9 @@ export default async function OrderDetailPage({
             )}
           >
             <OrderStatusActions orderId={order.id} status={order.status} />
+            {order.status === "draft" || order.status === "confirmed" ? (
+              <CatalogRefresh orderId={order.id} />
+            ) : null}
             <ProformaBankSelect
               orderId={order.id}
               accounts={bankAccounts.map((a) => ({
