@@ -41,6 +41,11 @@ export const companies = pgTable("companies", {
   ownerUserId: integer("owner_user_id").references((): AnyPgColumn => users.id),
   /** Monetization hook, unenforced for now: "free" until plans exist. */
   plan: text("plan").notNull().default("free"),
+  /**
+   * Seats bought on top of the plan's own cap, granted by hand from the
+   * platform panel while billing stays manual. Survives plan changes.
+   */
+  extraSeats: integer("extra_seats").notNull().default(0),
   // Module visibility, flipped from the platform panel. Catalog and contacts
   // are the product's core and have no switch; these two are where premium
   // tiers will start. Off means the module's pages, actions and nav entries

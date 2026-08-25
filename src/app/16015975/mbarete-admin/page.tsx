@@ -2,7 +2,8 @@ import { requirePlatformAdmin } from "@/lib/authz";
 import { loadPlatformOverview, type CompanyMetrics } from "@/lib/platform/metrics";
 import { ModuleToggle } from "./module-toggle";
 import { PlanSelect } from "./plan-select";
-import { planOf, usageLabel } from "@/lib/plans";
+import { SeatStepper } from "./seat-stepper";
+import { planOf, seatLimit, usageLabel } from "@/lib/plans";
 
 /**
  * The operator's chair: every company on the platform, what they use, and
@@ -118,6 +119,7 @@ export default async function PlatformAdminPage() {
               <th className="px-3 py-2 font-medium">Last seen</th>
               <th className="px-3 py-2 text-right font-medium">Storage</th>
               <th className="px-3 py-2 text-center font-medium">Plan</th>
+              <th className="px-3 py-2 text-center font-medium">Seats</th>
               <th className="px-3 py-2 text-center font-medium">Orders</th>
               <th className="px-3 py-2 text-center font-medium">Finance</th>
             </tr>
@@ -139,7 +141,7 @@ export default async function PlatformAdminPage() {
                   </div>
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums text-ink">
-                  {usageLabel(m.users, planOf(m.plan).maxUsers)}
+                  {usageLabel(m.users, seatLimit(planOf(m.plan), m.extraSeats))}
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums text-ink">
                   {usageLabel(m.products, planOf(m.plan).maxProducts)}
@@ -155,6 +157,9 @@ export default async function PlatformAdminPage() {
                 <td className="px-3 py-2 text-right tabular-nums text-sub">{bytes(m.storageBytes)}</td>
                 <td className="px-3 py-2 text-center">
                   <PlanSelect companyId={m.id} plan={m.plan} />
+                </td>
+                <td className="px-3 py-2 text-center">
+                  <SeatStepper companyId={m.id} extraSeats={m.extraSeats} />
                 </td>
                 <td className="px-3 py-2 text-center">
                   <ModuleToggle companyId={m.id} module="orders" enabled={m.moduleOrders} />
@@ -173,7 +178,9 @@ export default async function PlatformAdminPage() {
         actions and nav entries stop existing for that company — their data stays untouched
         and returns the moment the switch comes back. Picking a plan applies its module
         defaults and its limits (users, products, storage); the switches stay individually
-        overridable after.
+        overridable after. Seats adds paid seats on top of the plan&apos;s cap (billing is
+        manual for now — collect first, then click plus); extras stack on any plan and
+        survive plan changes.
       </p>
     </div>
   );

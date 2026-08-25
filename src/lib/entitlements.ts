@@ -2,7 +2,7 @@ import { count, eq, and } from "drizzle-orm";
 import { db, one } from "@/db";
 import { companies, users, products } from "@/db/schema";
 import { isSaas } from "@/lib/deploy";
-import { planOf, hasRoomFor, type Plan } from "@/lib/plans";
+import { planOf, hasRoomFor, seatLimit, type Plan } from "@/lib/plans";
 import { companyStorageBytes } from "@/lib/uploads";
 
 /**
@@ -27,14 +27,20 @@ export async function companyPlan(companyId: number): Promise<Plan> {
 /** Room for one more active user (invites are checked at create AND accept). */
 export async function canAddUser(companyId: number): Promise<boolean> {
   if (!isSaas()) return true;
-  const plan = await companyPlan(companyId);
-  if (plan.maxUsers === null) return true;
+  const company = await db
+    .select({ plan: companies.plan, extraSeats: companies.extraSeats })
+    .from(companies)
+    .where(eq(companies.id, companyId))
+    .limit(1)
+    .then(one);
+  const limit = seatLimit(planOf(company?.plan ?? ""), company?.extraSeats ?? 0);
+  if (limit === null) return true;
   const row = await db
     .select({ n: count() })
     .from(users)
     .where(and(eq(users.companyId, companyId), eq(users.active, true)))
     .then((rows) => rows[0]);
-  return hasRoomFor(plan.maxUsers, row?.n ?? 0);
+  return hasRoomFor(limit, row?.n ?? 0);
 }
 
 /** Room for one more product in the catalog. */
