@@ -18,6 +18,7 @@ function formToContactInput(formData: FormData) {
     type: formData.get("type"),
     companyName: formData.get("companyName"),
     companyNameZh: formData.get("companyNameZh") ?? "",
+    taxId: formData.get("taxId") ?? "",
     contactPerson: formData.get("contactPerson") ?? "",
     phone: formData.get("phone") ?? "",
     email: formData.get("email") ?? "",

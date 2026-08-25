@@ -14,6 +14,7 @@ import { extractJson, type VisionImage } from "@/lib/vision";
 export type TranscribedContactFields = {
   companyName?: string;
   companyNameZh?: string;
+  taxId?: string;
   contactPerson?: string;
   phone?: string;
   email?: string;
@@ -31,6 +32,9 @@ export type CardTranscribeResult =
 const cardSchema = z.object({
   companyNameEn: z.string().nullable(),
   companyNameZh: z.string().nullable(),
+  // Optional besides nullable: a model that omits the newest key entirely
+  // must degrade to an empty field, not fail the whole card.
+  taxId: z.string().nullable().optional(),
   contactPerson: z.string().nullable(),
   phone: z.string().nullable(),
   email: z.string().nullable(),
@@ -43,7 +47,7 @@ const cardSchema = z.object({
 
 // Keep in sync with cardSchema — what the JSON-mode backend is told to return.
 const JSON_SPEC =
-  '{"companyNameEn": string|null, "companyNameZh": string|null, "contactPerson": string|null, "phone": string|null, "email": string|null, "whatsapp": string|null, "wechat": string|null, "boothLocation": string|null, "bankInfo": string|null, "notes": string|null}';
+  '{"companyNameEn": string|null, "companyNameZh": string|null, "taxId": string|null, "contactPerson": string|null, "phone": string|null, "email": string|null, "whatsapp": string|null, "wechat": string|null, "boothLocation": string|null, "bankInfo": string|null, "notes": string|null}';
 
 export type RawCardTranscription = z.infer<typeof cardSchema>;
 
@@ -52,6 +56,7 @@ const SYSTEM_PROMPT = `You transcribe photos of a supplier's business card (fron
 Rules:
 - companyNameEn: the company's English or latin name. If the card only prints a Chinese name, translate or transliterate it (e.g. 瑶瑶饰品 -> "YaoYao Accessories"). Always fill this when any company name is visible.
 - companyNameZh: the Chinese company name exactly as printed; null on latin-only cards.
+- taxId: the company's printed tax/fiscal registration number — RUC, CNPJ, NIT, VAT no., or a Chinese \u7edf\u4e00\u793e\u4f1a\u4fe1\u7528\u4ee3\u7801 — exactly as printed, digits never guessed. Null when the card shows none.
 - contactPerson: as printed, with pinyin added for Chinese names so non-readers can say it: "陈瑶 (Chen Yao)".
 - phone: every phone/mobile number on the card, joined with " / ". Digits exactly as printed — never guess an unclear digit; drop it and flag it in notes instead.
 - wechat: ONLY an explicitly printed WeChat ID, or the phone number when the card says 微信同号 (WeChat = phone). A QR code is NOT a WeChat ID — never invent one from a QR; mention the QR in notes instead.
@@ -90,6 +95,7 @@ export function sanitizeCardTranscription(raw: RawCardTranscription): {
     fields: {
       companyName: text(raw.companyNameEn),
       companyNameZh: text(raw.companyNameZh),
+      taxId: text(raw.taxId ?? null),
       contactPerson: text(raw.contactPerson),
       phone: text(raw.phone),
       email: text(raw.email),

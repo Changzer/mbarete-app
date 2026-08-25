@@ -43,6 +43,7 @@ test("nulls and blank strings become absent fields", () => {
   assert.deepEqual(fields, {
     companyName: undefined,
     companyNameZh: undefined,
+    taxId: undefined,
     contactPerson: undefined,
     phone: undefined,
     email: undefined,

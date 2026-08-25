@@ -5,6 +5,7 @@ import { diffContactEdit, diffProductEdit } from "./entity-log";
 const contact = {
   companyName: "YaoYao Accessories",
   companyNameZh: "瑶瑶饰品",
+  taxId: "91330782MA28XW1234",
   contactPerson: "陈瑶 (Chen Yao)",
   phone: "13512345678",
   email: "yao@example.com",

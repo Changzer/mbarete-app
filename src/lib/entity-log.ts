@@ -50,6 +50,7 @@ function changed(field: string, from: string, to: string): FieldChange | null {
 type ContactShape = {
   companyName: string;
   companyNameZh: string;
+  taxId: string;
   contactPerson: string;
   phone: string;
   email: string;
@@ -69,6 +70,7 @@ export function diffContactEdit(before: ContactShape, after: ContactShape): Fiel
   const changes = [
     changed("companyName", before.companyName, after.companyName),
     changed("companyNameZh", before.companyNameZh, after.companyNameZh),
+    changed("taxId", before.taxId, after.taxId),
     changed("contactPerson", before.contactPerson, after.contactPerson),
     changed("phone", before.phone, after.phone),
     changed("email", before.email, after.email),

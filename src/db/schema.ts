@@ -366,6 +366,9 @@ export const contacts = pgTable(
     companyName: text("company_name").notNull(),
     /** As printed on the business card; empty when the card is latin-only. */
     companyNameZh: text("company_name_zh").notNull().default(""),
+    // The fiscal registration an invoice must carry — RUC in Paraguay, CNPJ
+    // in Brazil, 统一社会信用代码 in China. Free text: formats vary by country.
+    taxId: text("tax_id").notNull().default(""),
     contactPerson: text("contact_person").notNull().default(""),
     phone: text("phone").notNull().default(""),
     email: text("email").notNull().default(""),
