@@ -14,6 +14,7 @@ import { eq } from "drizzle-orm";
 export type OrderEventKind =
   | "created"
   | "edited"
+  | "refreshed"
   | "status"
   | "payment_added"
   | "payment_removed"
@@ -32,7 +33,19 @@ export type OrderChange =
   | { code: "line_added"; sku: string; qty: number }
   | { code: "line_removed"; sku: string }
   | { code: "line_qty"; sku: string; from: number; to: number }
-  | { code: "line_price"; sku: string; from: number; to: number };
+  | { code: "line_price"; sku: string; from: number; to: number }
+  // Update-from-catalog: which catalog facts moved under a line. Cost keeps
+  // its currency in the string so a currency change is visible as itself.
+  | { code: "line_cost"; sku: string; from: string; to: string }
+  | {
+      code: "line_specs";
+      sku: string;
+      cbmFrom: number | null;
+      cbmTo: number | null;
+      kgFrom: number | null;
+      kgTo: number | null;
+    }
+  | { code: "line_moq"; sku: string; from: number; to: number };
 
 export async function logOrderEvent(
   orderId: number,

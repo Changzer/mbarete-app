@@ -4,8 +4,10 @@ import { orderEvents } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { getUserNames } from "@/lib/queries/users";
 import type { OrderChange } from "@/lib/order-log";
+import { formatCbm } from "@/lib/calculations";
 import {
   History,
+  RefreshCw,
   Pencil,
   ArrowRightLeft,
   BanknoteArrowDown,
@@ -49,6 +51,20 @@ function describeChange(change: OrderChange, t: T): string {
         from: change.from.toFixed(2),
         to: change.to.toFixed(2),
       });
+    case "line_cost":
+      return t("changeLineCost", { sku: change.sku, from: change.from, to: change.to });
+    case "line_specs": {
+      const bits: string[] = [];
+      if (change.cbmTo !== null) {
+        bits.push(`CBM ${formatCbm(change.cbmFrom ?? 0)} → ${formatCbm(change.cbmTo)} m³`);
+      }
+      if (change.kgTo !== null) {
+        bits.push(`${(change.kgFrom ?? 0).toFixed(2)} → ${change.kgTo.toFixed(2)} kg`);
+      }
+      return t("changeLineSpecs", { sku: change.sku, details: bits.join(" · ") });
+    }
+    case "line_moq":
+      return t("changeLineMoq", { sku: change.sku, from: change.from, to: change.to });
   }
 }
 
@@ -57,6 +73,8 @@ function describe(kind: string, payload: any, t: T, finT: FinT): string {
   switch (kind) {
     case "created":
       return t("created");
+    case "refreshed":
+      return t("refreshedFromCatalog");
     case "status":
       return t("statusChanged", {
         from: t(`status_${payload.from}` as "status_draft"),
@@ -93,6 +111,7 @@ function describe(kind: string, payload: any, t: T, finT: FinT): string {
 const ICONS: Record<string, typeof History> = {
   created: PlusCircle,
   edited: Pencil,
+  refreshed: RefreshCw,
   status: ArrowRightLeft,
   payment_added: BanknoteArrowDown,
   payment_removed: BanknoteArrowUp,

@@ -24,6 +24,13 @@ import { makeLimiter, clientIp } from "@/lib/rate-limit";
 const pairLockout = makeLimiter({ max: 5, windowMs: 15 * 60 * 1000 });
 const ipFailures = makeLimiter({ max: 30, windowMs: 15 * 60 * 1000 });
 
+/**
+ * An unknown email must cost the same wall-clock time as a wrong password,
+ * or the ~100ms bcrypt gap tells an attacker exactly which emails have
+ * accounts. Comparing against this throwaway hash burns the same work.
+ */
+const TIMING_HASH = bcrypt.hashSync("timing-equalizer-not-a-password", 10);
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
@@ -52,7 +59,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         };
 
         const user = await db.select().from(users).where(eq(users.email, email)).limit(1).then(one);
-        if (!user) return fail();
+        if (!user) {
+          await bcrypt.compare(password, TIMING_HASH);
+          return fail();
+        }
         // Deactivated accounts keep their history but lose their access.
         if (!user.active) return null;
 

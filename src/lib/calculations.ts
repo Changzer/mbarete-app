@@ -26,13 +26,17 @@ export function computeCbm(lengthCm: number, widthCm: number, heightCm: number) 
 }
 
 /**
- * Cartons are often a fraction of a cubic metre, so a fixed 4 decimals rounds
- * a real value like 0.00024 down to "0.0002" — which then fails to reconcile
- * against an order total and looks like a broken calculator.
+ * Two regimes, because CBM lives at two scales. Order totals are metres —
+ * and "6.0000 m³" misreads as six thousand at a glance, so anything from one
+ * cube up shows two decimals. Single cartons are a FRACTION of a cube
+ * (0.0576, 0.00024) where two decimals would erase the number entirely, so
+ * below one cube the precision stays — a leading "0." cannot be misread as
+ * thousands.
  */
 export function formatCbm(value: number) {
-  if (value === 0) return "0.0000";
-  return Math.abs(value) < 0.01 ? value.toFixed(6) : value.toFixed(4);
+  const abs = Math.abs(value);
+  if (abs >= 1 || value === 0) return value.toFixed(2);
+  return abs < 0.01 ? value.toFixed(6) : value.toFixed(4);
 }
 
 /** Cartons a quantity fills, as a fraction — 75 pcs at 50/carton is 1.5. */
