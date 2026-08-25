@@ -34,5 +34,27 @@ export async function register() {
     // Daily snapshots of the database and uploads; see src/lib/backups.ts.
     const { startBackupScheduler } = await import("./src/lib/backups");
     startBackupScheduler();
+
+    // Uptime heartbeat + process-level error capture; see src/lib/monitoring.ts.
+    const { startHeartbeat, registerProcessErrorHandlers } = await import("./src/lib/monitoring");
+    registerProcessErrorHandlers();
+    startHeartbeat();
   }
+}
+
+/**
+ * Every server-side error Next captures — server components, server
+ * actions, route handlers — lands in the in-memory error log the platform
+ * panel shows, and the first sighting of a new one emails the operator.
+ */
+export async function onRequestError(
+  err: unknown,
+  request: { path: string; method: string },
+  context: { routerKind: string; routePath: string; routeType: string },
+) {
+  // Same dead-code guard as register(): in the edge bundle this condition
+  // is constant-false, so the node-only monitoring module never enters it.
+  if (process.env.NEXT_RUNTIME !== "nodejs") return;
+  const { recordError } = await import("./src/lib/monitoring");
+  recordError(`${context.routeType} ${context.routePath || request.path}`, err);
 }
