@@ -29,8 +29,9 @@ test("limiter: clear forgets a key's streak", () => {
 test("limiter: a flood of unique keys stays bounded", () => {
   const l = makeLimiter({ max: 1, windowMs: 60_000, maxKeys: 100 });
   for (let i = 0; i < 10_000; i += 1) l.hit(`probe-${i}`);
-  // No assertion beyond finishing fast: the sweep keeps the map from
-  // growing without bound, and stale keys never make a fresh key limited.
+  // The hard ceiling: every key here is inside one window (nothing expires),
+  // so only oldest-first eviction can hold the line.
+  assert.ok(l.size() <= 101, `limiter held ${l.size()} keys, bound is 100`);
   assert.equal(l.isLimited("fresh"), false);
 });
 

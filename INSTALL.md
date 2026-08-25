@@ -221,19 +221,22 @@ Now you'll create the file. Type this to open a simple text editor:
 nano .env
 ```
 
-A blue-ish editor fills the screen. Type (or paste) these four lines, replacing the values:
+A blue-ish editor fills the screen. Type (or paste) these six lines, replacing the values:
 
 ```
 AUTH_SECRET=paste-the-random-line-from-step-7a-here
 ADMIN_EMAIL=you@yourcompany.com
 ADMIN_PASSWORD=pick-a-strong-password
 ADMIN_NAME=Your Name
+COMPANY_NAME=Your Company
+DB_PASSWORD=pick-a-different-strong-password
 ```
 
 Important notes:
 - **No spaces around the `=` signs.**
 - **No quotes** around the values.
 - `ADMIN_EMAIL` and `ADMIN_PASSWORD` are what you'll use to log into the app. Pick a real password you'll remember — this is your login.
+- `DB_PASSWORD` protects the bundled database. It's only reachable from inside Docker, but set a real value anyway — you never type it again.
 
 Optional extra lines — AI photo transcription. With a provider key set, the
 product form reads market photos (product + handwritten price board) and the
@@ -547,17 +550,28 @@ Now use `http://192.168.1.50:3100` instead.
 
 **I forgot my app password**
 
-Stop the app, delete the database, and it'll recreate the login from your `.env` file on next start. ⚠️ **This erases all products, orders, and contacts** — only do this if you're still setting up:
-```
-cd /volume1/docker/mbarete-app
-docker compose down
-docker volume rm mbarete-app_mbarete-data
-docker compose up -d
-```
+Three ways, safest first — **never delete a volume for this**, that erases
+your data and doesn't even live where the old advice pointed:
+
+1. If email is configured (`SMTP_*` in `.env`), use **Forgot password** on
+   the login page — a reset link arrives by mail.
+2. If another admin can sign in, they can set you a new password on the
+   **Users** screen.
+3. Neither? Reset the hash directly in the database (replace the email, and
+   the new password inside `hashSync`):
+   ```
+   cd /volume1/docker/mbarete-app
+   docker compose exec mbarete-app node -e "console.log(require('bcryptjs').hashSync('your-new-password',10))"
+   docker compose exec mbarete-db psql -U mbarete -d mbarete -c "UPDATE users SET password_hash='PASTE-THE-HASH-HERE', password_changed_at=now()::text WHERE email='you@yourcompany.com'"
+   ```
+   Sign in with the new password. Setting `password_changed_at` also signs
+   out every session the old password had open.
 
 **Changing the admin password (without losing data)**
 
-Not currently possible through the app — there's no user-management screen yet. Ask for one to be added if you need it.
+In the app: **Settings → Change password** for your own account, or the
+**Users** screen (admins) to set anyone's. Changing a password signs out
+that account's other sessions everywhere.
 
 **The build failed partway through**
 
@@ -793,6 +807,11 @@ on the NAS" into "safe on the internet".
    only reachable by someone who was given the exact link. PDFs, spreadsheets
    and payment slips are stricter — those always require a signed-in session.
 
+Two deeper documents when you get serious: [docs/SECURITY.md](docs/SECURITY.md)
+is the full security posture (what's enforced where, and why), and
+[docs/SERVER-MIGRATION.md](docs/SERVER-MIGRATION.md) is the step-by-step
+runbook for moving this install from the NAS to a real server.
+
 
 ## Upgrading a SQLite-era install to Postgres
 
@@ -842,6 +861,12 @@ In `saas` mode:
 - Leaving `SIGNUP_CODE` unset keeps signup **closed** rather than open, so a
   misconfigured public server can't be farmed for free companies. Rotate the
   code by changing this value and restarting.
+
+One more `.env` value matters here: `PLATFORM_ADMIN_EMAIL`. The signed-in
+account with exactly this email — and no one else — can open the platform
+panel (tenant list, plans and seats, backup status, back-up-now). There is
+deliberately no screen for granting this; unset it and the panel is closed
+for everyone.
 
 ### Row-level security
 

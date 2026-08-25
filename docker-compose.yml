@@ -45,6 +45,9 @@ services:
       # The invite code a person must present to create a company at /signup.
       # Only used in saas mode; an unset code keeps signup closed.
       SIGNUP_CODE: ${SIGNUP_CODE:-}
+      # The one account allowed into the platform panel (saas operations:
+      # plans, seats, backups). Unset = the panel is closed for everyone.
+      PLATFORM_ADMIN_EMAIL: ${PLATFORM_ADMIN_EMAIL:-}
       # Outbound email (reset/verification links). Unset = features hidden.
       # For Exmail/WeCom, SMTP_PASS is the client authorization code.
       SMTP_HOST: ${SMTP_HOST:-}
@@ -56,14 +59,14 @@ services:
       # Optional: comma-separated forex provider URLs, tried in order.
       # Leave unset for the defaults (open.er-api.com, frankfurter.dev).
       FOREX_PROVIDERS: ${FOREX_PROVIDERS:-}
-      # AI photo transcription. Moonshot (Kimi) is preferred when set;
-      # Anthropic (Claude) is the fallback. Unset both to hide the AI features.
       # Automated backups: daily snapshot of database + uploads into the
       # backups volume below, pruned to BACKUP_RETENTION copies. See
       # docs/BACKUPS.md for what is kept and how to restore.
       BACKUP_DIR: ${BACKUP_DIR:-/app/backups}
       BACKUP_RETENTION: ${BACKUP_RETENTION:-14}
       BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
+      # AI photo transcription. Moonshot (Kimi) is preferred when set;
+      # Anthropic (Claude) is the fallback. Unset both to hide the AI features.
       MOONSHOT_API_KEY: ${MOONSHOT_API_KEY:-}
       MOONSHOT_BASE_URL: ${MOONSHOT_BASE_URL:-}
       MOONSHOT_MODEL: ${MOONSHOT_MODEL:-}

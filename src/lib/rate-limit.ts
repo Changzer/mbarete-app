@@ -15,6 +15,8 @@ export type Limiter = {
   isLimited(key: string): boolean;
   /** Forgets a key — e.g. a correct password ends its failure streak. */
   clear(key: string): void;
+  /** How many keys are currently held — the bound this must respect is maxKeys. */
+  size(): number;
 };
 
 export function makeLimiter({
@@ -32,6 +34,15 @@ export function makeLimiter({
     if (entries.size <= maxKeys) return;
     for (const [key, entry] of entries) {
       if (now - entry.first > windowMs) entries.delete(key);
+    }
+    // Still over after dropping expired windows: a flood of unique keys
+    // inside ONE window (random probe emails, spoofed addresses). Forget
+    // oldest-inserted counters until bounded — losing a counter mid-window
+    // is an accepted cost of a hard memory ceiling; the endpoint the flood
+    // is aimed at keeps counting the flood itself.
+    for (const key of entries.keys()) {
+      if (entries.size <= maxKeys) break;
+      entries.delete(key);
     }
   };
 
@@ -58,6 +69,9 @@ export function makeLimiter({
     },
     clear(key) {
       entries.delete(key);
+    },
+    size() {
+      return entries.size;
     },
   };
 }
