@@ -42,3 +42,16 @@ export async function setCompanyPlan(companyId: number, plan: PlanId): Promise<v
     .where(eq(companies.id, companyId));
   revalidatePath("/16015975/mbarete-admin");
 }
+
+/**
+ * Seats bought beyond the plan's cap — billing is manual for now, so the
+ * operator collects payment however it happens and records the seats here.
+ * Stacks on any plan and survives plan changes.
+ */
+export async function setExtraSeats(companyId: number, extraSeats: number): Promise<void> {
+  await requirePlatformAdmin();
+  const seats = Math.max(0, Math.min(999, Math.trunc(extraSeats)));
+  if (!Number.isFinite(seats)) return;
+  await db.update(companies).set({ extraSeats: seats }).where(eq(companies.id, companyId));
+  revalidatePath("/16015975/mbarete-admin");
+}

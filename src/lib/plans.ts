@@ -31,14 +31,14 @@ export const PLANS: Record<PlanId, Plan> = {
     // The catalog IS the free product: register at the market, browse, share.
     // Orders and finance are the paid loop.
     modules: { orders: false, finance: false },
-    maxUsers: 2,
+    maxUsers: 1,
     maxProducts: 50,
     maxStorageBytes: 250 * MB,
   },
   pro: {
     id: "pro",
     modules: { orders: true, finance: true },
-    maxUsers: null,
+    maxUsers: 5,
     maxProducts: null,
     maxStorageBytes: null,
   },
@@ -57,6 +57,16 @@ export function planOf(name: string): Plan {
 /** Whether `current` uses of a limited resource leave room for one more. */
 export function hasRoomFor(limit: number | null, current: number): boolean {
   return limit === null || current < limit;
+}
+
+/**
+ * The company's real seat cap: the plan's seats plus any extra seats bought
+ * (granted by hand from the panel while billing is manual). Extra seats stack
+ * on any plan — a company that paid for a seat keeps it through a plan change.
+ */
+export function seatLimit(plan: Plan, extraSeats: number): number | null {
+  if (plan.maxUsers === null) return null;
+  return plan.maxUsers + Math.max(0, extraSeats);
 }
 
 /** "12/50" for the panel; "12" when the plan does not meter it. */

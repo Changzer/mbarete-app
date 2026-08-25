@@ -78,6 +78,13 @@
       "when": 1787820000000,
       "tag": "0010_plans-referrals",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1787830000000,
+      "tag": "0011_extra-seats",
+      "breakpoints": true
     }
   ]
 }

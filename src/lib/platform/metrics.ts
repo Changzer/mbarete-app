@@ -18,6 +18,8 @@ export type CompanyMetrics = {
   id: number;
   name: string;
   plan: string;
+  /** Seats bought beyond the plan's cap, granted from the panel. */
+  extraSeats: number;
   createdAt: string;
   /** Who referred this company in, when anyone did. */
   referredByName: string | null;
@@ -137,6 +139,7 @@ export async function loadPlatformOverview(): Promise<PlatformOverview> {
       id: c.id,
       name: c.name,
       plan: c.plan,
+      extraSeats: c.extraSeats,
       createdAt: c.createdAt,
       referredByName:
         c.referredByCompanyId !== null ? nameById.get(c.referredByCompanyId) ?? null : null,
