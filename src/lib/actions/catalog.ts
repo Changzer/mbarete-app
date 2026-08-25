@@ -224,8 +224,11 @@ export async function createProduct(
 ): Promise<string | undefined> {
   const user = await requireSession();
   const userId = user.id;
-  // No cap check here on purpose: the plan limit gates ADDING products.
-  // A tenant at 50/50 must still be able to fix the 50 it has.
+
+  // The plan's catalog cap, checked at the write so it holds whatever the
+  // UI showed. This is the ONLY door that creates products, so the cap
+  // lives here and nowhere else. Never bites on self-hosted installs.
+  if (!(await canAddProduct(user.companyId))) return "limit-products";
 
   let data;
   try {
@@ -397,9 +400,8 @@ export async function updateProduct(
   const user = await requireSession();
   const userId = user.id;
 
-  // The plan's catalog cap, checked at the write so it holds whatever the
-  // UI showed. Never bites on self-hosted installs.
-  if (!(await canAddProduct(user.companyId))) return "limit-products";
+  // No cap check here on purpose: the plan limit gates ADDING products.
+  // A tenant at 50/50 must still be able to fix the 50 it has.
 
   let data;
   try {
