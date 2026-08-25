@@ -83,3 +83,11 @@ jobs:
           done
           echo "app never became healthy" && exit 1
       - run: npm run test:e2e
+
+      # The disaster drill on the data the golden path just created: back it
+      # up, damage rows and files, prove a corrupted backup is refused before
+      # anything is truncated, then restore the intact one exactly.
+      - run: npm run test:backup
+        env:
+          BACKUP_DIR: ${{ runner.temp }}/backups
+          UPLOADS_DIR: ${{ runner.temp }}/uploads

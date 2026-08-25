@@ -45,6 +45,24 @@ Details worth knowing:
   row-level security (`DATABASE_ADMIN_URL`); connected as the RLS-bound app
   role it would silently dump empty tables, so it errors instead and the
   panel shows the error.
+- **Everything is hashed.** The manifest records a SHA-256 for every table
+  dump and every uploaded file (hardlinked files inherit last night's hash —
+  same bytes, no re-read). Restore verifies all of it BEFORE touching live
+  data, so a bit-rotted or truncated backup is refused, never half-loaded.
+  Table dumps stream through a server-side cursor, so memory stays flat as
+  history grows.
+- **A migration never runs against unprotected data.** When an update ships
+  new migrations, boot takes a fresh backup FIRST and refuses to migrate if
+  that backup fails — the snapshot is the undo button the auto-updater
+  otherwise lacks. Fresh installs and installs without `BACKUP_DIR` are
+  unaffected.
+- **Restoring uploads is a swap, not an overwrite.** The backup's files are
+  staged beside the live directory and swapped in whole; files deleted
+  before the backup was taken cannot linger as leftovers, and the previous
+  state stays at `<uploads>.pre-restore` until you spot-check and delete it.
+- **The drill runs in CI.** Every pull request backs up a populated
+  database, damages rows and files, proves a corrupted backup is refused
+  untouched, and restores the intact one exactly.
 
 ## Configuration
 

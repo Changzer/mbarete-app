@@ -1,9 +1,9 @@
 import fs from "node:fs/promises";
-import { createWriteStream } from "node:fs";
+import { createWriteStream, createReadStream } from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
+import crypto from "node:crypto";
 import { pipeline } from "node:stream/promises";
-import { Readable } from "node:stream";
 import { Client } from "pg";
 
 /**
@@ -146,17 +146,81 @@ async function tableNames(client: Client): Promise<string[]> {
   return rows.map((r: { tablename: string }) => r.tablename);
 }
 
-async function dumpTable(client: Client, table: string, file: string): Promise<number> {
-  // Tables at this scale fit in memory (files live on disk, not in rows);
-  // the JSONL streams through gzip so the copy on disk stays small.
-  const { rows } = await client.query(`SELECT * FROM "${table}" ORDER BY 1`);
-  const lines = rows.map((r: unknown) => JSON.stringify(r) + "\n");
-  await pipeline(Readable.from(lines), zlib.createGzip({ level: 6 }), createWriteStream(file));
-  return rows.length;
+/**
+ * One table to gzipped JSONL, streamed through a server-side cursor: rows
+ * arrive in batches and flow straight through gzip to disk, so memory stays
+ * flat however large the activity history grows. The dump's SHA-256 rides
+ * along into the manifest, so a restore can prove the file it is about to
+ * load is byte-for-byte the file the backup wrote.
+ */
+async function dumpTable(
+  client: Client,
+  table: string,
+  file: string,
+): Promise<{ rows: number; sha256: string }> {
+  const gzip = zlib.createGzip({ level: 6 });
+  const out = createWriteStream(file);
+  const done = pipeline(gzip, out);
+  const hash = crypto.createHash("sha256");
+
+  // Cursors only live inside a transaction — runBackup opened one, so this
+  // rides the same REPEATABLE READ snapshot as every other table.
+  let rows = 0;
+  await client.query(`DECLARE backup_cur NO SCROLL CURSOR FOR SELECT * FROM "${table}" ORDER BY 1`);
+  try {
+    for (;;) {
+      const batch = await client.query("FETCH 1000 FROM backup_cur");
+      if (batch.rows.length === 0) break;
+      for (const row of batch.rows) {
+        const line = JSON.stringify(row) + "\n";
+        hash.update(line);
+        if (!gzip.write(line)) await new Promise((r) => gzip.once("drain", r));
+      }
+      rows += batch.rows.length;
+    }
+  } finally {
+    await client.query("CLOSE backup_cur").catch(() => {});
+  }
+  gzip.end();
+  await done;
+  return { rows, sha256: hash.digest("hex") };
 }
 
-/** Recursively mirror src into dest, hardlinking what prev already holds. */
-async function mirrorUploads(src: string, dest: string, prev: string | null): Promise<number> {
+/** SHA-256 of a file on disk, streamed. */
+async function fileSha256(file: string): Promise<string> {
+  const hash = crypto.createHash("sha256");
+  for await (const chunk of createReadStream(file)) hash.update(chunk as Buffer);
+  return hash.digest("hex");
+}
+
+/** Copy while hashing — the bytes are in hand anyway, the hash is free. */
+async function copyWithHash(from: string, to: string): Promise<string> {
+  const hash = crypto.createHash("sha256");
+  const out = createWriteStream(to);
+  const src = createReadStream(from);
+  src.on("data", (chunk) => hash.update(chunk as Buffer));
+  await pipeline(src, out);
+  return hash.digest("hex");
+}
+
+export type FileRecord = { size: number; sha256: string };
+
+/**
+ * Recursively mirror src into dest, hardlinking what prev already holds.
+ *
+ * Every file lands in `records` (path relative to the uploads root) with its
+ * size and SHA-256 — computed during the copy for new files, inherited from
+ * the previous backup's manifest for hardlinked ones (same inode, same
+ * bytes; hashing years of photos nightly would defeat the hardlink trick).
+ */
+async function mirrorUploads(
+  src: string,
+  dest: string,
+  prev: string | null,
+  relBase: string,
+  prevRecords: Record<string, FileRecord>,
+  records: Record<string, FileRecord>,
+): Promise<number> {
   let files = 0;
   const entries = await fs.readdir(src, { withFileTypes: true }).catch(() => []);
   for (const entry of entries) {
@@ -165,23 +229,34 @@ async function mirrorUploads(src: string, dest: string, prev: string | null): Pr
     if (entry.name === ".variants") continue;
     const from = path.join(src, entry.name);
     const to = path.join(dest, entry.name);
+    const rel = relBase ? `${relBase}/${entry.name}` : entry.name;
     if (entry.isDirectory()) {
       await fs.mkdir(to, { recursive: true });
-      files += await mirrorUploads(from, to, prev ? path.join(prev, entry.name) : null);
+      files += await mirrorUploads(
+        from,
+        to,
+        prev ? path.join(prev, entry.name) : null,
+        rel,
+        prevRecords,
+        records,
+      );
     } else if (entry.isFile()) {
       const stat = await fs.stat(from);
       const prevPath = prev ? path.join(prev, entry.name) : null;
       const prevStat = prevPath ? await fs.stat(prevPath).catch(() => null) : null;
-      if (prevPath && isUnchanged(prevStat, stat)) {
+      const inherited = prevRecords[rel];
+      if (prevPath && isUnchanged(prevStat, stat) && inherited) {
         // A filesystem without hardlinks (some network mounts) falls back
         // to a plain copy — correct either way, just larger.
         await fs.link(prevPath, to).catch(() => fs.copyFile(from, to));
+        records[rel] = inherited;
       } else {
-        await fs.copyFile(from, to);
+        const sha256 = await copyWithHash(from, to);
         // The copy keeps the source's mtime so the NEXT run can recognize
         // the file as unchanged — without this, nothing ever hardlinks.
         const when = new Date(stat.mtimeMs);
         await fs.utimes(to, when, when).catch(() => {});
+        records[rel] = { size: stat.size, sha256 };
       }
       files++;
     }
@@ -241,8 +316,11 @@ export async function runBackup(): Promise<BackupResult> {
 
     const tables = await tableNames(client);
     const counts: Record<string, number> = {};
+    const tableHashes: Record<string, string> = {};
     for (const table of tables) {
-      counts[table] = await dumpTable(client, table, path.join(tmp, "db", `${table}.jsonl.gz`));
+      const dumped = await dumpTable(client, table, path.join(tmp, "db", `${table}.jsonl.gz`));
+      counts[table] = dumped.rows;
+      tableHashes[table] = dumped.sha256;
     }
 
     await client.query("COMMIT");
@@ -260,14 +338,41 @@ export async function runBackup(): Promise<BackupResult> {
     const backups = await listBackups(dir);
     const newest = backups[backups.length - 1];
     const prevUploads = newest ? path.join(dir, newest, "uploads") : null;
+    // The previous manifest's per-file hashes carry over for every file the
+    // mirror hardlinks — same inode, same bytes, no re-hash.
+    const prevRecords: Record<string, FileRecord> = newest
+      ? await fs
+          .readFile(path.join(dir, newest, "manifest.json"), "utf8")
+          .then((raw) => (JSON.parse(raw).fileRecords ?? {}) as Record<string, FileRecord>)
+          .catch(() => ({}))
+      : {};
+    const fileRecords: Record<string, FileRecord> = {};
     await fs.mkdir(path.join(tmp, "uploads"), { recursive: true });
-    const files = await mirrorUploads(uploadsDir(), path.join(tmp, "uploads"), prevUploads);
+    const files = await mirrorUploads(
+      uploadsDir(),
+      path.join(tmp, "uploads"),
+      prevUploads,
+      "",
+      prevRecords,
+      fileRecords,
+    );
 
     const rows = Object.values(counts).reduce((a, b) => a + b, 0);
     await fs.writeFile(
       path.join(tmp, "manifest.json"),
       JSON.stringify(
-        { version: 1, createdAt: new Date().toISOString(), migrations: mig, tables: counts, files },
+        {
+          // v2 adds integrity: SHA-256 per table dump and per uploaded file.
+          // Restore verifies everything against these BEFORE touching live
+          // data; v1 backups restore as before, just without the proof.
+          version: 2,
+          createdAt: new Date().toISOString(),
+          migrations: mig,
+          tables: counts,
+          tableHashes,
+          fileRecords,
+          files,
+        },
         null,
         2,
       ),

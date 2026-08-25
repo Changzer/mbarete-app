@@ -24,6 +24,7 @@ import fs from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
+import crypto from "node:crypto";
 import readline from "node:readline";
 import { Client } from "pg";
 
@@ -67,6 +68,61 @@ async function copyTree(src: string, dest: string): Promise<number> {
   return n;
 }
 
+async function sha256(file: string): Promise<string> {
+  const hash = crypto.createHash("sha256");
+  for await (const chunk of createReadStream(file)) hash.update(chunk as Buffer);
+  return hash.digest("hex");
+}
+
+/** SHA-256 of the JSONL content INSIDE the gzip — what the dump hashed. */
+async function sha256Jsonl(file: string): Promise<string> {
+  const hash = crypto.createHash("sha256");
+  const rl = readline.createInterface({
+    input: createReadStream(file).pipe(zlib.createGunzip()),
+    crlfDelay: Infinity,
+  });
+  for await (const line of rl) {
+    if (line.trim()) hash.update(line + "\n");
+  }
+  return hash.digest("hex");
+}
+
+/**
+ * Everything the manifest can prove, proven BEFORE live data is touched:
+ * each table dump's content hash, and every uploaded file's size and hash.
+ * v1 manifests carry no hashes and skip with a notice — the row-count
+ * verification during load still applies to them.
+ */
+async function verifyBackup(
+  backupPath: string,
+  manifest: {
+    tableHashes?: Record<string, string>;
+    fileRecords?: Record<string, { size: number; sha256: string }>;
+  },
+): Promise<void> {
+  if (!manifest.tableHashes && !manifest.fileRecords) {
+    console.log("[restore] v1 backup — no hashes to verify, relying on row counts");
+    return;
+  }
+  for (const [table, expected] of Object.entries(manifest.tableHashes ?? {})) {
+    const actual = await sha256Jsonl(path.join(backupPath, "db", `${table}.jsonl.gz`));
+    if (actual !== expected) {
+      throw new Error(`verification failed: ${table} dump hash mismatch — backup is damaged`);
+    }
+  }
+  console.log(`[restore] verified ${Object.keys(manifest.tableHashes ?? {}).length} table dumps`);
+  let checked = 0;
+  for (const [rel, record] of Object.entries(manifest.fileRecords ?? {})) {
+    const file = path.join(backupPath, "uploads", rel);
+    const stat = await fs.stat(file).catch(() => null);
+    if (!stat || stat.size !== record.size || (await sha256(file)) !== record.sha256) {
+      throw new Error(`verification failed: uploads/${rel} missing or damaged`);
+    }
+    checked += 1;
+  }
+  console.log(`[restore] verified ${checked} uploaded files`);
+}
+
 async function main() {
   if (!backupPath) {
     console.error("usage: tsx scripts/restore-backup.ts <backup-dir> [--force] [--skip-uploads]");
@@ -75,6 +131,10 @@ async function main() {
   const manifest = JSON.parse(await fs.readFile(path.join(backupPath, "manifest.json"), "utf8"));
   const tables = Object.keys(manifest.tables as Record<string, number>);
   console.log(`[restore] ${backupPath} — made ${manifest.createdAt}, ${tables.length} tables`);
+
+  // Prove the backup whole BEFORE anything live is touched — a damaged
+  // backup must fail here, not halfway through a truncate.
+  await verifyBackup(backupPath, manifest);
 
   const client = new Client({ connectionString: adminUrl() });
   await client.connect();
@@ -136,9 +196,23 @@ async function main() {
   }
 
   if (!skipUploads) {
+    // Staged, then swapped: the backup's files land in a sibling directory
+    // first, the current uploads move aside whole, and only then does the
+    // staged copy take the live name. Files deleted before the backup was
+    // made cannot linger as unexplained leftovers, and the previous state
+    // survives as .pre-restore until the operator confirms and deletes it.
     const uploadsDir = process.env.UPLOADS_DIR ?? path.join(process.cwd(), "uploads");
-    const n = await copyTree(path.join(backupPath, "uploads"), uploadsDir);
+    const staging = `${uploadsDir}.restore-tmp`;
+    const keep = `${uploadsDir}.pre-restore`;
+    await fs.rm(staging, { recursive: true, force: true });
+    const n = await copyTree(path.join(backupPath, "uploads"), staging);
+    await fs.rm(keep, { recursive: true, force: true });
+    await fs.rename(uploadsDir, keep).catch((err) => {
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+    });
+    await fs.rename(staging, uploadsDir);
     console.log(`[restore] uploads: ${n} files into ${uploadsDir}`);
+    console.log(`[restore] previous uploads kept at ${keep} — delete after a spot check`);
   }
 
   console.log("[restore] done");
