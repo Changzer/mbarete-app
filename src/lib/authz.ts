@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { db, one } from "@/db";
 import { users, companies } from "@/db/schema";
@@ -29,6 +29,14 @@ export async function sessionUser(): Promise<SessionUser | null> {
   if (!id) return null;
   const row = await db.select().from(users).where(eq(users.id, id)).limit(1).then(one);
   if (!row || !row.active) return null;
+  // A session minted before the password last changed is dead. Sessions
+  // from before this column existed carry no authAt and stay valid until
+  // the NEXT password change — nobody is logged out by the deploy itself.
+  if (row.passwordChangedAt) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const authAt = (session?.user as any)?.authAt as number | undefined;
+    if (!authAt || authAt < Date.parse(row.passwordChangedAt)) return null;
+  }
   // From here on, every query this request makes carries its tenant — the
   // pool stamps it into the connection and RLS enforces it (tenant-context.ts).
   enterTenant(row.companyId);
@@ -43,10 +51,16 @@ export async function sessionUser(): Promise<SessionUser | null> {
   };
 }
 
-/** Any signed-in, still-active account. */
+/**
+ * Any signed-in, still-active account. A session the database no longer
+ * honors — deactivated user, or one minted before the last password change —
+ * still carries a cryptographically valid JWT, so the middleware lets it
+ * through; this is where it lands on the login page instead of an error.
+ * (The bare path is fine: the locale middleware prefixes it.)
+ */
 export async function requireUser(): Promise<SessionUser> {
   const user = await sessionUser();
-  if (!user) throw new Error("unauthorized");
+  if (!user) redirect("/login");
   return user;
 }
 

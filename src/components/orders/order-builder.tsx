@@ -576,6 +576,9 @@ export function OrderBuilder({
           {error === "moq" ? (
             <p className="text-[12px] font-semibold text-danger">{t("moqBlocksConfirm")}</p>
           ) : null}
+          {error === "frozen" ? (
+            <p className="text-[12px] font-semibold text-danger">{t("orderFrozen")}</p>
+          ) : null}
 
           <div className="flex flex-col gap-2">
             {mode === "edit" && initial?.status === "confirmed" ? (

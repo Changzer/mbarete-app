@@ -39,6 +39,8 @@ function useErrorText() {
   return (result: UserActionResult | undefined) => {
     if (!result?.error) return null;
     switch (result.error) {
+      case "limit":
+        return t("inviteSeatLimit");
       case "duplicate-email":
         return t("errorDuplicateEmail");
       case "self-deactivate":

@@ -134,6 +134,23 @@ export async function updateContact(
     .then(one);
   if (!existing) return { error: "invalid" };
 
+  // New files first: a failed upload returns with every existing card
+  // photo untouched; the ticked removals only apply once replacements are
+  // safely on disk.
+  let uploaded: string[];
+  try {
+    uploaded = await saveCardImages(user.companyId, formData);
+  } catch {
+    return { error: "image-error" };
+  }
+
+  let qrPath: string | null;
+  try {
+    qrPath = await saveQrImage(user.companyId, formData);
+  } catch {
+    return { error: "image-error" };
+  }
+
   // Card photos the user ticked for removal in the form.
   const removeIds = formData
     .getAll("removeImageIds")
@@ -150,20 +167,6 @@ export async function updateContact(
       await db.delete(contactImages).where(eq(contactImages.id, imageId));
       await deleteUpload(row.path);
     }
-  }
-
-  let uploaded: string[];
-  try {
-    uploaded = await saveCardImages(user.companyId, formData);
-  } catch {
-    return { error: "image-error" };
-  }
-
-  let qrPath: string | null;
-  try {
-    qrPath = await saveQrImage(user.companyId, formData);
-  } catch {
-    return { error: "image-error" };
   }
   if (qrPath) {
     // A contact has one current QR: a re-scan replaces the previous crop.

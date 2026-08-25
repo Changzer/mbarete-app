@@ -20,7 +20,7 @@ export function OrderStatusActions({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  function transition(next: "confirmed" | "shipped" | "cancelled") {
+  function transition(next: "draft" | "confirmed" | "shipped" | "cancelled") {
     setError(null);
     startTransition(async () => {
       const result = await setOrderStatus(orderId, next);
@@ -43,6 +43,28 @@ export function OrderStatusActions({
               <Button
                 variant="destructive"
                 size="sm"
+                disabled={isPending}
+                onClick={() => {
+                  if (confirm(t("deleteConfirm"))) deleteOrder(orderId);
+                }}
+              >
+                {common("delete")}
+              </Button>
+            ) : null}
+          </>
+        ) : null}
+        {status === "cancelled" ? (
+          <>
+            {/* A client who changes their mind reopens the same order — no
+                duplicate record, the changelog keeps the whole story. */}
+            <Button size="sm" disabled={isPending} onClick={() => transition("draft")} data-testid="reopen-order">
+              {t("reopenOrder")}
+            </Button>
+            {isAdmin ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-danger hover:text-danger"
                 disabled={isPending}
                 onClick={() => {
                   if (confirm(t("deleteConfirm"))) deleteOrder(orderId);

@@ -351,6 +351,8 @@
     "notes": "备注",
     "deleteConfirm": "确定删除此订单吗？",
     "markShipped": "标记为已发货",
+    "reopenOrder": "重新打开为草稿",
+    "orderFrozen": "该订单已发货，属于历史记录，无法再编辑。",
     "cancelOrder": "取消订单",
     "commission": "佣金 %",
     "commissionAmount": "佣金",
