@@ -34,7 +34,7 @@ export function Brand({
     size === "hero"
       ? "h-24 w-auto max-w-[320px]"
       : size === "doc"
-        ? "h-14 w-auto max-w-[220px]"
+        ? "h-20 w-auto max-w-[300px]"
         : "h-9 w-auto max-w-[190px]";
   if (!logoMissing) {
     return (
