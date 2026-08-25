@@ -61,10 +61,13 @@ export function OrderStatusActions({
             <Button size="sm" disabled={isPending} onClick={() => transition("shipped")}>
               {t("markShipped")}
             </Button>
+            {/* Quiet on purpose: cancelling is rare, and a loud button for it
+                competes with the one action that moves the order forward. */}
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
               disabled={isPending}
+              className="text-danger hover:text-danger"
               onClick={() => transition("cancelled")}
             >
               {t("cancelOrder")}

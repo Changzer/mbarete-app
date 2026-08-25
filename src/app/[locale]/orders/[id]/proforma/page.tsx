@@ -113,25 +113,42 @@ export default async function ProformaPage({
              token inside must read as its light value (see .light-paper) --- */}
       <div className="light-paper rounded-lg border border-line bg-white p-8 text-sm text-ink print:rounded-none print:border-0 print:p-0">
         <div className="mb-6 border-t-[6px] border-brand-600" />
-        <div className="flex items-start justify-between gap-8 border-b border-line pb-6">
-          <div className="flex items-start gap-4">
-            <Brand size="hero" />
-            <div>
-            <div className="text-xl font-bold" data-testid="vendor-name">
+        {/* Letterhead: the logo owns its row, the company reads as compact
+            flowing lines beneath it, and the document block on the right is
+            wide enough that an order number never breaks in two. */}
+        <div className="flex items-start justify-between gap-6 border-b border-line pb-5">
+          <div className="min-w-0">
+            <Brand size="doc" />
+            <div className="mt-3 text-[13.5px] font-bold leading-snug" data-testid="vendor-name">
               {company.companyName || t("yourCompany")}
             </div>
-            <Lines text={company.addressLines} className="mt-1 text-sub" />
-            <div className="mt-1 text-sub">
-              <Row label={t("phone")} value={company.phone} />
-              <Row label={t("email")} value={company.email} />
-              <Row label={t("website")} value={company.website} />
-              <Row label={t("taxId")} value={company.taxId} />
-            </div>
+            <div className="mt-0.5 max-w-[430px] text-[11.5px] leading-relaxed text-sub">
+              <p>
+                {company.addressLines
+                  .split(/\r?\n/)
+                  .map((l) => l.trim())
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+              <p>
+                {[
+                  company.phone && `${t("phone")}: ${company.phone}`,
+                  company.email && `${t("email")}: ${company.email}`,
+                  company.website && `${t("website")}: ${company.website}`,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+              {company.taxId ? (
+                <p>
+                  {t("taxId")}: {company.taxId}
+                </p>
+              ) : null}
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold uppercase tracking-wide">{t("title")}</div>
-            <div className="mt-2 text-sub">
+          <div className="shrink-0 whitespace-nowrap text-right">
+            <div className="text-xl font-bold uppercase tracking-wide">{t("title")}</div>
+            <div className="mt-2 text-[12px] text-sub">
               <Row label={t("number")} value={order.orderNumber} />
               <Row label={t("date")} value={issued.toLocaleDateString()} />
               {company.validityDays > 0 ? (
