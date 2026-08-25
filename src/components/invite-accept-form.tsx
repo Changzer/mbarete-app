@@ -20,6 +20,8 @@ function useErrorText() {
         return t("errorEmailTaken");
       case "rate-limited":
         return t("errorRateLimited");
+      case "limit":
+        return t("errorSeatLimit");
       default:
         return t("errorInvalid");
     }

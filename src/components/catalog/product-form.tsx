@@ -958,7 +958,9 @@ export function ProductForm({
             ? t("errorDuplicateSku")
             : errorMessage === "image-error"
               ? t("errorImage")
-              : t("errorRequiredFields")}
+              : errorMessage === "limit-products"
+                ? t("errorPlanLimit")
+                : t("errorRequiredFields")}
         </p>
       ) : null}
 

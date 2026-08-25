@@ -1,4 +1,5 @@
 import path from "node:path";
+import { hasStorageFor } from "@/lib/entitlements";
 import fs from "node:fs/promises";
 import crypto from "node:crypto";
 
@@ -39,6 +40,8 @@ export const MAX_DOCUMENT_MB = 25;
 /** Errors saveUpload throws, so callers can tell the user which rule bit. */
 export class UnsupportedFileTypeError extends Error {}
 export class FileTooLargeError extends Error {}
+/** The company's plan has no storage room left for this file. */
+export class StorageFullError extends Error {}
 
 // Uploads deliberately live OUTSIDE public/. Next.js resolves public/ at build
 // time in standalone output, so anything written there at runtime is never
@@ -135,6 +138,22 @@ function detectExtension(file: File, allowed: Record<string, string>): string | 
   return Object.values(allowed).includes(normalized) ? normalized : null;
 }
 
+/** Bytes on disk under one company's upload folder; 0 when it has none. */
+export async function companyStorageBytes(companyId: number): Promise<number> {
+  const dir = path.join(/* turbopackIgnore: true */ uploadsDir(), `c${companyId}`);
+  try {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    let total = 0;
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      total += (await fs.stat(path.join(dir, entry.name))).size;
+    }
+    return total;
+  } catch {
+    return 0;
+  }
+}
+
 async function saveUpload(
   companyId: number,
   file: File,
@@ -148,6 +167,10 @@ async function saveUpload(
   }
   if (file.size > maxBytes) {
     throw new FileTooLargeError(String(file.size));
+  }
+  // The plan's cap on everything this company stores; unmetered off SaaS.
+  if (!(await hasStorageFor(companyId, file.size))) {
+    throw new StorageFullError(String(file.size));
   }
 
   // Each company's files live in their own folder, so serving can check that

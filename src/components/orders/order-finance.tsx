@@ -97,6 +97,8 @@ function useErrorText() {
         return t("fileTooLarge");
       case "file":
         return t("badFile");
+      case "storageFull":
+        return t("storageFull");
       default:
         return t("invalid");
     }

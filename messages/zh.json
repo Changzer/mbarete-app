@@ -41,7 +41,8 @@
     "errorPasswordMismatch": "两次输入的密码不一致。",
     "errorEmailTaken": "该邮箱已被注册。",
     "errorRateLimited": "尝试次数过多，请稍后再试。",
-    "errorInvalid": "请检查表单后重试。"
+    "errorInvalid": "请检查表单后重试。",
+    "referredBy": "你受到 {company} 的邀请。"
   },
   "invite": {
     "title": "加入团队",
@@ -59,7 +60,8 @@
     "errorPasswordMismatch": "两次输入的密码不一致。",
     "errorEmailTaken": "该邮箱已被注册。",
     "errorRateLimited": "尝试次数过多，请稍后再试。",
-    "errorInvalid": "请检查表单后重试。"
+    "errorInvalid": "请检查表单后重试。",
+    "errorSeatLimit": "该团队已达到当前套餐的人数上限。请让邀请你的人联系 Mbarete。"
   },
   "account": {
     "email": "邮箱",
@@ -256,7 +258,8 @@
     "columnProduct": "产品",
     "identityGroup": "产品编码",
     "aiBoardRead": "识别到的价格板",
-    "noCategoryMatches": "没有匹配的类目"
+    "noCategoryMatches": "没有匹配的类目",
+    "errorPlanLimit": "已达到当前套餐的产品数量上限——请联系 Mbarete 升级。"
   },
   "contacts": {
     "title": "联系人",
@@ -476,7 +479,8 @@
     "makeOwner": "设为所有者",
     "makeOwnerTitle": "将所有权转让给 {name}？",
     "makeOwnerBody": "新所有者将成为永久超级管理员，您将失去所有者保护。请输入密码确认。",
-    "makeOwnerConfirm": "转让所有权"
+    "makeOwnerConfirm": "转让所有权",
+    "inviteSeatLimit": "已达到当前套餐的团队人数上限——请联系 Mbarete 增加名额。"
   },
   "company": {
     "title": "公司信息",
@@ -511,7 +515,12 @@
     "incotermsHint": "例如 FOB 深圳，或 EXW。",
     "validityDays": "报价有效期（天）",
     "paymentTerms": "付款条件",
-    "footerNote": "页脚备注"
+    "footerNote": "页脚备注",
+    "referralTitle": "邀请其他公司",
+    "referralHelp": "把这个链接分享给其他贸易公司。对方打开后可以在 Mbarete 注册自己的工作区——与你的完全独立，拥有自己的目录和数据。",
+    "referralCopy": "复制链接",
+    "referralCopied": "已复制",
+    "referralJoined": "{count, plural, =0 {还没有公司通过你的链接加入。} one {已有 1 家公司通过你的链接加入。} other {已有 # 家公司通过你的链接加入。}}"
   },
   "proforma": {
     "title": "形式发票",
@@ -603,7 +612,8 @@
     "accountOther": "其他 / 无",
     "fxGainLoss": "汇率损益（至今）",
     "gatewayHint": "请按实际到账金额记录。若支付平台（如 XTransfer）到账时已结汇，请填写实际收到的人民币金额并标记人民币账户——而不是客户汇出的金额。",
-    "tileQuoted": "报价中 · {count} 份草稿"
+    "tileQuoted": "报价中 · {count} 份草稿",
+    "storageFull": "当前套餐的存储空间已满——请联系 Mbarete 升级。"
   },
   "financeReport": {
     "title": "财务",

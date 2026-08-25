@@ -12,6 +12,7 @@ import {
   deleteUpload,
   UnsupportedFileTypeError,
   FileTooLargeError,
+  StorageFullError,
 } from "@/lib/uploads";
 import { logOrderEvent } from "@/lib/order-log";
 import { getExchangeRates } from "@/lib/queries/orders";
@@ -57,7 +58,7 @@ async function readReceipt(
   formData: FormData,
 ): Promise<
   | { receiptPath: string; receiptName: string }
-  | { error: "receiptType" | "receiptSize" }
+  | { error: "receiptType" | "receiptSize" | "storageFull" }
 > {
   const file = formData.get("receipt");
   if (!(file instanceof File) || file.size === 0) {
@@ -68,6 +69,7 @@ async function readReceipt(
     return { receiptPath, receiptName: file.name || "receipt" };
   } catch (err) {
     if (err instanceof FileTooLargeError) return { error: "receiptSize" };
+    if (err instanceof StorageFullError) return { error: "storageFull" };
     if (err instanceof UnsupportedFileTypeError) return { error: "receiptType" };
     throw err;
   }
@@ -226,6 +228,7 @@ export async function uploadOrderDocument(
     // Which rule refused it matters: "too large" and "wrong format" call
     // for different next moves at the user's end.
     if (err instanceof FileTooLargeError) return { error: "size" };
+    if (err instanceof StorageFullError) return { error: "storageFull" };
     if (err instanceof UnsupportedFileTypeError) return { error: "file" };
     throw err;
   }

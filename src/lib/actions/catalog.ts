@@ -33,6 +33,7 @@ import fs from "node:fs/promises";
 import nodePath from "node:path";
 import { normalizeDecimalInput } from "@/lib/decimal-input";
 import { suggestNextSku } from "@/lib/queries/catalog";
+import { canAddProduct } from "@/lib/entitlements";
 import { syncProductFromOffers } from "@/lib/queries/offers";
 
 /** Saves every non-empty file under `images`, preserving the chosen order. */
@@ -224,6 +225,10 @@ export async function createProduct(
   const user = await requireSession();
   const userId = user.id;
 
+  // The plan's catalog cap, checked at the write so it holds whatever the
+  // UI showed. Never bites on self-hosted installs.
+  if (!(await canAddProduct(user.companyId))) return "limit-products";
+
   let data;
   try {
     data = formToProductInput(formData);
@@ -393,6 +398,10 @@ export async function updateProduct(
 ): Promise<string | undefined> {
   const user = await requireSession();
   const userId = user.id;
+
+  // The plan's catalog cap, checked at the write so it holds whatever the
+  // UI showed. Never bites on self-hosted installs.
+  if (!(await canAddProduct(user.companyId))) return "limit-products";
 
   let data;
   try {

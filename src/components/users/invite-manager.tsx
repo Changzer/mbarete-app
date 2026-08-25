@@ -36,7 +36,7 @@ export function InviteManager({ invites }: { invites: PendingInvite[] }) {
       if (res.path) {
         setFreshLink(`${window.location.origin}${res.path}`);
       } else {
-        setError(t("inviteFailed"));
+        setError(res.error === "limit" ? t("inviteSeatLimit") : t("inviteFailed"));
       }
     } finally {
       setBusy(false);

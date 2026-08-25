@@ -41,7 +41,8 @@
     "errorPasswordMismatch": "The passwords do not match.",
     "errorEmailTaken": "An account with that email already exists.",
     "errorRateLimited": "Too many attempts. Please try again later.",
-    "errorInvalid": "Please check the form and try again."
+    "errorInvalid": "Please check the form and try again.",
+    "referredBy": "You were invited by {company}."
   },
   "invite": {
     "title": "Join the team",
@@ -59,7 +60,8 @@
     "errorPasswordMismatch": "The passwords do not match.",
     "errorEmailTaken": "An account with that email already exists.",
     "errorRateLimited": "Too many attempts. Please try again later.",
-    "errorInvalid": "Please check the form and try again."
+    "errorInvalid": "Please check the form and try again.",
+    "errorSeatLimit": "This team is full on its current plan. Ask the person who invited you to contact Mbarete."
   },
   "account": {
     "email": "Email",
@@ -256,7 +258,8 @@
     "columnProduct": "Product",
     "identityGroup": "Product code",
     "aiBoardRead": "Board read as",
-    "noCategoryMatches": "No categories match"
+    "noCategoryMatches": "No categories match",
+    "errorPlanLimit": "Your plan's product limit is reached — contact Mbarete to upgrade."
   },
   "contacts": {
     "title": "Contacts",
@@ -476,7 +479,8 @@
     "makeOwner": "Make owner",
     "makeOwnerTitle": "Transfer ownership to {name}?",
     "makeOwnerBody": "The new owner becomes the permanent super-admin and you lose owner protection. Confirm with your password.",
-    "makeOwnerConfirm": "Transfer ownership"
+    "makeOwnerConfirm": "Transfer ownership",
+    "inviteSeatLimit": "Your plan's team size is reached — contact Mbarete to add seats."
   },
   "company": {
     "title": "Company details",
@@ -511,7 +515,12 @@
     "incotermsHint": "For example FOB Shenzhen, or EXW.",
     "validityDays": "Quote valid for (days)",
     "paymentTerms": "Payment terms",
-    "footerNote": "Footer note"
+    "footerNote": "Footer note",
+    "referralTitle": "Invite another company",
+    "referralHelp": "Share this link with another trading company. Whoever opens it can register their own workspace on Mbarete — separate from yours, with their own catalog and their own data.",
+    "referralCopy": "Copy link",
+    "referralCopied": "Copied",
+    "referralJoined": "{count, plural, =0 {No companies have joined through your link yet.} one {1 company joined through your link.} other {# companies joined through your link.}}"
   },
   "proforma": {
     "title": "Proforma invoice",
@@ -603,7 +612,8 @@
     "accountOther": "Other / none",
     "fxGainLoss": "FX gain/loss so far",
     "gatewayHint": "Record what actually landed in the bank. If the gateway (e.g. XTransfer) converted on arrival, enter the RMB amount received and tag the RMB account — not the amount the client sent.",
-    "tileQuoted": "Quoted · {count} drafts"
+    "tileQuoted": "Quoted · {count} drafts",
+    "storageFull": "Your plan's storage is full — contact Mbarete to upgrade."
   },
   "financeReport": {
     "title": "Finance",

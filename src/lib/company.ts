@@ -1,3 +1,4 @@
+import { planOf } from "@/lib/plans";
 import { db } from "@/db";
 import { companies, users, categories, exchangeRates } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
@@ -54,6 +55,8 @@ export type NewCompanyInput = {
   ownerName: string;
   ownerEmail: string;
   ownerPassword: string;
+  /** Set when the signup arrived through another company's referral link. */
+  referredByCompanyId?: number;
 };
 
 /**
@@ -69,9 +72,19 @@ export async function createCompanyWithOwner(
   const passwordHash = await bcrypt.hash(input.ownerPassword, 10);
 
   return db.transaction(async (tx) => {
+    // New companies start on the free plan; its module defaults are applied
+    // here so the switches match the plan from the first render. The panel
+    // can override either afterwards.
+    const plan = planOf("free");
     const [company] = await tx
       .insert(companies)
-      .values({ name: input.companyName })
+      .values({
+        name: input.companyName,
+        plan: plan.id,
+        moduleOrders: plan.modules.orders,
+        moduleFinance: plan.modules.finance,
+        referredByCompanyId: input.referredByCompanyId ?? null,
+      })
       .returning({ id: companies.id });
 
     // The connection was checked out before this company existed, so its RLS

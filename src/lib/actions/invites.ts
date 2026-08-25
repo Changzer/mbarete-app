@@ -8,6 +8,7 @@ import bcrypt from "bcryptjs";
 import { db, one } from "@/db";
 import { invites, users, companies } from "@/db/schema";
 import { requireAdmin } from "@/lib/authz";
+import { canAddUser } from "@/lib/entitlements";
 import { signIn } from "@/lib/auth";
 import { makeLimiter, clientIp } from "@/lib/rate-limit";
 import { INVITE_TTL_MS, hashInviteToken, newInviteToken, isoNow, isoIn } from "@/lib/invites";
@@ -25,11 +26,14 @@ import { getLocale } from "next-intl/server";
  * it sits outside RLS and every query here scopes by company explicitly.
  */
 
-export type CreateInviteResult = { path?: string; error?: "invalid" | "failed" };
+export type CreateInviteResult = { path?: string; error?: "invalid" | "failed" | "limit" };
 
 export async function createInvite(role: "admin" | "collaborator"): Promise<CreateInviteResult> {
   const admin = await requireAdmin();
   if (role !== "admin" && role !== "collaborator") return { error: "invalid" };
+  // No point minting a link the acceptor would bounce off: the seat check
+  // runs here for a clear message, and again at accept as the real gate.
+  if (!(await canAddUser(admin.companyId))) return { error: "limit" };
 
   const token = newInviteToken();
   try {
@@ -114,6 +118,7 @@ export type AcceptInviteError =
   | "password-mismatch"
   | "email-taken"
   | "rate-limited"
+  | "limit"
   | "failed";
 
 export type AcceptInviteResult = { error?: AcceptInviteError };
@@ -153,6 +158,16 @@ export async function acceptInvite(
     .limit(1)
     .then(one);
   if (clash) return { error: "email-taken" };
+
+  // The real seat gate: links can outlive the plan's room. Look the invite up
+  // (without claiming it) to learn whose company needs the seat.
+  const pending = await db
+    .select({ companyId: invites.companyId })
+    .from(invites)
+    .where(eq(invites.tokenHash, hashInviteToken(token)))
+    .limit(1)
+    .then(one);
+  if (pending && !(await canAddUser(pending.companyId))) return { error: "limit" };
 
   const passwordHash = await bcrypt.hash(password, 10);
 
