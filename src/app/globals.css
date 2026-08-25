@@ -102,7 +102,14 @@
   --radius-sheet: 20px;
 }
 
-:root {
+/*
+ * `.light-paper` shares the light palette by selector, not by copying values:
+ * a printed document (the proforma) is white paper whatever theme the app
+ * wears, so re-declaring the tokens on the paper element wins over the dark
+ * html-level override for everything inside it.
+ */
+:root,
+.light-paper {
   --mb-bg: #f8f4ec;
   --mb-surface: #fdfbf7;
   --mb-surface-2: #f2ecdf;
@@ -159,6 +166,18 @@
     --mb-danger-line: #7a3c30;
     color-scheme: dark;
   }
+}
+
+/*
+ * Documents print black. The proforma (and anything else wearing
+ * .light-paper) is an invoice a client receives — its text is always true
+ * black on white, not the app's warm ink, and never a theme's cream.
+ * Declared AFTER the shared light palette so these win inside the paper.
+ */
+.light-paper {
+  --mb-ink: #000000;
+  --mb-sub: #3d3d3d;
+  --mb-faint: #666666;
 }
 
 html[data-theme="dark"] {

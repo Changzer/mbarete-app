@@ -2,7 +2,8 @@ import ExcelJS from "exceljs";
 import type { OrderExportData } from "./order-export";
 
 const BRAND = "FFC2410C"; // brand-600, ARGB
-const SUB = "FF6B7280";
+// Secondary text stays dark enough to read as black when printed.
+const SUB = "FF3D3D3D";
 
 /**
  * The order as a shareable spreadsheet — the same document as the proforma,
