@@ -109,8 +109,9 @@ export default async function ProformaPage({
         </p>
       ) : null}
 
-      {/* --- the document itself --- */}
-      <div className="rounded-lg border border-line bg-white p-8 text-sm print:rounded-none print:border-0 print:p-0">
+      {/* --- the document itself: white paper in any app theme, so every
+             token inside must read as its light value (see .light-paper) --- */}
+      <div className="light-paper rounded-lg border border-line bg-white p-8 text-sm text-ink print:rounded-none print:border-0 print:p-0">
         <div className="mb-6 border-t-[6px] border-brand-600" />
         <div className="flex items-start justify-between gap-8 border-b border-line pb-6">
           <div className="flex items-start gap-4">

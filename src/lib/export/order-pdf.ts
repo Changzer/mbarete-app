@@ -15,8 +15,10 @@ const REGULAR = path.join(FONT_DIR, "NotoSansSC-Regular.otf");
 const BOLD = path.join(FONT_DIR, "NotoSansSC-Bold.otf");
 
 const BRAND = "#C2410C";
-const SUB = "#6B7280";
-const INK = "#111827";
+// Documents print black: body text is true black, secondary a dark gray
+// that still reads black on paper — never a light theme gray.
+const SUB = "#3D3D3D";
+const INK = "#000000";
 const LINE = "#E5E7EB";
 
 const A4 = { width: 595.28, height: 841.89 };
