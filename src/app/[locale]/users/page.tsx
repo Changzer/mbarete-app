@@ -1,6 +1,6 @@
 import { getTranslations, getLocale } from "next-intl/server";
 import { redirect } from "@/i18n/navigation";
-import { sessionUser } from "@/lib/authz";
+import { requireUser } from "@/lib/authz";
 import { db, one } from "@/db";
 import { users, companies } from "@/db/schema";
 import { asc, eq } from "drizzle-orm";
@@ -10,8 +10,10 @@ import { InviteManager } from "@/components/users/invite-manager";
 import { listPendingInvites } from "@/lib/actions/invites";
 
 export default async function UsersPage() {
-  const current = await sessionUser();
-  if (current?.role !== "admin") {
+  // requireUser (not sessionUser) so a dead session lands on login, not on a
+  // catalog page that then refuses it; the role check keeps collaborators out.
+  const current = await requireUser();
+  if (current.role !== "admin") {
     redirect({ href: "/catalog", locale: await getLocale() });
   }
 
@@ -21,14 +23,14 @@ export default async function UsersPage() {
   const company = await db
     .select({ ownerUserId: companies.ownerUserId })
     .from(companies)
-    .where(eq(companies.id, current!.companyId))
+    .where(eq(companies.id, current.companyId))
     .limit(1)
     .then(one);
 
   const rows = await db
     .select()
     .from(users)
-    .where(eq(users.companyId, current!.companyId))
+    .where(eq(users.companyId, current.companyId))
     .orderBy(asc(users.name));
   const teamUsers: TeamUser[] = rows.map((u) => ({
     id: u.id,
@@ -46,7 +48,7 @@ export default async function UsersPage() {
         {t("title")}
       </h1>
       <div className="mb-6">
-        <InviteManager invites={await listPendingInvites(current!.companyId)} />
+        <InviteManager invites={await listPendingInvites(current.companyId)} />
       </div>
       <UserManager
         users={teamUsers}

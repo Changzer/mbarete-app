@@ -78,12 +78,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        // When this session was minted. authz compares it against the user
+        // row's password_changed_at, so rotating a password kills every
+        // session issued before the rotation — including a stolen one.
+        token.authAt = Date.now();
       }
       return token;
     },
     session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (session.user as any).authAt = token.authAt as number | undefined;
       }
       return session;
     },

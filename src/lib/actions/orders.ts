@@ -25,6 +25,7 @@ import {
   fullCartons,
 } from "@/lib/calculations";
 import { nextOrderNumber, getExchangeRates } from "@/lib/queries/orders";
+import { canTransition, isEditable, isDeletable } from "@/lib/order-status";
 import { deleteUpload } from "@/lib/uploads";
 import { logOrderEvent, diffOrderEdit, type OrderChange } from "@/lib/order-log";
 import { defaultBankAccount } from "@/lib/proforma-bank";
@@ -189,6 +190,10 @@ export async function updateOrder(
     .limit(1)
     .then(one);
   if (!before) return { error: "not-found" };
+  // Shipped is history: the goods left, the record holds. Cancelled edits
+  // fine — saving reopens it as whatever the builder chose.
+  if (!isEditable(before.status)) return { error: "frozen" };
+  if (!canTransition(before.status, data.status)) return { error: "frozen" };
   const beforeItems = await db
     .select()
     .from(orderItems)
@@ -275,6 +280,8 @@ export async function setOrderStatus(
     .then(one);
   if (!current) return { error: "not-found" };
 
+  if (!canTransition(current.status, status)) return { error: "frozen" };
+
   if (status === "confirmed") {
     const items = await db
       .select()
@@ -352,12 +359,15 @@ export async function deleteOrder(id: number) {
   await requireModuleAction(admin, "orders");
 
   const existing = await db
-    .select({ id: orders.id })
+    .select({ id: orders.id, status: orders.status })
     .from(orders)
     .where(and(eq(orders.companyId, admin.companyId), eq(orders.id, id)))
     .limit(1)
     .then(one);
   if (!existing) return;
+  // Confirmed and shipped orders are business records: cancel first, then
+  // delete — never straight from live to gone.
+  if (!isDeletable(existing.status)) return;
 
   // Document and receipt rows cascade with the order; the files would stay
   // behind in the uploads volume forever if they were not removed here.

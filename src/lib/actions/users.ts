@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { canAddUser } from "@/lib/entitlements";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import { db, one } from "@/db";
@@ -27,7 +28,8 @@ export type UserActionError =
   | "self-demote"
   | "last-admin"
   | "last-user"
-  | "owner-locked";
+  | "owner-locked"
+  | "limit";
 
 export type UserActionResult = { error?: UserActionError };
 
@@ -76,6 +78,10 @@ export async function createUser(
   if (!parsed.success) return { error: "invalid" };
   const { name, email, password, role } = parsed.data;
 
+  // The seat cap binds here exactly as on the invite path — a limit only
+  // one of two doors enforces is advisory, not a limit.
+  if (!(await canAddUser(admin.companyId))) return { error: "limit" };
+
   // Emails are globally unique — one account, one company.
   if (await db.select().from(users).where(eq(users.email, email)).limit(1).then(one)) {
     return { error: "duplicate-email" };
@@ -118,6 +124,13 @@ export async function updateUser(
     return { error: "not-found" };
   }
 
+  // The owner's credentials belong to the owner alone. Another admin
+  // rewriting the owner's email or password IS an account takeover, however
+  // it is dressed — the guard that already covers demotion covers this too.
+  if (admin.id !== id && (await isCompanyOwner(admin.companyId, id))) {
+    return { error: "owner-locked" };
+  }
+
   // Somebody else already signs in with this address.
   const clash = await db
     .select()
@@ -131,7 +144,12 @@ export async function updateUser(
     .set({
       name,
       email,
-      ...(password ? { passwordHash: await bcrypt.hash(password, 10) } : {}),
+      ...(password
+        ? {
+            passwordHash: await bcrypt.hash(password, 10),
+            passwordChangedAt: new Date().toISOString(),
+          }
+        : {}),
     })
     .where(eq(users.id, id));
 

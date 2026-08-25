@@ -92,6 +92,12 @@ export const users = pgTable(
      * deliberately no UI can set it.
      */
     platformAdmin: boolean("platform_admin").notNull().default(false),
+    /**
+     * When the password last changed; null means never since this column
+     * existed. Sessions issued BEFORE this instant are dead — a stolen
+     * cookie stops working the moment the password is rotated.
+     */
+    passwordChangedAt: text("password_changed_at"),
     // Set when the address's owner clicks a verification link. Reset links
     // are only ever sent to the address on file, so verification is a trust
     // signal, not a login gate.

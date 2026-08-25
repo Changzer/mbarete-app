@@ -132,7 +132,10 @@ export async function resetPassword(
         )
         .returning({ userId: authTokens.userId });
       if (!claimed) return false;
-      await tx.update(users).set({ passwordHash }).where(eq(users.id, claimed.userId));
+      await tx
+        .update(users)
+        .set({ passwordHash, passwordChangedAt: new Date().toISOString() })
+        .where(eq(users.id, claimed.userId));
       // Every other outstanding reset link for this account dies with it.
       await tx
         .update(authTokens)
@@ -237,7 +240,10 @@ export async function changePassword(
   if (!ok) return { error: "wrong-password" };
 
   const passwordHash = await bcrypt.hash(parsed.data.password, 10);
-  await db.update(users).set({ passwordHash }).where(eq(users.id, me.id));
+  await db
+    .update(users)
+    .set({ passwordHash, passwordChangedAt: new Date().toISOString() })
+    .where(eq(users.id, me.id));
   return { done: true };
 }
 

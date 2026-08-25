@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import { redirect } from "@/i18n/navigation";
+import { isEditable } from "@/lib/order-status";
 import { getTranslations } from "next-intl/server";
 import { getOrderById, getExchangeRates } from "@/lib/queries/orders";
 import { getCategories, getProducts, getImagesByProduct } from "@/lib/queries/catalog";
@@ -23,13 +25,20 @@ export default async function EditOrderPage({
   if (!data) notFound();
   const { order, items } = data;
 
-  const [products, categories, clients, suppliers, rates] = await Promise.all([
-    getProducts(companyId, { activeOnly: true }),
+  // Shipped orders are history — the edit URL bounces back to the record.
+  if (!isEditable(order.status)) {
+    redirect({ href: `/orders/${order.id}`, locale: locale as Locale });
+  }
+
+  const [allProducts, categories, clients, suppliers, rates] = await Promise.all([
+    getProducts(companyId, { activeOnly: false }),
     getCategories(companyId),
     getContactsByType(companyId, "client"),
     getContactsByType(companyId, "supplier"),
     getExchangeRates(companyId),
   ]);
+  const onOrder = new Set(items.map((i) => i.productId));
+  const products = allProducts.filter((p) => p.active || onOrder.has(p.id));
   const imagesByProduct = await getImagesByProduct(products.map((p) => p.id));
 
   const categoryMap = new Map(categories.map((c) => [c.id, c]));

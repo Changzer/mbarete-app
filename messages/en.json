@@ -352,6 +352,8 @@
     "deleteConfirm": "Delete this order?",
     "markShipped": "Mark as Shipped",
     "cancelOrder": "Cancel Order",
+    "reopenOrder": "Reopen as Draft",
+    "orderFrozen": "This order has shipped — it is a record now and cannot be edited.",
     "commission": "Commission %",
     "commissionAmount": "Commission",
     "goodsSubtotal": "Goods subtotal",

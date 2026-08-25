@@ -224,10 +224,8 @@ export async function createProduct(
 ): Promise<string | undefined> {
   const user = await requireSession();
   const userId = user.id;
-
-  // The plan's catalog cap, checked at the write so it holds whatever the
-  // UI showed. Never bites on self-hosted installs.
-  if (!(await canAddProduct(user.companyId))) return "limit-products";
+  // No cap check here on purpose: the plan limit gates ADDING products.
+  // A tenant at 50/50 must still be able to fix the 50 it has.
 
   let data;
   try {
@@ -451,6 +449,16 @@ export async function updateProduct(
     .then(one);
   if (clash) return "duplicate-sku";
 
+  // New files are saved and validated FIRST: if any upload fails, the
+  // action returns with every existing photo still in place. Only once the
+  // replacements are safely on disk do the ticked removals apply.
+  let uploaded: string[];
+  try {
+    uploaded = await saveUploadedImages(user.companyId, formData);
+  } catch {
+    return "image-error";
+  }
+
   // Images the user ticked for removal in the form.
   const removeIds = formData
     .getAll("removeImageIds")
@@ -468,13 +476,6 @@ export async function updateProduct(
       await db.delete(productImages).where(eq(productImages.id, imageId));
       await deleteUpload(row.path);
     }
-  }
-
-  let uploaded: string[];
-  try {
-    uploaded = await saveUploadedImages(user.companyId, formData);
-  } catch {
-    return "image-error";
   }
 
   const remaining = await db
