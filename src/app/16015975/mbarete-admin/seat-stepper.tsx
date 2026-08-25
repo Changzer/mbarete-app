@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 import { setExtraSeats } from "@/lib/platform/actions";
+import { nudgeReauth } from "./unlock-panel";
 
 /**
  * Extra seats sold to a company on top of its plan's cap. Billing is manual,
@@ -11,7 +12,10 @@ import { setExtraSeats } from "@/lib/platform/actions";
 export function SeatStepper({ companyId, extraSeats }: { companyId: number; extraSeats: number }) {
   const [pending, startTransition] = useTransition();
   const step = (delta: number) =>
-    startTransition(() => setExtraSeats(companyId, extraSeats + delta));
+    startTransition(async () => {
+      const r = await setExtraSeats(companyId, extraSeats + delta);
+      if (r.error === "reauth") nudgeReauth();
+    });
   const buttonClass =
     "h-6 w-6 rounded-[6px] border border-line bg-surface text-xs text-ink hover:bg-surface-2 disabled:opacity-40";
   return (

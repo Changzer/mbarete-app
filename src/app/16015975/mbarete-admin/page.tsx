@@ -5,6 +5,8 @@ import { PlanSelect } from "./plan-select";
 import { BackupNow } from "./backup-now";
 import { backupStatus, type BackupStatus } from "@/lib/backups";
 import { SeatStepper } from "./seat-stepper";
+import { UnlockPanel } from "./unlock-panel";
+import { platformReauth } from "@/lib/platform/reauth";
 import { planOf, seatLimit, usageLabel } from "@/lib/plans";
 
 /**
@@ -122,7 +124,8 @@ export default async function PlatformAdminPage() {
             Signed in as {operator.email}. Counts and activity only — tenant money is never shown here.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <UnlockPanel unlocked={platformReauth.isFresh(operator.id)} />
           <BackupLine status={backups} now={now} />
           {backups.configured ? <BackupNow /> : null}
         </div>

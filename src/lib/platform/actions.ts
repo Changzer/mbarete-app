@@ -1,11 +1,51 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { db } from "@/db";
-import { companies } from "@/db/schema";
+import bcrypt from "bcryptjs";
+import { db, one } from "@/db";
+import { companies, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { requirePlatformAdmin } from "@/lib/authz";
 import { PLANS, type PlanId } from "@/lib/plans";
+import { platformReauth } from "@/lib/platform/reauth";
+import { makeLimiter } from "@/lib/rate-limit";
+
+/**
+ * Every cross-tenant WRITE here demands step-up authentication: a session
+ * alone may look at the panel, but changing what a tenant has additionally
+ * requires the operator's password again, recently (reauth.ts). The check
+ * lives server-side in each action — the panel UI only mirrors it.
+ */
+export type PlatformWriteResult = { ok: boolean; error?: "reauth" };
+
+async function freshOperatorOr(): Promise<{ id: number } | null> {
+  const operator = await requirePlatformAdmin();
+  return platformReauth.isFresh(operator.id) ? operator : null;
+}
+
+/** Brute-force brake on the unlock prompt — it is a password oracle. */
+const unlockLimiter = makeLimiter({ max: 5, windowMs: 15 * 60 * 1000 });
+
+export type UnlockResult = { ok: boolean; error?: "wrong-password" | "rate-limited" };
+
+/** Confirms the operator's password and opens the 15-minute write window. */
+export async function unlockPlatform(password: string): Promise<UnlockResult> {
+  const operator = await requirePlatformAdmin();
+  if (typeof password !== "string" || !password) return { ok: false, error: "wrong-password" };
+  if (unlockLimiter.hit(`u${operator.id}`)) return { ok: false, error: "rate-limited" };
+  const row = await db
+    .select({ passwordHash: users.passwordHash })
+    .from(users)
+    .where(eq(users.id, operator.id))
+    .limit(1)
+    .then(one);
+  if (!row || !(await bcrypt.compare(password, row.passwordHash))) {
+    return { ok: false, error: "wrong-password" };
+  }
+  unlockLimiter.clear(`u${operator.id}`);
+  platformReauth.mark(operator.id);
+  return { ok: true };
+}
 
 /**
  * Flips one company's module switch. The write lands on `companies`, which
@@ -16,11 +56,12 @@ export async function setCompanyModule(
   companyId: number,
   module: "orders" | "finance",
   enabled: boolean,
-): Promise<void> {
-  await requirePlatformAdmin();
+): Promise<PlatformWriteResult> {
+  if (!(await freshOperatorOr())) return { ok: false, error: "reauth" };
   const column = module === "orders" ? { moduleOrders: enabled } : { moduleFinance: enabled };
   await db.update(companies).set(column).where(eq(companies.id, companyId));
   revalidatePath("/16015975/mbarete-admin");
+  return { ok: true };
 }
 
 /**
@@ -28,10 +69,10 @@ export async function setCompanyModule(
  * switches match the tier from the next request. They stay individually
  * overridable afterwards — the plan is a preset, not a cage.
  */
-export async function setCompanyPlan(companyId: number, plan: PlanId): Promise<void> {
-  await requirePlatformAdmin();
+export async function setCompanyPlan(companyId: number, plan: PlanId): Promise<PlatformWriteResult> {
+  if (!(await freshOperatorOr())) return { ok: false, error: "reauth" };
   const entitlements = PLANS[plan];
-  if (!entitlements) return;
+  if (!entitlements) return { ok: false };
   await db
     .update(companies)
     .set({
@@ -41,6 +82,7 @@ export async function setCompanyPlan(companyId: number, plan: PlanId): Promise<v
     })
     .where(eq(companies.id, companyId));
   revalidatePath("/16015975/mbarete-admin");
+  return { ok: true };
 }
 
 /**
@@ -48,12 +90,13 @@ export async function setCompanyPlan(companyId: number, plan: PlanId): Promise<v
  * operator collects payment however it happens and records the seats here.
  * Stacks on any plan and survives plan changes.
  */
-export async function setExtraSeats(companyId: number, extraSeats: number): Promise<void> {
-  await requirePlatformAdmin();
+export async function setExtraSeats(companyId: number, extraSeats: number): Promise<PlatformWriteResult> {
+  if (!(await freshOperatorOr())) return { ok: false, error: "reauth" };
   const seats = Math.max(0, Math.min(999, Math.trunc(extraSeats)));
-  if (!Number.isFinite(seats)) return;
+  if (!Number.isFinite(seats)) return { ok: false };
   await db.update(companies).set({ extraSeats: seats }).where(eq(companies.id, companyId));
   revalidatePath("/16015975/mbarete-admin");
+  return { ok: true };
 }
 
 /**
@@ -61,7 +104,7 @@ export async function setExtraSeats(companyId: number, extraSeats: number): Prom
  * The same run the scheduler makes; see src/lib/backups.ts.
  */
 export async function backupNow(): Promise<{ ok: boolean; detail: string }> {
-  await requirePlatformAdmin();
+  if (!(await freshOperatorOr())) return { ok: false, detail: "reauth" };
   const { runBackup } = await import("@/lib/backups");
   const result = await runBackup();
   revalidatePath("/16015975/mbarete-admin");

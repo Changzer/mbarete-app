@@ -18,25 +18,41 @@ export type SessionUser = {
 };
 
 /**
+ * The one place a cookie becomes a database identity. Every gate — tenant
+ * pages and the platform panel alike — validates through here, so a rule
+ * added once (deactivation, password rotation) binds them all; the tenant
+ * and platform paths cannot drift apart again.
+ *
+ * Checks, in order: a valid JWT naming a real row; the account still
+ * active; and the session minted after the password last changed. Sessions
+ * from before that column existed carry no authAt and stay valid until the
+ * NEXT rotation — nobody is logged out by the deploy itself.
+ *
+ * Deliberately enters NO scope: the caller decides tenant or platform.
+ */
+async function loadValidatedIdentity() {
+  const session = await auth();
+  const id = Number(session?.user?.id);
+  if (!id) return null;
+  const row = await db.select().from(users).where(eq(users.id, id)).limit(1).then(one);
+  if (!row || !row.active) return null;
+  if (row.passwordChangedAt) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const authAt = (session?.user as any)?.authAt as number | undefined;
+    if (!authAt || authAt < Date.parse(row.passwordChangedAt)) return null;
+  }
+  return row;
+}
+
+/**
  * The signed-in user with their CURRENT role and active flag, read from the
  * database rather than the JWT. A demotion or deactivation therefore applies
  * on the next request, not the next sign-in — with a session that lives in a
  * cookie for days, "next sign-in" could otherwise be weeks away.
  */
 export async function sessionUser(): Promise<SessionUser | null> {
-  const session = await auth();
-  const id = Number(session?.user?.id);
-  if (!id) return null;
-  const row = await db.select().from(users).where(eq(users.id, id)).limit(1).then(one);
-  if (!row || !row.active) return null;
-  // A session minted before the password last changed is dead. Sessions
-  // from before this column existed carry no authAt and stay valid until
-  // the NEXT password change — nobody is logged out by the deploy itself.
-  if (row.passwordChangedAt) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const authAt = (session?.user as any)?.authAt as number | undefined;
-    if (!authAt || authAt < Date.parse(row.passwordChangedAt)) return null;
-  }
+  const row = await loadValidatedIdentity();
+  if (!row) return null;
   // From here on, every query this request makes carries its tenant — the
   // pool stamps it into the connection and RLS enforces it (tenant-context.ts).
   enterTenant(row.companyId);
@@ -127,11 +143,10 @@ export async function requireModuleAction(
  * URL is indistinguishable from a page that does not exist.
  */
 export async function requirePlatformAdmin(): Promise<SessionUser> {
-  const session = await auth();
-  const id = Number(session?.user?.id);
-  if (!id) notFound();
-  const row = await db.select().from(users).where(eq(users.id, id)).limit(1).then(one);
-  if (!row || !row.active || !row.platformAdmin) notFound();
+  // The SAME validation the tenant gates use — so a rotated password or a
+  // deactivation kills panel access exactly as it kills everything else.
+  const row = await loadValidatedIdentity();
+  if (!row || !row.platformAdmin) notFound();
   // Cross-tenant SELECT via the platform_read policies; no tenant is entered,
   // so tenant-scoped writes stay impossible on this path.
   enterPlatform();

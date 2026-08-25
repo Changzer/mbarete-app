@@ -9,6 +9,7 @@ import { users, companies, authTokens } from "@/db/schema";
 import { requireUser, requireAdmin } from "@/lib/authz";
 import { isMailConfigured, sendMail } from "@/lib/mail";
 import { makeLimiter, clientIp } from "@/lib/rate-limit";
+import { platformReauth } from "@/lib/platform/reauth";
 import { hashInviteToken as hashToken, newInviteToken as newToken, isoNow, isoIn } from "@/lib/invites";
 
 /**
@@ -136,6 +137,9 @@ export async function resetPassword(
         .update(users)
         .set({ passwordHash, passwordChangedAt: new Date().toISOString() })
         .where(eq(users.id, claimed.userId));
+      // A reset proves email control, not the old password — either way the
+      // old credential's step-up window must not survive it.
+      platformReauth.clear(claimed.userId);
       // Every other outstanding reset link for this account dies with it.
       await tx
         .update(authTokens)
@@ -244,6 +248,8 @@ export async function changePassword(
     .update(users)
     .set({ passwordHash, passwordChangedAt: new Date().toISOString() })
     .where(eq(users.id, me.id));
+  // Any step-up window opened with the OLD password dies with it.
+  platformReauth.clear(me.id);
   return { done: true };
 }
 
