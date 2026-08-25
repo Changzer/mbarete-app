@@ -53,6 +53,14 @@ jobs:
       - run: npm run db:migrate
       - run: npm run check:isolation
 
+      # Entitlements only bind in SaaS mode; everything else in this job runs
+      # self-hosted, where every cap answers yes — which is exactly how an
+      # inverted product cap once shipped unseen. This step is the tripwire:
+      # caps at the boundary, and two writers racing for the last slot.
+      - run: npm run test:entitlements
+        env:
+          DEPLOY_MODE: saas
+
       # The golden path, end to end in a real browser: capture → draft →
       # AI read (stubbed vision API) → product → order → quote → invoice.
       # This chain is the product's whole promise, so it gates the merge.

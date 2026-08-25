@@ -8,7 +8,10 @@ import bcrypt from "bcryptjs";
 import { db, one } from "@/db";
 import { invites, users, companies } from "@/db/schema";
 import { requireAdmin } from "@/lib/authz";
-import { canAddUser } from "@/lib/entitlements";
+import { canAddUser, seatAvailableLocked } from "@/lib/entitlements";
+
+/** Thrown inside the accept transaction so the invite claim rolls back. */
+class SeatLimitError extends Error {}
 import { signIn } from "@/lib/auth";
 import { makeLimiter, clientIp } from "@/lib/rate-limit";
 import { INVITE_TTL_MS, hashInviteToken, newInviteToken, isoNow, isoIn } from "@/lib/invites";
@@ -189,6 +192,12 @@ export async function acceptInvite(
         .returning({ id: invites.id, companyId: invites.companyId, role: invites.role });
       if (!claimed) return null;
 
+      // The advisory check above ran outside this transaction; under the
+      // company's row lock it becomes binding — two invites racing for the
+      // last seat get one account. Thrown, not returned: the rollback must
+      // un-claim the link so the invite survives for when a seat opens up.
+      if (!(await seatAvailableLocked(tx, claimed.companyId))) throw new SeatLimitError();
+
       const [created] = await tx
         .insert(users)
         .values({ companyId: claimed.companyId, email, passwordHash, name, role: claimed.role })
@@ -202,7 +211,8 @@ export async function acceptInvite(
     if (!accepted) return { error: "invalid-link" };
     // Best-effort verify link for the new account; a no-op without SMTP.
     await sendVerificationEmail(accepted, email, await getLocale()).catch(() => {});
-  } catch {
+  } catch (error) {
+    if (error instanceof SeatLimitError) return { error: "limit" };
     // A race can still lose the unique-email check; collapse to retryable.
     return { error: "failed" };
   }

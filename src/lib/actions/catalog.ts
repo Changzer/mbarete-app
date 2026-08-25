@@ -33,7 +33,7 @@ import fs from "node:fs/promises";
 import nodePath from "node:path";
 import { normalizeDecimalInput } from "@/lib/decimal-input";
 import { suggestNextSku } from "@/lib/queries/catalog";
-import { canAddProduct } from "@/lib/entitlements";
+import { canAddProduct, productSlotAvailableLocked } from "@/lib/entitlements";
 import { syncProductFromOffers } from "@/lib/queries/offers";
 
 /** Saves every non-empty file under `images`, preserving the chosen order. */
@@ -278,34 +278,50 @@ export async function createProduct(
     return "image-error";
   }
 
+  const thumbPath = await resolveThumbPath(user.companyId, formData);
+  const duplicatedFromId = await resolveDuplicatedFromId(user.companyId, data.duplicatedFromId);
+
   let inserted;
   try {
-    [inserted] = await db
-      .insert(products)
-      .values({
-        companyId: user.companyId,
-        sku,
-        supplierCode: data.supplierCode,
-        thumbPath: await resolveThumbPath(user.companyId, formData),
-        nameEn: data.nameEn,
-      nameZh: data.nameZh,
-      categoryId: data.categoryId,
-      descriptionEn: data.descriptionEn,
-      descriptionZh: data.descriptionZh,
-      price: data.price,
-      sellPrice: data.sellPrice,
-      currency: data.currency,
-      moq: data.moq,
-      qtyPerBox: data.qtyPerBox,
-      ...carton,
-      supplierId,
-      duplicatedFromId: await resolveDuplicatedFromId(user.companyId, data.duplicatedFromId),
-      active: data.active,
-      createdBy: userId,
-      updatedBy: userId,
-      updatedAt: new Date().toISOString(),
-    })
-      .returning({ id: products.id });
+    // The cap decision and the insert share one transaction under the
+    // company's row lock: two requests racing for the last slot serialize,
+    // and the second re-counts AFTER the first committed. The early check
+    // above is the friendly refusal; this one is the wall.
+    const won = await db.transaction(async (tx) => {
+      if (!(await productSlotAvailableLocked(tx, user.companyId))) return null;
+      const [row] = await tx
+        .insert(products)
+        .values({
+          companyId: user.companyId,
+          sku,
+          supplierCode: data.supplierCode,
+          thumbPath,
+          nameEn: data.nameEn,
+          nameZh: data.nameZh,
+          categoryId: data.categoryId,
+          descriptionEn: data.descriptionEn,
+          descriptionZh: data.descriptionZh,
+          price: data.price,
+          sellPrice: data.sellPrice,
+          currency: data.currency,
+          moq: data.moq,
+          qtyPerBox: data.qtyPerBox,
+          ...carton,
+          supplierId,
+          duplicatedFromId,
+          active: data.active,
+          createdBy: userId,
+          updatedBy: userId,
+          updatedAt: new Date().toISOString(),
+        })
+        .returning({ id: products.id });
+      return row;
+    });
+    if (!won) {
+      for (const path of uploaded) await deleteUpload(path);
+      return "limit-products";
+    }
+    inserted = won;
   } catch {
     // Two saves racing onto the same auto-assigned SKU: the loser retries by hand.
     for (const path of uploaded) await deleteUpload(path);
