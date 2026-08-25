@@ -55,3 +55,17 @@ export async function setExtraSeats(companyId: number, extraSeats: number): Prom
   await db.update(companies).set({ extraSeats: seats }).where(eq(companies.id, companyId));
   revalidatePath("/16015975/mbarete-admin");
 }
+
+/**
+ * An on-demand backup from the panel — the "before I touch anything" button.
+ * The same run the scheduler makes; see src/lib/backups.ts.
+ */
+export async function backupNow(): Promise<{ ok: boolean; detail: string }> {
+  await requirePlatformAdmin();
+  const { runBackup } = await import("@/lib/backups");
+  const result = await runBackup();
+  revalidatePath("/16015975/mbarete-admin");
+  return result.ok
+    ? { ok: true, detail: `${result.name}: ${result.rows} rows, ${result.files} files` }
+    : { ok: false, detail: result.error };
+}

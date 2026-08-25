@@ -2,6 +2,8 @@ import { requirePlatformAdmin } from "@/lib/authz";
 import { loadPlatformOverview, type CompanyMetrics } from "@/lib/platform/metrics";
 import { ModuleToggle } from "./module-toggle";
 import { PlanSelect } from "./plan-select";
+import { BackupNow } from "./backup-now";
+import { backupStatus, type BackupStatus } from "@/lib/backups";
 import { SeatStepper } from "./seat-stepper";
 import { planOf, seatLimit, usageLabel } from "@/lib/plans";
 
@@ -78,19 +80,51 @@ function Tile({ label, value }: { label: string; value: number }) {
   );
 }
 
+/** Where the disaster copy stands, always in view of the operator's chair. */
+function BackupLine({ status, now }: { status: BackupStatus; now: number }) {
+  if (!status.configured) {
+    return (
+      <span className="text-[11px] text-faint" data-testid="backup-status">
+        Backups off — set BACKUP_DIR
+      </span>
+    );
+  }
+  const ageH = status.newestMs === null ? null : Math.floor((now - status.newestMs) / 3_600_000);
+  const stale = ageH === null || ageH >= 26;
+  const text =
+    status.newestMs === null
+      ? "no backups yet"
+      : `${status.count} kept · last ${ageH === 0 ? "under an hour" : `${ageH}h`} ago`;
+  return (
+    <span
+      className={`text-[11px] ${stale ? "font-medium text-amber-700" : "text-sub"}`}
+      data-testid="backup-status"
+    >
+      Backups: {text}
+      {status.lastError ? ` · last run failed: ${status.lastError}` : ""}
+      {stale ? " · STALE" : ""}
+    </span>
+  );
+}
+
 export default async function PlatformAdminPage() {
   const operator = await requirePlatformAdmin();
   const { companies, totals } = await loadPlatformOverview();
+  const backups = await backupStatus();
   const now = nowMs();
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
-      <header className="mb-8 flex items-baseline justify-between gap-4">
+      <header className="mb-8 flex flex-wrap items-baseline justify-between gap-4">
         <div>
           <h1 className="text-[23px] font-extrabold tracking-tight text-ink">Mbarete Platform</h1>
           <p className="text-sm text-sub">
             Signed in as {operator.email}. Counts and activity only — tenant money is never shown here.
           </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <BackupLine status={backups} now={now} />
+          {backups.configured ? <BackupNow /> : null}
         </div>
       </header>
 

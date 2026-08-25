@@ -10,5 +10,9 @@ export async function register() {
     // Exchange rates refresh themselves from here on; see src/lib/forex.ts.
     const { startForexAutoRefresh } = await import("./src/lib/forex");
     startForexAutoRefresh();
+
+    // Daily snapshots of the database and uploads; see src/lib/backups.ts.
+    const { startBackupScheduler } = await import("./src/lib/backups");
+    startBackupScheduler();
   }
 }

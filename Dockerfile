@@ -38,8 +38,8 @@ ENV UPLOADS_DIR=/app/uploads
 
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs \
-  && mkdir -p /app/data /app/uploads \
-  && chown -R nextjs:nodejs /app/data /app/uploads
+  && mkdir -p /app/data /app/uploads /app/backups \
+  && chown -R nextjs:nodejs /app/data /app/uploads /app/backups
 
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
