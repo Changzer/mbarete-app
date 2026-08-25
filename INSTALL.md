@@ -505,18 +505,16 @@ this only works while that machine is on and the proxy is running.
 
 ## Backing up your data
 
-Your products, orders, contacts, and uploaded images live in Docker volumes, separate from the code. They survive updates and restarts.
+The app backs itself up: once a day it snapshots the whole database and every
+uploaded file into the `mbarete-backups` volume, keeping the last 14 copies.
+Nothing to set up. The admin panel shows the backup count and age, and has a
+**Back up now** button for right before an update.
 
-To make a backup file you can copy somewhere safe:
-
-```
-cd /volume1/docker/mbarete-app
-docker run --rm -v mbarete-app_mbarete-data:/data -v mbarete-app_mbarete-uploads:/uploads -v /volume1/docker:/backup alpine tar czf /backup/mbarete-backup-$(date +%Y%m%d).tar.gz /data /uploads
-```
-
-**You should see** no output, and a new file appears at `/volume1/docker/mbarete-backup-YYYYMMDD.tar.gz`. Copy that file somewhere safe (another drive, cloud storage) using the NAS File Manager.
-
-Worth doing once a month, or before any update.
+What to still do by hand: copy the backups somewhere that is not this NAS
+(another drive, cloud storage) now and then — a backup on the machine that
+dies with the machine protects nothing. The full story, including the
+step-by-step restore procedure (same server or a brand-new one), is in
+[docs/BACKUPS.md](docs/BACKUPS.md).
 
 > ⚠️ **Never run `docker compose down -v`.** The `-v` deletes your volumes — meaning every product, order, and contact you've entered. Plain `docker compose down` is always safe.
 

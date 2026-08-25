@@ -58,6 +58,12 @@ services:
       FOREX_PROVIDERS: ${FOREX_PROVIDERS:-}
       # AI photo transcription. Moonshot (Kimi) is preferred when set;
       # Anthropic (Claude) is the fallback. Unset both to hide the AI features.
+      # Automated backups: daily snapshot of database + uploads into the
+      # backups volume below, pruned to BACKUP_RETENTION copies. See
+      # docs/BACKUPS.md for what is kept and how to restore.
+      BACKUP_DIR: ${BACKUP_DIR:-/app/backups}
+      BACKUP_RETENTION: ${BACKUP_RETENTION:-14}
+      BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
       MOONSHOT_API_KEY: ${MOONSHOT_API_KEY:-}
       MOONSHOT_BASE_URL: ${MOONSHOT_BASE_URL:-}
       MOONSHOT_MODEL: ${MOONSHOT_MODEL:-}
@@ -73,8 +79,13 @@ services:
       # Existing images keep working — they are still in this volume, and the
       # /uploads route now streams them from the new path.
       - mbarete-uploads:/app/uploads
+      # Daily snapshots land here. Point BACKUP_DIR at a bind mount instead
+      # (e.g. a different disk or a NAS share) to keep backups off the same
+      # volume set as the data they protect.
+      - mbarete-backups:/app/backups
 
 volumes:
   mbarete-data:
   mbarete-pgdata:
   mbarete-uploads:
+  mbarete-backups:
