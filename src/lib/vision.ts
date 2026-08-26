@@ -1,5 +1,4 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 
 /**
@@ -48,7 +47,7 @@ export async function extractJson<S extends z.ZodType>(opts: {
   userText: string;
   images: VisionImage[];
   schema: S;
-  /** Compact key spec appended to the prompt on the JSON-mode backend. */
+  /** Compact key spec appended to the prompt so the model knows the keys. */
   jsonSpec: string;
 }): Promise<z.infer<S> | null> {
   const provider = visionProvider();
@@ -57,17 +56,25 @@ export async function extractJson<S extends z.ZodType>(opts: {
   return null;
 }
 
+/**
+ * NOT structured outputs: the API caps schemas at 16 union-typed parameters
+ * and the product schema's nullable fields count 21, so output_config gets
+ * a 400 before the model sees a photo. Both backends therefore work the
+ * same way — the key spec rides in the prompt and the answer is validated
+ * here, which keeps them interchangeable.
+ */
 async function extractWithAnthropic<S extends z.ZodType>(opts: {
   system: string;
   userText: string;
   images: VisionImage[];
   schema: S;
+  jsonSpec: string;
 }): Promise<z.infer<S> | null> {
   const client = new Anthropic();
-  const response = await client.messages.parse({
+  const response = await client.messages.create({
     model: ANTHROPIC_MODEL,
     max_tokens: 4000,
-    system: opts.system,
+    system: `${opts.system}\n\nRespond with a single JSON object with exactly these keys (null when unknown): ${opts.jsonSpec}\nOutput only the JSON object — no prose, no code fences.`,
     messages: [
       {
         role: "user",
@@ -87,9 +94,24 @@ async function extractWithAnthropic<S extends z.ZodType>(opts: {
         ],
       },
     ],
-    output_config: { format: zodOutputFormat(opts.schema) },
   });
-  return response.parsed_output ?? null;
+  const content = response.content
+    .map((block) => (block.type === "text" ? block.text : ""))
+    .join("");
+  return parseModelJson(content, opts.schema);
+}
+
+/** The model's text answer, defensively unfenced, parsed and validated. */
+function parseModelJson<S extends z.ZodType>(content: string, schema: S): z.infer<S> | null {
+  const stripped = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stripped);
+  } catch {
+    return null;
+  }
+  const result = schema.safeParse(parsed);
+  return result.success ? result.data : null;
 }
 
 async function extractWithMoonshot<S extends z.ZodType>(opts: {
@@ -151,14 +173,5 @@ async function extractWithMoonshot<S extends z.ZodType>(opts: {
     choices?: { message?: { content?: string } }[];
   };
   const content = body.choices?.[0]?.message?.content ?? "";
-  // JSON mode should return bare JSON; strip fences defensively anyway.
-  const stripped = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(stripped);
-  } catch {
-    return null;
-  }
-  const result = opts.schema.safeParse(parsed);
-  return result.success ? result.data : null;
+  return parseModelJson(content, opts.schema);
 }
