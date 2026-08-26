@@ -12,6 +12,39 @@ import bcrypt from "bcryptjs";
  * starter categories and exchange rates every tenant begins with.
  */
 
+/**
+ * Roughly how the Yiwu market itself is laid out, plus a General catch-all.
+ * Every new tenant starts with the full list: photo transcription picks a
+ * category from what exists, and three generic ones taught the model to
+ * shelve rubber toys under Bags. Deleting unwanted ones is one tap each and
+ * deletions stick — nothing re-seeds once the company has any category.
+ */
+export const STARTER_CATEGORIES: { nameEn: string; nameZh: string }[] = [
+  { nameEn: "General", nameZh: "综合" },
+  { nameEn: "Stationery", nameZh: "文具" },
+  { nameEn: "Toys", nameZh: "玩具" },
+  { nameEn: "Jewelry & Accessories", nameZh: "饰品" },
+  { nameEn: "Cosmetics & Beauty Tools", nameZh: "美妆用品" },
+  { nameEn: "Skincare", nameZh: "护肤品" },
+  { nameEn: "Kitchenware", nameZh: "厨房用品" },
+  { nameEn: "Home Goods", nameZh: "家居用品" },
+  { nameEn: "Hardware & Tools", nameZh: "五金工具" },
+  { nameEn: "Electronics", nameZh: "电子产品" },
+  { nameEn: "Lighting", nameZh: "灯具" },
+  { nameEn: "Watches & Eyewear", nameZh: "钟表眼镜" },
+  { nameEn: "Bags & Luggage", nameZh: "箱包" },
+  { nameEn: "Umbrellas & Rainwear", nameZh: "雨具" },
+  { nameEn: "Socks & Hosiery", nameZh: "袜子" },
+  { nameEn: "Apparel", nameZh: "服装" },
+  { nameEn: "Shoes", nameZh: "鞋类" },
+  { nameEn: "Sports & Outdoor", nameZh: "运动户外" },
+  { nameEn: "Pet Supplies", nameZh: "宠物用品" },
+  { nameEn: "Auto Accessories", nameZh: "汽车用品" },
+  { nameEn: "Party & Festive", nameZh: "节庆用品" },
+  { nameEn: "Artificial Flowers", nameZh: "仿真花" },
+  { nameEn: "Packaging", nameZh: "包装材料" },
+];
+
 /** The starter rows a brand-new company begins with, per its own tenant. */
 export async function seedCompanyDefaults(
   companyId: number,
@@ -22,11 +55,7 @@ export async function seedCompanyDefaults(
     .from(categories)
     .where(eq(categories.companyId, companyId));
   if (existingCategories.length === 0) {
-    await tx.insert(categories).values([
-      { companyId, nameEn: "General", nameZh: "综合" },
-      { companyId, nameEn: "Electronics", nameZh: "电子产品" },
-      { companyId, nameEn: "Home Goods", nameZh: "家居用品" },
-    ]);
+    await tx.insert(categories).values(STARTER_CATEGORIES.map((c) => ({ companyId, ...c })));
   }
 
   // RMB and CNY are the same currency under two codes; suppliers quote in both.
