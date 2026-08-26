@@ -10,8 +10,24 @@ Time budget: about an hour, most of it waiting for the build.
 
 ## 0. Provisioning choices (on the provider's order page)
 
-- **Region**: Hong Kong — fast from Yiwu, no ICP filing needed, and both
-  Moonshot and Anthropic APIs are reachable.
+- **Region**: **Singapore, Tokyo, or Taipei** — fast from Yiwu, no ICP filing
+  needed, and Anthropic's vision API answers from there. Not Hong Kong:
+  it looked obvious and failed the live test twice over — Anthropic
+  geo-blocks HK addresses (`403 Request not allowed`), and Moonshot's
+  anti-DDoS edge drops the app's large photo uploads from that network
+  (both in Troubleshooting below). Whatever region you pick, run this as
+  the very first command after your first SSH login — no key needed, and
+  if it fails, destroy the instance and pick another region before
+  investing a minute more:
+
+  ```sh
+  curl -s https://api.anthropic.com/v1/messages \
+    -H "content-type: application/json" -d '{}'
+  ```
+
+  `authentication_error` is the good answer — the request got past the
+  geo gate and died at the missing key. `Request not allowed` means this
+  region cannot run AI transcription: pick another.
 - **Image**: plain **Ubuntu 24.04 LTS** (22.04 if not offered). Not a
   pre-baked "application image" — the app brings everything it needs.
 - **Size**: 2 vCPU / **4 GB RAM** / 50 GB SSD. The 4 GB matters: the Docker
@@ -243,3 +259,11 @@ No code changes: `src/lib/vision.ts` speaks both APIs and validates both
 into the same shape. On a server whose network does reach Moonshot (a
 mainland box, a NAS at home), leave `TRANSCRIBE_PROVIDER` unset — the
 Moonshot key wins automatically when present.
+
+The switch has a trap of its own: Anthropic geo-blocks unsupported
+regions, Hong Kong included — every request from a blocked address gets
+`403 {"type":"forbidden","message":"Request not allowed"}` before the
+key is even read, so no `.env` change can fix it. A 403 there means the
+server's REGION is wrong, and Hong Kong is the unlucky pick where both
+backends fail at once. Hence the region advice in section 0 and its
+first-login probe.
