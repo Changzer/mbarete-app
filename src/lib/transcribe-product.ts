@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { extractJson, type VisionImage } from "@/lib/vision";
+import { extractJson, type VisionImage, type VisionUsage } from "@/lib/vision";
 
 /**
  * Reads market photos — the product plus its handwritten price board — and
@@ -137,8 +137,10 @@ Rules:
 export async function transcribeProductPhotos(
   images: VisionImage[],
   categories: TranscribeCategory[],
+  onUsage?: (usage: VisionUsage) => void,
 ): Promise<TranscribeResult> {
   const raw = await extractJson({
+    onUsage,
     system: SYSTEM_PROMPT,
     userText:
       `Available categories (id — English name / Chinese name):\n` +

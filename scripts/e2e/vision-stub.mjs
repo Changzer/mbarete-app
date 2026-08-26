@@ -53,6 +53,8 @@ const server = http.createServer((req, res) => {
     res.end(
       JSON.stringify({
         choices: [{ message: { content: JSON.stringify(STUB_READING) } }],
+        // Fixed pretend bill so usage accounting is exercised end to end.
+        usage: { prompt_tokens: 2400, completion_tokens: 350 },
       }),
     );
   });

@@ -1,6 +1,6 @@
 import { count, countDistinct, eq, max, sql, sum, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { companies, users, products, orders, contacts, userActivityDays, invites } from "@/db/schema";
+import { companies, users, products, orders, contacts, userActivityDays, invites, aiUsage } from "@/db/schema";
 import { companyStorageBytes } from "@/lib/uploads";
 
 /**
@@ -44,6 +44,11 @@ export type CompanyMetrics = {
   lastSeenAt: string | null;
   activeSeconds: number;
   storageBytes: number;
+  /** The AI spend ledger, summed: scans run, photos read, token bill. */
+  aiScans: number;
+  aiImages: number;
+  aiInputTokens: number;
+  aiOutputTokens: number;
 };
 
 export type PlatformOverview = {
@@ -67,6 +72,7 @@ export async function loadPlatformOverview(): Promise<PlatformOverview> {
     orderCounts,
     inviteCounts,
     activityRows,
+    aiRows,
   ] = await Promise.all([
     db.select().from(companies).orderBy(companies.id),
     db
@@ -100,6 +106,16 @@ export async function loadPlatformOverview(): Promise<PlatformOverview> {
       })
       .from(userActivityDays)
       .groupBy(userActivityDays.companyId),
+    db
+      .select({
+        companyId: aiUsage.companyId,
+        scans: count(),
+        images: sum(aiUsage.images),
+        input: sum(aiUsage.inputTokens),
+        output: sum(aiUsage.outputTokens),
+      })
+      .from(aiUsage)
+      .groupBy(aiUsage.companyId),
   ]);
 
   const byCompany = <T extends { companyId: number }>(rows: T[]) => {
@@ -117,6 +133,7 @@ export async function loadPlatformOverview(): Promise<PlatformOverview> {
   const ordersBy = byCompany(orderCounts);
   const invitesBy = byCompany(inviteCounts);
   const activityBy = byCompany(activityRows);
+  const aiBy = byCompany(aiRows);
 
   const storage = new Map<number, number>();
   await Promise.all(
@@ -143,6 +160,7 @@ export async function loadPlatformOverview(): Promise<PlatformOverview> {
     const contactRows = contactsBy.get(c.id) ?? [];
     const orderRows = ordersBy.get(c.id) ?? [];
     const activity = activityBy.get(c.id)?.[0];
+    const ai = aiBy.get(c.id)?.[0];
     const status = (s: string) => orderRows.find((r) => r.status === s)?.n ?? 0;
     return {
       id: c.id,
@@ -170,6 +188,10 @@ export async function loadPlatformOverview(): Promise<PlatformOverview> {
       lastSeenAt: activity?.lastSeen ?? null,
       activeSeconds: Number(activity?.seconds ?? 0),
       storageBytes: storage.get(c.id) ?? 0,
+      aiScans: ai?.scans ?? 0,
+      aiImages: Number(ai?.images ?? 0),
+      aiInputTokens: Number(ai?.input ?? 0),
+      aiOutputTokens: Number(ai?.output ?? 0),
     };
   });
 
