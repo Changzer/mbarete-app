@@ -203,6 +203,20 @@ test("a booth capture becomes a product, an order, a quote and an invoice", asyn
     assert.match(invoice.text, /Bill to/i, "BILL TO returns on the invoice");
     assert.match(invoice.text, /Golden Path Client/, "billed to the order's client");
 
+    // The accountant pack for the current month: structure, not contents —
+    // a 200, a ZIP magic number, and a period-stamped filename prove the
+    // route, auth chain and archive assembly end to end.
+    const month = new Date().toISOString().slice(0, 7);
+    const pack = await context.request.get(
+      `${BASE}/api/export/accountant-pack?from=${month}&to=${month}`,
+    );
+    assert.equal(pack.status(), 200, "accountant pack streams for an admin");
+    assert.match(pack.headers()["content-type"] ?? "", /application\/zip/);
+    assert.match(pack.headers()["content-disposition"] ?? "", new RegExp(month));
+    const packBody = await pack.body();
+    assert.ok(packBody.length > 1000, "pack has substance");
+    assert.equal(packBody.slice(0, 2).toString("latin1"), "PK", "pack is a real zip");
+
     await context.close();
   } finally {
     await browser.close();

@@ -8,6 +8,7 @@ import { sessionUser } from "@/lib/authz";
 import { uploadsDir } from "@/lib/uploads";
 import { isSaas } from "@/lib/deploy";
 import { makeLimiter } from "@/lib/rate-limit";
+import { toCsv } from "@/lib/csv";
 
 // A backup walks every table and streams every file the company owns —
 // the single heaviest thing the app does. Nobody backs up more than a few
@@ -54,24 +55,10 @@ const TABLES: { name: string; scope: "company_id" | "id"; omit?: string[] }[] = 
   { name: "order_payments", scope: "company_id" },
   { name: "order_expenses", scope: "company_id" },
   { name: "order_events", scope: "company_id" },
+  { name: "period_closes", scope: "company_id" },
+  { name: "ai_usage", scope: "company_id" },
   { name: "entity_events", scope: "company_id" },
 ];
-
-function csvCell(value: unknown): string {
-  if (value === null || value === undefined) return "";
-  const s = typeof value === "object" ? JSON.stringify(value) : String(value);
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-
-function toCsv(rows: Record<string, unknown>[], omit: string[] = []): string {
-  if (rows.length === 0) return "";
-  const cols = Object.keys(rows[0]).filter((c) => !omit.includes(c));
-  const lines = [cols.join(",")];
-  for (const row of rows) {
-    lines.push(cols.map((c) => csvCell(row[c])).join(","));
-  }
-  return lines.join("\r\n") + "\r\n";
-}
 
 async function isDir(p: string): Promise<boolean> {
   return fs

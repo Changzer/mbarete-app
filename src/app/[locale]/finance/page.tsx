@@ -2,6 +2,8 @@ import { getTranslations, getLocale } from "next-intl/server";
 import { Link, redirect } from "@/i18n/navigation";
 import { sessionUser, requireModulePage } from "@/lib/authz";
 import { getFinanceData } from "@/lib/queries/finance";
+import { listPeriodCloses } from "@/lib/queries/accountant";
+import { AccountantPackCard } from "@/components/finance/accountant-pack-card";
 import { computeFinanceReport } from "@/lib/finance-report";
 
 /**
@@ -27,6 +29,7 @@ export default async function FinancePage({
   const financeT = await getTranslations("finance");
 
   const { orders, rates } = await getFinanceData(user!.companyId);
+  const closes = await listPeriodCloses(user!.companyId);
   const codes = Object.keys(rates).sort();
   // RMB is the functional currency: costs are RMB, so profit is real in RMB.
   const fallback = rates["RMB"] !== undefined ? "RMB" : "USD";
@@ -328,6 +331,9 @@ export default async function FinancePage({
           )}
         </div>
       </div>
+
+      <AccountantPackCard currency={reportCurrency} closes={closes} />
+
     </div>
   );
 }
