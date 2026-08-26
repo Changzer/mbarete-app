@@ -10,7 +10,7 @@ Time budget: about an hour, most of it waiting for the build.
 
 ## 0. Provisioning choices (on the provider's order page)
 
-- **Region**: **Singapore, Tokyo, or Taipei** — fast from Yiwu, no ICP filing
+- **Region**: **Tokyo, Seoul, or Singapore** — fast from Yiwu, no ICP filing
   needed, and Anthropic's vision API answers from there. Not Hong Kong:
   it looked obvious and failed the live test twice over — Anthropic
   geo-blocks HK addresses (`403 Request not allowed`), and Moonshot's
@@ -266,4 +266,6 @@ regions, Hong Kong included — every request from a blocked address gets
 key is even read, so no `.env` change can fix it. A 403 there means the
 server's REGION is wrong, and Hong Kong is the unlucky pick where both
 backends fail at once. Hence the region advice in section 0 and its
-first-login probe.
+first-login probe. Live-tested: the large-POST drop reproduces from
+Tokyo too, so treat Moonshot as reachable-from-the-mainland-only and
+plan on the Anthropic backend for any overseas box.
