@@ -60,13 +60,16 @@ export async function signUp(
 
   if (password !== confirm) return { error: "password-mismatch" };
 
-  // Two doors in: the platform-wide code, or another company's referral
-  // link. An unset code closes the code door rather than opening it
-  // (see deploy.ts); a bogus ref opens nothing.
+  // Two doors in, with different trust. The platform-wide code was handed
+  // over personally, so it admits straight to service. A referral link only
+  // queues the company as "pending" — the operator approves from the panel
+  // before anything past the waiting screen exists for it. An unset code
+  // closes the code door rather than opening it (see deploy.ts); a bogus
+  // ref opens nothing.
   const referrer = ref ? await companyByReferralCode(ref) : null;
   const expected = signupCode();
-  const admitted = referrer !== null || (Boolean(expected) && code === expected);
-  if (!admitted) return { error: "bad-code" };
+  const codeOk = Boolean(expected) && code === expected;
+  if (!codeOk && referrer === null) return { error: "bad-code" };
 
   // Emails are globally unique — one account, one company. Check first for a
   // clean message instead of a raw unique-constraint error.
@@ -80,6 +83,7 @@ export async function signUp(
       ownerEmail: email,
       ownerPassword: password,
       referredByCompanyId: referrer?.id,
+      status: codeOk ? "active" : "pending",
     });
     // Best-effort: with SMTP configured the new owner gets a verify link;
     // without it, signup works exactly as before.

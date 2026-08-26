@@ -7,6 +7,9 @@ import { TestEmail } from "./test-email";
 import { backupStatus, type BackupStatus } from "@/lib/backups";
 import { SeatStepper } from "./seat-stepper";
 import { UnlockPanel } from "./unlock-panel";
+import { ApproveButton } from "./approve-button";
+import { SuspendToggle } from "./suspend-toggle";
+import { ResetLink } from "./reset-link";
 import { platformReauth } from "@/lib/platform/reauth";
 import { recentErrors, type ErrorEntry } from "@/lib/monitoring";
 import { planOf, seatLimit, usageLabel } from "@/lib/plans";
@@ -73,6 +76,15 @@ function nowMs(): number {
 function idleDaysOf(m: CompanyMetrics, now: number): number | null {
   if (!m.lastSeenAt) return null;
   return Math.floor((now - parseUtc(m.lastSeenAt)) / DAY_MS);
+}
+
+/** One figure with its unit label — the per-company stat strip is these. */
+function Stat({ value, label }: { value: string | number; label: string }) {
+  return (
+    <span className="whitespace-nowrap text-xs text-sub">
+      <span className="font-semibold tabular-nums text-ink">{value}</span> {label}
+    </span>
+  );
 }
 
 function Tile({ label, value }: { label: string; value: number }) {
@@ -162,6 +174,7 @@ export default async function PlatformAdminPage() {
           <BackupLine status={backups} now={now} />
           {backups.configured ? <BackupNow /> : null}
           <TestEmail />
+          <ResetLink />
         </div>
       </header>
 
@@ -173,76 +186,96 @@ export default async function PlatformAdminPage() {
         <Tile label="Referred" value={totals.referred} />
       </div>
 
-      <div className="overflow-x-auto rounded-[12px] border border-line bg-surface">
-        <table className="w-full text-sm" data-testid="companies-table">
-          <thead className="border-b border-line bg-surface-2 text-left text-xs uppercase tracking-wide text-sub">
-            <tr>
-              <th className="px-3 py-2 font-medium">Company</th>
-              <th className="px-3 py-2 text-right font-medium">Users</th>
-              <th className="px-3 py-2 text-right font-medium">Products</th>
-              <th className="px-3 py-2 text-right font-medium">Suppliers</th>
-              <th className="px-3 py-2 text-right font-medium">Clients</th>
-              <th className="px-3 py-2 text-right font-medium">Draft</th>
-              <th className="px-3 py-2 text-right font-medium">Confirmed</th>
-              <th className="px-3 py-2 text-right font-medium">Shipped</th>
-              <th className="px-3 py-2 text-right font-medium">Days active</th>
-              <th className="px-3 py-2 text-right font-medium">Time in app</th>
-              <th className="px-3 py-2 font-medium">Last seen</th>
-              <th className="px-3 py-2 text-right font-medium">Storage</th>
-              <th className="px-3 py-2 text-center font-medium">Plan</th>
-              <th className="px-3 py-2 text-center font-medium">Seats</th>
-              <th className="px-3 py-2 text-center font-medium">Orders</th>
-              <th className="px-3 py-2 text-center font-medium">Finance</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
-            {companies.map((m) => (
-              <tr key={m.id} data-testid={`company-row-${m.id}`}>
-                <td className="px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-ink">{m.name}</span>
-                    <span className="text-[11px] text-faint">#{m.id}</span>
-                    <ActivityChip idleDays={idleDaysOf(m, now)} />
+      {companies.some((m) => m.status === "pending") ? (
+        <div
+          className="mb-6 rounded-[12px] border border-amber-300 bg-amber-50 p-4"
+          data-testid="pending-queue"
+        >
+          <div className="mb-2 text-sm font-bold text-amber-900">Waiting for approval</div>
+          <ul className="divide-y divide-amber-200">
+            {companies
+              .filter((m) => m.status === "pending")
+              .map((m) => (
+                <li key={m.id} className="flex flex-wrap items-center justify-between gap-3 py-2">
+                  <div className="min-w-0 text-sm text-amber-900">
+                    <span className="font-semibold">{m.name}</span>
+                    <span className="ml-2 text-[12px]">{m.ownerEmail ?? "—"}</span>
+                    <span className="ml-2 text-[12px]">
+                      {m.referredByName ? `referred by ${m.referredByName}` : "no referrer"}
+                      {` · since ${m.createdAt.slice(0, 10)}`}
+                    </span>
                   </div>
-                  <div className="text-[11px] text-faint">
-                    since {m.createdAt.slice(0, 10)}
-                    {m.referredByName ? ` · referred by ${m.referredByName}` : ""}
-                    {m.referrals > 0 ? ` · ${m.referrals} referral${m.referrals > 1 ? "s" : ""}` : ""}
-                    {m.pendingInvites > 0 ? ` · ${m.pendingInvites} invite${m.pendingInvites > 1 ? "s" : ""} pending` : ""}
-                  </div>
-                </td>
-                <td className="px-3 py-2 text-right tabular-nums text-ink">
-                  {usageLabel(m.users, seatLimit(planOf(m.plan), m.extraSeats))}
-                </td>
-                <td className="px-3 py-2 text-right tabular-nums text-ink">
-                  {usageLabel(m.products, planOf(m.plan).maxProducts)}
-                </td>
-                <td className="px-3 py-2 text-right tabular-nums text-ink">{m.suppliers}</td>
-                <td className="px-3 py-2 text-right tabular-nums text-ink">{m.clients}</td>
-                <td className="px-3 py-2 text-right tabular-nums text-ink">{m.ordersDraft}</td>
-                <td className="px-3 py-2 text-right tabular-nums text-ink">{m.ordersConfirmed}</td>
-                <td className="px-3 py-2 text-right tabular-nums text-ink">{m.ordersShipped}</td>
-                <td className="px-3 py-2 text-right tabular-nums text-ink">{m.daysActive}</td>
-                <td className="px-3 py-2 text-right tabular-nums text-sub">{hours(m.activeSeconds)}</td>
-                <td className="px-3 py-2 text-sub">{ago(m.lastSeenAt)}</td>
-                <td className="px-3 py-2 text-right tabular-nums text-sub">{bytes(m.storageBytes)}</td>
-                <td className="px-3 py-2 text-center">
+                  <ApproveButton companyId={m.id} />
+                </li>
+              ))}
+          </ul>
+        </div>
+      ) : null}
+
+      <ul className="space-y-3" data-testid="companies-table">
+        {companies.filter((m) => m.status !== "pending").map((m) => (
+          <li
+            key={m.id}
+            className="rounded-[12px] border border-line bg-surface p-4"
+            data-testid={`company-row-${m.id}`}
+          >
+            <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h2 className="truncate text-[15px] font-bold text-ink">{m.name}</h2>
+                  <span className="shrink-0 text-[11px] text-faint">#{m.id}</span>
+                  {m.status === "suspended" ? (
+                    <span className="rounded-full bg-danger-soft px-2 py-0.5 text-[11px] font-semibold text-danger">
+                      frozen
+                    </span>
+                  ) : null}
+                  <ActivityChip idleDays={idleDaysOf(m, now)} />
+                </div>
+                <div className="mt-0.5 text-[11px] text-faint">
+                  since {m.createdAt.slice(0, 10)}
+                  {m.referredByName ? ` · referred by ${m.referredByName}` : ""}
+                  {m.referrals > 0 ? ` · ${m.referrals} referral${m.referrals > 1 ? "s" : ""}` : ""}
+                  {m.pendingInvites > 0 ? ` · ${m.pendingInvites} invite${m.pendingInvites > 1 ? "s" : ""} pending` : ""}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <span className="flex items-center gap-1.5 text-[11px] text-faint">
+                  Plan
                   <PlanSelect companyId={m.id} plan={m.plan} />
-                </td>
-                <td className="px-3 py-2 text-center">
+                </span>
+                <span className="flex items-center gap-1.5 text-[11px] text-faint">
+                  Seats
                   <SeatStepper companyId={m.id} extraSeats={m.extraSeats} />
-                </td>
-                <td className="px-3 py-2 text-center">
+                </span>
+                <span className="flex items-center gap-1.5 text-[11px] text-faint">
+                  Orders
                   <ModuleToggle companyId={m.id} module="orders" enabled={m.moduleOrders} />
-                </td>
-                <td className="px-3 py-2 text-center">
+                </span>
+                <span className="flex items-center gap-1.5 text-[11px] text-faint">
+                  Finance
                   <ModuleToggle companyId={m.id} module="finance" enabled={m.moduleFinance} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                </span>
+                <SuspendToggle companyId={m.id} suspended={m.status === "suspended"} />
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 border-t border-line pt-3">
+              <Stat value={usageLabel(m.users, seatLimit(planOf(m.plan), m.extraSeats))} label="users" />
+              <Stat value={usageLabel(m.products, planOf(m.plan).maxProducts)} label="products" />
+              <Stat value={m.suppliers} label="suppliers" />
+              <Stat value={m.clients} label="clients" />
+              <Stat value={m.ordersDraft} label="draft" />
+              <Stat value={m.ordersConfirmed} label="confirmed" />
+              <Stat value={m.ordersShipped} label="shipped" />
+              <Stat value={m.daysActive} label="days active" />
+              <Stat value={hours(m.activeSeconds)} label="in app" />
+              <span className="whitespace-nowrap text-xs text-sub">
+                seen <span className="font-semibold text-ink">{ago(m.lastSeenAt)}</span>
+              </span>
+              <Stat value={bytes(m.storageBytes)} label="stored" />
+            </div>
+          </li>
+        ))}
+      </ul>
 
       <p className="mt-4 text-[11px] leading-relaxed text-faint">
         Catalog and Contacts are core and always on. Switching a module off makes its pages,

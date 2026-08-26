@@ -1,6 +1,7 @@
 import { db, one, pool } from "./index";
 import { runWithTenant } from "./tenant-context";
 import { categories, companies } from "./schema";
+import { STARTER_CATEGORIES } from "../lib/company";
 import { eq } from "drizzle-orm";
 
 /**
@@ -13,32 +14,6 @@ import { eq } from "drizzle-orm";
  * Matching is case-insensitive on either language, so a category you have
  * already named differently in Chinese is left alone rather than duplicated.
  */
-
-/** Roughly how the Yiwu market itself is laid out. Trim to taste. */
-const STARTER_CATEGORIES: { nameEn: string; nameZh: string }[] = [
-  { nameEn: "Stationery", nameZh: "文具" },
-  { nameEn: "Toys", nameZh: "玩具" },
-  { nameEn: "Jewelry & Accessories", nameZh: "饰品" },
-  { nameEn: "Cosmetics & Beauty Tools", nameZh: "美妆用品" },
-  { nameEn: "Skincare", nameZh: "护肤品" },
-  { nameEn: "Kitchenware", nameZh: "厨房用品" },
-  { nameEn: "Home Goods", nameZh: "家居用品" },
-  { nameEn: "Hardware & Tools", nameZh: "五金工具" },
-  { nameEn: "Electronics", nameZh: "电子产品" },
-  { nameEn: "Lighting", nameZh: "灯具" },
-  { nameEn: "Watches & Eyewear", nameZh: "钟表眼镜" },
-  { nameEn: "Bags & Luggage", nameZh: "箱包" },
-  { nameEn: "Umbrellas & Rainwear", nameZh: "雨具" },
-  { nameEn: "Socks & Hosiery", nameZh: "袜子" },
-  { nameEn: "Apparel", nameZh: "服装" },
-  { nameEn: "Shoes", nameZh: "鞋类" },
-  { nameEn: "Sports & Outdoor", nameZh: "运动户外" },
-  { nameEn: "Pet Supplies", nameZh: "宠物用品" },
-  { nameEn: "Auto Accessories", nameZh: "汽车用品" },
-  { nameEn: "Party & Festive", nameZh: "节庆用品" },
-  { nameEn: "Artificial Flowers", nameZh: "仿真花" },
-  { nameEn: "Packaging", nameZh: "包装材料" },
-];
 
 export async function addStarterCategories(list = STARTER_CATEGORIES) {
   // Run by hand on a self-hosted install: there is exactly one company.

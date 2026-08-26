@@ -72,7 +72,10 @@ export function ContactManager({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[12.5px] text-sub">
+          {t(type === "supplier" ? "countSuppliers" : "countClients", { count: contacts.length })}
+        </span>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button size="sm" onClick={openCreate}>
@@ -202,7 +205,7 @@ export function ContactManager({
                     ) : null}
                   </td>
                   <td className="px-4 py-2 text-ink">{c.contactPerson}</td>
-                  <td className="px-4 py-2 text-ink">{c.phone}</td>
+                  <td className="whitespace-nowrap px-4 py-2 text-ink">{c.phone}</td>
                   <td className="px-4 py-2 text-ink">
                     <WechatCell contact={c} scanHint={t("wechatQrHelp")} />
                   </td>
@@ -211,11 +214,11 @@ export function ContactManager({
                   </td>
                   <td className="px-4 py-2">
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => openEdit(c)}>
+                      <Button variant="outline" size="sm" onClick={() => openEdit(c)}>
                         {common("edit")}
                       </Button>
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
                         onClick={() => setSupplierActive(c.id, !c.active)}
                       >
@@ -223,8 +226,9 @@ export function ContactManager({
                       </Button>
                       {isAdmin ? (
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
+                          className="text-danger"
                           onClick={() => removeContact(c.id)}
                         >
                           {common("delete")}

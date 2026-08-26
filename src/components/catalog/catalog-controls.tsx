@@ -56,13 +56,13 @@ export function CatalogControls({
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 md:flex-row md:items-center">
       <CategoryPicker
         categories={categories}
         value={currentCategory}
         onChange={(v) => updateParam("category", v)}
         locale={locale}
-        className="w-full"
+        className="w-full md:w-52"
       />
 
       <div className="flex items-center gap-2">
@@ -74,7 +74,7 @@ export function CatalogControls({
           onChange={(v) => updateParam("supplier", v)}
           emptyValue="all"
           emptyLabel={t("allSuppliersChip")}
-          className="min-w-0 flex-1 md:max-w-64"
+          className="min-w-0 flex-1 md:w-52 md:flex-none"
           data-testid="supplier-filter"
         />
         <Chip

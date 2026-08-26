@@ -305,7 +305,9 @@
     "inactive": "已停用",
     "bankInfoShow": "显示",
     "bankInfoHide": "隐藏",
-    "bankInfoVerify": "付款前请与名片照片核对这些数字。"
+    "bankInfoVerify": "付款前请与名片照片核对这些数字。",
+    "countSuppliers": "{count} 家供应商",
+    "countClients": "{count} 位客户"
   },
   "orders": {
     "title": "订单",
@@ -628,7 +630,6 @@
     "accountOther": "其他 / 无",
     "fxGainLoss": "汇率损益（至今）",
     "gatewayHint": "请按实际到账金额记录。若支付平台（如 XTransfer）到账时已结汇，请填写实际收到的人民币金额并标记人民币账户——而不是客户汇出的金额。",
-    "tileQuoted": "报价中 · {count} 份草稿",
     "storageFull": "当前套餐的存储空间已满——请联系 Mbarete 升级。"
   },
   "financeReport": {
@@ -641,6 +642,7 @@
     "tileReceivables": "客户应付",
     "tilePayables": "应付供应商",
     "tileNetCash": "当前净现金",
+    "tileQuoted": "报价中 · {count} 份草稿",
     "receivables": "待客户付款",
     "payables": "待付供应商",
     "allSettled": "无未结款项。",
@@ -787,5 +789,12 @@
     "failed": "同步失败 — 重试",
     "conflict": "冲突 — 需处理",
     "imagePending": "图片待上传"
+  },
+  "accountStatus": {
+    "pendingTitle": "等待审核",
+    "pendingBody": "您的公司已完成注册，正在等待平台审核。审核通过后我们会通知 {email} —— 您也可以随时回到此页查看。",
+    "suspendedTitle": "账号已被暂停",
+    "suspendedBody": "平台运营方已暂停访问。您的数据完好并始终属于您 —— 管理员可在下方下载完整备份。如需恢复请联系平台运营方。",
+    "signOut": "退出登录"
   }
 }

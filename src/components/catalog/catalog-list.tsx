@@ -47,16 +47,21 @@ export function CatalogList({
 
   return (
     <div className="flex flex-col gap-3">
-      <SearchBar
-        value={query}
-        onChange={setQuery}
-        placeholder={t("search")}
-        recentKey="mb-catalog-recent"
-        recentLabel={t("searchRecent")}
-        clearLabel={t("searchClear")}
-      />
+      {/* One row on a desktop — search stretching, filters trailing — and
+          the phone's stack below lg, where width is the scarce thing. */}
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+        <SearchBar
+          value={query}
+          onChange={setQuery}
+          placeholder={t("search")}
+          recentKey="mb-catalog-recent"
+          recentLabel={t("searchRecent")}
+          clearLabel={t("searchClear")}
+          className="lg:min-w-0 lg:flex-1"
+        />
 
-      {filters}
+        {filters}
+      </div>
 
       <OfflineStrip />
 
@@ -115,17 +120,20 @@ function CatalogTable({ products }: { products: CatalogProduct[] }) {
   const t = useTranslations("catalog");
   return (
     <div className="hidden overflow-x-auto rounded-[12px] border border-line bg-surface xl:block">
-      <table className="w-full min-w-[880px] text-left">
+      {/* Fixed layout: auto-sizing let each column's widest content set its
+          width, so the grid shifted with the data — headers seemed to float
+          over nothing. Data columns get set widths; the name takes the rest. */}
+      <table className="w-full min-w-[880px] table-fixed text-left">
         <thead>
           <tr className="border-b border-line font-mono text-[10.5px] font-bold uppercase tracking-[0.1em] text-sub">
             <th className="px-3 py-2.5 font-bold">{t("columnProduct")}</th>
-            <th className="px-3 py-2.5 font-bold">{t("sku")}</th>
-            <th className="px-3 py-2.5 font-bold">{t("price")}</th>
-            <th className="px-3 py-2.5 font-bold">
+            <th className="w-24 px-3 py-2.5 font-bold">{t("sku")}</th>
+            <th className="w-28 px-3 py-2.5 font-bold">{t("price")}</th>
+            <th className="w-48 whitespace-nowrap px-3 py-2.5 font-bold">
               {t("moq")} · {t("qtyPerBox")}
             </th>
-            <th className="px-3 py-2.5 font-bold">{t("supplier")}</th>
-            <th className="px-3 py-2.5 text-right font-bold">{t("status")}</th>
+            <th className="w-44 px-3 py-2.5 font-bold">{t("supplier")}</th>
+            <th className="w-36 px-3 py-2.5 text-right font-bold">{t("status")}</th>
           </tr>
         </thead>
         <tbody>
