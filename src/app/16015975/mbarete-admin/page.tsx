@@ -3,6 +3,7 @@ import { loadPlatformOverview, type CompanyMetrics } from "@/lib/platform/metric
 import { ModuleToggle } from "./module-toggle";
 import { PlanSelect } from "./plan-select";
 import { BackupNow } from "./backup-now";
+import { TestEmail } from "./test-email";
 import { backupStatus, type BackupStatus } from "@/lib/backups";
 import { SeatStepper } from "./seat-stepper";
 import { UnlockPanel } from "./unlock-panel";
@@ -160,6 +161,7 @@ export default async function PlatformAdminPage() {
           <ErrorsLine errors={errors} />
           <BackupLine status={backups} now={now} />
           {backups.configured ? <BackupNow /> : null}
+          <TestEmail />
         </div>
       </header>
 
