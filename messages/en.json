@@ -195,7 +195,7 @@
     "notMeasuredYet": "No carton measurements yet. Orders with this product will under-report volume and weight until they are added.",
     "optionalPlaceholder": "Optional",
     "measurementsOptional": "Leave these blank if you do not have them yet — you can add them later. Orders will flag any product still missing them.",
-    "errorRequiredFields": "A name (either language), supplier price, MOQ and pieces per carton are required — the missing ones are marked * and highlighted.",
+    "errorRequiredFields": "A name (either language), MOQ and pieces per carton are required — the missing ones are marked * and highlighted.",
     "errorDuplicateSku": "That SKU already belongs to another product.",
     "errorImage": "The photos could not be saved. Try again.",
     "deleteCategoryInUse": "Products still use this category. Move them to another category first, then delete it.",
@@ -259,7 +259,8 @@
     "identityGroup": "Product code",
     "aiBoardRead": "Board read as",
     "noCategoryMatches": "No categories match",
-    "errorPlanLimit": "Your plan's product limit is reached — contact Mbarete to upgrade."
+    "errorPlanLimit": "Your plan's product limit is reached — contact Mbarete to upgrade.",
+    "costPriceHint": "No quote yet? Leave it empty and fill it in when the supplier answers."
   },
   "contacts": {
     "title": "Contacts",

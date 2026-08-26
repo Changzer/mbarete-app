@@ -440,13 +440,14 @@ export function ProductForm({
           empty.add("nameEn");
           empty.add("nameZh");
         }
-        for (const field of ["price", "moq", "qtyPerBox"]) {
+        // Price is deliberately absent: a product photographed before the
+        // supplier has quoted saves at 0 and gets priced when the quote
+        // lands — the floor is a name.
+        for (const field of ["moq", "qtyPerBox"]) {
           if (!String(formData.get(field) ?? "").trim()) empty.add(field);
         }
         setMissing(empty);
-        const first = ["nameEn", "nameZh", "price", "moq", "qtyPerBox"].find((f) =>
-          empty.has(f),
-        );
+        const first = ["nameEn", "nameZh", "moq", "qtyPerBox"].find((f) => empty.has(f));
         if (first) {
           document.getElementById(first)?.scrollIntoView({ behavior: "smooth", block: "center" });
           document.getElementById(first)?.focus({ preventScroll: true });
@@ -702,11 +703,10 @@ export function ProductForm({
       */}
       <FormSection kicker={t("commercial")} className="lg:col-span-2">
         <div className="grid grid-cols-2 gap-3">
-          <Field label={t("costPrice")} htmlFor="price" required>
+          <Field label={t("costPrice")} htmlFor="price" hint={t("costPriceHint")}>
             <Input
               id="price"
               name="price"
-              className={missing.has("price") ? "border-danger" : undefined}
               type="text"
               numeric
               inputMode="decimal"
