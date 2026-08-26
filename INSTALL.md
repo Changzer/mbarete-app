@@ -328,6 +328,30 @@ cd /volume1/docker/mbarete-app
 
 **The app starts automatically when your NAS reboots** — you don't need to do anything after a power cut or restart.
 
+### Knowing when it breaks (5 minutes, worth it)
+
+Right now, if the app dies you find out when someone can't open it. Two
+free additions fix that:
+
+1. **Uptime alarm.** Make a free account at https://healthchecks.io, create
+   a check with a period of ~5 minutes, and copy its **ping URL** into your
+   `.env`:
+   ```
+   HEARTBEAT_URL=https://hc-ping.com/your-uuid-here
+   ```
+   Then `docker compose up -d`. While the app and its database are healthy
+   it pings that URL every minute; the moment the pings stop — crash, disk
+   full, power cut — healthchecks emails you. This works even though the
+   NAS is not reachable from the internet, because the pings go *outward*.
+2. **Error emails.** If you've set up `SMTP_*`, the first time any new
+   server error appears you get one email about it (hard-throttled so a
+   bad night is a few emails, never hundreds). The platform panel also
+   shows the last 24 hours of errors. Optionally set `ALERT_EMAIL` to send
+   them somewhere other than the admin address.
+
+The app container also checks its own health every minute and Docker
+restarts it automatically if it stops answering.
+
 ---
 
 ## Updating itself automatically

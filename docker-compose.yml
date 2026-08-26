@@ -25,6 +25,15 @@ services:
     depends_on:
       mbarete-db:
         condition: service_healthy
+    # /api/health answers 200 only when the database does — a hung process
+    # or a dead DB connection flips the container unhealthy and Docker's
+    # restart policy takes it from there.
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 180s
     ports:
       - "3000:3000"
     environment:
@@ -67,6 +76,12 @@ services:
       BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
       # AI photo transcription. Moonshot (Kimi) is preferred when set;
       # Anthropic (Claude) is the fallback. Unset both to hide the AI features.
+      # Uptime dead-man's switch: while healthy the app GETs this URL every
+      # minute; point it at a healthchecks.io check (or any ping monitor)
+      # and silence becomes your alarm. Unset = off. ALERT_EMAIL receives
+      # first-sighting server-error mails (falls back to the admin emails).
+      HEARTBEAT_URL: ${HEARTBEAT_URL:-}
+      ALERT_EMAIL: ${ALERT_EMAIL:-}
       MOONSHOT_API_KEY: ${MOONSHOT_API_KEY:-}
       MOONSHOT_BASE_URL: ${MOONSHOT_BASE_URL:-}
       MOONSHOT_MODEL: ${MOONSHOT_MODEL:-}

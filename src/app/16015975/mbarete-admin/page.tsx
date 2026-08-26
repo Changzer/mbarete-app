@@ -7,6 +7,7 @@ import { backupStatus, type BackupStatus } from "@/lib/backups";
 import { SeatStepper } from "./seat-stepper";
 import { UnlockPanel } from "./unlock-panel";
 import { platformReauth } from "@/lib/platform/reauth";
+import { recentErrors, type ErrorEntry } from "@/lib/monitoring";
 import { planOf, seatLimit, usageLabel } from "@/lib/plans";
 
 /**
@@ -109,10 +110,40 @@ function BackupLine({ status, now }: { status: BackupStatus; now: number }) {
   );
 }
 
+/**
+ * Server errors from the last 24 hours — in-memory, so what the operator
+ * sees is this process since its last restart; a restart wiping the list
+ * is itself reported by the heartbeat monitor.
+ */
+function ErrorsLine({ errors }: { errors: ErrorEntry[] }) {
+  if (errors.length === 0) {
+    return (
+      <span className="text-[11px] text-sub" data-testid="errors-status">
+        No server errors in 24h
+      </span>
+    );
+  }
+  const total = errors.reduce((a, e) => a + e.count, 0);
+  const latest = errors[0];
+  return (
+    <span
+      className="max-w-[420px] truncate text-[11px] font-medium text-amber-700"
+      data-testid="errors-status"
+      title={errors
+        .slice(0, 5)
+        .map((e) => `${e.count}× ${e.source}: ${e.message}`)
+        .join("\n")}
+    >
+      {total} server error{total > 1 ? "s" : ""} in 24h · latest: {latest.message.slice(0, 80)}
+    </span>
+  );
+}
+
 export default async function PlatformAdminPage() {
   const operator = await requirePlatformAdmin();
   const { companies, totals } = await loadPlatformOverview();
   const backups = await backupStatus();
+  const errors = recentErrors();
   const now = nowMs();
 
   return (
@@ -126,6 +157,7 @@ export default async function PlatformAdminPage() {
         </div>
         <div className="flex flex-wrap items-center justify-end gap-3">
           <UnlockPanel unlocked={platformReauth.isFresh(operator.id)} />
+          <ErrorsLine errors={errors} />
           <BackupLine status={backups} now={now} />
           {backups.configured ? <BackupNow /> : null}
         </div>
