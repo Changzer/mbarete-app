@@ -176,7 +176,7 @@ Work the product like a stranger would:
 
 Either way, the NAS never noticed any of this happened.
 
-## Troubleshooting the two things that actually go wrong
+## Troubleshooting the things that actually go wrong
 
 **Login answers "There was a problem with the server configuration."**
 Auth.js has no signing key. Nine times out of ten the `.env`'s FIRST line
@@ -209,3 +209,37 @@ container, never trust that the file "looks right".
 **Commands that don't exist.** The provider's Ubuntu image is minimized:
 `nano` and `nslookup` are missing. `apt install -y nano` for the editor,
 and use `getent hosts test.example.com` in place of `nslookup`.
+
+**Photo transcription does nothing (Moonshot unreachable for real calls).**
+The panel's error line shows `transcribe:product` failures; container logs
+say `moonshot 502: <html>…` or `TypeError: fetch failed`. Small requests
+work — `curl -s -o /dev/null -w "%{http_code}\n" https://api.moonshot.cn/v1/models`
+returns `401` (a healthy answer: the API saw you, you sent no key) — but
+the real transcription POST carries megabytes of base64 photo, and that is
+what dies. `api.moonshot.cn` sits behind an Alibaba anti-DDoS front
+(`dig` shows a `…aliyunddos….com` CNAME) which drops large request bodies
+from some networks; this provider's Hong Kong range was one. Proof, from
+the host — a ~2 MB POST that should bounce off the API with a normal
+HTTP error code:
+
+```sh
+KEY=$(grep '^MOONSHOT_API_KEY=' .env | cut -d= -f2-)
+{ printf '{"model":"kimi-k2.6","messages":[{"role":"user","content":"'; head -c 1500000 /dev/zero | base64 | tr -d '\n'; printf '"}]}'; } > /tmp/big.json
+curl -s -o /dev/null -w "big POST: %{http_code}\n" --max-time 60 \
+  -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+  --data-binary @/tmp/big.json https://api.moonshot.cn/v1/chat/completions
+```
+
+Any three-digit code means the path is fine and the problem is elsewhere;
+`000` means the edge ate the body and no server setting will fix it. The
+remedy is the app's other vision backend — add to `.env` and restart:
+
+```sh
+ANTHROPIC_API_KEY=sk-ant-…
+TRANSCRIBE_PROVIDER=anthropic
+```
+
+No code changes: `src/lib/vision.ts` speaks both APIs and validates both
+into the same shape. On a server whose network does reach Moonshot (a
+mainland box, a NAS at home), leave `TRANSCRIBE_PROVIDER` unset — the
+Moonshot key wins automatically when present.
