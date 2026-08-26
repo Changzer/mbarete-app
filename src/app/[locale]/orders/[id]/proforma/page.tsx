@@ -147,18 +147,18 @@ export default async function ProformaPage({
 
       {/* --- the document itself: white paper in any app theme, so every
              token inside must read as its light value (see .light-paper) --- */}
-      <div className="light-paper rounded-lg border border-line bg-white p-8 text-sm text-ink print:rounded-none print:border-0 print:p-0">
+      <div className="light-paper rounded-lg border border-line bg-white p-8 text-[12px] leading-relaxed text-ink print:rounded-none print:border-0 print:p-0">
         <div className="mb-6 border-t-[6px] border-brand-600" />
         {/* Letterhead: the logo owns its row, the company reads as compact
             flowing lines beneath it, and the document block on the right is
             wide enough that an order number never breaks in two. */}
-        <div className="flex items-start justify-between gap-6 border-b border-line pb-5">
+        <div className="flex items-start justify-between gap-6 border-b border-line pb-4">
           <div className="min-w-0">
             <Brand size="doc" />
-            <div className="mt-3 text-[13.5px] font-bold leading-snug" data-testid="vendor-name">
+            <div className="mt-3 text-[12.5px] font-bold leading-snug" data-testid="vendor-name">
               {seller.companyName || t("yourCompany")}
             </div>
-            <div className="mt-0.5 max-w-[430px] text-[11.5px] leading-relaxed text-sub">
+            <div className="mt-0.5 max-w-[430px] text-[10.5px] leading-relaxed text-sub">
               <p>
                 {seller.addressLines
                   .split(/\r?\n/)
@@ -183,8 +183,8 @@ export default async function ProformaPage({
             </div>
           </div>
           <div className="shrink-0 whitespace-nowrap text-right">
-            <div className="text-xl font-bold uppercase tracking-wide">{t("title")}</div>
-            <div className="mt-2 text-[12px] text-sub">
+            <div className="text-lg font-bold uppercase tracking-wide">{t("title")}</div>
+            <div className="mt-2 text-[11px] text-sub">
               <Row label={t("number")} value={order.orderNumber} />
               <Row label={t("date")} value={issued.toLocaleDateString()} />
               {seller.validityDays > 0 ? (
@@ -194,7 +194,7 @@ export default async function ProformaPage({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-8 border-b border-line py-6">
+        <div className="grid grid-cols-2 gap-8 border-b border-line py-4">
           <div>
             <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-sub">
               {t("billTo")}
@@ -228,28 +228,28 @@ export default async function ProformaPage({
           </div>
         </div>
 
-        <table className="w-full border-collapse py-6 text-sm">
+        <table className="w-full border-collapse">
           <thead>
-            <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-sub">
+            <tr className="border-b border-line text-left text-[10px] uppercase tracking-wide text-sub">
               <th className="py-2 pr-2 font-semibold">{t("item")}</th>
               <th className="py-2 pr-2 font-semibold">{t("sku")}</th>
               <th className="py-2 pr-2 text-right font-semibold">{t("quantity")}</th>
               <th className="py-2 pr-2 text-right font-semibold">{t("cartons")}</th>
-              <th className="py-2 pr-2 text-right font-semibold">{t("unitPrice")}</th>
+              <th className="whitespace-nowrap py-2 pr-2 text-right font-semibold">{t("unitPrice")}</th>
               <th className="py-2 text-right font-semibold">{t("amount")}</th>
             </tr>
           </thead>
           <tbody data-testid="proforma-lines">
             {rows.map((r) => (
               <tr key={r.id} className="border-b border-line">
-                <td className="py-2 pr-2">{r.name}</td>
-                <td className="py-2 pr-2 text-sub">{r.sku}</td>
-                <td className="py-2 pr-2 text-right">{r.quantity}</td>
-                <td className="py-2 pr-2 text-right">{r.cartons ?? "—"}</td>
-                <td className="py-2 pr-2 text-right">
+                <td className="py-1.5 pr-2">{r.name}</td>
+                <td className="py-1.5 pr-2 text-sub">{r.sku}</td>
+                <td className="py-1.5 pr-2 text-right tabular-nums">{r.quantity}</td>
+                <td className="py-1.5 pr-2 text-right tabular-nums">{r.cartons ?? "—"}</td>
+                <td className="whitespace-nowrap py-1.5 pr-2 text-right tabular-nums">
                   {money(r.sellPrice)} {r.sellCurrency}
                 </td>
-                <td className="py-2 text-right">
+                <td className="whitespace-nowrap py-1.5 text-right tabular-nums">
                   {money(r.sellTotal)} {r.sellCurrency}
                 </td>
               </tr>
@@ -258,8 +258,8 @@ export default async function ProformaPage({
         </table>
 
         <div className="flex justify-end pt-4">
-          <div className="w-72">
-            <div className="flex justify-between py-1">
+          <div className="w-64">
+            <div className="flex justify-between py-0.5">
               <span className="text-sub">{orderT("goodsSubtotal")}</span>
               <span data-testid="proforma-goods">
                 {money(totals.goods[quote] ?? 0)} {quote}
@@ -275,7 +275,7 @@ export default async function ProformaPage({
                 </span>
               </div>
             ) : null}
-            <div className="mt-1 flex justify-between border-t border-line pt-2 text-base font-bold">
+            <div className="mt-1 flex justify-between border-t border-line pt-2 text-[13px] font-bold">
               <span>{orderT("grandTotal")}</span>
               <span data-testid="proforma-total">
                 {money(totals.grandTotal[quote] ?? 0)} {quote}
@@ -295,7 +295,7 @@ export default async function ProformaPage({
         </div>
 
         {bank ? (
-          <div className="mt-8 border-t border-line pt-4" data-testid="proforma-bank-details">
+          <div className="mt-6 border-t border-line pt-4" data-testid="proforma-bank-details">
             <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-sub">
               {t("bankDetails")}
             </div>
@@ -320,7 +320,7 @@ export default async function ProformaPage({
 
         <Lines
           text={seller.footerNote}
-          className="mt-8 border-t border-line pt-4 text-xs text-sub"
+          className="mt-6 border-t border-line pt-4 text-[10.5px] text-sub"
         />
       </div>
     </div>
