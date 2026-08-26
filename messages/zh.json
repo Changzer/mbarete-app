@@ -305,7 +305,9 @@
     "inactive": "已停用",
     "bankInfoShow": "显示",
     "bankInfoHide": "隐藏",
-    "bankInfoVerify": "付款前请与名片照片核对这些数字。"
+    "bankInfoVerify": "付款前请与名片照片核对这些数字。",
+    "countSuppliers": "{count} 家供应商",
+    "countClients": "{count} 位客户"
   },
   "orders": {
     "title": "订单",
@@ -628,7 +630,6 @@
     "accountOther": "其他 / 无",
     "fxGainLoss": "汇率损益（至今）",
     "gatewayHint": "请按实际到账金额记录。若支付平台（如 XTransfer）到账时已结汇，请填写实际收到的人民币金额并标记人民币账户——而不是客户汇出的金额。",
-    "tileQuoted": "报价中 · {count} 份草稿",
     "storageFull": "当前套餐的存储空间已满——请联系 Mbarete 升级。"
   },
   "financeReport": {
@@ -641,6 +642,7 @@
     "tileReceivables": "客户应付",
     "tilePayables": "应付供应商",
     "tileNetCash": "当前净现金",
+    "tileQuoted": "报价中 · {count} 份草稿",
     "receivables": "待客户付款",
     "payables": "待付供应商",
     "allSettled": "无未结款项。",

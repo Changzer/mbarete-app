@@ -135,8 +135,18 @@ export function ProductForm({
   const [captureEpoch, setCaptureEpoch] = useState(0);
 
   const [removed, setRemoved] = useState<number[]>([]);
+  // New products start in General when it exists — the list is alphabetical,
+  // so "first category" would mean whatever sorts first (Apparel, today).
+  const fallbackCategory =
+    categories.find(
+      (c) => c.nameEn.trim().toLowerCase() === "general" || c.nameZh.trim() === "综合",
+    ) ?? categories[0];
   const [categoryId, setCategoryId] = useState(
-    defaultValues?.categoryId ? String(defaultValues.categoryId) : categories[0] ? String(categories[0].id) : "",
+    defaultValues?.categoryId
+      ? String(defaultValues.categoryId)
+      : fallbackCategory
+        ? String(fallbackCategory.id)
+        : "",
   );
   // Categories the AI created during this registration, deduped against the
   // server list for the same reason as suppliers below.

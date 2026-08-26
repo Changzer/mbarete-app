@@ -133,7 +133,7 @@ function CatalogTable({ products }: { products: CatalogProduct[] }) {
               {t("moq")} · {t("qtyPerBox")}
             </th>
             <th className="w-44 px-3 py-2.5 font-bold">{t("supplier")}</th>
-            <th className="w-28 px-3 py-2.5 text-right font-bold">{t("status")}</th>
+            <th className="w-36 px-3 py-2.5 text-right font-bold">{t("status")}</th>
           </tr>
         </thead>
         <tbody>

@@ -305,7 +305,9 @@
     "inactive": "Inactive",
     "bankInfoShow": "Show",
     "bankInfoHide": "Hide",
-    "bankInfoVerify": "Check these digits against the card photo before paying."
+    "bankInfoVerify": "Check these digits against the card photo before paying.",
+    "countSuppliers": "{count} suppliers",
+    "countClients": "{count} clients"
   },
   "orders": {
     "title": "Orders",
@@ -628,7 +630,6 @@
     "accountOther": "Other / none",
     "fxGainLoss": "FX gain/loss so far",
     "gatewayHint": "Record what actually landed in the bank. If the gateway (e.g. XTransfer) converted on arrival, enter the RMB amount received and tag the RMB account — not the amount the client sent.",
-    "tileQuoted": "Quoted · {count} drafts",
     "storageFull": "Your plan's storage is full — contact Mbarete to upgrade."
   },
   "financeReport": {
@@ -641,6 +642,7 @@
     "tileReceivables": "Clients owe",
     "tilePayables": "Owed to suppliers",
     "tileNetCash": "Net cash so far",
+    "tileQuoted": "Quoted · {count} drafts",
     "receivables": "Waiting on clients",
     "payables": "To pay suppliers",
     "allSettled": "Nothing outstanding.",
