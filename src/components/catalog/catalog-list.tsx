@@ -47,16 +47,21 @@ export function CatalogList({
 
   return (
     <div className="flex flex-col gap-3">
-      <SearchBar
-        value={query}
-        onChange={setQuery}
-        placeholder={t("search")}
-        recentKey="mb-catalog-recent"
-        recentLabel={t("searchRecent")}
-        clearLabel={t("searchClear")}
-      />
+      {/* One row on a desktop — search stretching, filters trailing — and
+          the phone's stack below lg, where width is the scarce thing. */}
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+        <SearchBar
+          value={query}
+          onChange={setQuery}
+          placeholder={t("search")}
+          recentKey="mb-catalog-recent"
+          recentLabel={t("searchRecent")}
+          clearLabel={t("searchClear")}
+          className="lg:min-w-0 lg:flex-1"
+        />
 
-      {filters}
+        {filters}
+      </div>
 
       <OfflineStrip />
 
