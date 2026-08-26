@@ -112,3 +112,36 @@ export async function backupNow(): Promise<{ ok: boolean; detail: string }> {
     ? { ok: true, detail: `${result.name}: ${result.rows} rows, ${result.files} files` }
     : { ok: false, detail: result.error };
 }
+
+/**
+ * Sends a real email to the operator, reporting the SMTP error verbatim
+ * when it fails. Diagnosing "no email arrived" otherwise means shelling
+ * into the container — the first live deployment burned half an hour on
+ * exactly that. Step-up gated like every other panel action: it spends
+ * the operator's own mailbox, and the error text is server detail.
+ */
+export async function sendTestEmail(): Promise<{ ok: boolean; detail: string }> {
+  const operator = await requirePlatformAdmin();
+  if (!platformReauth.isFresh(operator.id)) return { ok: false, detail: "reauth" };
+
+  const { isMailConfigured, sendMail } = await import("@/lib/mail");
+  if (!isMailConfigured()) {
+    return { ok: false, detail: "SMTP is not configured (SMTP_HOST / SMTP_USER / SMTP_PASS)" };
+  }
+  const to = process.env.ALERT_EMAIL || operator.email;
+  try {
+    await sendMail({
+      to,
+      subject: "Mbarete test email",
+      text:
+        "This is the platform panel's test email.\n\n" +
+        "If you are reading it, outbound mail works: password resets, " +
+        "invitations and error alerts can all reach you.",
+    });
+    return { ok: true, detail: `accepted for delivery to ${to}` };
+  } catch (err) {
+    // The real reason — "Invalid login", "550 no such user", a timeout —
+    // is the whole point of this button.
+    return { ok: false, detail: err instanceof Error ? err.message : String(err) };
+  }
+}

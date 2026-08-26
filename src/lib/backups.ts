@@ -186,13 +186,6 @@ async function dumpTable(
   return { rows, sha256: hash.digest("hex") };
 }
 
-/** SHA-256 of a file on disk, streamed. */
-async function fileSha256(file: string): Promise<string> {
-  const hash = crypto.createHash("sha256");
-  for await (const chunk of createReadStream(file)) hash.update(chunk as Buffer);
-  return hash.digest("hex");
-}
-
 /** Copy while hashing — the bytes are in hand anyway, the hash is free. */
 async function copyWithHash(from: string, to: string): Promise<string> {
   const hash = crypto.createHash("sha256");

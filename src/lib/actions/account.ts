@@ -10,6 +10,7 @@ import { requireUser, requireAdmin } from "@/lib/authz";
 import { isMailConfigured, sendMail } from "@/lib/mail";
 import { makeLimiter, clientIp } from "@/lib/rate-limit";
 import { platformReauth } from "@/lib/platform/reauth";
+import { recordError } from "@/lib/monitoring";
 import { hashInviteToken as hashToken, newInviteToken as newToken, isoNow, isoIn } from "@/lib/invites";
 
 /**
@@ -67,9 +68,13 @@ export async function requestPasswordReset(
     locale === "zh"
       ? `您（或某人）请求重置此账户的密码。\n\n30 分钟内有效，仅可使用一次：\n${link}\n\n如果不是您本人操作，忽略此邮件即可，密码不会改变。`
       : `You (or someone) asked to reset this account's password.\n\nThe link works once, for 30 minutes:\n${link}\n\nIf this wasn't you, ignore this email and nothing changes.`;
-  // Send failures are swallowed into the same constant answer: a delivery
-  // error must not become an existence oracle either.
-  await sendMail({ to: email, subject, text }).catch(() => {});
+  // The ANSWER stays constant whatever happens — a delivery error must not
+  // become an existence oracle. The SERVER, however, records it: an SMTP
+  // that silently eats every reset link is invisible otherwise, which is
+  // exactly how it hid on the first real deployment.
+  await sendMail({ to: email, subject, text }).catch((err) =>
+    recordError("mail:password-reset", err),
+  );
   return { done: true };
 }
 
@@ -178,7 +183,9 @@ export async function sendVerificationEmail(userId: number, email: string, local
     locale === "zh"
       ? `点击以下链接验证此邮箱（7 天内有效）：\n${link}`
       : `Click the link below to verify this email address (valid for 7 days):\n${link}`;
-  await sendMail({ to: email, subject, text }).catch(() => {});
+  await sendMail({ to: email, subject, text }).catch((err) =>
+    recordError("mail:verification", err),
+  );
 }
 
 export async function verifyEmailToken(token: string): Promise<boolean> {
