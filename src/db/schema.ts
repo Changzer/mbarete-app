@@ -917,6 +917,32 @@ export const userActivityDays = pgTable(
   ],
 );
 
+/**
+ * One row per AI scan — the spend ledger for photo transcription. Which
+ * company, which flow (product/card), which provider and model, how many
+ * photos, and the token bill the provider reported. The platform panel
+ * aggregates it per tenant; the testing phase's pricing question is
+ * unanswerable without it. Tenant-walled like every business table, with
+ * the same platform read-through the panel's other metrics use.
+ */
+export const aiUsage = pgTable(
+  "ai_usage",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id").notNull(),
+    userId: integer("user_id"),
+    /** "product" or "card" — the two transcription flows. */
+    kind: text("kind").notNull(),
+    provider: text("provider").notNull(),
+    model: text("model").notNull(),
+    images: integer("images").notNull(),
+    inputTokens: integer("input_tokens").notNull(),
+    outputTokens: integer("output_tokens").notNull(),
+    createdAt: text("created_at").notNull().default(utcNow),
+  },
+  (table) => [index("ai_usage_company_idx").on(table.companyId, table.createdAt)],
+);
+
 export const captureDrafts = pgTable(
   "capture_drafts",
   {

@@ -12,6 +12,7 @@ import {
   type TranscribeImage,
 } from "@/lib/transcribe-product";
 import { transcribeBusinessCard } from "@/lib/transcribe-card";
+import { recordAiUsage } from "@/lib/ai-usage";
 import { cropAndSaveThumb } from "@/lib/thumb-crop";
 
 /**
@@ -183,7 +184,15 @@ export async function readDraft(companyId: number, draftId: number): Promise<voi
     let fields: object;
     let notes: string | null;
     if (draft.kind === "contact") {
-      const result = await transcribeBusinessCard(payload);
+      const result = await transcribeBusinessCard(payload, (usage) =>
+        recordAiUsage({
+          companyId,
+          userId: draft.userId ?? null,
+          kind: "card",
+          images: payload.length,
+          ...usage,
+        }),
+      );
       if (!result.ok) {
         await recordReadFailure(draftId, result.error);
         return;
@@ -195,6 +204,14 @@ export async function readDraft(companyId: number, draftId: number): Promise<voi
       const result = await transcribeProductPhotos(
         payload,
         categories.map((c) => ({ id: c.id, nameEn: c.nameEn, nameZh: c.nameZh })),
+        (usage) =>
+          recordAiUsage({
+            companyId,
+            userId: draft.userId ?? null,
+            kind: "product",
+            images: payload.length,
+            ...usage,
+          }),
       );
       if (!result.ok) {
         await recordReadFailure(draftId, result.error);

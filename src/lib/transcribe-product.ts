@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { extractJson, type VisionImage } from "@/lib/vision";
+import { extractJson, type VisionImage, type VisionUsage } from "@/lib/vision";
 
 /**
  * Reads market photos — the product plus its handwritten price board — and
@@ -128,7 +128,7 @@ Rules:
 - MOQ may appear as "MOQ", "min" or "起订" and is in pieces unless it clearly says cartons/boxes. A bare carton count on the board with no other label (e.g. "2 carton") is also the MOQ, in cartons. Whenever the MOQ is given in cartons, multiply by qtyPerBox and report pieces.
 - When a board gives a carton MOQ and a separate piece count with no per-carton marking (e.g. "MOQ 3 box" above "QTY 360 pcs"), the piece count is the total for that minimum order: report moq 360 and qtyPerBox 120 (360 ÷ 3), and say in notes that the split was derived. Only when the piece count is explicitly marked per carton ("360 pcs/ctn") does it become qtyPerBox directly.
 - lengthCm, widthCm, heightCm, weightKg and cbm are CARTON figures, and only when actually written on the board or packaging (e.g. "60x40x50", "KG 12", "CBM 0.02"). Never estimate them from how the product looks.
-- nameEn and nameZh are short catalog names: product type plus the key specs visible (count, size, material). Fill BOTH languages, translating whichever direction is needed. Never include the price in a name.
+- nameEn and nameZh are short catalog names: product type plus the key specs visible (count, size, material). Fill BOTH languages, translating whichever direction is needed — including from packaging in any other language. When the photos show an identifiable product, construct the names from what it is; never leave them null. Never include the price in a name.
 - Descriptions are one or two short sentences of facts visible in the photos; null when the name already says everything.
 - categoryId must be an id from the category list you are given, or null when none fits. Never invent an id. When it is null but the product clearly belongs to a category the list is missing, propose one via newCategoryEn and newCategoryZh — a short, general product-type name in BOTH languages (e.g. "Stationery" / "文具", "Beauty Tools" / "美妆工具"), never a name as specific as the product itself. Both null when an existing category fits.
 - Use null for anything not clearly readable — never guess a number.
@@ -137,8 +137,10 @@ Rules:
 export async function transcribeProductPhotos(
   images: VisionImage[],
   categories: TranscribeCategory[],
+  onUsage?: (usage: VisionUsage) => void,
 ): Promise<TranscribeResult> {
   const raw = await extractJson({
+    onUsage,
     system: SYSTEM_PROMPT,
     userText:
       `Available categories (id — English name / Chinese name):\n` +

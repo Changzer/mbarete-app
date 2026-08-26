@@ -398,6 +398,9 @@ export function ProductForm({
   }
 
   const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
+  // The required fields the last failed save found empty — highlighted so
+  // the culprit is visible from the error message five screens below it.
+  const [missing, setMissing] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
 
   /**
@@ -424,7 +427,34 @@ export function ProductForm({
       formData.append(submitter.name, submitter.value);
     }
     startTransition(async () => {
-      setErrorMessage(await submitAction(formData));
+      const error = await submitAction(formData);
+      setErrorMessage(error);
+      if (error === "invalid") {
+        // Point at the empty required fields instead of making the user
+        // hunt: the first live test failed on a name field five screens
+        // above a message that named four candidates.
+        const empty = new Set<string>();
+        const nameEn = String(formData.get("nameEn") ?? "").trim();
+        const nameZh = String(formData.get("nameZh") ?? "").trim();
+        if (!nameEn && !nameZh) {
+          empty.add("nameEn");
+          empty.add("nameZh");
+        }
+        // Price is deliberately absent: a product photographed before the
+        // supplier has quoted saves at 0 and gets priced when the quote
+        // lands — the floor is a name.
+        for (const field of ["moq", "qtyPerBox"]) {
+          if (!String(formData.get(field) ?? "").trim()) empty.add(field);
+        }
+        setMissing(empty);
+        const first = ["nameEn", "nameZh", "moq", "qtyPerBox"].find((f) => empty.has(f));
+        if (first) {
+          document.getElementById(first)?.scrollIntoView({ behavior: "smooth", block: "center" });
+          document.getElementById(first)?.focus({ preventScroll: true });
+        }
+      } else {
+        setMissing(new Set());
+      }
     });
   }
 
@@ -673,7 +703,7 @@ export function ProductForm({
       */}
       <FormSection kicker={t("commercial")} className="lg:col-span-2">
         <div className="grid grid-cols-2 gap-3">
-          <Field label={t("costPrice")} htmlFor="price">
+          <Field label={t("costPrice")} htmlFor="price" hint={t("costPriceHint")}>
             <Input
               id="price"
               name="price"
@@ -691,10 +721,11 @@ export function ProductForm({
             otherLabel={t("currencyOther")}
           />
 
-          <Field label={t("moq")} htmlFor="moq">
+          <Field label={t("moq")} htmlFor="moq" required>
             <Input
               id="moq"
               name="moq"
+              className={missing.has("moq") ? "border-danger" : undefined}
               type="text"
               numeric
               inputMode="numeric"
@@ -702,10 +733,11 @@ export function ProductForm({
               defaultValue={defaultValues?.moq ?? 1}
             />
           </Field>
-          <Field label={t("qtyPerBox")} htmlFor="qtyPerBox">
+          <Field label={t("qtyPerBox")} htmlFor="qtyPerBox" required>
             <Input
               id="qtyPerBox"
               name="qtyPerBox"
+              className={missing.has("qtyPerBox") ? "border-danger" : undefined}
               type="text"
               numeric
               inputMode="numeric"
@@ -735,11 +767,21 @@ export function ProductForm({
 
         {/* Both names, stacked: the supplier reads the Chinese one off the box
             and the client reads the English one off the quote. */}
-        <Field label={t("nameEn")} htmlFor="nameEn">
-          <Input id="nameEn" name="nameEn" defaultValue={defaultValues?.nameEn} />
+        <Field label={t("nameEn")} htmlFor="nameEn" required>
+          <Input
+            id="nameEn"
+            name="nameEn"
+            defaultValue={defaultValues?.nameEn}
+            className={missing.has("nameEn") ? "border-danger" : undefined}
+          />
         </Field>
-        <Field label={t("nameZh")} htmlFor="nameZh">
-          <Input id="nameZh" name="nameZh" defaultValue={defaultValues?.nameZh} />
+        <Field label={t("nameZh")} htmlFor="nameZh" required>
+          <Input
+            id="nameZh"
+            name="nameZh"
+            defaultValue={defaultValues?.nameZh}
+            className={missing.has("nameZh") ? "border-danger" : undefined}
+          />
         </Field>
       </FormSection>
 

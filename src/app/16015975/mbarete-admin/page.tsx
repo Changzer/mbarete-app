@@ -44,6 +44,12 @@ function hours(seconds: number): string {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
+/** Token bills read best in thousands; the exact split rides the tooltip. */
+function kTokens(n: number): string {
+  if (n >= 1000) return `${(n / 1000).toFixed(n >= 100_000 ? 0 : 1)}k`;
+  return String(n);
+}
+
 function bytes(n: number): string {
   if (n >= 1024 ** 3) return `${(n / 1024 ** 3).toFixed(1)} GB`;
   if (n >= 1024 ** 2) return `${(n / 1024 ** 2).toFixed(1)} MB`;
@@ -272,6 +278,17 @@ export default async function PlatformAdminPage() {
                 seen <span className="font-semibold text-ink">{ago(m.lastSeenAt)}</span>
               </span>
               <Stat value={bytes(m.storageBytes)} label="stored" />
+              <Stat value={m.aiScans} label="AI scans" />
+              <Stat value={m.aiImages} label="images read" />
+              <span
+                className="whitespace-nowrap text-xs text-sub"
+                title={`${m.aiInputTokens.toLocaleString()} in · ${m.aiOutputTokens.toLocaleString()} out`}
+              >
+                <span className="font-semibold tabular-nums text-ink">
+                  {kTokens(m.aiInputTokens + m.aiOutputTokens)}
+                </span>{" "}
+                AI tokens
+              </span>
             </div>
           </li>
         ))}

@@ -22,6 +22,14 @@ export type VisionImage = {
 
 export type VisionProvider = "moonshot" | "anthropic";
 
+/** What one call cost, as the provider reported it. */
+export type VisionUsage = {
+  provider: VisionProvider;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+};
+
 const ANTHROPIC_MODEL = "claude-opus-5";
 
 export function visionProvider(): VisionProvider | null {
@@ -49,6 +57,9 @@ export async function extractJson<S extends z.ZodType>(opts: {
   schema: S;
   /** Compact key spec appended to the prompt so the model knows the keys. */
   jsonSpec: string;
+  /** Told the token bill whenever the provider reports one — even when the
+   *  answer then fails to parse, because the spend already happened. */
+  onUsage?: (usage: VisionUsage) => void;
 }): Promise<z.infer<S> | null> {
   const provider = visionProvider();
   if (provider === "moonshot") return extractWithMoonshot(opts);
@@ -69,6 +80,7 @@ async function extractWithAnthropic<S extends z.ZodType>(opts: {
   images: VisionImage[];
   schema: S;
   jsonSpec: string;
+  onUsage?: (usage: VisionUsage) => void;
 }): Promise<z.infer<S> | null> {
   const client = new Anthropic();
   const response = await client.messages.create({
@@ -95,6 +107,12 @@ async function extractWithAnthropic<S extends z.ZodType>(opts: {
       },
     ],
   });
+  opts.onUsage?.({
+    provider: "anthropic",
+    model: ANTHROPIC_MODEL,
+    inputTokens: response.usage.input_tokens,
+    outputTokens: response.usage.output_tokens,
+  });
   const content = response.content
     .map((block) => (block.type === "text" ? block.text : ""))
     .join("");
@@ -120,6 +138,7 @@ async function extractWithMoonshot<S extends z.ZodType>(opts: {
   images: VisionImage[];
   schema: S;
   jsonSpec: string;
+  onUsage?: (usage: VisionUsage) => void;
 }): Promise<z.infer<S> | null> {
   const apiKey = process.env.MOONSHOT_API_KEY;
   if (!apiKey) return null;
@@ -171,7 +190,16 @@ async function extractWithMoonshot<S extends z.ZodType>(opts: {
 
   const body = (await response.json()) as {
     choices?: { message?: { content?: string } }[];
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
   };
+  if (body.usage) {
+    opts.onUsage?.({
+      provider: "moonshot",
+      model,
+      inputTokens: body.usage.prompt_tokens ?? 0,
+      outputTokens: body.usage.completion_tokens ?? 0,
+    });
+  }
   const content = body.choices?.[0]?.message?.content ?? "";
   return parseModelJson(content, opts.schema);
 }

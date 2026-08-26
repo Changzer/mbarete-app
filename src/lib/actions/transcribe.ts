@@ -14,6 +14,7 @@ import { db } from "@/db";
 import { categories as categoriesTable } from "@/db/schema";
 import { getCategories } from "@/lib/queries/catalog";
 import { recordError } from "@/lib/monitoring";
+import { recordAiUsage } from "@/lib/ai-usage";
 import {
   isTranscriptionEnabled,
   transcribeProductPhotos,
@@ -120,6 +121,14 @@ export async function transcribeProduct(formData: FormData): Promise<TranscribeR
     result = await transcribeProductPhotos(
       images,
       categories.map((c) => ({ id: c.id, nameEn: c.nameEn, nameZh: c.nameZh })),
+      (usage) =>
+        recordAiUsage({
+          companyId: user.companyId,
+          userId: user.id,
+          kind: "product",
+          images: images.length,
+          ...usage,
+        }),
     );
   } catch (error) {
     // Network trouble, a refused request, malformed output — the form still
@@ -175,7 +184,15 @@ export async function transcribeCard(formData: FormData): Promise<CardTranscribe
   if (images.length === 0) return { ok: false, error: "no-photos" };
 
   try {
-    return await transcribeBusinessCard(images);
+    return await transcribeBusinessCard(images, (usage) =>
+      recordAiUsage({
+        companyId: user.companyId,
+        userId: user.id,
+        kind: "card",
+        images: images.length,
+        ...usage,
+      }),
+    );
   } catch (error) {
     recordError("transcribe:card", error);
     return { ok: false, error: "failed" };

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { extractJson, type VisionImage } from "@/lib/vision";
+import { extractJson, type VisionImage , type VisionUsage } from "@/lib/vision";
 
 /**
  * Reads photos of a vendor's business card (front and back) into a draft
@@ -67,8 +67,10 @@ Rules:
 
 export async function transcribeBusinessCard(
   images: VisionImage[],
+  onUsage?: (usage: VisionUsage) => void,
 ): Promise<CardTranscribeResult> {
   const raw = await extractJson({
+    onUsage,
     system: SYSTEM_PROMPT,
     userText: "Transcribe this business card.",
     images,
