@@ -68,8 +68,11 @@ the certificate on first request. (nginx + certbot works the same if
 preferred.) The app already sends HSTS; behind https the session cookie
 becomes `Secure` automatically.
 
-Never publish port 3000 or 5432 to the internet — the compose file doesn't;
-keep it that way.
+Never publish port 3000 or 5432 to the internet. Postgres already stays
+compose-internal, but the compose default DOES publish 3000 on every
+interface (the NAS's LAN deployment needs that) — on a public server set
+`APP_PORT_BIND=127.0.0.1:3000:3000` in `.env` so only Caddy can reach the
+app, and block inbound 3000 in the provider's firewall for good measure.
 
 ## 4. Carry the data over
 

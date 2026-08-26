@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { sessionUser } from "@/lib/authz";
+import { companyLifecycleBlock, sessionUser } from "@/lib/authz";
 import { saveUploadedImage } from "@/lib/uploads";
 import { makeLimiter } from "@/lib/rate-limit";
 
@@ -12,6 +12,10 @@ export async function POST(request: Request) {
   const user = await sessionUser();
   if (!user) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  const blocked = await companyLifecycleBlock(user);
+  if (blocked) {
+    return NextResponse.json({ error: blocked }, { status: 403 });
   }
   if (uploadLimiter.hit(`u${user.id}`)) {
     return NextResponse.json({ error: "rate limited" }, { status: 429 });

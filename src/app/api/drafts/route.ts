@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { sessionUser } from "@/lib/authz";
+import { companyLifecycleBlock, sessionUser } from "@/lib/authz";
 import { ingestDraft, readDraft, type IngestFile } from "@/lib/drafts";
 import { makeLimiter } from "@/lib/rate-limit";
 
@@ -46,6 +46,14 @@ export async function POST(request: Request) {
     // Retryable on purpose: the trip outlasted the session, and signing in
     // again makes every queued capture deliverable.
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  const blocked = await companyLifecycleBlock(user);
+  if (blocked) {
+    // An unapproved or frozen company's capture must not burn storage or an
+    // AI read. 4xx, so the phone parks it for a human rather than retrying
+    // into the same wall; the photos stay on the phone, and approval turns
+    // the next attempt back into a 201.
+    return NextResponse.json({ error: blocked }, { status: 403 });
   }
   if (draftLimiter.hit(`u${user.id}`)) {
     return NextResponse.json({ error: "rate limited" }, { status: 429 });
