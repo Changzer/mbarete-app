@@ -44,7 +44,7 @@ Time budget: about an hour, most of it waiting for the build.
 ```sh
 ssh root@SERVER_IP
 apt update && apt upgrade -y
-apt install -y docker.io docker-compose-v2 ufw git
+apt install -y docker.io docker-compose-v2 ufw git nano
 ufw allow OpenSSH && ufw allow 80 && ufw allow 443 && ufw enable
 ```
 
@@ -57,23 +57,47 @@ three ports (22, 80, 443) and nothing else. Two fences, same shape.
 mkdir -p /opt && cd /opt
 git clone https://github.com/Changzer/mbarete-app.git
 cd mbarete-app
-cp .env.example .env
-nano .env
 ```
 
-Fill in — everything fresh, nothing copied from the NAS:
+Write `.env` with this block rather than by hand: it generates its own
+secrets on the server, so nothing sensitive is ever typed, pasted, or
+screenshotted. Change the two email lines and the domain to yours.
 
-```
-AUTH_SECRET=            # openssl rand -base64 32 — run it right there in the shell
-DB_PASSWORD=            # new and strong; you never type it again
+```sh
+cat > .env <<EOF
+AUTH_SECRET=$(openssl rand -hex 32)
+DB_PASSWORD=$(openssl rand -hex 24)
+
 DEPLOY_MODE=saas
-SIGNUP_CODE=            # long and unguessable — this gates who can create companies
-PLATFORM_ADMIN_EMAIL=   # the email YOU will sign up with — grants the panel
-APP_ORIGIN=             # https://test.yourdomain.com (email links build from this)
-ADMIN_EMAIL=            # ignored in saas mode, but set them anyway
-ADMIN_PASSWORD=         #   (harmless, and required if you ever flip modes)
-HEARTBEAT_URL=          # a NEW healthchecks.io check — do not reuse the NAS's
-SMTP_*                  # optional for a test; without it, invites/resets are hidden
+SIGNUP_CODE=$(openssl rand -hex 12)
+PLATFORM_ADMIN_EMAIL=you@yourdomain.com
+APP_ORIGIN=https://test.yourdomain.com
+
+COMPANY_NAME=Mbarete
+ADMIN_EMAIL=you@yourdomain.com
+ADMIN_PASSWORD=$(openssl rand -hex 12)
+
+BACKUP_DIR=/app/backups
+BACKUP_RETENTION=14
+BACKUP_INTERVAL_HOURS=24
+EOF
+grep SIGNUP_CODE .env
+```
+
+Save that signup code — it is what you present at /signup, and the only
+thing between the internet and company creation. Then append the optional
+extras: `SMTP_*` (password resets, invites, and the error-alert emails),
+`ALERT_EMAIL`, `MOONSHOT_API_KEY` for AI capture, and `HEARTBEAT_URL` —
+which must be a **NEW** healthchecks.io check, never the NAS's: two
+servers pinging one check means the check stays green while one of them
+is dead.
+
+**Verify the file parsed** before building — a terminal paste can glue a
+stray character onto the first variable name, and Compose then silently
+ignores it (see Troubleshooting):
+
+```sh
+grep -vE '^[A-Za-z_][A-Za-z0-9_]*=|^$' .env    # should print nothing
 ```
 
 In `saas` mode nothing is seeded at boot: no companies exist until someone
@@ -151,3 +175,37 @@ Work the product like a stranger would:
   lived on it — that was the point.
 
 Either way, the NAS never noticed any of this happened.
+
+## Troubleshooting the two things that actually go wrong
+
+**Login answers "There was a problem with the server configuration."**
+Auth.js has no signing key. Nine times out of ten the `.env`'s FIRST line
+was mangled by the terminal's bracketed paste — a stray character glues
+itself to the variable name (`bAUTH_SECRET=…`), so Compose never sees the
+real one. It warns, quietly, in every command: `The "AUTH_SECRET" variable
+is not set. Defaulting to a blank string.`
+
+Diagnose (prints no secrets):
+
+```sh
+docker compose exec mbarete-app sh -c 'echo "secret length: ${#AUTH_SECRET}"'
+grep -vE '^[A-Za-z_][A-Za-z0-9_]*=|^$' .env
+```
+
+`secret length: 0` confirms it; the second command prints every line that
+is not a clean `KEY=value` — a mangled name shows up there. Fix, which also
+rolls the secret (note: no `^` anchor, so it catches the mangled name too):
+
+```sh
+sed -i '/AUTH_SECRET=/d' .env
+echo "AUTH_SECRET=$(openssl rand -hex 32)" >> .env
+docker compose up -d
+docker compose exec mbarete-app sh -c 'echo "secret length: ${#AUTH_SECRET}"'   # want 64
+```
+
+The same trick works for any variable: check the length inside the
+container, never trust that the file "looks right".
+
+**Commands that don't exist.** The provider's Ubuntu image is minimized:
+`nano` and `nslookup` are missing. `apt install -y nano` for the editor,
+and use `getent hosts test.example.com` in place of `nslookup`.
