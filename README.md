@@ -148,3 +148,5 @@ is for *capturing new things*, which is what the market floor needs.
 - **Products**: priced in any currency (`price` + `currency`), with MOQ, quantity-per-box, dimensions (auto-computes CBM, override allowed), weight, and a bilingual name/description.
 - **Orders**: built by picking products and quantities; totals (price converted to a chosen display currency via the `exchange_rates` table, CBM, weight) are computed live. A line below its product's MOQ is flagged and blocks confirming the order (saving as a draft is still allowed). Orders move through `draft → confirmed → shipped` (or `cancelled`). A draft is a quote (报价): the finance report books expected revenue and receivables only from confirmed/shipped orders (下单), showing drafts separately as the quoted pipeline. Real cash (payments, expenses) counts whatever the status.
 - **Contacts**: suppliers and clients share one table (`type` column), with company name, contact person, phone, email, WhatsApp, and WeChat.
+
+- Accountant pack: one ZIP per period — report, ledgers, evidence files, SHA-256 manifest, and tamper-evident period closes

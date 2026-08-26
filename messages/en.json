@@ -797,5 +797,15 @@
     "suspendedTitle": "This account is suspended",
     "suspendedBody": "Access is paused by the platform operator. Your data is intact and remains yours — an admin can download the full backup below. Contact the operator to resolve the suspension.",
     "signOut": "Sign out"
+  },
+  "accountantPack": {
+    "title": "Accountant pack 会计资料包",
+    "help": "One ZIP for the period: the report, line-by-line ledgers, and every payment slip, receipt and order document they reference — with SHA-256 hashes for tamper evidence. Closing a period records today's data digest so later edits become visible; it never locks anything.",
+    "download": "Download pack",
+    "close": "Close period",
+    "closeAgain": "Close again",
+    "closeConfirm": "Close this period? This records the current data digest. Records stay editable — future packs will simply show whether anything changed since closing.",
+    "closedAt": "Closed {date}",
+    "closeFailed": "Could not close the period — try again."
   }
 }

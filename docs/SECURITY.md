@@ -77,3 +77,5 @@ The app assumes a fronting TLS proxy on a public server. Non-negotiables:
    /signup; the platform email is the skeleton key to the panel.
 
 The full move procedure lives in docs/SERVER-MIGRATION.md.
+
+The accountant pack (`/api/export/accountant-pack`) is admin-only, gated on the finance module, rate-limited (10/hour per user), and internal by design — it contains cost data and must never feed a client-facing surface.

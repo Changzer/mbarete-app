@@ -943,6 +943,29 @@ export const aiUsage = pgTable(
   (table) => [index("ai_usage_company_idx").on(table.companyId, table.createdAt)],
 );
 
+/**
+ * One row per closed accounting period — the accountant pack's
+ * tamper-evidence anchor. pack_sha256 stores the pack's DETERMINISTIC data
+ * digest (accountant-pack.ts closeDigest — sorted path:sha256 of ledgers
+ * and files, no timestamps), so regenerating an untouched period matches
+ * and an edited one visibly does not. Closing never blocks edits.
+ */
+export const periodCloses = pgTable(
+  "period_closes",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    /** 'YYYY-MM', or 'YYYY-MM~YYYY-MM' when a multi-month range was closed. */
+    period: text("period").notNull(),
+    closedBy: integer("closed_by"),
+    closedAt: text("closed_at").notNull(),
+    packSha256: text("pack_sha256").notNull(),
+  },
+  (table) => [uniqueIndex("period_closes_company_period_uq").on(table.companyId, table.period)],
+);
+
 export const captureDrafts = pgTable(
   "capture_drafts",
   {

@@ -113,6 +113,9 @@ export async function getFinanceData(companyId: number): Promise<{
         paidOn: p.paidOn,
         account: p.account,
         rates: parseRatesSnapshot(p.ratesSnapshot),
+        note: p.note,
+        receiptPath: p.receiptPath || undefined,
+        receiptName: p.receiptName || undefined,
       })),
       expenses: (expensesByOrder.get(order.id) ?? []).map((e) => ({
         category: e.category,
@@ -120,6 +123,9 @@ export async function getFinanceData(companyId: number): Promise<{
         currency: e.currency,
         spentOn: e.spentOn,
         rates: parseRatesSnapshot(e.ratesSnapshot),
+        note: e.note,
+        receiptPath: e.receiptPath || undefined,
+        receiptName: e.receiptName || undefined,
       })),
     };
   });

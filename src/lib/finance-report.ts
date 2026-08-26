@@ -36,6 +36,12 @@ export type FinanceOrderInput = {
     account?: string;
     /** the rate table frozen when the payment was recorded, when present */
     rates?: CurrencyRates;
+    note?: string;
+    /** stored upload path + display name, for the pack to carry the slip */
+    receiptPath?: string;
+    receiptName?: string;
+    /** where the accountant pack placed this payment's slip, when it has one */
+    receiptZipPath?: string;
   }[];
   expenses: {
     category: string;
@@ -43,6 +49,10 @@ export type FinanceOrderInput = {
     currency: string;
     spentOn: string;
     rates?: CurrencyRates;
+    note?: string;
+    receiptPath?: string;
+    receiptName?: string;
+    receiptZipPath?: string;
   }[];
 };
 
@@ -344,4 +354,106 @@ export function computeFinanceReport(
     payablesList: payablesList.sort((a, b) => b.amount - a.amount),
     missingRates: [...missing],
   };
+}
+
+// ---------------------------------------------------------------------------
+// Period tooling for the accountant pack. Both helpers feed the SAME
+// computeFinanceReport above — the pack must never grow its own idea of
+// what counts, or its numbers drift from the finance page's.
+
+/** 'YYYY-MM' bounds, inclusive on both ends. */
+export type Period = { from: string; to: string };
+
+const inPeriod = (isoDate: string, period: Period) => {
+  const m = month(isoDate);
+  return m >= period.from && m <= period.to;
+};
+
+/**
+ * Clips the report input to one period, cash-basis:
+ *
+ * - payments stay iff paid_on falls in the period; expenses iff spent_on does
+ *   — the bank statement's view of the period, whatever the order's age;
+ * - an order keeps its expected figures iff it was CREATED in the period
+ *   (created_at is also what buckets the monthly rows, so the two agree;
+ *   there is no confirmed-at column to be stricter with);
+ * - an order created outside the period but with in-period money stays for
+ *   cash context only — remapped to "cancelled", which is precisely the
+ *   status computeFinanceReport treats as "cash counts, expectations don't";
+ * - an order with nothing in the period disappears entirely.
+ */
+export function filterFinanceInput(
+  orders: FinanceOrderInput[],
+  period: Period,
+): FinanceOrderInput[] {
+  const out: FinanceOrderInput[] = [];
+  for (const order of orders) {
+    const payments = order.payments.filter((p) => inPeriod(p.paidOn, period));
+    const expenses = order.expenses.filter((e) => inPeriod(e.spentOn, period));
+    const created = inPeriod(order.createdAt, period);
+    if (!created && payments.length === 0 && expenses.length === 0) continue;
+    out.push({
+      ...order,
+      status: created ? order.status : "cancelled",
+      payments,
+      expenses,
+    });
+  }
+  return out;
+}
+
+export type AgingRow = OpenBalance & { expected: number; paidToDate: number };
+
+/**
+ * Open balances AS OF the period's end — the one figure the clipped report
+ * cannot produce, because "what is still owed on the last day of March"
+ * depends on every payment up to that day, not only March's.
+ *
+ * Expected money follows the report's own rule (confirmed/shipped only,
+ * drafts are quotes, cancelled is nothing), restricted to orders that
+ * existed by period end; payments count when paid_on is on or before it.
+ */
+export function computeAgingAsOf(
+  orders: FinanceOrderInput[],
+  asOfMonthEnd: string,
+  reportCurrency: string,
+  rates: CurrencyRates,
+): { receivables: AgingRow[]; payables: AgingRow[] } {
+  const receivables: AgingRow[] = [];
+  const payables: AgingRow[] = [];
+  for (const order of orders) {
+    if (order.status !== "confirmed" && order.status !== "shipped") continue;
+    if (month(order.createdAt) > asOfMonthEnd) continue;
+    const conv = (amount: number, from: string, own?: CurrencyRates) => {
+      try {
+        const table = own && own[reportCurrency] !== undefined ? own : rates;
+        return convert(amount, from, reportCurrency, table);
+      } catch (err) {
+        if (err instanceof UnknownCurrencyError) return 0;
+        throw err;
+      }
+    };
+    const expectedRevenue = conv(order.expectedRevenue, order.quoteCurrency);
+    const expectedCost = conv(order.expectedCost, order.quoteCurrency);
+    let inPaid = 0;
+    let outPaid = 0;
+    for (const p of order.payments) {
+      if (month(p.paidOn) > asOfMonthEnd) continue;
+      const amount = conv(p.amount, p.currency, p.rates);
+      if (p.direction === "in") inPaid += amount;
+      else outPaid += amount;
+    }
+    const open = roundMoney(Math.max(0, expectedRevenue - inPaid));
+    const owed = roundMoney(Math.max(0, expectedCost - outPaid));
+    const base = { orderId: order.id, orderNumber: order.orderNumber, clientName: order.clientName };
+    if (open > 0.005) {
+      receivables.push({ ...base, amount: open, expected: roundMoney(expectedRevenue), paidToDate: roundMoney(inPaid) });
+    }
+    if (owed > 0.005) {
+      payables.push({ ...base, amount: owed, expected: roundMoney(expectedCost), paidToDate: roundMoney(outPaid) });
+    }
+  }
+  receivables.sort((a, b) => b.amount - a.amount);
+  payables.sort((a, b) => b.amount - a.amount);
+  return { receivables, payables };
 }

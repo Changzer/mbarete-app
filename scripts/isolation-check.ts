@@ -18,6 +18,8 @@ import {
 } from "../src/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { runWithTenant } from "../src/db/tenant-context";
+import { periodCloses } from "../src/db/schema";
+import { listPeriodCloses } from "../src/lib/queries/accountant";
 import { getProducts, getProductById, getCategories } from "../src/lib/queries/catalog";
 import { getContactsByType, getContactById } from "../src/lib/queries/contacts";
 import { getOrders, getOrderById, getExchangeRates } from "../src/lib/queries/orders";
@@ -101,6 +103,13 @@ async function makeCompany(name: string) {
       updatedBy: user.id,
     })
     .returning();
+  await db.insert(periodCloses).values({
+    companyId: company.id,
+    period: "2026-01",
+    closedBy: user.id,
+    closedAt: new Date().toISOString(),
+    packSha256: `digest-${name}`,
+  });
   const [offer] = await db
     .insert(productSuppliers)
     .values({
@@ -142,6 +151,7 @@ async function destroyCompany(companyId: number) {
   // are behind RLS, so clean up as their own tenant; users and companies are
   // exempt and go last.
   await runWithTenant(companyId, async () => {
+    await db.delete(periodCloses).where(eq(periodCloses.companyId, companyId));
     await db.delete(captureDraftImages).where(eq(captureDraftImages.companyId, companyId));
     await db.delete(captureDrafts).where(eq(captureDrafts.companyId, companyId));
     await db.delete(orders).where(eq(orders.companyId, companyId));
@@ -188,6 +198,13 @@ async function main() {
     check(
       "getOffersForProduct returns nothing for A's product",
       (await getOffersForProduct(B.company.id, A.product.id)).length === 0,
+    );
+    const closesB = await listPeriodCloses(B.company.id);
+    check("period closes listing sees only B's row", Object.keys(closesB).length === 1);
+    const closeRowsB = await db.select().from(periodCloses);
+    check(
+      "period_closes RLS hides A's digest from B's scope",
+      closeRowsB.length === 1 && closeRowsB[0].packSha256 === "digest-AttackerB",
     );
     const finance = await getFinanceData(B.company.id);
     check("finance report excludes A's orders", finance.orders.every((o) => o.id === B.order.id));

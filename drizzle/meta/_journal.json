@@ -120,6 +120,13 @@
       "when": 1787950000000,
       "tag": "0016_ai-usage",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1788000000000,
+      "tag": "0017_period-closes",
+      "breakpoints": true
     }
   ]
 }
