@@ -13,6 +13,7 @@ const aiLimiter = makeLimiter({ max: 120, windowMs: 60 * 60 * 1000 });
 import { db } from "@/db";
 import { categories as categoriesTable } from "@/db/schema";
 import { getCategories } from "@/lib/queries/catalog";
+import { recordError } from "@/lib/monitoring";
 import {
   isTranscriptionEnabled,
   transcribeProductPhotos,
@@ -123,9 +124,10 @@ export async function transcribeProduct(formData: FormData): Promise<TranscribeR
   } catch (error) {
     // Network trouble, a refused request, malformed output — the form still
     // works by hand, so every failure collapses to one retryable message.
-    // The cause goes to the server log: "could not read the photos" on the
-    // phone is undebuggable without it.
-    console.error("[transcribe] failed:", error);
+    // The cause goes to the error log, which the platform panel shows and
+    // alerts on: "could not read the photos" on a phone in a booth is
+    // undebuggable otherwise, and nobody reads container logs in time.
+    recordError("transcribe:product", error);
     return { ok: false, error: "failed" };
   }
 
@@ -175,7 +177,7 @@ export async function transcribeCard(formData: FormData): Promise<CardTranscribe
   try {
     return await transcribeBusinessCard(images);
   } catch (error) {
-    console.error("[transcribe] card failed:", error);
+    recordError("transcribe:card", error);
     return { ok: false, error: "failed" };
   }
 }
