@@ -1,5 +1,9 @@
 # Moving off the NAS: the real-server runbook
 
+> Just want to TRY the app on a public VPS first — empty, in SaaS mode,
+> no real data at risk? That's docs/VPS-TEST.md. This document is for the
+> day the real install moves.
+
 The whole move is: stand the app up empty on the new machine, carry one
 backup over, restore, point the domain, done. The backup/restore machinery
 (docs/BACKUPS.md) does the heavy lifting — this document is the order of
