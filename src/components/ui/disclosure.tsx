@@ -95,12 +95,16 @@ export function Field({
   label,
   htmlFor,
   hint,
+  required,
   children,
   className,
 }: {
   label: React.ReactNode;
   htmlFor?: string;
   hint?: React.ReactNode;
+  /** Marks the label with the conventional asterisk. Purely visual — the
+   *  actual rule lives in the validator; this is the signpost to it. */
+  required?: boolean;
   children: React.ReactNode;
   className?: string;
 }) {
@@ -111,6 +115,7 @@ export function Field({
         className="text-[11px] font-semibold leading-none text-sub"
       >
         {label}
+        {required ? <span className="text-danger"> *</span> : null}
       </label>
       {children}
       {hint ? <p className="text-[11px] leading-relaxed text-sub">{hint}</p> : null}

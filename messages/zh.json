@@ -195,7 +195,7 @@
     "notMeasuredYet": "尚无外箱尺寸。在补充之前，包含此产品的订单其体积和重量会偏低。",
     "optionalPlaceholder": "选填",
     "measurementsOptional": "如暂时没有数据可以留空，之后再补充。订单会标示仍缺少数据的产品。",
-    "errorRequiredFields": "名称、价格、起订量和每箱数量为必填项。",
+    "errorRequiredFields": "名称（任一语言）、供应商价格、起订量和每箱数量为必填 —— 缺少的字段已用 * 标记并高亮显示。",
     "errorDuplicateSku": "该货号已被其他产品使用。",
     "errorImage": "图片保存失败，请重试。",
     "deleteCategoryInUse": "仍有产品属于此分类。请先将这些产品改到其他分类，再删除。",
