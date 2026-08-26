@@ -151,8 +151,20 @@ test.yourdomain.com {
 ```
 
 `systemctl reload caddy`. With the DNS A record set, the first visit
-fetches a certificate automatically. Ports 3000 and 5432 stay unpublished
-to the internet — the compose file already keeps it that way.
+fetches a certificate automatically.
+
+Postgres (5432) is compose-internal and never reaches the host. Port 3000
+is different: the compose default publishes it on **every** interface, which
+is right for a LAN NAS and wrong for an internet-facing server. Set in `.env`:
+
+```sh
+APP_PORT_BIND=127.0.0.1:3000:3000
+```
+
+then `docker compose up -d` and confirm from your laptop that
+`curl -m 5 http://<server-ip>:3000` now fails while the https domain still
+answers. Blocking inbound 3000 in the provider's firewall panel as well
+costs nothing and covers the day someone edits `.env` carelessly.
 
 ## 5. Become the first tenant, then the operator
 

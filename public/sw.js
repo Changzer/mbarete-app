@@ -10,7 +10,11 @@
  *
  * The strategy is deliberately conservative:
  * - `/_next/static/` is content-hashed and immutable: cache-first.
- * - `/uploads/` photos live under one-time UUID names: cache-first, capped.
+ * - `/uploads/` — only LEGACY flat-named photos are cached here (cache-first,
+ *   capped). Per-company photos (`/uploads/c<id>/…`) are session-gated at the
+ *   serving route, and a service-worker cache would keep answering for them
+ *   after sign-out; their offline story is the browser's own HTTP cache
+ *   instead (the route serves them `private, immutable`).
  * - Page loads (`mode === "navigate"`): network-first, falling back to the
  *   last good copy of that same URL. Nothing is precached — a page must have
  *   been visited to be available offline, and a working server always wins,

@@ -349,8 +349,11 @@ free additions fix that:
    shows the last 24 hours of errors. Optionally set `ALERT_EMAIL` to send
    them somewhere other than the admin address.
 
-The app container also checks its own health every minute and Docker
-restarts it automatically if it stops answering.
+The app container also checks its own health every minute; an unhealthy
+app shows up in `docker compose ps` and makes the auto-updater's health
+probe fail. Docker does **not** restart a running container just for being
+unhealthy — if the app is up but not answering, restart it yourself with
+`docker compose restart`.
 
 ---
 
@@ -381,6 +384,12 @@ sudo ./scripts/install-auto-update.sh 15
 4. If it answers, you're done — the new version is live.
 5. **If it doesn't answer, it puts the previous version back**, so the NAS is
    never left down while nobody is watching.
+
+One honest caveat: the rollback restores the previous *code*, but a database
+migration the failed version already ran stays applied — migrations here are
+additive (new tables and columns, never rewrites), so the older code runs
+fine on the newer schema, and a pre-migration backup is taken automatically
+in case something ever does need untangling.
 
 A version that fails is not tried again, so a broken merge cannot put the NAS
 into a rebuild loop. Push a fix to `main` and the next check picks it up.

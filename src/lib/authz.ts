@@ -87,6 +87,24 @@ export async function requireUser(): Promise<SessionUser> {
   return user;
 }
 
+/**
+ * The lifecycle gate's API face. Pages redirect a pending or suspended
+ * company to its status screen; a route handler answering JSON or a file
+ * refuses instead — otherwise approval and freeze are promises the pages
+ * keep and the API breaks: an unapproved signup could feed captures
+ * straight to the AI, a frozen company could keep exporting documents.
+ * Returns the blocking status, or null for an active company. Two routes
+ * never call this, by design: the backup export (the way out a suspended
+ * admin is promised) and upload serving (the files that backup's rows
+ * point at).
+ */
+export async function companyLifecycleBlock(
+  user: SessionUser,
+): Promise<"pending" | "suspended" | null> {
+  const status = await companyStatus(user.companyId);
+  return status === "active" ? null : status;
+}
+
 /** The company's lifecycle column, cached per request like the modules. */
 export const companyStatus = cache(async (companyId: number) => {
   const row = await db

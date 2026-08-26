@@ -17,6 +17,7 @@ import { existsSync } from "node:fs";
 import test from "node:test";
 import { chromium } from "playwright";
 import ExcelJS from "exceljs";
+import pg from "pg";
 
 const EXECUTABLE =
   process.env.CHROMIUM_PATH ??
@@ -219,6 +220,87 @@ test("a booth capture becomes a product, an order, a quote and an invoice", asyn
 
     await context.close();
   } finally {
+    await browser.close();
+  }
+});
+
+/**
+ * The lifecycle gate at the API boundary. Pages redirect a pending or
+ * suspended company to its status screen; these probes prove the route
+ * handlers refuse too — otherwise approval and freeze would be promises only
+ * the UI keeps: an unapproved signup could feed captures (and AI reads)
+ * through /api/drafts, a frozen company could keep exporting documents. The
+ * one deliberate opening: a suspended admin keeps the full backup — a freeze
+ * is a pause, never a hostage situation.
+ */
+test("pending and suspended companies are refused at the API boundary", async () => {
+  const sql = new pg.Client({
+    connectionString:
+      process.env.DATABASE_ADMIN_URL ??
+      "postgres://mbarete:mbarete@localhost:5432/mbarete_test",
+  });
+  await sql.connect();
+  const {
+    rows: [account],
+  } = await sql.query("SELECT company_id FROM users WHERE email = $1", [EMAIL]);
+  assert.ok(account, `seeded account ${EMAIL} exists`);
+  const setStatus = (status) =>
+    sql.query("UPDATE companies SET status = $1 WHERE id = $2", [status, account.company_id]);
+
+  const browser = await launch();
+  try {
+    // Sign in while the company is still active; the session cookie stays
+    // valid across the flips below, exactly like a real approval or freeze
+    // landing on an already-signed-in phone.
+    const { context } = await signedIn(browser);
+
+    const expectRefused = async (label) => {
+      const draft = await context.request.post(`${BASE}/api/drafts`, {
+        multipart: { clientId: "gate-probe", capturedAt: "", kind: "product", fields: "{}" },
+      });
+      assert.equal(draft.status(), 403, `${label}: capture refused`);
+      const upload = await context.request.post(`${BASE}/api/uploads`, {
+        multipart: { probe: "1" },
+      });
+      assert.equal(upload.status(), 403, `${label}: upload refused`);
+      const exported = await context.request.get(
+        `${BASE}/api/orders/999999/export?format=xlsx&locale=en`,
+      );
+      assert.equal(exported.status(), 403, `${label}: order export refused`);
+      const month = new Date().toISOString().slice(0, 7);
+      const pack = await context.request.get(
+        `${BASE}/api/export/accountant-pack?from=${month}&to=${month}`,
+      );
+      assert.equal(pack.status(), 403, `${label}: accountant pack refused`);
+    };
+
+    await setStatus("pending");
+    await expectRefused("pending");
+
+    await setStatus("suspended");
+    await expectRefused("suspended");
+    // The promised way out stays open: a suspended admin can still take
+    // everything with them.
+    const backup = await context.request.get(`${BASE}/api/export/backup`);
+    assert.equal(backup.status(), 200, "suspended: the full backup still streams");
+    assert.match(backup.headers()["content-type"] ?? "", /zip/);
+
+    await setStatus("active");
+    // The same bogus-order probe now answers a plain 404 — the 403s above
+    // were the lifecycle gate, not something else in the chain.
+    const lifted = await context.request.get(
+      `${BASE}/api/orders/999999/export?format=xlsx&locale=en`,
+    );
+    assert.equal(lifted.status(), 404, "active again: exports answer normally");
+
+    await context.close();
+  } finally {
+    // Whatever happened above, the seeded company goes back to active — the
+    // backup drill that runs after this suite depends on it.
+    await sql.query("UPDATE companies SET status = 'active' WHERE id = $1", [
+      account?.company_id,
+    ]).catch(() => {});
+    await sql.end().catch(() => {});
     await browser.close();
   }
 });

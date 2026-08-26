@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ZipArchive } from "archiver";
 import { Readable } from "stream";
-import { sessionUser, requireModuleAction } from "@/lib/authz";
+import { companyLifecycleBlock, sessionUser, requireModuleAction } from "@/lib/authz";
 import { makeLimiter } from "@/lib/rate-limit";
 import { assembleAccountantPack, periodKey } from "@/lib/accountant-pack-server";
 
@@ -22,6 +22,10 @@ const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 export async function GET(request: NextRequest) {
   const user = await sessionUser();
   if (!user) return new NextResponse("Unauthorized", { status: 401 });
+  // A suspended company's promised export is the full backup, not this one.
+  if (await companyLifecycleBlock(user)) {
+    return new NextResponse("Forbidden", { status: 403 });
+  }
   if (user.role !== "admin") return new NextResponse("Forbidden", { status: 403 });
   try {
     await requireModuleAction(user, "finance");

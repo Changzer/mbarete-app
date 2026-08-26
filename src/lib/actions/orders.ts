@@ -15,7 +15,7 @@ import {
   orderExpenses,
   bankAccounts,
 } from "@/db/schema";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { requireUser, requireAdmin, requireModuleAction } from "@/lib/authz";
 import {
   isBelowMoq,
@@ -492,14 +492,26 @@ export async function setOrderBankAccount(orderId: number, bankAccountId: number
     partiesSnapshot = JSON.stringify(parsed);
   }
 
-  await db.update(orders)
+  const won = await db.update(orders)
     .set({
       bankAccountId,
       partiesSnapshot,
       version: current.version + 1,
       updatedAt: new Date().toISOString(),
     })
-    .where(eq(orders.id, orderId));
+    .where(
+      and(
+        eq(orders.companyId, user.companyId),
+        eq(orders.id, orderId),
+        // Optimistic concurrency, same as updateOrder: the snapshot spliced
+        // above came from the row as read. If the order moved since, writing
+        // it would silently undo the concurrent edit's freeze — so nothing
+        // is written and no event is logged.
+        eq(orders.version, current.version),
+      ),
+    )
+    .returning({ id: orders.id });
+  if (won.length === 0) return;
 
   await logOrderEvent(orderId, user.id, "edited", {
     changes: [{ code: "bank", from: before?.label ?? "—", to: target.label }],
@@ -651,7 +663,7 @@ async function computeCatalogRefresh(companyId: number, orderId: number) {
       updates.push({ itemId: item.id, fresh, diff });
     }
   }
-  return { updates };
+  return { order, updates };
 }
 
 /** What an update would change, line by line — nothing is written. */
@@ -674,8 +686,7 @@ export async function applyCatalogRefresh(
   if (result.updates.length === 0) return { updated: 0 };
 
   const changes: OrderChange[] = [];
-  for (const { itemId, fresh, diff } of result.updates) {
-    await db.update(orderItems).set(fresh).where(eq(orderItems.id, itemId));
+  for (const { diff } of result.updates) {
     if (diff.cost) {
       changes.push({
         code: "line_cost",
@@ -697,12 +708,30 @@ export async function applyCatalogRefresh(
     if (diff.moq) changes.push({ code: "line_moq", sku: diff.sku, from: diff.moq.from, to: diff.moq.to });
   }
 
-  // The version moves too, so a concurrent editor's stale save sees this
-  // refresh as the movement it is and conflicts instead of overwriting it.
-  await db
-    .update(orders)
-    .set({ version: sql`${orders.version} + 1`, updatedAt: new Date().toISOString() })
-    .where(eq(orders.id, orderId));
+  // One transaction, entered by winning the version race: the refresh was
+  // computed against the order as read above, so an edit landing in between
+  // makes this computation stale — that's a conflict, never a half-applied
+  // mix of old and new lines. Winning also moves the version, so a stale
+  // editor's later save conflicts in turn instead of overwriting the refresh.
+  const conflicted = await db.transaction(async (tx) => {
+    const won = await tx
+      .update(orders)
+      .set({ version: result.order.version + 1, updatedAt: new Date().toISOString() })
+      .where(
+        and(
+          eq(orders.companyId, user.companyId),
+          eq(orders.id, orderId),
+          eq(orders.version, result.order.version),
+        ),
+      )
+      .returning({ id: orders.id });
+    if (won.length === 0) return true;
+    for (const { itemId, fresh } of result.updates) {
+      await tx.update(orderItems).set(fresh).where(eq(orderItems.id, itemId));
+    }
+    return false;
+  });
+  if (conflicted) return { error: "conflict" };
   await logOrderEvent(orderId, user.id, "refreshed", { changes });
 
   revalidatePath("/[locale]/orders/[id]", "page");

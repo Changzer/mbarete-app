@@ -34,6 +34,13 @@ public server. What holds, what was fixed, and what the operator must do.
   seats, modules, backups) additionally demand step-up authentication: the
   operator's password again, opening a 15-minute window checked server-side
   on every mutation — a stolen signed-in session can look, not touch.
+- **The company lifecycle binds at every boundary**: a pending (unapproved
+  referral) or suspended company is turned away by the pages AND refused with
+  403 by the API routes — captures, uploads, order exports, the accountant
+  pack — so approval and freeze hold against direct API calls, not just the
+  UI. The deliberate exceptions: a suspended admin keeps the full backup
+  export, and upload serving stays readable to the owning session. Probed in
+  the golden-path suite on every CI run.
 - **Headers**: X-Frame-Options DENY, nosniff, same-origin referrer,
   restrictive Permissions-Policy, HSTS (inert on plain http, binding behind
   TLS).

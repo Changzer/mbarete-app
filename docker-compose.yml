@@ -25,9 +25,11 @@ services:
     depends_on:
       mbarete-db:
         condition: service_healthy
-    # /api/health answers 200 only when the database does — a hung process
-    # or a dead DB connection flips the container unhealthy and Docker's
-    # restart policy takes it from there.
+    # /api/health answers 200 only when the database does — a hung process or
+    # a dead DB connection flips the container unhealthy in `docker compose
+    # ps` and the update script's health probe. Compose does NOT restart a
+    # running container for being unhealthy (the restart policy acts only when
+    # the process exits); an unhealthy app needs a `docker compose restart`.
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
       interval: 60s
@@ -35,7 +37,11 @@ services:
       retries: 3
       start_period: 180s
     ports:
-      - "3000:3000"
+      # Where the app answers on the host. The default serves the NAS's LAN
+      # deployment (browse to nas-ip:3000) — but it binds every interface, so
+      # on an internet-facing server set APP_PORT_BIND=127.0.0.1:3000:3000 in
+      # .env and let the reverse proxy (Caddy) be the only public door.
+      - "${APP_PORT_BIND:-3000:3000}"
     environment:
       AUTH_SECRET: ${AUTH_SECRET}
       # The app runs as a non-superuser role so row-level security binds it;
