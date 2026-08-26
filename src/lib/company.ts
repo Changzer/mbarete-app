@@ -86,6 +86,11 @@ export type NewCompanyInput = {
   ownerPassword: string;
   /** Set when the signup arrived through another company's referral link. */
   referredByCompanyId?: number;
+  /**
+   * "pending" for referral signups awaiting the operator's approval;
+   * omitted (= "active") for the boot seed and code-bearing signups.
+   */
+  status?: "pending" | "active";
 };
 
 /**
@@ -113,6 +118,7 @@ export async function createCompanyWithOwner(
         moduleOrders: plan.modules.orders,
         moduleFinance: plan.modules.finance,
         referredByCompanyId: input.referredByCompanyId ?? null,
+        status: input.status ?? "active",
       })
       .returning({ id: companies.id });
 

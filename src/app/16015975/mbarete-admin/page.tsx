@@ -7,6 +7,9 @@ import { TestEmail } from "./test-email";
 import { backupStatus, type BackupStatus } from "@/lib/backups";
 import { SeatStepper } from "./seat-stepper";
 import { UnlockPanel } from "./unlock-panel";
+import { ApproveButton } from "./approve-button";
+import { SuspendToggle } from "./suspend-toggle";
+import { ResetLink } from "./reset-link";
 import { platformReauth } from "@/lib/platform/reauth";
 import { recentErrors, type ErrorEntry } from "@/lib/monitoring";
 import { planOf, seatLimit, usageLabel } from "@/lib/plans";
@@ -171,6 +174,7 @@ export default async function PlatformAdminPage() {
           <BackupLine status={backups} now={now} />
           {backups.configured ? <BackupNow /> : null}
           <TestEmail />
+          <ResetLink />
         </div>
       </header>
 
@@ -182,8 +186,34 @@ export default async function PlatformAdminPage() {
         <Tile label="Referred" value={totals.referred} />
       </div>
 
+      {companies.some((m) => m.status === "pending") ? (
+        <div
+          className="mb-6 rounded-[12px] border border-amber-300 bg-amber-50 p-4"
+          data-testid="pending-queue"
+        >
+          <div className="mb-2 text-sm font-bold text-amber-900">Waiting for approval</div>
+          <ul className="divide-y divide-amber-200">
+            {companies
+              .filter((m) => m.status === "pending")
+              .map((m) => (
+                <li key={m.id} className="flex flex-wrap items-center justify-between gap-3 py-2">
+                  <div className="min-w-0 text-sm text-amber-900">
+                    <span className="font-semibold">{m.name}</span>
+                    <span className="ml-2 text-[12px]">{m.ownerEmail ?? "—"}</span>
+                    <span className="ml-2 text-[12px]">
+                      {m.referredByName ? `referred by ${m.referredByName}` : "no referrer"}
+                      {` · since ${m.createdAt.slice(0, 10)}`}
+                    </span>
+                  </div>
+                  <ApproveButton companyId={m.id} />
+                </li>
+              ))}
+          </ul>
+        </div>
+      ) : null}
+
       <ul className="space-y-3" data-testid="companies-table">
-        {companies.map((m) => (
+        {companies.filter((m) => m.status !== "pending").map((m) => (
           <li
             key={m.id}
             className="rounded-[12px] border border-line bg-surface p-4"
@@ -194,6 +224,11 @@ export default async function PlatformAdminPage() {
                 <div className="flex items-center gap-2">
                   <h2 className="truncate text-[15px] font-bold text-ink">{m.name}</h2>
                   <span className="shrink-0 text-[11px] text-faint">#{m.id}</span>
+                  {m.status === "suspended" ? (
+                    <span className="rounded-full bg-danger-soft px-2 py-0.5 text-[11px] font-semibold text-danger">
+                      frozen
+                    </span>
+                  ) : null}
                   <ActivityChip idleDays={idleDaysOf(m, now)} />
                 </div>
                 <div className="mt-0.5 text-[11px] text-faint">
@@ -220,6 +255,7 @@ export default async function PlatformAdminPage() {
                   Finance
                   <ModuleToggle companyId={m.id} module="finance" enabled={m.moduleFinance} />
                 </span>
+                <SuspendToggle companyId={m.id} suspended={m.status === "suspended"} />
               </div>
             </div>
             <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 border-t border-line pt-3">

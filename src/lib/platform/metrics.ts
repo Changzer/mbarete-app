@@ -1,4 +1,4 @@
-import { count, countDistinct, eq, max, sql, sum } from "drizzle-orm";
+import { count, countDistinct, eq, max, sql, sum, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { companies, users, products, orders, contacts, userActivityDays, invites } from "@/db/schema";
 import { companyStorageBytes } from "@/lib/uploads";
@@ -17,6 +17,10 @@ import { companyStorageBytes } from "@/lib/uploads";
 export type CompanyMetrics = {
   id: number;
   name: string;
+  /** Lifecycle: pending approval, in service, or frozen (companies.status). */
+  status: "pending" | "active" | "suspended";
+  /** The owner's email — the queue's contact line and the panel's handle. */
+  ownerEmail: string | null;
   plan: string;
   /** Seats bought beyond the plan's cap, granted from the panel. */
   extraSeats: number;
@@ -120,6 +124,11 @@ export async function loadPlatformOverview(): Promise<PlatformOverview> {
   );
 
   const nameById = new Map(companyRows.map((c) => [c.id, c.name]));
+  const ownerIds = companyRows.map((c) => c.ownerUserId).filter((v): v is number => v !== null);
+  const ownerRows = ownerIds.length
+    ? await db.select({ id: users.id, email: users.email }).from(users).where(inArray(users.id, ownerIds))
+    : [];
+  const ownerEmailById = new Map(ownerRows.map((r) => [r.id, r.email]));
   const referralsBy = new Map<number, number>();
   for (const c of companyRows) {
     if (c.referredByCompanyId !== null) {
@@ -138,6 +147,8 @@ export async function loadPlatformOverview(): Promise<PlatformOverview> {
     return {
       id: c.id,
       name: c.name,
+      status: c.status,
+      ownerEmail: c.ownerUserId !== null ? ownerEmailById.get(c.ownerUserId) ?? null : null,
       plan: c.plan,
       extraSeats: c.extraSeats,
       createdAt: c.createdAt,

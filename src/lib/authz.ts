@@ -77,8 +77,26 @@ export async function sessionUser(): Promise<SessionUser | null> {
 export async function requireUser(): Promise<SessionUser> {
   const user = await sessionUser();
   if (!user) redirect("/login");
+  // The company's lifecycle gate. A pending or suspended company keeps its
+  // logins, but every page yields to the one status screen — which is why
+  // those two pages (and the data-export route a suspended admin is still
+  // promised) sit on sessionUser directly, never on this.
+  const status = await companyStatus(user.companyId);
+  if (status === "pending") redirect("/pending");
+  if (status === "suspended") redirect("/suspended");
   return user;
 }
+
+/** The company's lifecycle column, cached per request like the modules. */
+export const companyStatus = cache(async (companyId: number) => {
+  const row = await db
+    .select({ status: companies.status })
+    .from(companies)
+    .where(eq(companies.id, companyId))
+    .limit(1)
+    .then(one);
+  return row?.status ?? "active";
+});
 
 /**
  * Admin only. Server actions behind this are the actual security boundary;

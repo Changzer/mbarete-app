@@ -789,5 +789,12 @@
     "failed": "同步失败 — 重试",
     "conflict": "冲突 — 需处理",
     "imagePending": "图片待上传"
+  },
+  "accountStatus": {
+    "pendingTitle": "等待审核",
+    "pendingBody": "您的公司已完成注册，正在等待平台审核。审核通过后我们会通知 {email} —— 您也可以随时回到此页查看。",
+    "suspendedTitle": "账号已被暂停",
+    "suspendedBody": "平台运营方已暂停访问。您的数据完好并始终属于您 —— 管理员可在下方下载完整备份。如需恢复请联系平台运营方。",
+    "signOut": "退出登录"
   }
 }

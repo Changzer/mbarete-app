@@ -62,6 +62,15 @@ export const companies = pgTable("companies", {
   referredByCompanyId: integer("referred_by_company_id").references(
     (): AnyPgColumn => companies.id,
   ),
+  /**
+   * Lifecycle, decided by the operator. "pending" = arrived through a
+   * referral link and waits for approval; "active" = normal service;
+   * "suspended" = frozen — every page yields to the suspended screen,
+   * which keeps only the data-export door open (authz.ts requireUser).
+   */
+  status: text("status", { enum: ["pending", "active", "suspended"] })
+    .notNull()
+    .default("active"),
   createdAt: text("created_at").notNull().default(utcNow),
 });
 

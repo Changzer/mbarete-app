@@ -789,5 +789,12 @@
     "failed": "Sync failed — Retry",
     "conflict": "Conflict — review",
     "imagePending": "Image upload pending"
+  },
+  "accountStatus": {
+    "pendingTitle": "Waiting for approval",
+    "pendingBody": "Your company is signed up and waiting for the operator's approval. You'll be notified at {email} once it's ready — check back here any time.",
+    "suspendedTitle": "This account is suspended",
+    "suspendedBody": "Access is paused by the platform operator. Your data is intact and remains yours — an admin can download the full backup below. Contact the operator to resolve the suspension.",
+    "signOut": "Sign out"
   }
 }

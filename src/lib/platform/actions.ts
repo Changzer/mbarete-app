@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import { db, one } from "@/db";
 import { companies, users } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { requirePlatformAdmin } from "@/lib/authz";
 import { PLANS, type PlanId } from "@/lib/plans";
 import { platformReauth } from "@/lib/platform/reauth";
@@ -97,6 +97,108 @@ export async function setExtraSeats(companyId: number, extraSeats: number): Prom
   await db.update(companies).set({ extraSeats: seats }).where(eq(companies.id, companyId));
   revalidatePath("/16015975/mbarete-admin");
   return { ok: true };
+}
+
+/**
+ * Lets a pending company (a referral signup) into service. Best-effort
+ * email tells the owner; without SMTP the operator passes the word along
+ * however the referral itself travelled.
+ */
+export async function approveCompany(companyId: number): Promise<PlatformWriteResult> {
+  if (!(await freshOperatorOr())) return { ok: false, error: "reauth" };
+  const [row] = await db
+    .update(companies)
+    .set({ status: "active" })
+    .where(and(eq(companies.id, companyId), eq(companies.status, "pending")))
+    .returning({ ownerUserId: companies.ownerUserId, name: companies.name });
+  if (row?.ownerUserId) {
+    const { isMailConfigured, sendMail } = await import("@/lib/mail");
+    if (isMailConfigured()) {
+      const owner = await db
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.id, row.ownerUserId))
+        .limit(1)
+        .then(one);
+      if (owner) {
+        const origin = process.env.APP_ORIGIN || "http://localhost:3000";
+        await sendMail({
+          to: owner.email,
+          subject: `${row.name} — account approved / 账号已开通`,
+          text:
+            `Your Mbarete account has been approved. Sign in and get to work:
+${origin}/en/login
+
+` +
+            `您的 Mbarete 账号已开通，点击登录：
+${origin}/zh/login`,
+        }).catch(() => {});
+      }
+    }
+  }
+  revalidatePath("/16015975/mbarete-admin");
+  return { ok: true };
+}
+
+/**
+ * The brake. Freezing keeps the tenant's logins and data intact but yields
+ * every page to the suspended screen — where the data export stays open,
+ * because a pause must never be a hostage situation. Unfreezing restores
+ * service as if nothing happened.
+ */
+export async function setCompanySuspended(
+  companyId: number,
+  suspended: boolean,
+): Promise<PlatformWriteResult> {
+  if (!(await freshOperatorOr())) return { ok: false, error: "reauth" };
+  await db
+    .update(companies)
+    .set({ status: suspended ? "suspended" : "active" })
+    // Freezing a pending company is meaningless — approval is the only door
+    // out of pending, so only active companies can be frozen.
+    .where(
+      and(
+        eq(companies.id, companyId),
+        eq(companies.status, suspended ? "active" : "suspended"),
+      ),
+    );
+  revalidatePath("/16015975/mbarete-admin");
+  return { ok: true };
+}
+
+export type ResetLinkResult = { ok: boolean; error?: "reauth" | "no-user"; link?: string };
+
+/**
+ * A one-time password-reset link for any tenant user, handed to the
+ * operator instead of an inbox — the recovery path while a tenant's email
+ * is broken, or before SMTP exists at all. Exactly the mailed link: same
+ * hashed single-use token, same 30 minutes, same session-killing reset
+ * flow at the other end. The operator never sees or sets the password.
+ */
+export async function makePasswordResetLink(email: string): Promise<ResetLinkResult> {
+  if (!(await freshOperatorOr())) return { ok: false, error: "reauth" };
+  const normalized = String(email ?? "").toLowerCase().trim();
+  if (!normalized || normalized.length > 200) return { ok: false, error: "no-user" };
+  const user = await db
+    .select({ id: users.id, active: users.active })
+    .from(users)
+    .where(eq(users.email, normalized))
+    .limit(1)
+    .then(one);
+  // The panel is operator-only, so honesty beats an existence oracle here.
+  if (!user || !user.active) return { ok: false, error: "no-user" };
+
+  const { newInviteToken, hashInviteToken, isoIn } = await import("@/lib/invites");
+  const { authTokens } = await import("@/db/schema");
+  const token = newInviteToken();
+  await db.insert(authTokens).values({
+    userId: user.id,
+    kind: "reset",
+    tokenHash: hashInviteToken(token),
+    expiresAt: isoIn(30 * 60 * 1000),
+  });
+  const origin = process.env.APP_ORIGIN || "http://localhost:3000";
+  return { ok: true, link: `${origin}/en/reset/${token}` };
 }
 
 /**
