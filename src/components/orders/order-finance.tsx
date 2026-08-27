@@ -294,13 +294,15 @@ function PaymentList({
   return (
     <ul className="flex flex-col divide-y divide-line">
       {rows.map((p) => (
-        <li key={p.id} className="flex items-center gap-3 py-1.5 text-sm">
+        // flex-wrap + a bounded account chip: on a phone the chip's free-text
+        // bank name otherwise pushes Remove off the card.
+        <li key={p.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-1.5 text-sm">
           <span className="w-24 shrink-0 text-sub">{p.paidOn}</span>
           <span className="font-medium text-ink">
             {money(p.amount)} {p.currency}
           </span>
           {p.account ? (
-            <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-sub">
+            <span className="max-w-40 shrink-0 truncate rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-sub">
               {p.account}
             </span>
           ) : null}
@@ -414,7 +416,7 @@ function ExpenseSection({
           data-testid="expense-list"
         >
           {rows.map((e) => (
-            <li key={e.id} className="flex items-center gap-3 py-1.5 text-sm">
+            <li key={e.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-1.5 text-sm">
               <span className="w-24 shrink-0 text-sub">
                 {e.spentOn}
               </span>
