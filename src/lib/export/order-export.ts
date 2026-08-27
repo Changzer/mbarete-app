@@ -8,7 +8,7 @@ import {
 import { formatCbm, formatWeightKg } from "@/lib/calculations";
 import { parsePartiesSnapshot, usesFrozenParties } from "@/lib/parties-snapshot";
 import { getImagesByProduct, getProducts } from "@/lib/queries/catalog";
-import { readExportThumb } from "./thumbs";
+import { readExportThumb, readExportLogo, type ExportLogo } from "./thumbs";
 import type { Locale } from "@/i18n/routing";
 
 /**
@@ -42,6 +42,8 @@ export type OrderExportData = {
     email: string;
     website: string;
     taxId: string;
+    /** the tenant's letterhead logo, normalised for embedding; null = text-only */
+    logo: ExportLogo | null;
   };
   doc: {
     number: string;
@@ -175,6 +177,9 @@ export async function getOrderExportData(
       email: seller.email,
       website: seller.website,
       taxId: seller.taxId,
+      // Live rather than frozen, like the on-screen proforma: the parties
+      // freeze protects the agreed facts, not the decoration around them.
+      logo: await readExportLogo(company.logoPath || null),
     },
     doc: {
       number: order.orderNumber,

@@ -55,7 +55,23 @@ export async function buildOrderPdf(data: OrderExportData): Promise<Buffer> {
 
   // Company block (left) and document meta (right)
   const headerTop = doc.y;
-  doc.font("bold").fontSize(16).fillColor(INK).text(data.company.name, MARGIN, headerTop, { width: INNER * 0.6 });
+  // The tenant's letterhead logo, aspect-true within a letterhead-sized box;
+  // the document title stays anchored to the top right beside it.
+  let nameTop = headerTop;
+  if (data.company.logo) {
+    const logo = data.company.logo;
+    const scale = Math.min(140 / logo.width, 44 / logo.height, 1);
+    try {
+      doc.image(logo.data, MARGIN, headerTop, {
+        width: logo.width * scale,
+        height: logo.height * scale,
+      });
+      nameTop = headerTop + logo.height * scale + 8;
+    } catch {
+      // a corrupt logo never blocks the document
+    }
+  }
+  doc.font("bold").fontSize(16).fillColor(INK).text(data.company.name, MARGIN, nameTop, { width: INNER * 0.6 });
   doc.font("regular").fontSize(8.5).fillColor(SUB);
   for (const line of data.company.addressLines) doc.text(line, { width: INNER * 0.6 });
   const contactBits = [

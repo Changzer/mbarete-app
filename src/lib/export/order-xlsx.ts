@@ -46,10 +46,27 @@ export async function buildOrderXlsx(data: OrderExportData): Promise<Buffer> {
     return cell;
   };
 
-  // Company header
-  set(r, 1, data.company.name, { bold: true, size: 16, color: BRAND });
+  // Company header — the document title anchors the top right; the tenant's
+  // logo (when uploaded) takes the first row and the name follows beneath it,
+  // exactly like the on-screen letterhead. No logo = the original layout.
   set(r, 6, data.labels.title, { bold: true, size: 14, align: "right" });
   ws.mergeCells(r, 6, r, 7);
+  if (data.company.logo) {
+    const logo = data.company.logo;
+    const scale = Math.min(150 / logo.width, 42 / logo.height, 1);
+    const w = Math.round(logo.width * scale);
+    const h = Math.round(logo.height * scale);
+    const imageId = wb.addImage({ buffer: logo.data as never, extension: "png" });
+    ws.addImage(imageId, {
+      tl: { col: 0.05, row: r - 1 + 0.05 } as never,
+      ext: { width: w, height: h },
+      editAs: "oneCell",
+    });
+    // Row heights are points; the image extent is pixels (≈ 0.75 pt/px).
+    ws.getRow(r).height = Math.max(30, h * 0.75 + 4);
+    r += 1;
+  }
+  set(r, 1, data.company.name, { bold: true, size: 16, color: BRAND });
   r += 1;
   for (const line of data.company.addressLines) set(r++, 1, line, { color: SUB });
   const contactBits = [
