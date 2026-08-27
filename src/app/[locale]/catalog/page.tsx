@@ -20,6 +20,7 @@ import { CatalogList } from "@/components/catalog/catalog-list";
 import { CaptureFab } from "@/components/catalog/capture-fab";
 import { CatalogSnapshot } from "@/components/offline/catalog-snapshot";
 import { Button } from "@/components/ui/button";
+import { SavedToast } from "@/components/ui/saved-toast";
 import { requireUser } from "@/lib/authz";
 
 /**
@@ -139,6 +140,8 @@ export default async function CatalogPage({
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-4 md:py-6">
+      {/* Landing here from a save (?saved=1) confirms it out loud. */}
+      <SavedToast message={t("productSaved")} />
       {/* Every full catalog view refreshes the phone's offline copy. */}
       <CatalogSnapshot
         storageScope={`${companyId}:${userId}`}
