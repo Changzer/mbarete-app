@@ -101,8 +101,10 @@ export default async function FinancePage({
         {tiles.map((tile) => (
           <div key={tile.label} className={box}>
             <div className="text-xs text-sub">{tile.label}</div>
+            {/* break-all: a nine-figure RMB total must wrap onto a second
+                line, never clip — a finance tile that hides digits lies. */}
             <div
-              className={`mt-1 font-mono text-[20px] font-semibold tabular-nums ${
+              className={`mt-1 break-all font-mono text-[20px] font-semibold leading-snug tabular-nums ${
                 tile.tone === "bad"
                   ? "text-danger"
                   : tile.tone === "warn"

@@ -181,13 +181,18 @@ export function SupplierPrices({
               <tbody className="divide-y divide-line">
                 {offers.map((o, i) => (
                   <tr key={o.id} className={i === 0 ? "font-medium" : undefined}>
-                    <td className="py-2 pr-3 whitespace-nowrap">
-                      {o.supplierName ?? t("supplierUnknown")}
-                      {o.timesOrdered > 0 ? (
-                        <Badge variant="success" className="ml-2">
-                          {t("orderedBefore")}
-                        </Badge>
-                      ) : null}
+                    {/* The name is bounded because this table exists to compare
+                        PRICES: a full bilingual company name would shove every
+                        number off-screen. The full name is one hover away. */}
+                    <td className="py-2 pr-3">
+                      <span className="flex items-center gap-2">
+                        <span className="max-w-44 truncate" title={o.supplierName ?? undefined}>
+                          {o.supplierName ?? t("supplierUnknown")}
+                        </span>
+                        {o.timesOrdered > 0 ? (
+                          <Badge variant="success">{t("orderedBefore")}</Badge>
+                        ) : null}
+                      </span>
                     </td>
                     <td className="py-2 pr-3 text-right font-mono tabular-nums whitespace-nowrap">
                       {formatMoney(o.price, o.currency)}
