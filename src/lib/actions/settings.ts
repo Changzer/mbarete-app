@@ -6,6 +6,7 @@ import { db, one } from "@/db";
 import { exchangeRates, companyProfile, bankAccounts, orders } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/authz";
+import { saveUploadedImage, deleteUpload } from "@/lib/uploads";
 
 // Company profile, banks and exchange rates feed the proforma and every
 // price calculation — admin ground, in full.
@@ -118,6 +119,67 @@ export async function saveCompanyProfile(
   revalidatePath("/settings");
   revalidatePath("/orders");
   return undefined;
+}
+
+/** Reads the profile row's current logo path, or "" when no row exists yet. */
+async function currentLogoPath(companyId: number): Promise<{ exists: boolean; logoPath: string }> {
+  const row = await db
+    .select({ logoPath: companyProfile.logoPath })
+    .from(companyProfile)
+    .where(eq(companyProfile.companyId, companyId))
+    .limit(1)
+    .then(one);
+  return { exists: !!row, logoPath: row?.logoPath ?? "" };
+}
+
+/**
+ * The tenant's own mark for their proforma letterhead. Stored like any
+ * other tenant upload (typed, size-capped, quota-counted, company folder);
+ * replacing a logo deletes the old file so retired marks do not sit in the
+ * volume forever.
+ */
+export async function uploadCompanyLogo(
+  _prev: string | undefined,
+  formData: FormData,
+): Promise<string | undefined> {
+  const admin = await requireSession();
+  const file = formData.get("logo");
+  if (!(file instanceof File) || file.size === 0) return "invalid";
+
+  let logoPath: string;
+  try {
+    logoPath = await saveUploadedImage(admin.companyId, file);
+  } catch {
+    return "invalid";
+  }
+
+  const before = await currentLogoPath(admin.companyId);
+  if (before.exists) {
+    await db
+      .update(companyProfile)
+      .set({ logoPath, updatedAt: new Date().toISOString() })
+      .where(eq(companyProfile.companyId, admin.companyId));
+  } else {
+    await db.insert(companyProfile).values({ companyId: admin.companyId, logoPath });
+  }
+  if (before.logoPath) await deleteUpload(before.logoPath);
+
+  revalidatePath("/settings");
+  revalidatePath("/orders");
+  return undefined;
+}
+
+export async function removeCompanyLogo(): Promise<void> {
+  const admin = await requireSession();
+  const before = await currentLogoPath(admin.companyId);
+  if (!before.exists || !before.logoPath) return;
+  await db
+    .update(companyProfile)
+    .set({ logoPath: "", updatedAt: new Date().toISOString() })
+    .where(eq(companyProfile.companyId, admin.companyId));
+  await deleteUpload(before.logoPath);
+  revalidatePath("/settings");
+  revalidatePath("/orders");
 }
 
 /**

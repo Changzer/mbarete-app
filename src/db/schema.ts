@@ -324,6 +324,10 @@ export const companyProfile = pgTable("company_profile", {
   email: text("email").notNull().default(""),
   website: text("website").notNull().default(""),
   taxId: text("tax_id").notNull().default(""),
+  // The tenant's own mark, printed on their proforma letterhead — an uploads
+  // path like every other tenant file. Empty = text-only letterhead. The
+  // platform's logo never appears on a tenant's documents.
+  logoPath: text("logo_path").notNull().default(""),
   // Payment details belong on a proforma: it is what the client pays against.
   bankName: text("bank_name").notNull().default(""),
   bankAccountName: text("bank_account_name").notNull().default(""),

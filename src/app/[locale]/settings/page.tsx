@@ -7,6 +7,7 @@ import { asc, eq } from "drizzle-orm";
 import { getCompanyProfile, getBankAccounts } from "@/lib/queries/settings";
 import { ExchangeRateManager } from "@/components/settings/exchange-rate-manager";
 import { CompanyProfileForm } from "@/components/settings/company-profile-form";
+import { CompanyLogoCard } from "@/components/settings/company-logo-card";
 import { BankAccountsManager } from "@/components/settings/bank-accounts-manager";
 import { ReferralCard } from "@/components/settings/referral-card";
 import { isSaas } from "@/lib/deploy";
@@ -46,7 +47,10 @@ export default async function SettingsPage() {
         <h1 className="mb-6 text-[23px] font-extrabold tracking-tight text-ink">
           {companyT("title")}
         </h1>
-        <CompanyProfileForm profile={profile} />
+        <div className="flex flex-col gap-4">
+          <CompanyLogoCard logoPath={profile.logoPath} />
+          <CompanyProfileForm profile={profile} />
+        </div>
       </section>
 
       <section>

@@ -22,6 +22,7 @@ export async function getCompanyProfile(companyId: number): Promise<CompanyProfi
       email: "",
       website: "",
       taxId: "",
+      logoPath: "",
       bankName: "",
       bankAccountName: "",
       bankAccountNumber: "",
