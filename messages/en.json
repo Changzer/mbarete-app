@@ -175,6 +175,7 @@
     "unknownUser": "—",
     "takePhoto": "Take photo",
     "choosePhotos": "Choose photos",
+    "takePhotoGalleryHint": "“Take photo” does not save to your phone's gallery. To keep your own copies, shoot with the camera app first, then use “Choose photos”.",
     "photosReady": "{count} photo(s) ready to upload. The first one becomes the catalog thumbnail.",
     "aiFill": "Fill from photos",
     "aiFilling": "Reading photos…",

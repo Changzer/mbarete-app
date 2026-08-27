@@ -199,6 +199,12 @@ export function PhotoPicker({
         </button>
       </div>
 
+      {/* A platform truth, said where the choice is made: photos taken via
+          the capture input are handed to the browser and never reach the
+          phone's gallery — no web API can put them there. People who want
+          their own copies shoot with the camera app and pick from here. */}
+      <p className="text-[11.5px] leading-relaxed text-faint">{t("takePhotoGalleryHint")}</p>
+
       {picked.length > 0 ? (
         <div className="flex flex-wrap gap-3" data-testid="picked-photos">
           {picked.map((p) => (
