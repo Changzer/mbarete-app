@@ -540,7 +540,12 @@
     "referralHelp": "把这个链接分享给其他贸易公司。对方打开后可以在 Mbarete 注册自己的工作区——与你的完全独立，拥有自己的目录和数据。",
     "referralCopy": "复制链接",
     "referralCopied": "已复制",
-    "referralJoined": "{count, plural, =0 {还没有公司通过你的链接加入。} one {已有 1 家公司通过你的链接加入。} other {已有 # 家公司通过你的链接加入。}}"
+    "referralJoined": "{count, plural, =0 {还没有公司通过你的链接加入。} one {已有 1 家公司通过你的链接加入。} other {已有 # 家公司通过你的链接加入。}}",
+    "logo": "公司Logo",
+    "logoHelp": "打印在形式发票的抬头。建议使用白底或透明底的PNG/JPG。不上传则使用纯文字抬头。",
+    "noLogo": "暂无Logo",
+    "uploadLogo": "上传",
+    "logoError": "图片保存失败。请使用大小合适的PNG/JPG后重试。"
   },
   "proforma": {
     "title": "形式发票",

@@ -12,7 +12,6 @@ import { parsePartiesSnapshot, usesFrozenParties } from "@/lib/parties-snapshot"
 import { PrintButton } from "@/components/orders/print-button";
 import { OrderExportButtons } from "@/components/orders/order-export-buttons";
 import { FreshOnRestore } from "@/components/fresh-on-restore";
-import { Brand } from "@/components/brand";
 import { Link } from "@/i18n/navigation";
 import { requireUser, requireModulePage } from "@/lib/authz";
 
@@ -154,7 +153,21 @@ export default async function ProformaPage({
             wide enough that an order number never breaks in two. */}
         <div className="flex items-start justify-between gap-6 border-b border-line pb-4">
           <div className="min-w-0">
-            <Brand size="doc" />
+            {/* The TENANT's letterhead. Their uploaded logo when they have
+                one, a clean text letterhead when they don't — never the
+                platform's mark: this is their commercial document, not ours.
+                Deliberately the live logo even on frozen orders: the freeze
+                protects the agreed facts (names, amounts, bank), not the
+                decoration around them. */}
+            {company.logoPath ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={company.logoPath}
+                alt=""
+                data-testid="letterhead-logo"
+                className="mb-1 h-20 w-auto max-w-[300px] object-contain"
+              />
+            ) : null}
             <div className="mt-3 text-[12.5px] font-bold leading-snug" data-testid="vendor-name">
               {seller.companyName || t("yourCompany")}
             </div>

@@ -540,7 +540,12 @@
     "referralHelp": "Share this link with another trading company. Whoever opens it can register their own workspace on Mbarete — separate from yours, with their own catalog and their own data.",
     "referralCopy": "Copy link",
     "referralCopied": "Copied",
-    "referralJoined": "{count, plural, =0 {No companies have joined through your link yet.} one {1 company joined through your link.} other {# companies joined through your link.}}"
+    "referralJoined": "{count, plural, =0 {No companies have joined through your link yet.} one {1 company joined through your link.} other {# companies joined through your link.}}",
+    "logo": "Company logo",
+    "logoHelp": "Printed at the top of your proforma invoices. PNG or JPG on a white or transparent background works best. Without one, the invoice uses a clean text letterhead.",
+    "noLogo": "No logo",
+    "uploadLogo": "Upload",
+    "logoError": "That image could not be saved. Use a PNG/JPG under the size limit and try again."
   },
   "proforma": {
     "title": "Proforma invoice",
