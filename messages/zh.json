@@ -814,5 +814,40 @@
     "closeConfirm": "确认结账？系统将记录当前数据摘要。数据仍可编辑——之后生成的资料包会显示结账后是否有改动。",
     "closedAt": "已于 {date} 结账",
     "closeFailed": "结账失败，请重试。"
+  },
+  "landing": {
+    "signIn": "登录",
+    "headline": "采购与外贸管理，告别表格",
+    "subline": "Mbarete 是为中外贸易团队打造的双语产品目录、订单工具和财务报表。加入等候名单，抢先体验。",
+    "carousel": {
+      "slide1Title": "全团队都能看懂的产品目录",
+      "slide1Body": "产品图片、起订量、体积和重量——中英文对照，一目了然。",
+      "slide2Title": "自动计算的订单",
+      "slide2Body": "创建订单，数量、体积、重量和金额自动汇总，一键导出 XLSX 或 PDF 报价单。",
+      "slide3Title": "每一笔钱都清清楚楚",
+      "slide3Body": "付款、费用和汇率自动汇总成会计认可的财务报表。",
+      "prev": "上一张",
+      "next": "下一张",
+      "goTo": "跳到第 {n} 张"
+    },
+    "videoTitle": "产品演示",
+    "videoComingSoon": "演示视频即将上线",
+    "form": {
+      "title": "加入等候名单",
+      "subtitle": "留下您的联系方式，Mbarete 上线后我们会第一时间通知您。",
+      "name": "您的姓名",
+      "companyName": "公司名称",
+      "email": "邮箱",
+      "mobile": "手机号（中国大陆）",
+      "mobilePlaceholder": "+86 138 0000 0000",
+      "mobileHelp": "中国大陆手机号，可带或不带 +86。",
+      "submit": "加入等候名单",
+      "submitting": "提交中…",
+      "thanksTitle": "已成功加入！",
+      "thanksBody": "感谢您的关注——Mbarete 准备就绪后我们会尽快联系您。",
+      "errorInvalid": "请检查表单后重试。",
+      "errorMobile": "请输入有效的中国大陆手机号。",
+      "errorRateLimited": "尝试次数过多，请稍后再试。"
+    }
   }
 }

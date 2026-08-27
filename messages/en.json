@@ -814,5 +814,40 @@
     "closeConfirm": "Close this period? This records the current data digest. Records stay editable — future packs will simply show whether anything changed since closing.",
     "closedAt": "Closed {date}",
     "closeFailed": "Could not close the period — try again."
+  },
+  "landing": {
+    "signIn": "Sign in",
+    "headline": "Sourcing and procurement, without the spreadsheets",
+    "subline": "Mbarete is a bilingual catalog, order builder and finance report for wholesale trading teams working between China and the world. Join the waiting list to be first in when we launch.",
+    "carousel": {
+      "slide1Title": "A catalog your whole team can read",
+      "slide1Body": "Products with photos, MOQ, CBM and weight — in English and Chinese, side by side.",
+      "slide2Title": "Orders that calculate themselves",
+      "slide2Body": "Build an order and watch quantities, volume, weight and totals fall into place, then export a quote as XLSX or PDF.",
+      "slide3Title": "Know where the money went",
+      "slide3Body": "Payments, expenses and exchange rates roll up into a finance report your accountant will actually accept.",
+      "prev": "Previous slide",
+      "next": "Next slide",
+      "goTo": "Go to slide {n}"
+    },
+    "videoTitle": "See it in action",
+    "videoComingSoon": "Demo video coming soon",
+    "form": {
+      "title": "Join the waiting list",
+      "subtitle": "Leave your details and we'll contact you when Mbarete opens.",
+      "name": "Your name",
+      "companyName": "Company name",
+      "email": "Email",
+      "mobile": "Mobile (China)",
+      "mobilePlaceholder": "+86 138 0000 0000",
+      "mobileHelp": "A mainland-China mobile number, with or without +86.",
+      "submit": "Join the waiting list",
+      "submitting": "Sending…",
+      "thanksTitle": "You're on the list!",
+      "thanksBody": "Thanks for your interest — we'll be in touch as soon as Mbarete is ready.",
+      "errorInvalid": "Please check the form and try again.",
+      "errorMobile": "Please enter a valid mainland-China mobile number.",
+      "errorRateLimited": "Too many attempts. Please try again later."
+    }
   }
 }

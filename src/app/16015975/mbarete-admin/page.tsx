@@ -1,5 +1,5 @@
 import { requirePlatformAdmin } from "@/lib/authz";
-import { loadPlatformOverview, type CompanyMetrics } from "@/lib/platform/metrics";
+import { loadPlatformOverview, loadWaitlist, type CompanyMetrics } from "@/lib/platform/metrics";
 import { ModuleToggle } from "./module-toggle";
 import { PlanSelect } from "./plan-select";
 import { BackupNow } from "./backup-now";
@@ -161,6 +161,7 @@ function ErrorsLine({ errors }: { errors: ErrorEntry[] }) {
 export default async function PlatformAdminPage() {
   const operator = await requirePlatformAdmin();
   const { companies, totals } = await loadPlatformOverview();
+  const waitlist = await loadWaitlist();
   const backups = await backupStatus();
   const errors = recentErrors();
   const now = nowMs();
@@ -215,6 +216,38 @@ export default async function PlatformAdminPage() {
                 </li>
               ))}
           </ul>
+        </div>
+      ) : null}
+
+      {waitlist.length > 0 ? (
+        <div className="mb-6 rounded-[12px] border border-line bg-surface p-4" data-testid="waitlist">
+          <div className="mb-2 text-sm font-bold text-ink">
+            Waiting list <span className="text-sub">({waitlist.length})</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-left text-[13px]">
+              <thead className="text-[12px] text-sub">
+                <tr>
+                  <th className="py-1 pr-4 font-semibold">Name</th>
+                  <th className="py-1 pr-4 font-semibold">Company</th>
+                  <th className="py-1 pr-4 font-semibold">Email</th>
+                  <th className="py-1 pr-4 font-semibold">Mobile</th>
+                  <th className="py-1 font-semibold">Joined</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {waitlist.map((w) => (
+                  <tr key={w.id}>
+                    <td className="py-1.5 pr-4 text-ink">{w.name}</td>
+                    <td className="py-1.5 pr-4 text-ink">{w.companyName}</td>
+                    <td className="py-1.5 pr-4 text-sub">{w.email}</td>
+                    <td className="py-1.5 pr-4 text-sub">{w.mobile}</td>
+                    <td className="py-1.5 text-sub">{w.createdAt.slice(0, 10)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : null}
 

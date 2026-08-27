@@ -1135,3 +1135,20 @@ export const authTokens = pgTable(
   },
   (table) => [index("auth_tokens_user_idx").on(table.userId, table.kind)],
 );
+
+/**
+ * Pre-launch waiting list, filled from the public landing page. Platform
+ * data like "companies", not tenant data — rows exist before any company
+ * does, so no company_id and no RLS. Uniqueness on lower(email) lives in
+ * the migration (an expression index Drizzle's builder can't express);
+ * the action treats a conflict as "already on the list".
+ */
+export const waitlistSignups = pgTable("waitlist_signups", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  companyName: text("company_name").notNull(),
+  email: text("email").notNull(),
+  mobile: text("mobile").notNull(),
+  locale: text("locale").notNull(),
+  createdAt: text("created_at").notNull().default(utcNow),
+});
