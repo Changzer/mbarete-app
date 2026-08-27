@@ -205,6 +205,7 @@
     "sellPriceHelp": "What the client is invoiced per unit. Leave blank to invoice at the supplier price; you can always change it per order.",
     "sellsAtCost": "At cost — not set",
     "savedOffline": "Saved to phone — will upload when connected ({count} waiting)",
+    "productSaved": "Product saved",
     "offlineStoreFailed": "Could not save to this phone. Keep this screen open and try again when you have signal.",
     "draftsWaiting": "Drafts ({count})",
     "reviewDraft": "Review capture",

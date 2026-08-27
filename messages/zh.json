@@ -205,6 +205,7 @@
     "sellPriceHelp": "开给客户的单价。留空则按供应商价格开票；也可在每个订单中单独修改。",
     "sellsAtCost": "按成本价——未设置",
     "savedOffline": "已保存到手机 — 联网后自动上传（{count} 条待传）",
+    "productSaved": "产品已保存",
     "offlineStoreFailed": "无法保存到手机。请保持此页面打开，等有信号后重试。",
     "draftsWaiting": "草稿（{count}）",
     "reviewDraft": "审核采集",

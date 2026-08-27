@@ -6,6 +6,7 @@ import { createProduct } from "@/lib/actions/catalog";
 import { transcribeProduct, transcribeCard } from "@/lib/actions/transcribe";
 import { isTranscriptionEnabled } from "@/lib/transcribe-product";
 import { ProductForm } from "@/components/catalog/product-form";
+import { SavedToast } from "@/components/ui/saved-toast";
 import { normalizeDecimalInput } from "@/lib/decimal-input";
 import { requireUser } from "@/lib/authz";
 
@@ -127,6 +128,10 @@ export default async function NewProductPage({
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
+      {/* "Save & add another" lands back here on a blank form — without a
+          spoken confirmation that reads as "nothing happened", and the
+          answer people choose is saving again, which makes duplicates. */}
+      <SavedToast message={t("productSaved")} />
       <h1 className="mb-6 text-[23px] font-extrabold tracking-tight text-ink">
         {reviewable ? t("reviewDraft") : source ? t("duplicateProduct") : t("addProduct")}
       </h1>

@@ -143,6 +143,11 @@ test("a booth capture becomes a product, an order, a quote and an invoice", asyn
 
     await page.click('[data-testid="save-product"]');
     await page.waitForURL(/\/en\/catalog(\?|$)/, { timeout: 30_000 });
+    // The landing page says so out loud — the signal that stops people
+    // saving the same product twice.
+    await page
+      .locator('[data-testid="toast"]', { hasText: "Product saved" })
+      .waitFor({ timeout: 10_000 });
 
     // ── 4. The product is really in the catalog ──────────────────────────
     // Both the phone and desktop layouts render the row; assert on whichever

@@ -401,11 +401,14 @@ export async function createProduct(
   // form, keeping the category — and the supplier, so a whole booth can be
   // registered without re-picking the vendor on every item.
   const locale = (await getLocale()) as Locale;
+  // ?saved=1 → the landing page fires a "Product saved" toast. Without it a
+  // reset form or a familiar-looking catalog reads as "did that work?" — and
+  // the answer people choose is saving again, which makes duplicates.
   if (formData.get("andAnother")) {
     const sticky = supplierId ? `&supplier=${supplierId}` : "";
-    redirect({ href: `/catalog/new?category=${data.categoryId}${sticky}`, locale });
+    redirect({ href: `/catalog/new?category=${data.categoryId}${sticky}&saved=1`, locale });
   }
-  redirect({ href: "/catalog", locale });
+  redirect({ href: "/catalog?saved=1", locale });
 }
 
 export async function updateProduct(
@@ -601,7 +604,7 @@ export async function updateProduct(
   await syncProductFromOffers(user.companyId, id);
 
   revalidatePath("/catalog");
-  redirect({ href: "/catalog", locale: (await getLocale()) as Locale });
+  redirect({ href: "/catalog?saved=1", locale: (await getLocale()) as Locale });
 }
 
 export async function deleteProduct(id: number): Promise<string | undefined> {
