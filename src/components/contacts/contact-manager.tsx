@@ -172,26 +172,33 @@ export function ContactManager({
             ))}
           </ul>
 
+          {/*
+            Fixed column widths, like the catalog table: real supplier rows
+            carry six phone numbers and a full bilingual street address, and
+            an auto-layout table hands the widest cell all the width — the
+            name and address collapse into one-word slivers and the rest
+            scrolls sideways. Company flexes; everything else is bounded.
+          */}
           <div className="hidden overflow-x-auto rounded-[12px] border border-line bg-surface lg:block">
-          <table className="w-full text-sm">
+          <table className="w-full table-fixed text-sm">
             <thead className="border-b border-line bg-surface-2 text-left text-sub">
               <tr>
                 <th className="px-4 py-2 font-medium">{t("companyName")}</th>
-                <th className="px-4 py-2 font-medium">{t("contactPerson")}</th>
-                <th className="px-4 py-2 font-medium">{t("phone")}</th>
-                <th className="px-4 py-2 font-medium">{t("wechat")}</th>
+                <th className="w-36 px-4 py-2 font-medium">{t("contactPerson")}</th>
+                <th className="w-40 px-4 py-2 font-medium">{t("phone")}</th>
+                <th className="w-24 px-4 py-2 font-medium">{t("wechat")}</th>
                 {type === "supplier" ? (
-                  <th className="px-4 py-2 font-medium">{t("boothLocation")}</th>
+                  <th className="w-56 px-4 py-2 font-medium">{t("boothLocation")}</th>
                 ) : (
-                  <th className="px-4 py-2 font-medium">{t("email")}</th>
+                  <th className="w-56 px-4 py-2 font-medium">{t("email")}</th>
                 )}
-                <th className="px-4 py-2 font-medium">{common("actions")}</th>
+                <th className="w-44 px-4 py-2 font-medium">{common("actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
               {contacts.map((c) => (
                 <tr key={c.id}>
-                  <td className="px-4 py-2 font-medium text-ink">
+                  <td className="px-4 py-2 align-top font-medium text-ink">
                     {c.companyName}
                     {c.companyNameZh ? (
                       <span className="ml-1 font-normal text-sub">
@@ -204,26 +211,43 @@ export function ContactManager({
                       </Badge>
                     ) : null}
                   </td>
-                  <td className="px-4 py-2 text-ink">{c.contactPerson}</td>
-                  <td className="whitespace-nowrap px-4 py-2 text-ink">{c.phone}</td>
-                  <td className="px-4 py-2 text-ink">
+                  <td className="px-4 py-2 align-top text-ink">{c.contactPerson}</td>
+                  {/* One number per line: vendors list every colleague's phone
+                      in one field, and a stack reads while a wrapped blob or a
+                      nowrap mile-long line does not. */}
+                  <td className="px-4 py-2 align-top font-mono text-[12.5px] text-ink">
+                    {c.phone
+                      .split(/[/,;]+/)
+                      .map((p) => p.trim())
+                      .filter(Boolean)
+                      .map((p, i) => (
+                        <span key={i} className="block truncate">
+                          {p}
+                        </span>
+                      ))}
+                  </td>
+                  <td className="px-4 py-2 align-top text-ink">
                     <WechatCell contact={c} scanHint={t("wechatQrHelp")} />
                   </td>
-                  <td className="px-4 py-2 text-ink">
+                  <td className="break-words px-4 py-2 align-top text-[12.5px] leading-snug text-ink">
                     {type === "supplier" ? c.boothLocation : c.email}
                   </td>
-                  <td className="px-4 py-2">
-                    <div className="flex gap-2">
+                  <td className="px-4 py-2 align-top">
+                    <div className="flex flex-wrap gap-2">
                       <Button variant="outline" size="sm" onClick={() => openEdit(c)}>
                         {common("edit")}
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSupplierActive(c.id, !c.active)}
-                      >
-                        {c.active ? t("deactivate") : t("reactivate")}
-                      </Button>
+                      {/* Suppliers only, same as the phone list: retiring a
+                          booth is a supplier concept. */}
+                      {type === "supplier" ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSupplierActive(c.id, !c.active)}
+                        >
+                          {c.active ? t("deactivate") : t("reactivate")}
+                        </Button>
+                      ) : null}
                       {isAdmin ? (
                         <Button
                           variant="outline"
@@ -273,7 +297,9 @@ function WechatCell({ contact, scanHint }: { contact: Contact; scanHint: string 
           data-testid="wechat-qr-cell"
         />
       </a>
-      {contact.wechat ? <span>{contact.wechat}</span> : null}
+      {contact.wechat ? (
+        <span className="max-w-24 truncate font-mono text-[12px] text-sub">{contact.wechat}</span>
+      ) : null}
     </div>
   );
 }
