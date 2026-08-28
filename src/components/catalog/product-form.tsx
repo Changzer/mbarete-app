@@ -167,6 +167,9 @@ export function ProductForm({
   const [aiPending, setAiPending] = useState(false);
   const [aiError, setAiError] = useState<"no-photos" | "failed" | null>(null);
   const [aiNotes, setAiNotes] = useState<string | null>(null);
+  // Whether AI wrote into this form — drives the "AI-read, please verify"
+  // label the AI-output rules ask for (and honesty asks for anyway).
+  const [aiFilled, setAiFilled] = useState(false);
   // What the model read off the price board, shown so a wrong figure can be
   // spotted against the handwriting instead of trusted blindly.
   const [aiBoardText, setAiBoardText] = useState<string | null>(null);
@@ -254,6 +257,7 @@ export function ProductForm({
   ) {
     const form = formRef.current;
     if (!form) return;
+    setAiFilled(true);
 
     const setIfUntouched = (
       name: string,
@@ -658,6 +662,15 @@ export function ProductForm({
               ) : (
                 <p className="text-[11px] leading-relaxed text-sub">{t("aiFillHelp")}</p>
               )}
+              {aiFilled || draftId ? (
+                <p
+                  className="flex items-center gap-1.5 text-[11.5px] font-semibold text-warn"
+                  data-testid="ai-verify-hint"
+                >
+                  <Sparkles className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
+                  {t("aiVerifyHint")}
+                </p>
+              ) : null}
             </div>
           ) : null}
       </FormSection>

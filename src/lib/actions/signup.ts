@@ -32,6 +32,12 @@ const signupSchema = z.object({
   confirm: z.string(),
   code: z.string().default(""),
   ref: z.string().default(""),
+  // The literal the checkbox posts. Server-enforced so no account can be
+  // created without agreeing to the terms and privacy policy — the checkbox
+  // in the form is UX; this line is the consent record's guarantee (an
+  // account's existence implies consent to the policy version of its day;
+  // see docs/COMPLIANCE.md).
+  consent: z.literal("on"),
 });
 
 /** A brake on a public signup form: a handful of attempts per IP per hour. */
@@ -54,6 +60,7 @@ export async function signUp(
     confirm: formData.get("confirm"),
     code: formData.get("code") ?? "",
     ref: formData.get("ref") ?? "",
+    consent: formData.get("consent"),
   });
   if (!parsed.success) return { error: "invalid" };
   const { companyName, ownerName, email, password, confirm, code, ref } = parsed.data;

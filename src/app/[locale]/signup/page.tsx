@@ -2,6 +2,7 @@ import { getTranslations, getLocale } from "next-intl/server";
 import { redirect } from "@/i18n/navigation";
 import { SignupForm } from "@/components/signup-form";
 import { Brand } from "@/components/brand";
+import { BeianFooter } from "@/components/legal/beian-footer";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Link } from "@/i18n/navigation";
 import { isSaas } from "@/lib/deploy";
@@ -55,6 +56,7 @@ export default async function SignupPage({
           </p>
         </CardContent>
       </Card>
+      <BeianFooter />
     </div>
   );
 }

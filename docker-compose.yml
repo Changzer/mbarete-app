@@ -88,6 +88,14 @@ services:
       # first-sighting server-error mails (falls back to the admin emails).
       HEARTBEAT_URL: ${HEARTBEAT_URL:-}
       ALERT_EMAIL: ${ALERT_EMAIL:-}
+      # Compliance surface: "cn" makes the boot refuse Anthropic config (a
+      # mainland deployment must serve a domestically filed model); the
+      # beian numbers render a filing footer on the public pages; the legal
+      # contact prints in the privacy policy.
+      DEPLOY_REGION: ${DEPLOY_REGION:-}
+      ICP_BEIAN: ${ICP_BEIAN:-}
+      GONGAN_BEIAN: ${GONGAN_BEIAN:-}
+      LEGAL_CONTACT_EMAIL: ${LEGAL_CONTACT_EMAIL:-}
       MOONSHOT_API_KEY: ${MOONSHOT_API_KEY:-}
       MOONSHOT_BASE_URL: ${MOONSHOT_BASE_URL:-}
       MOONSHOT_MODEL: ${MOONSHOT_MODEL:-}

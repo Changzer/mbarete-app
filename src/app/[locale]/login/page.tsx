@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { LoginForm } from "@/components/login-form";
 import { Brand } from "@/components/brand";
+import { BeianFooter } from "@/components/legal/beian-footer";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Link } from "@/i18n/navigation";
 import { isSaas } from "@/lib/deploy";
@@ -49,6 +50,16 @@ export default async function LoginPage({
           ) : null}
         </CardContent>
       </Card>
+      <p className="text-center text-xs text-faint">
+        <Link href="/terms" className="hover:text-sub">
+          {t("legalTerms")}
+        </Link>
+        {" · "}
+        <Link href="/privacy" className="hover:text-sub">
+          {t("legalPrivacy")}
+        </Link>
+      </p>
+      <BeianFooter />
     </div>
   );
 }

@@ -20,7 +20,9 @@
     "error": "Invalid email or password",
     "noAccount": "New here?",
     "createCompany": "Create a company",
-    "forgotPassword": "Forgot your password?"
+    "forgotPassword": "Forgot your password?",
+    "legalTerms": "Terms",
+    "legalPrivacy": "Privacy"
   },
   "signup": {
     "title": "Create your company",
@@ -42,7 +44,11 @@
     "errorEmailTaken": "An account with that email already exists.",
     "errorRateLimited": "Too many attempts. Please try again later.",
     "errorInvalid": "Please check the form and try again.",
-    "referredBy": "You were invited by {company}."
+    "referredBy": "You were invited by {company}.",
+    "consentAgree": "I have read and agree to the",
+    "consentTerms": "Terms of Service",
+    "consentAnd": "and the",
+    "consentPrivacy": "Privacy Policy"
   },
   "invite": {
     "title": "Join the team",
@@ -264,7 +270,8 @@
     "errorPlanLimit": "Your plan's product limit is reached — contact Mbarete to upgrade.",
     "costPriceHint": "No quote yet? Leave it empty and fill it in when the supplier answers.",
     "viewTable": "List view",
-    "viewGallery": "Gallery view"
+    "viewGallery": "Gallery view",
+    "aiVerifyHint": "AI-read — please verify before using"
   },
   "contacts": {
     "title": "Contacts",
@@ -312,7 +319,8 @@
     "bankInfoHide": "Hide",
     "bankInfoVerify": "Check these digits against the card photo before paying.",
     "countSuppliers": "{count} suppliers",
-    "countClients": "{count} clients"
+    "countClients": "{count} clients",
+    "aiVerifyHint": "AI-read — please verify before using"
   },
   "orders": {
     "title": "Orders",
@@ -816,5 +824,11 @@
     "closeConfirm": "Close this period? This records the current data digest. Records stay editable — future packs will simply show whether anything changed since closing.",
     "closedAt": "Closed {date}",
     "closeFailed": "Could not close the period — try again."
+  },
+  "legal": {
+    "privacyTitle": "Privacy Policy",
+    "termsTitle": "Terms of Service",
+    "updated": "{version} · Updated {date}",
+    "back": "Back to sign in"
   }
 }

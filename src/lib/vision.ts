@@ -37,7 +37,11 @@ export function visionProvider(): VisionProvider | null {
   // empty strings.
   const forced = process.env.TRANSCRIBE_PROVIDER || "";
   const hasMoonshot = Boolean(process.env.MOONSHOT_API_KEY);
-  const hasAnthropic = Boolean(process.env.ANTHROPIC_API_KEY);
+  // Defence in depth behind the boot guard in instrumentation.ts: a
+  // mainland deployment never selects the unfiled foreign model, whatever
+  // the env claims.
+  const hasAnthropic =
+    Boolean(process.env.ANTHROPIC_API_KEY) && process.env.DEPLOY_REGION !== "cn";
   if (forced === "anthropic") return hasAnthropic ? "anthropic" : null;
   if (forced === "moonshot") return hasMoonshot ? "moonshot" : null;
   if (hasMoonshot) return "moonshot";

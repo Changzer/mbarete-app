@@ -6,6 +6,7 @@ import { signUp, type SignupResult } from "@/lib/actions/signup";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Link } from "@/i18n/navigation";
 
 function useErrorText() {
   const t = useTranslations("signup");
@@ -68,6 +69,27 @@ export function SignupForm({ referralCode }: { referralCode?: string }) {
           </>
         )}
       </div>
+      {/* Consent is a gate, not decoration: the server action refuses a
+          submission without it, so no account can exist unconsented. */}
+      <label className="flex items-start gap-2 text-xs leading-relaxed text-sub">
+        <input
+          type="checkbox"
+          name="consent"
+          required
+          data-testid="signup-consent"
+          className="mt-0.5 h-4 w-4 shrink-0 accent-brand-600"
+        />
+        <span>
+          {t("consentAgree")}{" "}
+          <Link href="/terms" target="_blank" className="font-medium text-brand-600 hover:underline">
+            {t("consentTerms")}
+          </Link>{" "}
+          {t("consentAnd")}{" "}
+          <Link href="/privacy" target="_blank" className="font-medium text-brand-600 hover:underline">
+            {t("consentPrivacy")}
+          </Link>
+        </span>
+      </label>
       {message ? <p className="text-sm text-danger">{message}</p> : null}
       <Button type="submit" disabled={isPending} className="mt-2">
         {isPending ? t("submitting") : t("submit")}

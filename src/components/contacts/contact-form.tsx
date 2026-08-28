@@ -184,6 +184,9 @@ export function ContactForm({
   const [aiPending, setAiPending] = useState(false);
   const [aiError, setAiError] = useState<"no-photos" | "failed" | null>(null);
   const [aiNotes, setAiNotes] = useState<string | null>(null);
+  // Whether AI wrote into this form — drives the "AI-read, please verify"
+  // label the AI-output rules ask for (and honesty asks for anyway).
+  const [aiFilled, setAiFilled] = useState(false);
   const [similar, setSimilar] = useState<MatchCandidate | null>(null);
 
   /** Fills only fields still empty, so anything already typed is kept. */
@@ -224,6 +227,7 @@ export function ContactForm({
       if (run !== aiRun.current) return; // superseded by a newer run
       if (result.ok) {
         applyTranscription(result.fields);
+        setAiFilled(true);
         setAiNotes(result.notes);
         // The same vendor photographed twice is inevitable across dozens of
         // cards — warn, never block: the person decides.
@@ -421,6 +425,15 @@ export function ContactForm({
             ) : (
               <p className="text-[11px] leading-relaxed text-sub">{t("aiFillCardHelp")}</p>
             )}
+            {aiFilled ? (
+              <p
+                className="flex items-center gap-1.5 text-[11.5px] font-semibold text-warn"
+                data-testid="card-ai-verify-hint"
+              >
+                <Sparkles className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
+                {t("aiVerifyHint")}
+              </p>
+            ) : null}
           </div>
         ) : null}
 
