@@ -287,3 +287,147 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * Public landing page.
+ *
+ * Two structures, one markup. On a phone the beats are sticky cards that stack:
+ * each fills the screen, the next rides up over it, and the motion comes from
+ * `position: sticky` alone — no scroll-driven CSS and no JavaScript, which is
+ * the only reason it survives the WeChat webview this link will mostly be
+ * opened in. From `md` up the same beats become a pinned stage that crossfades
+ * as the page scrolls.
+ *
+ * Everything below is progressive enhancement over a plain stack of sections:
+ * strip the animation and the page still reads top to bottom, which is what a
+ * visitor with reduced motion, an old browser or no JS gets.
+ * ------------------------------------------------------------------------- */
+
+.lp-stack {
+  position: relative;
+}
+
+.lp-beat {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /* vh first, svh second: an older webview takes the line it understands and
+     ignores the one it does not; a current one uses svh, the honest height
+     once the browser chrome is showing. */
+  min-height: 100vh;
+  min-height: 100svh;
+  border-top-left-radius: var(--radius-sheet);
+  border-top-right-radius: var(--radius-sheet);
+  box-shadow: 0 -14px 34px rgb(38 32 26 / 0.13);
+}
+
+/* The offsets are the deck edge — all that shows of the card beneath. */
+.lp-beat:nth-child(1) { top: 0; }
+.lp-beat:nth-child(2) { top: 10px; }
+.lp-beat:nth-child(3) { top: 20px; }
+
+.lp-spacer {
+  height: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-beat {
+    position: static;
+    min-height: 0;
+    box-shadow: none;
+  }
+}
+
+@media (min-width: 768px) {
+  .lp-beat {
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  /* The pinned stage only exists where the browser can drive an animation from
+     scroll position. Without that support the beats stay a normal stack, which
+     is a quieter page but never a broken one. */
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      /* The timeline belongs to the STORY container, not to each beat and not
+         to a wrapper that never scrolls. The container scrolls past normally,
+         so its progress is smooth; a beat's own view() progress would stall the
+         moment it pins, which is what makes naive versions of this hitch. */
+      .lp-story {
+        position: relative;
+        view-timeline-name: --lp-story;
+        view-timeline-axis: block;
+      }
+
+      .lp-stack {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        height: 100svh;
+        overflow: hidden;
+      }
+
+      .lp-beat {
+        position: absolute;
+        inset: 0;
+        min-height: 0;
+        animation-timeline: --lp-story;
+        animation-fill-mode: both;
+        animation-timing-function: linear;
+        will-change: opacity;
+      }
+
+      .lp-beat:nth-child(1) { z-index: 1; }
+      .lp-beat:nth-child(2) { z-index: 2; animation-name: lp-fade-2; }
+      .lp-beat:nth-child(3) { z-index: 3; animation-name: lp-fade-3; }
+
+      /* Backgrounds and copy are two different jobs. Flat backgrounds may
+         overlap — that reads as a wash. Text may not: text dissolving through
+         text is mud at any opacity. So copy only ever fades IN, a beat behind
+         its own background, and the outgoing copy is covered rather than
+         faded. No window with both readable, none with neither. */
+      .lp-beat > * {
+        animation-timeline: --lp-story;
+        animation-fill-mode: both;
+        animation-timing-function: linear;
+        will-change: opacity;
+      }
+
+      .lp-beat:nth-child(2) > * { animation-name: lp-copy-2; }
+      .lp-beat:nth-child(3) > * { animation-name: lp-copy-3; }
+
+      /* The spacer is the scroll the pinned stage is played over. The story is
+         then 300vh tall inside a 100vh viewport, so its view timeline runs over
+         400vh and the stack is pinned across the middle half of it: 25% to 75%.
+         Every percentage below is inside that window. */
+      .lp-spacer {
+        height: 200vh;
+        height: 200svh;
+      }
+    }
+  }
+}
+
+/* pointer-events rides along in the keyframes: a scene sitting at opacity 0
+   still swallows clicks otherwise, which would leave the visible beat dead. */
+@keyframes lp-fade-2 {
+  0%, 37% { opacity: 0; pointer-events: none; }
+  45%, 100% { opacity: 1; pointer-events: auto; }
+}
+
+@keyframes lp-fade-3 {
+  0%, 60% { opacity: 0; pointer-events: none; }
+  68%, 100% { opacity: 1; pointer-events: auto; }
+}
+
+@keyframes lp-copy-2 {
+  0%, 44% { opacity: 0; }
+  50%, 100% { opacity: 1; }
+}
+
+@keyframes lp-copy-3 {
+  0%, 67% { opacity: 0; }
+  73%, 100% { opacity: 1; }
+}

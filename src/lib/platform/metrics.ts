@@ -219,7 +219,7 @@ export type WaitlistEntry = {
   name: string;
   companyName: string;
   email: string;
-  mobile: string;
+  preferredContact: string | null;
   locale: string;
   createdAt: string;
 };

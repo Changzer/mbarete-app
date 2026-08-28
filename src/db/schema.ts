@@ -1148,7 +1148,7 @@ export const waitlistSignups = pgTable("waitlist_signups", {
   name: text("name").notNull(),
   companyName: text("company_name").notNull(),
   email: text("email").notNull(),
-  mobile: text("mobile").notNull(),
+  preferredContact: text("preferred_contact"),
   locale: text("locale").notNull(),
   createdAt: text("created_at").notNull().default(utcNow),
 });

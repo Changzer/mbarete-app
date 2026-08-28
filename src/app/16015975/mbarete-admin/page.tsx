@@ -231,7 +231,7 @@ export default async function PlatformAdminPage() {
                   <th className="py-1 pr-4 font-semibold">Name</th>
                   <th className="py-1 pr-4 font-semibold">Company</th>
                   <th className="py-1 pr-4 font-semibold">Email</th>
-                  <th className="py-1 pr-4 font-semibold">Mobile</th>
+                  <th className="py-1 pr-4 font-semibold">Contact</th>
                   <th className="py-1 font-semibold">Joined</th>
                 </tr>
               </thead>
@@ -241,7 +241,7 @@ export default async function PlatformAdminPage() {
                     <td className="py-1.5 pr-4 text-ink">{w.name}</td>
                     <td className="py-1.5 pr-4 text-ink">{w.companyName}</td>
                     <td className="py-1.5 pr-4 text-sub">{w.email}</td>
-                    <td className="py-1.5 pr-4 text-sub">{w.mobile}</td>
+                    <td className="py-1.5 pr-4 text-sub">{w.preferredContact ?? "—"}</td>
                     <td className="py-1.5 text-sub">{w.createdAt.slice(0, 10)}</td>
                   </tr>
                 ))}
