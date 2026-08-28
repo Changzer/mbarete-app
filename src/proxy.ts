@@ -11,6 +11,10 @@ function isPublicPath(pathname: string) {
     withoutLocale === "/" ||
     withoutLocale.startsWith("/login") ||
     withoutLocale.startsWith("/signup") ||
+    // Legal pages are public by nature: consent links them BEFORE an account
+    // exists, and a regulator reads them without one.
+    withoutLocale.startsWith("/privacy") ||
+    withoutLocale.startsWith("/terms") ||
     withoutLocale.startsWith("/invite/") ||
     withoutLocale.startsWith("/forgot") ||
     withoutLocale.startsWith("/reset/") ||

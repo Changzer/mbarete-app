@@ -78,7 +78,10 @@ The app assumes a fronting TLS proxy on a public server. Non-negotiables:
    lived on the NAS `.env`.
 3. **Postgres stays off the network** — compose-internal only, never a
    published port.
-4. **Backups offsite** (docs/BACKUPS.md) — `BACKUP_DIR` on a different disk,
+4. **Compliance & incidents** — data classification, consent enforcement,
+   sub-processors and deferred items in docs/COMPLIANCE.md; the breach
+   runbook in docs/INCIDENT-RESPONSE.md.
+5. **Backups offsite** (docs/BACKUPS.md) — `BACKUP_DIR` on a different disk,
    synced off the machine.
 5. Keep `DEPLOY_MODE`, `PLATFORM_ADMIN_EMAIL` deliberate: SaaS mode opens
    /signup; the platform email is the skeleton key to the panel.

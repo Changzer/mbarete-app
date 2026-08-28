@@ -1,5 +1,20 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
+    // A mainland deployment must never talk to an unfiled foreign model:
+    // with DEPLOY_REGION=cn, any Anthropic configuration is a boot error,
+    // not a runtime surprise a regulator finds first. The env-switch that
+    // makes the vision layer portable is exactly what makes this mistake
+    // one variable away — so the boot refuses it outright.
+    if (process.env.DEPLOY_REGION === "cn") {
+      if (process.env.ANTHROPIC_API_KEY || process.env.TRANSCRIBE_PROVIDER === "anthropic") {
+        throw new Error(
+          "DEPLOY_REGION=cn refuses Anthropic configuration. Mainland deployments must serve " +
+            "a domestically filed model (Moonshot). Remove ANTHROPIC_API_KEY and any " +
+            "TRANSCRIBE_PROVIDER=anthropic from the environment.",
+        );
+      }
+    }
+
     const { runMigrations, migrationGap } = await import("./src/db/migrate");
     const { seed } = await import("./src/db/seed");
 

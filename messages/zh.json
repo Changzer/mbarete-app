@@ -20,7 +20,9 @@
     "error": "邮箱或密码错误",
     "noAccount": "还没有账户？",
     "createCompany": "创建公司",
-    "forgotPassword": "忘记密码？"
+    "forgotPassword": "忘记密码？",
+    "legalTerms": "服务条款",
+    "legalPrivacy": "隐私政策"
   },
   "signup": {
     "title": "创建您的公司",
@@ -42,7 +44,11 @@
     "errorEmailTaken": "该邮箱已被注册。",
     "errorRateLimited": "尝试次数过多，请稍后再试。",
     "errorInvalid": "请检查表单后重试。",
-    "referredBy": "你受到 {company} 的邀请。"
+    "referredBy": "你受到 {company} 的邀请。",
+    "consentAgree": "我已阅读并同意",
+    "consentTerms": "《服务条款》",
+    "consentAnd": "与",
+    "consentPrivacy": "《隐私政策》"
   },
   "invite": {
     "title": "加入团队",
@@ -264,7 +270,8 @@
     "errorPlanLimit": "已达到当前套餐的产品数量上限——请联系 Mbarete 升级。",
     "costPriceHint": "还没拿到报价？可以留空，等供应商回复后再补上。",
     "viewTable": "列表视图",
-    "viewGallery": "图库视图"
+    "viewGallery": "图库视图",
+    "aiVerifyHint": "AI 提取，请核对后使用"
   },
   "contacts": {
     "title": "联系人",
@@ -312,7 +319,8 @@
     "bankInfoHide": "隐藏",
     "bankInfoVerify": "付款前请与名片照片核对这些数字。",
     "countSuppliers": "{count} 家供应商",
-    "countClients": "{count} 位客户"
+    "countClients": "{count} 位客户",
+    "aiVerifyHint": "AI 提取，请核对后使用"
   },
   "orders": {
     "title": "订单",
@@ -816,6 +824,12 @@
     "closeConfirm": "确认结账？系统将记录当前数据摘要。数据仍可编辑——之后生成的资料包会显示结账后是否有改动。",
     "closedAt": "已于 {date} 结账",
     "closeFailed": "结账失败，请重试。"
+  },
+  "legal": {
+    "privacyTitle": "隐私政策",
+    "termsTitle": "服务条款",
+    "updated": "{version} · 更新于 {date}",
+    "back": "返回登录"
   },
   "landing": {
     "signIn": "登录",
