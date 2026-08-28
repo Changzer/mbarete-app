@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The teaser video project (HyperFrames) carries its own tooling and a
+    // vendored gsap.min.js; it is not app code.
+    "videos/**",
   ]),
 ]);
 
