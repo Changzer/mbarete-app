@@ -1,0 +1,739 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>Mbarete — teaser</title>
+    <script src="assets/vendor/gsap.min.js"></script>
+    <style>
+      @font-face {
+        font-family: "Archivo";
+        src: url("assets/fonts/archivo-latin-wght-normal.woff2") format("woff2");
+        font-weight: 100 900;
+        font-style: normal;
+      }
+      @font-face {
+        font-family: "Plex Mono";
+        src: url("assets/fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2");
+        font-weight: 400;
+      }
+      @font-face {
+        font-family: "Plex Mono";
+        src: url("assets/fonts/ibm-plex-mono-latin-600-normal.woff2") format("woff2");
+        font-weight: 600;
+      }
+      @font-face {
+        font-family: "Noto SC";
+        src: url("assets/fonts/noto-sc-regular-subset.woff2") format("woff2");
+        font-weight: 400;
+      }
+      @font-face {
+        font-family: "Noto SC";
+        src: url("assets/fonts/noto-sc-bold-subset.woff2") format("woff2");
+        font-weight: 700;
+      }
+
+      :root {
+        --bg: #f8f4ec;
+        --surface: #fdfbf7;
+        --surface-2: #f2ecdf;
+        --ink: #26201a;
+        --sub: #77695a;
+        --line: #e1d6c4;
+        --line-strong: #cdbfa8;
+        --action: #bc3524;
+        --seal: #c61e1e;
+        --terracotta: #e8684f;
+        --sand: #d9c6a5;
+        --brass: #c9a24b;
+        --warn: #8a5a06;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { background: #111; }
+      #root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        font-family: "Archivo", "Noto SC", sans-serif;
+        color: var(--ink);
+        -webkit-font-smoothing: antialiased;
+      }
+      .clip { position: absolute; inset: 0; overflow: hidden; background: transparent; }
+      .mono { font-family: "Plex Mono", monospace; font-variant-numeric: tabular-nums; }
+      .zh { font-family: "Noto SC", sans-serif; }
+
+      /* ---------- shared background (not a clip) ---------- */
+      #bg { position: absolute; inset: 0; background: var(--bg); }
+      #bg-radial {
+        position: absolute; inset: 0;
+        background: radial-gradient(1100px 700px at 50% 42%, #fdfaf3 0%, rgba(253, 250, 243, 0) 65%);
+      }
+      #bg-dots {
+        position: absolute; inset: 0; opacity: 0.55;
+        background-image: radial-gradient(circle, rgba(60, 40, 20, 0.075) 1.2px, transparent 1.4px);
+        background-size: 34px 34px;
+      }
+      .bg-blob { position: absolute; border-radius: 50%; filter: blur(90px); }
+      #bg-blob-a { width: 700px; height: 700px; left: -220px; top: -260px; background: rgba(232, 104, 79, 0.1); }
+      #bg-blob-b { width: 620px; height: 620px; right: -200px; bottom: -240px; background: rgba(201, 162, 75, 0.1); }
+      #bg-seal-ghost {
+        position: absolute; right: -130px; top: 110px; width: 560px; opacity: 0.05;
+      }
+
+      /* ---------- scene 1 : desk ---------- */
+      #s1-cam { position: absolute; inset: 0; will-change: transform; }
+      #s1-eyebrow {
+        position: absolute; top: 96px; width: 100%;
+        display: flex; justify-content: center; gap: 22px;
+        font-family: "Plex Mono", monospace;
+        font-size: 23px; font-weight: 600; letter-spacing: 0.17em;
+        color: var(--sub); text-transform: uppercase;
+      }
+      #s1-eyebrow .dot { color: var(--action); }
+      #s1-eyebrow span { display: inline-block; opacity: 0; }
+      #s1-browser-pos { position: absolute; left: 960px; top: 610px; width: 0; height: 0; }
+      #s1-browser-scale { transform: scale(0.66); }
+      .browser {
+        position: absolute; left: -730px; top: -478px; width: 1460px;
+        background: var(--surface);
+        border: 1.5px solid var(--line);
+        border-radius: 16px;
+        box-shadow: 0 44px 110px rgba(74, 46, 24, 0.24), 0 10px 30px rgba(74, 46, 24, 0.12);
+        overflow: hidden;
+      }
+      .browser-bar {
+        height: 46px; background: var(--surface-2);
+        border-bottom: 1px solid var(--line);
+        display: flex; align-items: center; padding: 0 20px; gap: 9px;
+      }
+      .browser-bar i { width: 13px; height: 13px; border-radius: 50%; background: var(--line-strong); display: block; }
+      .browser-bar i:first-child { background: var(--terracotta); }
+      .browser-url {
+        margin: 0 auto; height: 29px; padding: 0 46px;
+        display: flex; align-items: center;
+        background: var(--bg); border: 1px solid var(--line); border-radius: 15px;
+        font-family: "Plex Mono", monospace; font-size: 15px; color: var(--sub);
+        position: relative;
+      }
+      .browser-url .u { position: absolute; left: 0; right: 0; text-align: center; }
+      .browser img { display: block; width: 1460px; }
+      #s1-shot-zh { position: absolute; left: 0; top: 46px; opacity: 0; }
+      #s1-lang-chip {
+        position: absolute; right: -770px; top: 380px;
+        height: 62px; padding: 0 30px; display: flex; align-items: center; gap: 14px;
+        background: var(--ink); color: #f6f1e8; border-radius: 31px;
+        font-size: 25px; font-weight: 700;
+        box-shadow: 0 18px 40px rgba(38, 32, 26, 0.35);
+        opacity: 0;
+      }
+      #s1-lang-chip .arrows { color: var(--terracotta); font-size: 27px; }
+      #s1-lang-chip .en-label, #s1-lang-chip .zh-label { position: relative; }
+      #s1-lang-chip .zh-label { color: #f6f1e8; }
+
+      /* ---------- scene 2 : capture ---------- */
+      #s2-cam { position: absolute; inset: 0; will-change: transform; }
+      #s2-market { position: absolute; inset: 0; }
+      .bokeh { position: absolute; border-radius: 50%; filter: blur(60px); }
+      #s2-awning {
+        position: absolute; left: -60px; right: -60px; top: -50px; height: 190px;
+        background: repeating-linear-gradient(90deg, rgba(188, 53, 36, 0.2) 0 150px, rgba(248, 244, 236, 0.16) 150px 300px);
+        filter: blur(42px);
+      }
+      #s2-counter {
+        position: absolute; left: -60px; right: -60px; bottom: -60px; height: 300px;
+        background: linear-gradient(180deg, rgba(217, 198, 165, 0) 0%, rgba(196, 168, 124, 0.4) 70%);
+        filter: blur(30px);
+      }
+      #s2-rig { position: absolute; left: 690px; top: 540px; width: 0; height: 0; will-change: transform; }
+      #s2-rig-inner { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+      #s2-hand { position: absolute; left: -300px; top: -80px; width: 640px; height: 560px; }
+      #s2-phone {
+        position: absolute; left: -166px; top: -348px;
+        width: 332px; height: 696px;
+        background: #221c17; border-radius: 46px;
+        padding: 9px;
+        box-shadow: 0 40px 90px rgba(50, 30, 16, 0.4), 0 6px 18px rgba(50, 30, 16, 0.28);
+      }
+      #s2-screen {
+        position: relative; width: 314px; height: 678px;
+        border-radius: 38px; overflow: hidden; background: #000;
+      }
+      #s2-screen .screen-img { position: absolute; left: 0; top: 0; width: 314px; }
+      #s2-island {
+        position: absolute; left: 50%; margin-left: -42px; top: 13px;
+        width: 84px; height: 24px; border-radius: 12px; background: #0a0806; z-index: 40;
+      }
+      #s2-vf { position: absolute; inset: 0; }
+      #s2-vf-img {
+        position: absolute; left: -60px; top: -40px; width: 434px; height: 758px;
+        object-fit: cover;
+      }
+      .vf-bracket { position: absolute; width: 46px; height: 46px; border: 3.5px solid rgba(255, 255, 255, 0.85); z-index: 10; }
+      #vf-tl { left: 26px; top: 66px; border-right: none; border-bottom: none; border-radius: 10px 0 0 0; }
+      #vf-tr { right: 26px; top: 66px; border-left: none; border-bottom: none; border-radius: 0 10px 0 0; }
+      #vf-bl { left: 26px; bottom: 150px; border-right: none; border-top: none; border-radius: 0 0 0 10px; }
+      #vf-br { right: 26px; bottom: 150px; border-left: none; border-top: none; border-radius: 0 0 10px 0; }
+      #s2-vf-grad { position: absolute; left: 0; right: 0; bottom: 0; height: 190px; background: linear-gradient(180deg, transparent, rgba(0,0,0,0.5)); }
+      #s2-shutter {
+        position: absolute; left: 50%; margin-left: -33px; bottom: 40px; z-index: 12;
+        width: 66px; height: 66px; border-radius: 50%;
+        border: 4px solid rgba(255, 255, 255, 0.92);
+        display: flex; align-items: center; justify-content: center;
+      }
+      #s2-shutter i { display: block; width: 50px; height: 50px; border-radius: 50%; background: #fff; }
+      #s2-zoom {
+        position: absolute; left: 50%; margin-left: -22px; bottom: 122px; z-index: 12;
+        width: 44px; height: 27px; border-radius: 14px;
+        background: rgba(20, 16, 12, 0.55); color: #fff;
+        font-family: "Plex Mono", monospace; font-size: 13px;
+        display: flex; align-items: center; justify-content: center;
+      }
+      #s2-flash { position: absolute; inset: 0; background: #fff; opacity: 0; z-index: 50; }
+      #s2-m3 { opacity: 0; }
+      #s2-m4 { opacity: 0; }
+      #s2-tap {
+        position: absolute; left: 62px; top: 610px; z-index: 30;
+        width: 44px; height: 44px; border-radius: 50%;
+        border: 3px solid rgba(188, 53, 36, 0.9);
+        opacity: 0;
+      }
+      #s2-status {
+        position: absolute; left: 985px; top: 300px;
+        height: 64px; padding: 0 28px;
+        display: flex; align-items: center; gap: 14px;
+        background: var(--surface); border: 1.5px solid var(--line); border-radius: 32px;
+        box-shadow: 0 16px 44px rgba(74, 46, 24, 0.14);
+        opacity: 0;
+      }
+      #s2-status .spark { color: var(--action); font-size: 26px; }
+      #s2-status .txt {
+        font-family: "Plex Mono", monospace; font-size: 21px; font-weight: 600;
+        background: linear-gradient(100deg, #77695a 0 40%, #b3a28e 50%, #77695a 60% 100%);
+        background-size: 300% 100%;
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+      }
+      #s2-chips { position: absolute; left: 985px; top: 385px; width: 620px; }
+      .chip {
+        position: absolute; left: 0;
+        background: var(--surface); border: 1.5px solid var(--line); border-radius: 14px;
+        box-shadow: 0 18px 48px rgba(74, 46, 24, 0.13);
+        opacity: 0;
+      }
+      .chip .lbl {
+        font-family: "Plex Mono", monospace; font-size: 14px; font-weight: 600;
+        letter-spacing: 0.16em; color: var(--sub); text-transform: uppercase;
+        margin-bottom: 8px;
+      }
+      #chip-name { top: 0; width: 520px; padding: 20px 26px; }
+      #chip-name .en { font-size: 27px; font-weight: 800; line-height: 1.14; letter-spacing: -0.01em; }
+      #chip-name .zh { font-size: 24px; font-weight: 400; color: var(--sub); margin-top: 6px; }
+      #chip-price { top: 152px; padding: 18px 28px 14px; }
+      #chip-price .val { font-family: "Plex Mono", monospace; font-weight: 600; font-size: 78px; color: var(--action); line-height: 1; }
+      #chip-moq { top: 296px; left: 24px; padding: 16px 24px; }
+      #chip-moq .val { font-family: "Plex Mono", monospace; font-weight: 600; font-size: 29px; }
+      #chip-board { top: 388px; left: 48px; width: 430px; padding: 16px 24px; background: #faf3e3; border-color: #e6d3a8; }
+      #chip-board .b1 { font-family: "Plex Mono", monospace; font-size: 20px; color: var(--ink); }
+      #chip-board .verify { font-family: "Plex Mono", monospace; font-size: 15px; color: var(--warn); margin-top: 8px; }
+
+      /* ---------- flying card (root-level clip) ---------- */
+      #flycard {
+        position: absolute; inset: auto; left: 0; top: 0; width: 271px; height: auto;
+        background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 30px 80px rgba(74, 46, 24, 0.28);
+        opacity: 0;
+        will-change: transform;
+        z-index: 30;
+      }
+      #flycard img { display: block; width: 269px; height: 269px; object-fit: cover; }
+      #flycard .meta { padding: 10px 12px 12px; }
+      #flycard .n { font-size: 14.5px; font-weight: 700; line-height: 1.2; }
+      #flycard .n .zh { font-weight: 400; color: var(--sub); }
+      #flycard .sku { font-family: "Plex Mono", monospace; font-size: 11px; color: var(--sub); margin-top: 4px; }
+      #flycard .pr { font-family: "Plex Mono", monospace; font-weight: 600; font-size: 19px; margin-top: 6px; }
+      #flycard .pr small { font-size: 11px; color: var(--sub); font-weight: 400; margin-left: 8px; }
+
+      /* ---------- scene 3 : catalog payoff ---------- */
+      #s3-cam { position: absolute; inset: 0; will-change: transform; }
+      #s3-browser-pos { position: absolute; left: 960px; top: 0; width: 0; height: 0; }
+      #s3-browser-scale { transform: scale(1.1); }
+      #s3-browser-scale .browser { top: -40px; }
+      .tile-cover { position: absolute; background: var(--bg); border-radius: 12px; }
+      #s3-band {
+        position: absolute; left: 0; right: 0; bottom: 0; height: 470px;
+        background: linear-gradient(180deg, rgba(248, 244, 236, 0) 0%, rgba(248, 244, 236, 0.9) 30%, #f8f4ec 52%);
+      }
+      #s3-headline { position: absolute; left: 150px; bottom: 78px; }
+      #s3-h1 { font-size: 67px; font-weight: 800; letter-spacing: -0.028em; line-height: 1.04; opacity: 0; }
+      #s3-h2 { font-size: 67px; font-weight: 800; letter-spacing: -0.028em; line-height: 1.04; color: var(--action); opacity: 0; }
+      #s3-hzh { font-size: 31px; font-weight: 400; color: var(--sub); margin-top: 18px; opacity: 0; }
+      #s3-rule { width: 92px; height: 5px; background: var(--action); margin-bottom: 22px; opacity: 0; }
+
+      /* ---------- scene 4 : lockup ---------- */
+      #s4-stage { position: absolute; inset: 0; will-change: transform; }
+      #s4-glow {
+        position: absolute; left: 560px; top: 120px; width: 800px; height: 800px;
+        background: radial-gradient(circle, rgba(232, 104, 79, 0.34) 0%, rgba(232, 104, 79, 0) 62%);
+        opacity: 0;
+      }
+      #s4-seal { position: absolute; left: 770px; top: 268px; width: 380px; will-change: transform; opacity: 0; }
+      #s4-proof {
+        position: absolute; left: 0; right: 0; top: 748px; text-align: center;
+        font-family: "Plex Mono", monospace; font-size: 23px; font-weight: 600;
+        letter-spacing: 0.2em; color: var(--sub);
+        clip-path: inset(0 100% 0 0);
+      }
+      #s4-proof .dot { color: var(--action); }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-width="1920" data-height="1080" data-duration="13.8">
+      <!-- shared warm-cream world -->
+      <div id="bg">
+        <div id="bg-radial"></div>
+        <div id="bg-dots"></div>
+        <div class="bg-blob" id="bg-blob-a" data-layout-allow-overflow></div>
+        <div class="bg-blob" id="bg-blob-b" data-layout-allow-overflow></div>
+        <img id="bg-seal-ghost" src="assets/brand/seal.png" alt="" />
+      </div>
+
+      <!-- SVG streak filters -->
+      <svg width="0" height="0" aria-hidden="true" style="position: absolute">
+        <filter id="streak-y" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur id="streak-y-blur" in="SourceGraphic" stdDeviation="0 0" />
+        </filter>
+        <filter id="streak-card" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur id="streak-card-blur" in="SourceGraphic" stdDeviation="0 0" />
+        </filter>
+      </svg>
+
+      <!-- Scene 1 · Desk -->
+      <section id="s1" class="clip" data-start="0" data-duration="3.05" data-track-index="1">
+        <div id="s1-cam">
+          <div id="s1-eyebrow">
+            <span id="eb-1">Built in Yiwu</span>
+            <span class="dot" id="eb-2">·</span>
+            <span id="eb-3">Made for sourcing teams</span>
+            <span class="dot" id="eb-4">·</span>
+            <span class="zh" id="eb-5" style="letter-spacing: 0.3em">义乌</span>
+          </div>
+          <div id="s1-browser-pos">
+            <div id="s1-browser-scale">
+              <div class="browser" id="s1-browser" style="filter: url(#streak-y)">
+                <div class="browser-bar">
+                  <i></i><i></i><i></i>
+                  <div class="browser-url" style="width: 420px">
+                    <span class="u" id="s1-url-en">mbarete.app/en/catalog</span>
+                    <span class="u" id="s1-url-zh" style="opacity: 0">mbarete.app/zh/catalog</span>
+                  </div>
+                </div>
+                <img src="assets/shots/d1-gallery-en.jpg" alt="" />
+                <img id="s1-shot-zh" src="assets/shots/d2-gallery-zh.jpg" alt="" />
+              </div>
+              <div id="s1-lang-chip">
+                <span class="en-label">English</span>
+                <span class="arrows">⇄</span>
+                <span class="zh zh-label">中文</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Scene 2 · Capture -->
+      <section id="s2" class="clip" data-start="3.05" data-duration="6.55" data-track-index="1">
+        <div id="s2-cam">
+          <div id="s2-market">
+            <div id="s2-awning" data-layout-allow-overflow></div>
+            <div class="bokeh" data-layout-allow-overflow style="left: 80px; top: 300px; width: 340px; height: 340px; background: rgba(232,104,79,0.22)"></div>
+            <div class="bokeh" data-layout-allow-overflow style="left: 1490px; top: 210px; width: 300px; height: 300px; background: rgba(201,162,75,0.24)"></div>
+            <div class="bokeh" data-layout-allow-overflow style="left: 1330px; top: 660px; width: 380px; height: 380px; background: rgba(217,198,165,0.5)"></div>
+            <div class="bokeh" data-layout-allow-overflow style="left: -60px; top: 750px; width: 320px; height: 320px; background: rgba(188,53,36,0.14)"></div>
+            <div class="bokeh" data-layout-allow-overflow style="left: 460px; top: 60px; width: 220px; height: 220px; background: rgba(253,250,243,0.65)"></div>
+            <div id="s2-counter" data-layout-allow-overflow></div>
+          </div>
+          <div id="s2-rig">
+            <div id="s2-rig-inner">
+              <!-- stylized hand behind/around the phone -->
+              <svg id="s2-hand" viewBox="0 0 640 560" fill="none">
+                <!-- forearm/palm mass, low-right -->
+                <path d="M320 350 C 300 300 330 260 390 258 L 560 268 C 622 276 648 330 640 400 L 640 560 L 330 560 C 290 500 300 420 320 350 Z" fill="#e0a878" />
+                <path d="M330 560 C 300 505 305 430 322 368 C 340 420 360 490 380 560 Z" fill="#cf9464" opacity="0.55" />
+                <!-- fingertips wrapping the left edge of the phone -->
+                <rect x="120" y="120" width="74" height="46" rx="23" fill="#e8b48e" />
+                <rect x="114" y="186" width="82" height="48" rx="24" fill="#e5b088" />
+                <rect x="112" y="254" width="86" height="48" rx="24" fill="#e2ac82" />
+                <rect x="118" y="322" width="80" height="48" rx="24" fill="#dfa87c" />
+                <!-- thumb over the lower-right front -->
+                <path d="M470 470 C 400 480 340 452 322 404 C 316 380 330 360 356 362 C 430 376 480 408 502 436 C 516 456 498 468 470 470 Z" fill="#eab993" />
+              </svg>
+              <div id="s2-phone">
+                <div id="s2-screen">
+                  <div id="s2-island"></div>
+                  <!-- 1) camera viewfinder -->
+                  <div id="s2-vf">
+                    <img id="s2-vf-img" src="assets/photos/market-capture.jpg" alt="" />
+                    <div class="vf-bracket" id="vf-tl"></div>
+                    <div class="vf-bracket" id="vf-tr"></div>
+                    <div class="vf-bracket" id="vf-bl"></div>
+                    <div class="vf-bracket" id="vf-br"></div>
+                    <div id="s2-vf-grad"></div>
+                    <div id="s2-zoom">1×</div>
+                    <div id="s2-shutter"><i></i></div>
+                  </div>
+                  <!-- 2) form: reading photos -->
+                  <img class="screen-img" id="s2-m3" src="assets/shots/m3-reading.jpg" alt="" />
+                  <!-- 3) form: AI filled -->
+                  <img class="screen-img" id="s2-m4" src="assets/shots/m4-filled.jpg" alt="" />
+                  <div id="s2-tap"></div>
+                  <div id="s2-flash"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- working-state pill + data chips live beside the phone, in world space -->
+          <div id="s2-status">
+            <span class="spark">✳</span>
+            <span class="txt">Reading photos… · 正在识别照片…</span>
+          </div>
+          <div id="s2-chips">
+            <div class="chip" id="chip-name">
+              <div class="lbl">Product · 产品</div>
+              <div class="en">Aurora Glitter Highlighter 6-Color Set</div>
+              <div class="zh zh">极光贝母幻彩荧光笔6色装</div>
+            </div>
+            <div class="chip" id="chip-price">
+              <div class="lbl">Unit price · 单价</div>
+              <div class="val">¥4.14</div>
+            </div>
+            <div class="chip" id="chip-moq">
+              <div class="val">MOQ 288 · 288/CTN</div>
+            </div>
+            <div class="chip" id="chip-board">
+              <div class="lbl">Board read · 识别价格板</div>
+              <div class="b1">¥4.14 — 288/box</div>
+              <div class="verify">AI-read — please verify · 请核对后使用</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- flying product card: crosses the S2→S3 seam -->
+      <div id="flycard" class="clip" data-start="8.0" data-duration="2.25" data-track-index="2" style="filter: url(#streak-card)">
+        <img src="assets/photos/market-capture.jpg" alt="" />
+        <div class="meta">
+          <div class="n">Aurora Glitter Highlighter 6-Color Set <span class="zh zh">极光贝母…</span></div>
+          <div class="sku">000008 · 288/ctn</div>
+          <div class="pr">¥4.14<small>MOQ 288</small></div>
+        </div>
+      </div>
+
+      <!-- Scene 3 · Catalog payoff -->
+      <section id="s3" class="clip" data-start="9.6" data-duration="2.8" data-track-index="1">
+        <div id="s3-cam">
+          <div id="s3-browser-pos">
+            <div id="s3-browser-scale">
+              <div class="browser" data-layout-allow-overflow>
+                <div class="browser-bar">
+                  <i></i><i></i><i></i>
+                  <div class="browser-url" style="width: 420px"><span class="u">mbarete.app/en/catalog</span></div>
+                </div>
+                <img src="assets/shots/d1-gallery-en.jpg" alt="" />
+                <!-- covers hide the tiles until they "assemble"; geometry injected by script -->
+                <div id="s3-covers"></div>
+              </div>
+            </div>
+          </div>
+          <div id="s3-band"></div>
+          <div id="s3-headline">
+            <div id="s3-rule"></div>
+            <div id="s3-h1">Leave the market with a catalog,</div>
+            <div id="s3-h2">not a camera roll.</div>
+            <div class="zh" id="s3-hzh">逛完市场，带走的是产品目录，而不是满手机的照片。</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Scene 4 · Lockup -->
+      <section id="s4" class="clip" data-start="12.4" data-duration="1.4" data-track-index="1">
+        <div id="s4-stage">
+          <div id="s4-glow"></div>
+          <img id="s4-seal" src="assets/brand/seal.png" alt="Mbarete" />
+          <div id="s4-proof">
+            OFFLINE-FIRST <span class="dot">·</span> ENGLISH + <span class="zh" style="letter-spacing: 0.1em">中文</span> <span class="dot">·</span> YIWU &amp; CANTON FAIR
+          </div>
+        </div>
+      </section>
+
+      <!-- sound design -->
+      <audio id="sfx-thump-1" src="assets/sfx/thump.wav" data-start="1.1" data-volume="0.32"></audio>
+      <audio id="sfx-tick-1" src="assets/sfx/tick.wav" data-start="2.06" data-volume="0.3"></audio>
+      <audio id="sfx-whoosh-1" src="assets/sfx/whoosh.wav" data-start="2.78" data-volume="0.55"></audio>
+      <audio id="sfx-shutter" src="assets/sfx/shutter.wav" data-start="3.94" data-volume="0.7"></audio>
+      <audio id="sfx-tick-2" src="assets/sfx/tick.wav" data-start="5.78" data-volume="0.3"></audio>
+      <audio id="sfx-tick-3" src="assets/sfx/tick.wav" data-start="6.36" data-volume="0.3"></audio>
+      <audio id="sfx-tick-4" src="assets/sfx/tick.wav" data-start="6.84" data-volume="0.26"></audio>
+      <audio id="sfx-chime" src="assets/sfx/chime.wav" data-start="7.6" data-volume="0.42"></audio>
+      <audio id="sfx-whoosh-2" src="assets/sfx/whoosh.wav" data-start="9.26" data-volume="0.4"></audio>
+      <audio id="sfx-thump-2" src="assets/sfx/thump.wav" data-start="10.02" data-volume="0.34"></audio>
+      <audio id="sfx-thump-3" src="assets/sfx/thump.wav" data-start="10.72" data-volume="0.5"></audio>
+      <audio id="sfx-thump-4" src="assets/sfx/thump.wav" data-start="11.5" data-volume="0.44"></audio>
+      <audio id="sfx-thump-5" src="assets/sfx/thump.wav" data-start="12.52" data-volume="0.5"></audio>
+    </div>
+
+    <script>
+      // Geometry shared by the flying card + tile covers.
+      // Measured on the live app at 1440×900 (CSS px): gallery tiles are
+      // 271×399.5 at columns x=160/443/726/1009, rows y=195/606.5; the
+      // screenshot is 1460px wide (scale 1460/1440), inside a browser frame
+      // whose chrome bar is 46px tall, browser at left:-730 top:-478→(-40 in
+      // s3) under a scale(1.1) wrapper anchored at (960, 0).
+      const SHOT_SCALE = 1460 / 1440;
+      const S3_SCALE = 1.1;
+      const S3_BROWSER_LEFT = 960 - 730 * S3_SCALE; // canvas px of browser left edge
+      const S3_BROWSER_TOP = -40 * S3_SCALE;
+      const CHROME_H = 46;
+      const tileRect = (col, row) => {
+        const x = [160, 443, 726, 1009][col] * SHOT_SCALE;
+        const y = (195 + row * 411.5) * SHOT_SCALE + CHROME_H;
+        return {
+          left: S3_BROWSER_LEFT + x * S3_SCALE,
+          top: S3_BROWSER_TOP + y * S3_SCALE,
+          w: 271 * SHOT_SCALE * S3_SCALE,
+          h: 399.5 * SHOT_SCALE * S3_SCALE,
+        };
+      };
+
+      // Build the 8 tile covers inside the S3 browser (positions in the
+      // browser's own 1460px coordinate space).
+      const coversHost = document.getElementById("s3-covers");
+      const coverEls = [];
+      for (let i = 0; i < 8; i++) {
+        const col = i % 4, row = Math.floor(i / 4);
+        const d = document.createElement("div");
+        d.className = "tile-cover";
+        d.setAttribute("data-layout-allow-overflow", "");
+        d.style.left = (160 * SHOT_SCALE - 4) + 271 * SHOT_SCALE * 0 + (col * 283 * SHOT_SCALE) + "px";
+        d.style.top = (CHROME_H + (195 + row * 411.5) * SHOT_SCALE - 4) + "px";
+        d.style.width = (271 * SHOT_SCALE + 8) + "px";
+        d.style.height = (399.5 * SHOT_SCALE + 8) + "px";
+        coversHost.appendChild(d);
+        coverEls.push(d);
+      }
+
+      document.fonts.ready.then(() => {
+        const tl = gsap.timeline({ paused: true });
+        const D = 13.8;
+
+        /* ===== shared background: slow blob drift (bounded phase) ===== */
+        const bgA = document.getElementById("bg-blob-a");
+        const bgB = document.getElementById("bg-blob-b");
+        const bgPhase = { p: 0 };
+        tl.to(bgPhase, {
+          p: Math.PI * 2, duration: D, ease: "none",
+          onUpdate: () => {
+            bgA.style.transform = `translate(${Math.sin(bgPhase.p) * 26}px, ${Math.sin(bgPhase.p * 1.3) * 18}px)`;
+            bgB.style.transform = `translate(${Math.sin(bgPhase.p * 1.2 + 2) * 22}px, ${Math.sin(bgPhase.p + 1) * 16}px)`;
+          },
+        }, 0);
+        tl.fromTo("#bg-seal-ghost", { rotation: -4, y: 0 }, { y: -30, duration: D, ease: "none" }, 0);
+
+        /* =================== SCENE 1 — Desk (0 → 3.05) =================== */
+        // eyebrow waterfall (binary reveal, whip from below)
+        const F = 1 / 60;
+        const ebs = ["#eb-1", "#eb-2", "#eb-3", "#eb-4", "#eb-5"];
+        let ebT = 0.12;
+        const ebDur = [0.18, 0.12, 0.18, 0.12, 0.16];
+        const ebY = [64, 40, 64, 40, 52];
+        ebs.forEach((sel, i) => {
+          tl.set(sel, { opacity: 1, y: ebY[i] }, ebT);
+          tl.to(sel, { y: 0, duration: ebDur[i], ease: "power4.out" }, ebT);
+          ebT += ebDur[i] - 2 * F;
+        });
+
+        // browser rises with a vertical streak, settles at 1.12
+        const streakY = document.getElementById("streak-y-blur");
+        const sy = { v: 26 };
+        const writeSy = () => streakY.setAttribute("stdDeviation", `0 ${sy.v}`);
+        writeSy();
+        tl.fromTo("#s1-browser", { y: 560, opacity: 0 }, { y: 0, opacity: 1, duration: 0.62, ease: "power4.out" }, 0.5);
+        tl.to(sy, { v: 0, duration: 0.62, ease: "power4.out", onUpdate: writeSy }, 0.5);
+
+        // S1 camera: steady push + micro drift (single writer)
+        const s1cam = document.getElementById("s1-cam");
+        const s1phase = { scale: 1.0 };
+        tl.to(s1phase, { scale: 1.05, duration: 2.2, ease: "power1.inOut" }, 0.6);
+        const s1drift = { p: 0 };
+        tl.to(s1drift, {
+          p: Math.PI * 2, duration: 3.05, ease: "none",
+          onUpdate: () => {
+            const dx = Math.sin(s1drift.p) * 4;
+            const dy = Math.sin(s1drift.p * 1.3) * 2.5;
+            s1cam.style.transform = `scale(${s1phase.scale}) translate(${dx}px, ${dy}px)`;
+          },
+        }, 0);
+
+        // the bilingual wink: chip pops, then screen + URL flip EN→ZH
+        tl.fromTo("#s1-lang-chip", { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.45, ease: "power3.out" }, 1.55);
+        tl.to("#s1-shot-zh", { opacity: 1, duration: 0.34, ease: "power2.inOut" }, 2.02);
+        tl.to("#s1-url-en", { opacity: 0, duration: 0.2 }, 2.05);
+        tl.to("#s1-url-zh", { opacity: 1, duration: 0.2 }, 2.1);
+        tl.fromTo("#s1-lang-chip .zh-label", { color: "#f6f1e8" }, { color: "#e8684f", duration: 0.25 }, 2.05);
+        tl.fromTo("#s1-lang-chip .en-label", { color: "#f6f1e8" }, { color: "#8d8579", duration: 0.25 }, 2.05);
+
+        // whip zoom-out exit (velocity-matched into S2)
+        tl.to("#s1-cam", { opacity: 0, duration: 0.22, ease: "power2.in" }, 2.83);
+        tl.to(s1phase, { scale: 0.8, duration: 0.25, ease: "power3.in" }, 2.8);
+        tl.set("#s1-cam", { opacity: 0 }, 3.05);
+
+        /* =================== SCENE 2 — Capture (3.05 → 9.6) =================== */
+        const s2cam = document.getElementById("s2-cam");
+        const s2p = { scale: 1.32, blur: 13, x: 0 };
+        const writeS2 = () => {
+          s2cam.style.transform = `translate(${s2p.x}px, 0px) scale(${s2p.scale})`;
+          s2cam.style.filter = s2p.blur > 0.05 ? `blur(${s2p.blur}px)` : "none";
+        };
+        tl.to(s2p, { scale: 1.0, blur: 0, duration: 0.55, ease: "power3.out", onUpdate: writeS2 }, 3.05);
+
+        // handheld wobble on the rig (single writer; wobble + recede compose)
+        const rig = document.getElementById("s2-rig");
+        const rigState = { x: 0, y: 0, rot: 0, scale: 0.99, dim: 1 };
+        const wob = { p: 0 };
+        tl.to(wob, {
+          p: Math.PI * 4, duration: 6.55, ease: "none",
+          onUpdate: () => {
+            const wx = Math.sin(wob.p * 1.7) * 5;
+            const wy = Math.sin(wob.p * 2.3) * 4;
+            const wr = Math.sin(wob.p * 1.3) * 0.7;
+            rig.style.transform = `translate(${rigState.x + wx}px, ${rigState.y + wy}px) rotate(${rigState.rot + wr}deg) scale(${rigState.scale})`;
+            rig.style.opacity = rigState.dim;
+          },
+        }, 3.05);
+        tl.to(rigState, { scale: 1.0, duration: 0.5, ease: "power2.out" }, 3.05);
+
+        // viewfinder life: image drifts as if aiming, brackets tighten once
+        tl.fromTo("#s2-vf-img", { scale: 1.09, x: 12 }, { scale: 1.0, x: 0, duration: 0.85, ease: "power2.out" }, 3.1);
+        tl.fromTo(".vf-bracket", { scale: 1.14, opacity: 0.4 }, { scale: 1, opacity: 1, duration: 0.5, ease: "power2.out" }, 3.35);
+
+        // shutter: press → flash → the form takes over
+        tl.to("#s2-shutter", { scale: 0.86, duration: 0.09, ease: "none" }, 3.9);
+        tl.to("#s2-shutter", { scale: 1, duration: 0.32, ease: "back.out(1.6)" }, 3.99);
+        tl.fromTo("#s2-flash", { opacity: 0 }, { opacity: 1, duration: 0.05, ease: "none" }, 3.98);
+        tl.set("#s2-vf", { opacity: 0 }, 4.04);
+        tl.set("#s2-m3", { opacity: 1 }, 4.04);
+        tl.to("#s2-flash", { opacity: 0, duration: 0.3, ease: "power2.out" }, 4.04);
+
+        // working state: status pill + text shimmer (bounded, killed at resolve)
+        tl.fromTo("#s2-status", { scale: 0.6, opacity: 0, y: 18 }, { scale: 1, opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 4.35);
+        const statusTxt = document.querySelector("#s2-status .txt");
+        const shim = { p: 0 };
+        tl.to(shim, {
+          p: 1, duration: 1.25, ease: "none",
+          onUpdate: () => { statusTxt.style.backgroundPosition = `${(1 - (shim.p % 1)) * 100}% 50%`; },
+        }, 4.4);
+        tl.set(statusTxt, { backgroundPosition: "100% 50%" }, 5.65);
+        tl.to("#s2-status", { scale: 0.7, opacity: 0, y: -14, duration: 0.28, ease: "power2.in" }, 5.5);
+
+        // the form fills (m3 → m4)
+        tl.to("#s2-m4", { opacity: 1, duration: 0.3, ease: "power2.inOut" }, 5.7);
+
+        // data chips spring out on one beat grid
+        const CHIP_BEATS = { "#chip-name": 5.75, "#chip-price": 6.33, "#chip-moq": 6.81, "#chip-board": 7.12 };
+        for (const [sel, at] of Object.entries(CHIP_BEATS)) {
+          tl.fromTo(sel, { scale: 0.5, opacity: 0, x: -46 }, { scale: 1, opacity: 1, x: 0, duration: 0.5, ease: "power3.out" }, at);
+        }
+
+        // save tap: ripple + screen dip + chips converge home
+        tl.fromTo("#s2-tap", { scale: 0.4, opacity: 0.9 }, { scale: 1.8, opacity: 0, duration: 0.45, ease: "power2.out" }, 7.55);
+        tl.set("#s2-tap", { opacity: 0 }, 8.0);
+        tl.to("#s2-phone", { scale: 0.985, duration: 0.09, ease: "none" }, 7.55);
+        tl.to("#s2-phone", { scale: 1, duration: 0.3, ease: "back.out(1.4)" }, 7.64);
+        tl.to("#s2-chips .chip", {
+          scale: 0.55, opacity: 0, x: -120, duration: 0.34, ease: "power2.in",
+          stagger: 0.04,
+        }, 7.78);
+
+        // phone recedes as the captured card flies out
+        tl.to(rigState, { x: -260, scale: 0.86, dim: 0.42, duration: 0.9, ease: "power2.inOut" }, 8.15);
+        tl.to("#s2-market > *", { opacity: 0.45, duration: 0.9, ease: "power2.inOut" }, 8.15);
+
+        // S2 exit: whip blur out
+        tl.to(s2p, { scale: 1.14, blur: 12, duration: 0.32, ease: "power3.in", onUpdate: writeS2 }, 9.28);
+        tl.to("#s2-cam", { opacity: 0, duration: 0.2, ease: "power2.in" }, 9.42);
+        tl.set("#s2-cam", { opacity: 0 }, 9.6);
+
+        /* ============ FLYING CARD (root clip, 8.0 → 10.25) ============ */
+        // native 271×~380; transform-origin top-left for exact landing math
+        const land = tileRect(1, 0); // Aurora tile: row 1, col 2
+        const cardStreak = document.getElementById("streak-card-blur");
+        const cs = { v: 0 };
+        const writeCs = () => cardStreak.setAttribute("stdDeviation", `${cs.v} ${cs.v * 0.6}`);
+        writeCs();
+        gsap.set("#flycard", { transformOrigin: "0 0" });
+        // pop out of the phone screen (phone center ≈ 610, 540 after recede)
+        tl.fromTo("#flycard",
+          { x: 600, y: 415, scale: 0.3, opacity: 0, rotation: -4 },
+          { x: 705, y: 250, scale: 1.05, opacity: 1, rotation: -1.5, duration: 0.5, ease: "power3.out" }, 8.05);
+        tl.to(cs, { v: 9, duration: 0.2, ease: "power2.in", onUpdate: writeCs }, 8.05);
+        tl.to(cs, { v: 0, duration: 0.35, ease: "power3.out", onUpdate: writeCs }, 8.25);
+        // showcase drift (big, readable)
+        tl.to("#flycard", { x: 790, y: 168, scale: 1.55, rotation: 0, duration: 0.95, ease: "sine.inOut" }, 8.55);
+        // descend + land exactly on the real tile
+        tl.to("#flycard", {
+          x: land.left, y: land.top, scale: land.w / 271, rotation: 0,
+          duration: 0.55, ease: "power3.inOut",
+        }, 9.5);
+        tl.to(cs, { v: 6, duration: 0.2, ease: "power2.in", onUpdate: writeCs }, 9.5);
+        tl.to(cs, { v: 0, duration: 0.3, ease: "power3.out", onUpdate: writeCs }, 9.72);
+        // handoff: fade over the real screenshot tile
+        tl.to("#flycard", { opacity: 0, duration: 0.18, ease: "power1.in", immediateRender: false }, 10.05);
+        tl.to("#flycard", { boxShadow: "0 6px 20px rgba(74,46,24,0.1)", duration: 0.5, ease: "power2.out" }, 9.55);
+
+        /* =================== SCENE 3 — Payoff (9.6 → 12.4) =================== */
+        const s3cam = document.getElementById("s3-cam");
+        const s3p = { scale: 1.05, blur: 10, o: 0 };
+        const writeS3 = () => {
+          s3cam.style.transform = `scale(${s3p.scale})`;
+          s3cam.style.filter = s3p.blur > 0.05 ? `blur(${s3p.blur}px)` : "none";
+          s3cam.style.opacity = s3p.o;
+        };
+        writeS3();
+        tl.to(s3p, { scale: 1.0, blur: 0, o: 1, duration: 0.4, ease: "power3.out", onUpdate: writeS3 }, 9.6);
+        tl.to(s3p, { scale: 1.028, duration: 2.16, ease: "power1.inOut", onUpdate: writeS3 }, 10.0);
+
+        // tile covers lift in one wave (tile #2's cover clears just before the card lands)
+        tl.set(coverEls[1], { opacity: 0 }, 10.0);
+        const liftOrder = [0, 2, 3, 4, 5, 6, 7];
+        liftOrder.forEach((idx, i) => {
+          tl.to(coverEls[idx], { opacity: 0, y: -16, duration: 0.32, ease: "power2.out" }, 10.08 + i * 0.055);
+        });
+
+        // headline: two beats + ZH settle
+        tl.fromTo("#s3-rule", { scaleX: 0, opacity: 1, transformOrigin: "0 50%" }, { scaleX: 1, opacity: 1, duration: 0.4, ease: "power3.out" }, 10.55);
+        tl.fromTo("#s3-h1", { scale: 1.28, opacity: 0, filter: "blur(12px)" },
+          { scale: 1, opacity: 1, filter: "blur(0px)", duration: 0.5, ease: "power4.out" }, 10.72);
+        tl.fromTo("#s3-h2", { x: -240, opacity: 0 },
+          { x: 0, opacity: 1, duration: 0.45, ease: "expo.out" }, 11.5);
+        tl.fromTo("#s3-hzh", { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, 11.88);
+
+        // S3 exit: blur-through
+        tl.to(s3p, { blur: 12, o: 0, scale: 1.06, duration: 0.24, ease: "power2.in", onUpdate: writeS3 }, 12.16);
+
+        /* =================== SCENE 4 — Lockup (12.4 → 13.8) =================== */
+        tl.fromTo("#s4-stage", { filter: "blur(10px)" }, { filter: "blur(0px)", duration: 0.28, ease: "power2.out" }, 12.4);
+        tl.fromTo("#s4-seal",
+          { scale: 0, opacity: 0, rotation: -5 },
+          { scale: 1, opacity: 1, rotation: 0, duration: 0.5, ease: "power3.out" }, 12.5);
+        tl.fromTo("#s4-glow", { opacity: 0, scale: 0.82 }, { opacity: 1, scale: 1, duration: 0.55, ease: "power2.out" }, 12.48);
+        tl.to("#s4-proof", { clipPath: "inset(0 0% 0 0)", duration: 0.4, ease: "power2.out" }, 13.0);
+        // near-imperceptible life in the hold
+        tl.to("#s4-seal", { scale: 1.012, duration: 0.8, ease: "none" }, 13.0);
+
+        tl.seek(0);
+        window.__timelines["main"] = tl;
+        if (window.__hfForceTimelineRebind) window.__hfForceTimelineRebind();
+      });
+    </script>
+  </body>
+</html>
