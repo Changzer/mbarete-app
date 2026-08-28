@@ -33,7 +33,7 @@ Rules: `waterfall-entry` (eyebrow), `motion-blur-streak` (browser rise),
 
 ## Frame 2 — Capture
 
-- scene: Whip zoom-out to a phone in hand at the market: shutter, "Reading photos…", the AI fills the bilingual form
+- scene: Whip zoom-out to a floating phone over the real market aisle: shutter, "Reading photos…", the AI fills the bilingual form
 - duration: 6.6s
 - transition_in: velocity-matched whip (continuous camera zoom-out, blur-through)
 - status: outline
@@ -41,7 +41,8 @@ Rules: `waterfall-entry` (eyebrow), `motion-blur-streak` (browser rise),
 - poster: 6.5s
 
 The laptop shrinks away under a whip zoom-out (camera-travel blur carve-out) and
-the frame resolves on a PHONE held over a market stall backdrop: full-bleed
+the frame resolves on a floating PHONE over a real (defocused, warm-washed)
+Yiwu market-aisle photograph: full-bleed
 viewfinder showing the real product photo (glitter highlighter box + handwritten
 ¥4.14 / 288-box price board), corner brackets, shutter button. Shutter PRESS →
 white flash → the photo drops into the real Add Product form (m3): tile + a
@@ -49,8 +50,11 @@ white flash → the photo drops into the real Add Product form (m3): tile + a
 the phone on a beat — bilingual name (EN + 极光贝母幻彩荧光笔6色装), giant mono
 "¥4.14", "MOQ 288 · 288/ctn", "Board read: ¥4.14 · 288/box" — while the screen
 becomes the filled form (m4) with the amber "AI-read — please verify" hint.
-Save tap → tick. The captured product CARD pulls out of the phone toward
-camera, trailing a streak → seam into Frame 3.
+While it reads, an oversized pulsing read-mark rides the status pill, and the
+claim lands as a headline: "Product details, / scanned in seconds." +
+"产品信息，秒级识别。" Save tap → tick. The captured product CARD (product-only
+crop, no price board) pulls out of the phone toward camera, trailing a streak
+→ seam into Frame 3, where it stays mounted as the grid tile.
 Blueprint: `prompt-type-submit-generate` (adapt: the camera is the input,
 the AI answer is the filled form) + `agent-progress-theater` (working state).
 Rules: `motion-blur-streak` (whip + card pull-out), `press-release-spring`

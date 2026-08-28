@@ -135,19 +135,16 @@
       #s2-cam { position: absolute; inset: 0; will-change: transform; }
       #s2-market { position: absolute; inset: 0; }
       .bokeh { position: absolute; border-radius: 50%; filter: blur(60px); }
-      #s2-awning {
-        position: absolute; left: -60px; right: -60px; top: -50px; height: 190px;
-        background: repeating-linear-gradient(90deg, rgba(188, 53, 36, 0.2) 0 150px, rgba(248, 244, 236, 0.16) 150px 300px);
-        filter: blur(42px);
+      #s2-bg-photo {
+        position: absolute; left: -40px; top: -40px; width: 2000px; height: 1160px;
+        object-fit: cover; will-change: transform;
       }
-      #s2-counter {
-        position: absolute; left: -60px; right: -60px; bottom: -60px; height: 300px;
-        background: linear-gradient(180deg, rgba(217, 198, 165, 0) 0%, rgba(196, 168, 124, 0.4) 70%);
-        filter: blur(30px);
+      #s2-wash {
+        position: absolute; inset: 0;
+        background: linear-gradient(180deg, rgba(248, 244, 236, 0.58) 0%, rgba(248, 244, 236, 0.66) 55%, rgba(248, 244, 236, 0.78) 100%);
       }
       #s2-rig { position: absolute; left: 690px; top: 540px; width: 0; height: 0; will-change: transform; }
       #s2-rig-inner { position: absolute; left: 0; top: 0; width: 0; height: 0; }
-      #s2-hand { position: absolute; left: -300px; top: -80px; width: 640px; height: 560px; }
       #s2-phone {
         position: absolute; left: -166px; top: -348px;
         width: 332px; height: 696px;
@@ -199,21 +196,25 @@
         opacity: 0;
       }
       #s2-status {
-        position: absolute; left: 985px; top: 300px;
-        height: 64px; padding: 0 28px;
-        display: flex; align-items: center; gap: 14px;
+        position: absolute; left: 985px; top: 280px;
+        height: 96px; padding: 0 36px;
+        display: flex; align-items: center; gap: 20px;
         background: var(--surface); border: 1.5px solid var(--line); border-radius: 32px;
         box-shadow: 0 16px 44px rgba(74, 46, 24, 0.14);
         opacity: 0;
       }
-      #s2-status .spark { color: var(--action); font-size: 26px; }
+      #s2-status .spark { color: var(--action); font-size: 54px; line-height: 1; display: inline-block; will-change: transform; }
       #s2-status .txt {
-        font-family: "Plex Mono", monospace; font-size: 21px; font-weight: 600;
+        font-family: "Plex Mono", monospace; font-size: 24px; font-weight: 600;
         background: linear-gradient(100deg, #77695a 0 40%, #b3a28e 50%, #77695a 60% 100%);
         background-size: 300% 100%;
         -webkit-background-clip: text; background-clip: text; color: transparent;
       }
-      #s2-chips { position: absolute; left: 985px; top: 385px; width: 620px; }
+      #s2-headline { position: absolute; left: 985px; top: 205px; width: 760px; }
+      #s2-headline .l1 { font-size: 58px; font-weight: 800; letter-spacing: -0.025em; line-height: 1.05; opacity: 0; }
+      #s2-headline .l2 { font-size: 58px; font-weight: 800; letter-spacing: -0.025em; line-height: 1.05; color: var(--action); opacity: 0; }
+      #s2-headline .lzh { font-size: 27px; font-weight: 400; color: #5a4c3e; margin-top: 12px; opacity: 0; }
+      #s2-chips { position: absolute; left: 985px; top: 442px; width: 620px; }
       .chip {
         position: absolute; left: 0;
         background: var(--surface); border: 1.5px solid var(--line); border-radius: 14px;
@@ -222,17 +223,17 @@
       }
       .chip .lbl {
         font-family: "Plex Mono", monospace; font-size: 14px; font-weight: 600;
-        letter-spacing: 0.16em; color: var(--sub); text-transform: uppercase;
+        letter-spacing: 0.16em; color: #675947; text-transform: uppercase;
         margin-bottom: 8px;
       }
       #chip-name { top: 0; width: 520px; padding: 20px 26px; }
       #chip-name .en { font-size: 27px; font-weight: 800; line-height: 1.14; letter-spacing: -0.01em; }
       #chip-name .zh { font-size: 24px; font-weight: 400; color: var(--sub); margin-top: 6px; }
-      #chip-price { top: 152px; padding: 18px 28px 14px; }
+      #chip-price { top: 148px; padding: 18px 28px 14px; }
       #chip-price .val { font-family: "Plex Mono", monospace; font-weight: 600; font-size: 78px; color: var(--action); line-height: 1; }
-      #chip-moq { top: 296px; left: 24px; padding: 16px 24px; }
+      #chip-moq { top: 288px; left: 24px; padding: 16px 24px; }
       #chip-moq .val { font-family: "Plex Mono", monospace; font-weight: 600; font-size: 29px; }
-      #chip-board { top: 388px; left: 48px; width: 430px; padding: 16px 24px; background: #faf3e3; border-color: #e6d3a8; }
+      #chip-board { top: 376px; left: 48px; width: 430px; padding: 16px 24px; background: #faf3e3; border-color: #e6d3a8; }
       #chip-board .b1 { font-family: "Plex Mono", monospace; font-size: 20px; color: var(--ink); }
       #chip-board .verify { font-family: "Plex Mono", monospace; font-size: 15px; color: var(--warn); margin-top: 8px; }
 
@@ -345,29 +346,13 @@
       <section id="s2" class="clip" data-start="3.05" data-duration="6.55" data-track-index="1">
         <div id="s2-cam">
           <div id="s2-market">
-            <div id="s2-awning" data-layout-allow-overflow></div>
-            <div class="bokeh" data-layout-allow-overflow style="left: 80px; top: 300px; width: 340px; height: 340px; background: rgba(232,104,79,0.22)"></div>
-            <div class="bokeh" data-layout-allow-overflow style="left: 1490px; top: 210px; width: 300px; height: 300px; background: rgba(201,162,75,0.24)"></div>
-            <div class="bokeh" data-layout-allow-overflow style="left: 1330px; top: 660px; width: 380px; height: 380px; background: rgba(217,198,165,0.5)"></div>
-            <div class="bokeh" data-layout-allow-overflow style="left: -60px; top: 750px; width: 320px; height: 320px; background: rgba(188,53,36,0.14)"></div>
-            <div class="bokeh" data-layout-allow-overflow style="left: 460px; top: 60px; width: 220px; height: 220px; background: rgba(253,250,243,0.65)"></div>
-            <div id="s2-counter" data-layout-allow-overflow></div>
+            <img id="s2-bg-photo" src="assets/photos/yiwu-bg.jpg" alt="" data-layout-allow-overflow />
+            <div id="s2-wash"></div>
+            <div class="bokeh" data-layout-allow-overflow style="left: 1490px; top: 210px; width: 300px; height: 300px; background: rgba(201,162,75,0.18)"></div>
+            <div class="bokeh" data-layout-allow-overflow style="left: -60px; top: 750px; width: 320px; height: 320px; background: rgba(188,53,36,0.1)"></div>
           </div>
           <div id="s2-rig">
             <div id="s2-rig-inner">
-              <!-- stylized hand behind/around the phone -->
-              <svg id="s2-hand" viewBox="0 0 640 560" fill="none">
-                <!-- forearm/palm mass, low-right -->
-                <path d="M320 350 C 300 300 330 260 390 258 L 560 268 C 622 276 648 330 640 400 L 640 560 L 330 560 C 290 500 300 420 320 350 Z" fill="#e0a878" />
-                <path d="M330 560 C 300 505 305 430 322 368 C 340 420 360 490 380 560 Z" fill="#cf9464" opacity="0.55" />
-                <!-- fingertips wrapping the left edge of the phone -->
-                <rect x="120" y="120" width="74" height="46" rx="23" fill="#e8b48e" />
-                <rect x="114" y="186" width="82" height="48" rx="24" fill="#e5b088" />
-                <rect x="112" y="254" width="86" height="48" rx="24" fill="#e2ac82" />
-                <rect x="118" y="322" width="80" height="48" rx="24" fill="#dfa87c" />
-                <!-- thumb over the lower-right front -->
-                <path d="M470 470 C 400 480 340 452 322 404 C 316 380 330 360 356 362 C 430 376 480 408 502 436 C 516 456 498 468 470 470 Z" fill="#eab993" />
-              </svg>
               <div id="s2-phone">
                 <div id="s2-screen">
                   <div id="s2-island"></div>
@@ -397,6 +382,11 @@
             <span class="spark">✳</span>
             <span class="txt">Reading photos… · 正在识别照片…</span>
           </div>
+          <div id="s2-headline">
+            <div class="l1">Product details,</div>
+            <div class="l2">scanned in seconds.</div>
+            <div class="zh lzh">产品信息，秒级识别。</div>
+          </div>
           <div id="s2-chips">
             <div class="chip" id="chip-name">
               <div class="lbl">Product · 产品</div>
@@ -420,8 +410,8 @@
       </section>
 
       <!-- flying product card: crosses the S2→S3 seam -->
-      <div id="flycard" class="clip" data-start="8.0" data-duration="2.25" data-track-index="2" style="filter: url(#streak-card)">
-        <img src="assets/photos/market-capture.jpg" alt="" />
+      <div id="flycard" class="clip" data-start="8.2" data-duration="4.2" data-track-index="2" style="filter: url(#streak-card)">
+        <img src="assets/photos/product-crop.jpg" alt="" />
         <div class="meta">
           <div class="n">Aurora Glitter Highlighter 6-Color Set <span class="zh zh">极光贝母…</span></div>
           <div class="sku">000008 · 288/ctn</div>
@@ -471,10 +461,11 @@
       <audio id="sfx-tick-1" src="assets/sfx/tick.wav" data-start="2.06" data-volume="0.3"></audio>
       <audio id="sfx-whoosh-1" src="assets/sfx/whoosh.wav" data-start="2.78" data-volume="0.55"></audio>
       <audio id="sfx-shutter" src="assets/sfx/shutter.wav" data-start="3.94" data-volume="0.7"></audio>
-      <audio id="sfx-tick-2" src="assets/sfx/tick.wav" data-start="5.78" data-volume="0.3"></audio>
-      <audio id="sfx-tick-3" src="assets/sfx/tick.wav" data-start="6.36" data-volume="0.3"></audio>
-      <audio id="sfx-tick-4" src="assets/sfx/tick.wav" data-start="6.84" data-volume="0.26"></audio>
-      <audio id="sfx-chime" src="assets/sfx/chime.wav" data-start="7.6" data-volume="0.42"></audio>
+      <audio id="sfx-tick-2" src="assets/sfx/tick.wav" data-start="6.45" data-volume="0.3"></audio>
+      <audio id="sfx-tick-3" src="assets/sfx/tick.wav" data-start="6.81" data-volume="0.3"></audio>
+      <audio id="sfx-tick-4" src="assets/sfx/tick.wav" data-start="7.13" data-volume="0.26"></audio>
+      <audio id="sfx-thump-6" src="assets/sfx/thump.wav" data-start="5.7" data-volume="0.34"></audio>
+      <audio id="sfx-chime" src="assets/sfx/chime.wav" data-start="7.85" data-volume="0.42"></audio>
       <audio id="sfx-whoosh-2" src="assets/sfx/whoosh.wav" data-start="9.26" data-volume="0.4"></audio>
       <audio id="sfx-thump-2" src="assets/sfx/thump.wav" data-start="10.02" data-volume="0.34"></audio>
       <audio id="sfx-thump-3" src="assets/sfx/thump.wav" data-start="10.72" data-volume="0.5"></audio>
@@ -612,6 +603,9 @@
         }, 3.05);
         tl.to(rigState, { scale: 1.0, duration: 0.5, ease: "power2.out" }, 3.05);
 
+        // Yiwu backdrop: slow defocused drift (Ken Burns whisper)
+        tl.fromTo("#s2-bg-photo", { scale: 1.07 }, { scale: 1.01, duration: 6.55, ease: "none" }, 3.05);
+
         // viewfinder life: image drifts as if aiming, brackets tighten once
         tl.fromTo("#s2-vf-img", { scale: 1.09, x: 12 }, { scale: 1.0, x: 0, duration: 0.85, ease: "power2.out" }, 3.1);
         tl.fromTo(".vf-bracket", { scale: 1.14, opacity: 0.4 }, { scale: 1, opacity: 1, duration: 0.5, ease: "power2.out" }, 3.35);
@@ -625,38 +619,54 @@
         tl.to("#s2-flash", { opacity: 0, duration: 0.3, ease: "power2.out" }, 4.04);
 
         // working state: status pill + text shimmer (bounded, killed at resolve)
-        tl.fromTo("#s2-status", { scale: 0.6, opacity: 0, y: 18 }, { scale: 1, opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 4.35);
+        tl.fromTo("#s2-status", { scale: 0.6, opacity: 0, y: 18 }, { scale: 1, opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 4.25);
+        // the reading mark pulses while the AI works — bounded, killed at resolve
+        const sparkEl = document.querySelector("#s2-status .spark");
+        const sparkPh = { p: 0 };
+        tl.to(sparkPh, {
+          p: Math.PI * 5, duration: 1.25, ease: "none",
+          onUpdate: () => { sparkEl.style.transform = `scale(${1 + Math.sin(sparkPh.p) * 0.12}) rotate(${Math.sin(sparkPh.p * 0.5) * 8}deg)`; },
+        }, 4.3);
         const statusTxt = document.querySelector("#s2-status .txt");
         const shim = { p: 0 };
         tl.to(shim, {
-          p: 1, duration: 1.25, ease: "none",
+          p: 1, duration: 1.2, ease: "none",
           onUpdate: () => { statusTxt.style.backgroundPosition = `${(1 - (shim.p % 1)) * 100}% 50%`; },
-        }, 4.4);
-        tl.set(statusTxt, { backgroundPosition: "100% 50%" }, 5.65);
+        }, 4.35);
+        tl.set(statusTxt, { backgroundPosition: "100% 50%" }, 5.55);
         tl.to("#s2-status", { scale: 0.7, opacity: 0, y: -14, duration: 0.28, ease: "power2.in" }, 5.5);
 
         // the form fills (m3 → m4)
-        tl.to("#s2-m4", { opacity: 1, duration: 0.3, ease: "power2.inOut" }, 5.7);
+        tl.to("#s2-m4", { opacity: 1, duration: 0.3, ease: "power2.inOut" }, 5.62);
+
+        // headline: the claim lands before the evidence
+        tl.fromTo("#s2-headline .l1", { scale: 1.24, opacity: 0, filter: "blur(10px)" },
+          { scale: 1, opacity: 1, filter: "blur(0px)", duration: 0.45, ease: "power4.out" }, 5.7);
+        tl.fromTo("#s2-headline .l2", { x: -180, opacity: 0 },
+          { x: 0, opacity: 1, duration: 0.4, ease: "expo.out" }, 5.92);
+        tl.fromTo("#s2-headline .lzh", { y: 22, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 6.14);
 
         // data chips spring out on one beat grid
-        const CHIP_BEATS = { "#chip-name": 5.75, "#chip-price": 6.33, "#chip-moq": 6.81, "#chip-board": 7.12 };
+        const CHIP_BEATS = { "#chip-name": 6.42, "#chip-price": 6.78, "#chip-moq": 7.1, "#chip-board": 7.36 };
         for (const [sel, at] of Object.entries(CHIP_BEATS)) {
           tl.fromTo(sel, { scale: 0.5, opacity: 0, x: -46 }, { scale: 1, opacity: 1, x: 0, duration: 0.5, ease: "power3.out" }, at);
         }
 
         // save tap: ripple + screen dip + chips converge home
-        tl.fromTo("#s2-tap", { scale: 0.4, opacity: 0.9 }, { scale: 1.8, opacity: 0, duration: 0.45, ease: "power2.out" }, 7.55);
-        tl.set("#s2-tap", { opacity: 0 }, 8.0);
-        tl.to("#s2-phone", { scale: 0.985, duration: 0.09, ease: "none" }, 7.55);
-        tl.to("#s2-phone", { scale: 1, duration: 0.3, ease: "back.out(1.4)" }, 7.64);
+        tl.fromTo("#s2-tap", { scale: 0.4, opacity: 0.9 }, { scale: 1.8, opacity: 0, duration: 0.4, ease: "power2.out" }, 7.78);
+        tl.set("#s2-tap", { opacity: 0 }, 8.2);
+        tl.to("#s2-phone", { scale: 0.985, duration: 0.09, ease: "none" }, 7.78);
+        tl.to("#s2-phone", { scale: 1, duration: 0.3, ease: "back.out(1.4)" }, 7.87);
         tl.to("#s2-chips .chip", {
           scale: 0.55, opacity: 0, x: -120, duration: 0.34, ease: "power2.in",
           stagger: 0.04,
-        }, 7.78);
+        }, 8.0);
+        tl.to("#s2-headline > div", { y: -26, opacity: 0, duration: 0.3, ease: "power2.in", stagger: 0.03 }, 8.0);
 
         // phone recedes as the captured card flies out
-        tl.to(rigState, { x: -260, scale: 0.86, dim: 0.42, duration: 0.9, ease: "power2.inOut" }, 8.15);
-        tl.to("#s2-market > *", { opacity: 0.45, duration: 0.9, ease: "power2.inOut" }, 8.15);
+        tl.to(rigState, { x: -260, scale: 0.86, dim: 0.42, duration: 0.9, ease: "power2.inOut" }, 8.3);
+        tl.to("#s2-market > *", { opacity: 0.45, duration: 0.9, ease: "power2.inOut" }, 8.3);
 
         // S2 exit: whip blur out
         tl.to(s2p, { scale: 1.14, blur: 12, duration: 0.32, ease: "power3.in", onUpdate: writeS2 }, 9.28);
@@ -674,11 +684,11 @@
         // pop out of the phone screen (phone center ≈ 610, 540 after recede)
         tl.fromTo("#flycard",
           { x: 600, y: 415, scale: 0.3, opacity: 0, rotation: -4 },
-          { x: 705, y: 250, scale: 1.05, opacity: 1, rotation: -1.5, duration: 0.5, ease: "power3.out" }, 8.05);
-        tl.to(cs, { v: 9, duration: 0.2, ease: "power2.in", onUpdate: writeCs }, 8.05);
-        tl.to(cs, { v: 0, duration: 0.35, ease: "power3.out", onUpdate: writeCs }, 8.25);
+          { x: 705, y: 250, scale: 1.05, opacity: 1, rotation: -1.5, duration: 0.45, ease: "power3.out" }, 8.25);
+        tl.to(cs, { v: 9, duration: 0.2, ease: "power2.in", onUpdate: writeCs }, 8.25);
+        tl.to(cs, { v: 0, duration: 0.35, ease: "power3.out", onUpdate: writeCs }, 8.45);
         // showcase drift (big, readable)
-        tl.to("#flycard", { x: 790, y: 168, scale: 1.55, rotation: 0, duration: 0.95, ease: "sine.inOut" }, 8.55);
+        tl.to("#flycard", { x: 790, y: 168, scale: 1.55, rotation: 0, duration: 0.78, ease: "sine.inOut" }, 8.72);
         // descend + land exactly on the real tile
         tl.to("#flycard", {
           x: land.left, y: land.top, scale: land.w / 271, rotation: 0,
@@ -686,9 +696,14 @@
         }, 9.5);
         tl.to(cs, { v: 6, duration: 0.2, ease: "power2.in", onUpdate: writeCs }, 9.5);
         tl.to(cs, { v: 0, duration: 0.3, ease: "power3.out", onUpdate: writeCs }, 9.72);
-        // handoff: fade over the real screenshot tile
-        tl.to("#flycard", { opacity: 0, duration: 0.18, ease: "power1.in", immediateRender: false }, 10.05);
+        // the card IS the tile from here on (its photo is the product-only
+        // crop, unlike the stored full shot) — ride S3's slow push so it stays
+        // glued to the grid, then exit with the scene.
         tl.to("#flycard", { boxShadow: "0 6px 20px rgba(74,46,24,0.1)", duration: 0.5, ease: "power2.out" }, 9.55);
+        tl.to("#flycard", { x: 642.4, y: 217.2, scale: 1.145, duration: 2.11, ease: "power1.inOut" }, 10.05);
+        tl.to(cs, { v: 10, duration: 0.24, ease: "power2.in", onUpdate: writeCs }, 12.16);
+        tl.to("#flycard", { opacity: 0, duration: 0.22, ease: "power2.in", immediateRender: false }, 12.16);
+        tl.set("#flycard", { opacity: 0 }, 12.4);
 
         /* =================== SCENE 3 — Payoff (9.6 → 12.4) =================== */
         const s3cam = document.getElementById("s3-cam");
@@ -702,8 +717,8 @@
         tl.to(s3p, { scale: 1.0, blur: 0, o: 1, duration: 0.4, ease: "power3.out", onUpdate: writeS3 }, 9.6);
         tl.to(s3p, { scale: 1.028, duration: 2.16, ease: "power1.inOut", onUpdate: writeS3 }, 10.0);
 
-        // tile covers lift in one wave (tile #2's cover clears just before the card lands)
-        tl.set(coverEls[1], { opacity: 0 }, 10.0);
+        // tile covers lift in one wave; tile #2's cover stays — the flying card
+        // sits on top of that slot for the rest of the scene.
         const liftOrder = [0, 2, 3, 4, 5, 6, 7];
         liftOrder.forEach((idx, i) => {
           tl.to(coverEls[idx], { opacity: 0, y: -16, duration: 0.32, ease: "power2.out" }, 10.08 + i * 0.055);
