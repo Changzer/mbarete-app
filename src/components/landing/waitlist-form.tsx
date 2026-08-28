@@ -7,6 +7,7 @@ import { joinWaitlist, type WaitlistResult } from "@/lib/actions/waitlist";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Link } from "@/i18n/navigation";
 
 function errorText(t: ReturnType<typeof useTranslations>, result: WaitlistResult | undefined) {
   if (!result?.error) return null;
@@ -78,7 +79,23 @@ export function WaitlistForm() {
       <Button type="submit" disabled={isPending} size="lg" className="mt-1">
         {isPending ? t("submitting") : t("submit")}
       </Button>
-      <p className="text-center text-xs text-sub">{t("privacy")}</p>
+      {/* Notice at the point of collection. The promise above it is ours; the
+          links are what a visitor needs to check it — the form takes a name, a
+          company, an email and a contact handle before this line, and a
+          promise nobody can read the terms of is not notice. No checkbox: an
+          account is a durable relationship and earns the friction of one,
+          a waiting list is not, and the same links do the work here. */}
+      <p className="text-center text-xs leading-relaxed text-sub">
+        {t("privacy")}{" "}
+        {t("consentAgree")}{" "}
+        <Link href="/terms" target="_blank" className="font-medium text-brand-600 hover:underline">
+          {t("consentTerms")}
+        </Link>{" "}
+        {t("consentAnd")}{" "}
+        <Link href="/privacy" target="_blank" className="font-medium text-brand-600 hover:underline">
+          {t("consentPrivacy")}
+        </Link>
+      </p>
     </form>
   );
 }

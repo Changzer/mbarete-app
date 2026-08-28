@@ -890,7 +890,11 @@
       "thanksTitle": "已加入名单。",
       "thanksBody": "我们会审核您的申请，并在开放新的内测名额时联系您。",
       "errorInvalid": "请检查表单后重试。",
-      "errorRateLimited": "尝试次数过多，请稍后再试。"
+      "errorRateLimited": "尝试次数过多，请稍后再试。",
+      "consentAgree": "提交即表示您同意我们的",
+      "consentTerms": "《服务条款》",
+      "consentAnd": "与",
+      "consentPrivacy": "《隐私政策》"
     },
     "metaTitle": "Mbarete — 面向义乌与中国采购的工作平台",
     "metaDescription": "离线采集产品，生成中英双语目录，比选供应商，并快速导出客户可用的报价单。"

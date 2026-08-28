@@ -193,9 +193,20 @@ export default async function RootPage({
           </div>
           <WaitlistForm />
         </div>
-        <p className="mt-10 text-center text-xs text-sub">
-          © {new Date().getFullYear()} Mbarete
-        </p>
+        {/* The public face of the site reaches the policies from here. The
+            filing footer is deliberately absent until there is a filing to
+            print: BeianFooter renders nothing without ICP_BEIAN, and the
+            landing page should not carry a component that can only ever be
+            empty today. Add it here when the numbers exist. */}
+        <footer className="mt-10 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-center text-xs text-sub">
+          <span>© {new Date().getFullYear()} Mbarete</span>
+          <Link href="/terms" className="hover:text-ink hover:underline">
+            {t("form.consentTerms")}
+          </Link>
+          <Link href="/privacy" className="hover:text-ink hover:underline">
+            {t("form.consentPrivacy")}
+          </Link>
+        </footer>
       </section>
     </div>
   );

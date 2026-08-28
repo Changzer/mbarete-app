@@ -890,7 +890,11 @@
       "thanksTitle": "You're on the list.",
       "thanksBody": "We'll review your request and contact you as pilot slots open.",
       "errorInvalid": "Please check the form and try again.",
-      "errorRateLimited": "Too many attempts. Please try again later."
+      "errorRateLimited": "Too many attempts. Please try again later.",
+      "consentAgree": "By joining you agree to our",
+      "consentTerms": "Terms of Service",
+      "consentAnd": "and",
+      "consentPrivacy": "Privacy Policy"
     },
     "metaTitle": "Mbarete — Sourcing Software for Yiwu and China",
     "metaDescription": "Capture products offline, create bilingual catalogs, compare suppliers, and build client-ready quotes with Mbarete."
