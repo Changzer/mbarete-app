@@ -262,7 +262,9 @@
     "aiBoardRead": "Board read as",
     "noCategoryMatches": "No categories match",
     "errorPlanLimit": "Your plan's product limit is reached — contact Mbarete to upgrade.",
-    "costPriceHint": "No quote yet? Leave it empty and fill it in when the supplier answers."
+    "costPriceHint": "No quote yet? Leave it empty and fill it in when the supplier answers.",
+    "viewTable": "List view",
+    "viewGallery": "Gallery view"
   },
   "contacts": {
     "title": "Contacts",
