@@ -8,6 +8,7 @@ const intlMiddleware = createMiddleware(routing);
 function isPublicPath(pathname: string) {
   const withoutLocale = pathname.replace(/^\/(en|zh)/, "") || "/";
   return (
+    withoutLocale === "/" ||
     withoutLocale.startsWith("/login") ||
     withoutLocale.startsWith("/signup") ||
     // Legal pages are public by nature: consent links them BEFORE an account
