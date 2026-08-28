@@ -69,8 +69,9 @@ export function ProductCard({
   variant = "row",
 }: {
   product: CatalogProduct;
-  /** `table` renders the same product as desktop table cells — see CatalogList. */
-  variant?: "row" | "table";
+  /** `table` renders the same product as desktop table cells; `gallery` as a
+   *  photo-first tile — see CatalogList. All three open the same dialog. */
+  variant?: "row" | "table" | "gallery";
 }) {
   const t = useTranslations("catalog");
   const common = useTranslations("common");
@@ -444,6 +445,71 @@ export function ProductCard({
           </td>
         </tr>
         {/* Portalled, so living inside a <tbody> costs it nothing. */}
+        {dialogs}
+      </>
+    );
+  }
+
+  if (variant === "gallery") {
+    return (
+      <>
+        {/* The tile: photo first, the working figures beneath. For browsing —
+            comparing looks across a wall of products — where the row list is
+            for finding. Same registers, same dialog. */}
+        <button
+          type="button"
+          onClick={() => openDialog(true)}
+          data-testid="product-tile"
+          className="press focus-ring flex w-full flex-col overflow-hidden rounded-[12px] border border-line bg-surface text-left hover:border-line-strong"
+        >
+          <span className="relative aspect-square w-full overflow-hidden bg-surface-2">
+            {count > 0 ? (
+              <Image
+                src={product.images[0]}
+                loader={authenticatedUploadLoader}
+                alt=""
+                fill
+                sizes="(min-width: 1536px) 22vw, 30vw"
+                className="object-cover"
+              />
+            ) : (
+              <span className="flex h-full w-full items-center justify-center text-faint">
+                <ImageOff className="h-8 w-8" strokeWidth={1.5} />
+              </span>
+            )}
+            {count > 1 ? (
+              <span className="absolute bottom-1.5 right-1.5 rounded-full bg-[rgba(20,12,8,.7)] px-1.5 font-mono text-[10px] font-medium text-white">
+                {count}
+              </span>
+            ) : null}
+          </span>
+          <span className="flex min-w-0 flex-col gap-1 p-2.5">
+            <span className="line-clamp-2 text-[13px] font-bold leading-tight text-ink">
+              {product.name}
+              {product.altName ? (
+                <span className="ml-1.5 font-medium text-sub">{product.altName}</span>
+              ) : null}
+            </span>
+            <span className="truncate font-mono text-[11px] font-medium text-sub">
+              {product.sku} · {product.qtyPerBox}
+              {t("unitPerCtn")}
+            </span>
+            <span className="font-mono text-[14px] font-semibold tabular-nums text-ink">
+              {best ? formatMoney(best.price, best.currency) : "—"}
+              {best ? (
+                <span className="ml-1.5 font-sans text-[11px] font-medium text-sub">
+                  {t("moq")} {best.moq}
+                </span>
+              ) : null}
+            </span>
+            {best?.supplierName ? (
+              <span className="truncate text-[11.5px] text-sub">{best.supplierName}</span>
+            ) : null}
+            {unmeasured || estimated || !product.active ? (
+              <span className="flex flex-wrap gap-1.5 pt-0.5">{warnings}</span>
+            ) : null}
+          </span>
+        </button>
         {dialogs}
       </>
     );

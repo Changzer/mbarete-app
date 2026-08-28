@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { PackageSearch, SearchX } from "lucide-react";
+import { useMemo, useState, useSyncExternalStore } from "react";
+import { LayoutGrid, List, PackageSearch, SearchX } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,30 @@ function matches(product: CatalogProduct, query: string) {
   ].some((field) => field.toLowerCase().includes(needle));
 }
 
+/** The persisted desktop view choice, storage-guarded (absent or throwing). */
+const VIEW_KEY = "mb-catalog-view";
+type CatalogView = "table" | "gallery";
+let viewListeners: Array<() => void> = [];
+function readView(): CatalogView {
+  try {
+    return localStorage.getItem(VIEW_KEY) === "gallery" ? "gallery" : "table";
+  } catch {
+    return "table";
+  }
+}
+function subscribeView(cb: () => void) {
+  viewListeners.push(cb);
+  return () => {
+    viewListeners = viewListeners.filter((l) => l !== cb);
+  };
+}
+function writeView(next: CatalogView) {
+  try {
+    localStorage.setItem(VIEW_KEY, next);
+  } catch {}
+  for (const l of viewListeners) l();
+}
+
 export function CatalogList({
   products,
   filters,
@@ -39,6 +63,13 @@ export function CatalogList({
 }) {
   const t = useTranslations("catalog");
   const [query, setQuery] = useState("");
+
+  // Desktop rendering: the table for finding, the tile gallery for browsing.
+  // A per-browser convenience persisted in localStorage; read through
+  // useSyncExternalStore so the server snapshot stays "table" and the stored
+  // choice applies right after hydration without a cascading effect.
+  const view = useSyncExternalStore(subscribeView, readView, () => "table" as const);
+  const pickView = writeView;
 
   const visible = useMemo(
     () => products.filter((p) => matches(p, query)),
@@ -61,6 +92,36 @@ export function CatalogList({
         />
 
         {filters}
+
+        {/* Only where the two desktop renderings exist to switch between. */}
+        <div className="hidden shrink-0 items-center gap-0.5 rounded-[10px] border border-line bg-surface p-0.5 xl:flex">
+          <button
+            type="button"
+            aria-label={t("viewTable")}
+            title={t("viewTable")}
+            aria-pressed={view === "table"}
+            data-testid="view-table"
+            onClick={() => pickView("table")}
+            className={`focus-ring flex h-8 w-9 items-center justify-center rounded-[8px] ${
+              view === "table" ? "bg-surface-2 text-ink" : "text-sub hover:text-ink"
+            }`}
+          >
+            <List className="h-4 w-4" strokeWidth={1.5} />
+          </button>
+          <button
+            type="button"
+            aria-label={t("viewGallery")}
+            title={t("viewGallery")}
+            aria-pressed={view === "gallery"}
+            data-testid="view-gallery"
+            onClick={() => pickView("gallery")}
+            className={`focus-ring flex h-8 w-9 items-center justify-center rounded-[8px] ${
+              view === "gallery" ? "bg-surface-2 text-ink" : "text-sub hover:text-ink"
+            }`}
+          >
+            <LayoutGrid className="h-4 w-4" strokeWidth={1.5} />
+          </button>
+        </div>
       </div>
 
       <OfflineStrip />
@@ -104,7 +165,18 @@ export function CatalogList({
               <ProductCard key={p.id} product={p} />
             ))}
           </div>
-          <CatalogTable products={visible} />
+          {view === "gallery" ? (
+            <div
+              className="hidden gap-3 xl:grid xl:grid-cols-4"
+              data-testid="catalog-gallery"
+            >
+              {visible.map((p) => (
+                <ProductCard key={p.id} product={p} variant="gallery" />
+              ))}
+            </div>
+          ) : (
+            <CatalogTable products={visible} />
+          )}
         </>
       )}
     </div>
