@@ -98,40 +98,46 @@ export default async function RootPage({
 
   return (
     <div className="lp-scroller bg-bg">
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
-        <Brand size="nav" />
-        <div className="flex items-center gap-2">
-          <LanguageSwitcher />
-          <Button asChild variant="outline" size="sm">
-            <Link href="/login">{t("signIn")}</Link>
-          </Button>
-          <Button asChild size="sm" className="hidden sm:inline-flex">
-            <a href="#waitlist">{t("ctaPrimary")}</a>
-          </Button>
-        </div>
-      </header>
+      {/* Header and hero together own the first screen. The hero used to be
+          sized by its text alone (579px), so on anything taller than a laptop
+          the pinned story stage started hundreds of pixels above the fold and
+          beat 1 sat under the hero at rest. */}
+      <div className="lp-hero-screen">
+        <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
+          <Brand size="nav" />
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher />
+            <Button asChild variant="outline" size="sm">
+              <Link href="/login">{t("signIn")}</Link>
+            </Button>
+            <Button asChild size="sm" className="hidden sm:inline-flex">
+              <a href="#waitlist">{t("ctaPrimary")}</a>
+            </Button>
+          </div>
+        </header>
 
-      <section className="mx-auto flex w-full max-w-5xl flex-col items-center gap-6 px-5 pb-20 pt-12 text-center sm:px-8 sm:pt-20">
-        <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-action-chrome">
-          {t("eyebrow")}
-        </p>
-        <h1 className="text-balance text-[clamp(2.1rem,8vw,4.6rem)] font-bold leading-[1.03] tracking-tight text-ink">
-          {t("headline")}
-        </h1>
-        <p className="max-w-[58ch] text-[15px] leading-relaxed text-sub sm:text-lg">{t("subline")}</p>
-        <div className="flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row">
-          <Button asChild size="lg" className="w-full sm:w-auto">
-            <a href="#waitlist">{t("ctaPrimary")}</a>
-          </Button>
-          <Button asChild variant="ghost" size="lg" className="w-full sm:w-auto">
-            <a href="#story">
-              <ArrowDownCircle className="h-[18px] w-[18px]" aria-hidden />
-              {t("ctaSecondary")}
-            </a>
-          </Button>
-        </div>
-        <p className="font-mono text-[11.5px] leading-relaxed text-sub">{t("proof")}</p>
-      </section>
+        <section className="lp-hero mx-auto flex w-full max-w-5xl flex-1 flex-col items-center gap-6 px-5 pb-20 pt-12 text-center sm:px-8 sm:pt-20">
+          <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-action-chrome">
+            {t("eyebrow")}
+          </p>
+          <h1 className="text-balance text-[clamp(2.1rem,8vw,4.6rem)] font-bold leading-[1.03] tracking-tight text-ink">
+            {t("headline")}
+          </h1>
+          <p className="max-w-[58ch] text-[15px] leading-relaxed text-sub sm:text-lg">{t("subline")}</p>
+          <div className="flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row">
+            <Button asChild size="lg" className="w-full sm:w-auto">
+              <a href="#waitlist">{t("ctaPrimary")}</a>
+            </Button>
+            <Button asChild variant="ghost" size="lg" className="w-full sm:w-auto">
+              <a href="#story">
+                <ArrowDownCircle className="h-[18px] w-[18px]" aria-hidden />
+                {t("ctaSecondary")}
+              </a>
+            </Button>
+          </div>
+          <p className="font-mono text-[11.5px] leading-relaxed text-sub">{t("proof")}</p>
+        </section>
+      </div>
 
       <div id="story" className="lp-story">
         <h2 className="sr-only">{t("storyLabel")}</h2>
