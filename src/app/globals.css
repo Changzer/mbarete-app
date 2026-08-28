@@ -306,6 +306,24 @@ body {
  * falls back to a plain stack of sections that scrolls normally.
  * ------------------------------------------------------------------------- */
 
+/* The first screen. Sized in svh rather than vh so mobile browser chrome does
+   not push the story up into view; `min-height` rather than `height` so a hero
+   taller than the window (a short landscape phone, a heavy zoom, a long
+   translation) grows the box instead of clipping its own copy. */
+.lp-hero-screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100svh;
+}
+
+.lp-hero {
+  /* Same reasoning as .lp-beat below: a centred column whose content outgrows
+     it would hide its own top, and `safe` falls back to flex-start there. */
+  justify-content: center;
+  justify-content: safe center;
+}
+
 .lp-stack {
   position: relative;
 }
