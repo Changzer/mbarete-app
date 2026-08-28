@@ -39,8 +39,10 @@ export const config = {
   // logo.png must stay out of the middleware: the i18n router would rewrite
   // the request to /en/logo.png and 404 it, real file or not. Same for the
   // PWA files — the manifest, its icons, and the service worker script,
-  // which must additionally be served from the origin root to control it.
+  // which must additionally be served from the origin root to control it —
+  // and for /landing, the marketing page's product photography, which the
+  // image optimizer fetches by that path and cannot follow a locale redirect.
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|logo.png|uploads|manifest.webmanifest|sw.js|icon-192.png|icon-512.png|16015975).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|logo.png|landing|uploads|manifest.webmanifest|sw.js|icon-192.png|icon-512.png|16015975).*)",
   ],
 };
