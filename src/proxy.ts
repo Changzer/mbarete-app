@@ -8,6 +8,7 @@ const intlMiddleware = createMiddleware(routing);
 function isPublicPath(pathname: string) {
   const withoutLocale = pathname.replace(/^\/(en|zh)/, "") || "/";
   return (
+    withoutLocale === "/" ||
     withoutLocale.startsWith("/login") ||
     withoutLocale.startsWith("/signup") ||
     withoutLocale.startsWith("/invite/") ||

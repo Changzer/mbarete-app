@@ -1,6 +1,6 @@
-import { count, countDistinct, eq, max, sql, sum, inArray } from "drizzle-orm";
+import { count, countDistinct, desc, eq, max, sql, sum, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { companies, users, products, orders, contacts, userActivityDays, invites, aiUsage } from "@/db/schema";
+import { companies, users, products, orders, contacts, userActivityDays, invites, aiUsage, waitlistSignups } from "@/db/schema";
 import { companyStorageBytes } from "@/lib/uploads";
 
 /**
@@ -212,4 +212,23 @@ export async function loadPlatformOverview(): Promise<PlatformOverview> {
       ).length,
     },
   };
+}
+
+export type WaitlistEntry = {
+  id: number;
+  name: string;
+  companyName: string;
+  email: string;
+  preferredContact: string | null;
+  locale: string;
+  createdAt: string;
+};
+
+/**
+ * The pre-launch waiting list, newest first — the landing page's output.
+ * Platform data with no company_id and no RLS, so a plain select is the
+ * whole story.
+ */
+export async function loadWaitlist(): Promise<WaitlistEntry[]> {
+  return db.select().from(waitlistSignups).orderBy(desc(waitlistSignups.id));
 }
