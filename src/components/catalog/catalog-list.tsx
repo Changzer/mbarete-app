@@ -167,7 +167,7 @@ export function CatalogList({
           </div>
           {view === "gallery" ? (
             <div
-              className="hidden gap-3 xl:grid xl:grid-cols-3 2xl:grid-cols-4"
+              className="hidden gap-3 xl:grid xl:grid-cols-4"
               data-testid="catalog-gallery"
             >
               {visible.map((p) => (
