@@ -61,10 +61,10 @@ function Beat({
   tone: "bg" | "surface-2";
 }) {
   return (
-    <section className={`lp-beat px-5 py-10 sm:px-8 sm:py-14 md:py-0 ${tone === "bg" ? "bg-bg" : "bg-surface-2"}`}>
+    <section className={`lp-beat px-5 py-10 sm:px-8 sm:py-14 md:py-16 ${tone === "bg" ? "bg-bg" : "bg-surface-2"}`}>
       <div className="mx-auto grid w-full max-w-6xl items-center gap-7 sm:gap-10 md:grid-cols-2 md:gap-14">
         <div className="flex flex-col gap-4">
-          <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-faint">{label}</div>
+          <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-sub">{label}</div>
           <h2 className="text-balance text-[clamp(1.6rem,5.5vw,2.9rem)] font-bold leading-[1.08] tracking-tight text-ink">
             {title}
           </h2>
@@ -187,7 +187,7 @@ export default async function RootPage({
           </div>
           <WaitlistForm />
         </div>
-        <p className="mt-10 text-center text-xs text-faint">
+        <p className="mt-10 text-center text-xs text-sub">
           © {new Date().getFullYear()} Mbarete
         </p>
       </section>

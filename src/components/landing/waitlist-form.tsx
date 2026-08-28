@@ -59,7 +59,7 @@ export function WaitlistForm() {
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="wl-contact">
             {t("preferredContact")}{" "}
-            <span className="font-normal text-faint">— {t("preferredContactOptional")}</span>
+            <span className="font-normal text-sub">— {t("preferredContactOptional")}</span>
           </Label>
           <Input
             id="wl-contact"

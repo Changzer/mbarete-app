@@ -16,7 +16,7 @@ import { getTranslations } from "next-intl/server";
 function Field({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex min-w-0 flex-col gap-1">
-      <div className="font-mono text-[9.5px] uppercase tracking-[0.09em] text-faint">{label}</div>
+      <div className="font-mono text-[9.5px] uppercase tracking-[0.09em] text-sub">{label}</div>
       <div
         className={`flex h-[30px] min-w-0 items-center overflow-hidden whitespace-nowrap rounded-field border border-line-strong bg-bg px-2.5 text-[12.5px] text-ink ${
           mono ? "font-mono" : ""
@@ -84,7 +84,7 @@ export async function CaptureVisual() {
         </div>
 
         <div className="px-4 pt-3">
-          <div className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.09em] text-faint">
+          <div className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.09em] text-sub">
             {t("boardHeading")}
           </div>
           <div className="rounded-field border border-line bg-surface-2 px-3 py-1.5 font-mono text-[11.5px] leading-relaxed text-ink">
@@ -99,7 +99,7 @@ export async function CaptureVisual() {
           <Field label={t("nameZh")} value="陶瓷马克杯 350ml" />
           <Field label={t("price")} value="12.50 CNY" mono />
           <Field label={t("perCarton")} value="160" mono />
-          <Field label={t("moq")} value="2 cartons" mono />
+          <Field label={t("moq")} value="320" mono />
           <Field label={t("category")} value="Homeware / 家居" />
         </div>
 
@@ -132,12 +132,12 @@ export async function StructureVisual() {
         <span className="border-b-2 border-action pb-0.5 text-[13px] font-semibold text-ink">
           {t("catalogTab")}
         </span>
-        <span className="font-mono text-[10.5px] text-faint">248</span>
+        <span className="font-mono text-[10.5px] text-sub">248</span>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[30rem] text-left">
           <thead>
-            <tr className="border-b border-line font-mono text-[10px] uppercase tracking-[0.08em] text-faint">
+            <tr className="border-b border-line font-mono text-[10px] uppercase tracking-[0.08em] text-sub">
               <th className="py-2 pl-4 pr-3 font-normal">{t("productCol")}</th>
               <th className="px-3 py-2 font-normal">SKU</th>
               <th className="px-3 py-2 text-right font-normal">{t("moq")}</th>
