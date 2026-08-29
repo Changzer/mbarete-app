@@ -94,6 +94,11 @@ if (!process.env.SKIP_MOBILE) {
     await page.waitForURL(/catalog(?!\/new)/, { timeout: 60_000 });
     await page.waitForSelector('[data-testid="catalog-rows"]');
     await shot(page, "m5-catalog-after");
+    // Scrolled view: the freshly captured product in frame alongside the rest,
+    // which is what the teaser's thumb-scroll beat shows.
+    await page.evaluate(() => window.scrollTo(0, 320));
+    await page.waitForTimeout(500);
+    await shot(page, "m5b-catalog-scrolled");
   }
 
   await page.goto(`${BASE}/zh/catalog`);
@@ -116,8 +121,8 @@ if (!process.env.SKIP_MOBILE) {
   await page.waitForSelector('[data-testid="catalog-gallery"]');
   await shot(page, "d2-catalog-gallery-zh");
 
-  // Product detail dialog on the freshly captured highlighter set.
-  const captured = page.locator('[data-testid="catalog-gallery"] button', { hasText: "荧光笔6色装" }).first();
+  // Product detail dialog on the freshly captured bottle.
+  const captured = page.locator('[data-testid="catalog-gallery"] button', { hasText: "保温水杯" }).first();
   if (await captured.count()) {
     await captured.click();
     await page.waitForSelector('[role="dialog"] img');

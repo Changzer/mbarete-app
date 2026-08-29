@@ -7,19 +7,19 @@ const PORT = Number(process.env.VISION_STUB_PORT ?? 8787);
 const DELAY_MS = Number(process.env.VISION_STUB_DELAY_MS ?? 3800);
 
 const READING = {
-  boardText: "¥4.14\n288/box",
-  supplierCode: "NO.1018",
+  boardText: "¥12.5\n48/box",
+  supplierCode: "HT-500A",
   thumbImage: 1,
-  thumbBox: { left: 290, top: 20, right: 680, bottom: 450 },
-  nameEn: "Aurora Glitter Highlighter 6-Color Set",
-  nameZh: "极光贝母幻彩荧光笔6色装",
-  descriptionEn: "\"Dark Starlight\" pastel glitter highlighters, 6 shining colors per box.",
-  descriptionZh: "墨夜星芒系列幻彩荧光笔，一盒6色。",
-  price: 4.14,
+  thumbBox: { left: 280, top: 20, right: 720, bottom: 660 },
+  nameEn: "Vacuum Insulated Bottle 500ml",
+  nameZh: "保温水杯 500ml",
+  descriptionEn: "Double-wall stainless steel, powder-coated terracotta finish, loop-handle lid.",
+  descriptionZh: "双层不锈钢，陶土色粉末喷涂，提环杯盖。",
+  price: 12.5,
   currency: "CNY",
-  moq: 288,
-  qtyPerBox: 288,
-  categoryId: 2,
+  moq: 48,
+  qtyPerBox: 48,
+  categoryId: 7,
   newCategoryEn: null,
   newCategoryZh: null,
   lengthCm: null,
@@ -27,7 +27,7 @@ const READING = {
   heightCm: null,
   weightKg: null,
   cbm: null,
-  notes: "Price read from handwritten board; 288 pcs per carton.",
+  notes: "Price read from handwritten board; 48 pcs per carton.",
 };
 
 const server = http.createServer((req, res) => {
