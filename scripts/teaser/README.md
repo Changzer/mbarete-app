@@ -45,6 +45,9 @@ and desktop (1440×900@2x) sizes, EN and ZH. `SKIP_MOBILE=1` reruns only the
 desktop shots (a mobile rerun would register a duplicate product).
 
 Optimized copies used by the video live in `videos/mbarete-teaser/assets/shots/`.
+The phone screens the live-action cut feeds to Seedance live in
+`videos/mbarete-teaser/assets/seedance-refs/` — see
+`videos/mbarete-teaser/SEEDANCE-PROMPT.md`.
 
 ## 3. Render the video
 
