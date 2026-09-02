@@ -165,7 +165,7 @@ export function ProductForm({
   const [thumbPath, setThumbPath] = useState(defaultValues?.thumbPath ?? "");
 
   const [aiPending, setAiPending] = useState(false);
-  const [aiError, setAiError] = useState<"no-photos" | "failed" | null>(null);
+  const [aiError, setAiError] = useState<"no-photos" | "failed" | "limit" | null>(null);
   const [aiNotes, setAiNotes] = useState<string | null>(null);
   // Whether AI wrote into this form — drives the "AI-read, please verify"
   // label the AI-output rules ask for (and honesty asks for anyway).
@@ -501,6 +501,8 @@ export function ProductForm({
         setAiBoardText(result.boardText);
       } else if (result.error === "no-photos") {
         setAiError("no-photos");
+      } else if (result.error === "limit") {
+        setAiError("limit");
       } else {
         setAiError("failed");
       }
@@ -643,7 +645,11 @@ export function ProductForm({
               </Button>
               {aiError ? (
                 <p className="text-[12px] font-semibold text-danger" data-testid="ai-error">
-                  {aiError === "no-photos" ? t("aiErrorNoPhotos") : t("aiErrorFailed")}
+                  {aiError === "no-photos"
+                    ? t("aiErrorNoPhotos")
+                    : aiError === "limit"
+                      ? t("aiErrorLimit")
+                      : t("aiErrorFailed")}
                 </p>
               ) : aiNotes || aiBoardText ? (
                 <div className="flex flex-col gap-1.5 rounded-[10px] bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-sub">

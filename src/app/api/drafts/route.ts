@@ -59,8 +59,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "rate limited" }, { status: 429 });
   }
 
-  const declaredBytes = Number(request.headers.get("content-length"));
-  if (Number.isFinite(declaredBytes) && declaredBytes > MAX_BODY_BYTES) {
+  // A body the app cannot measure is a body it will not buffer. formData()
+  // reads the whole request into memory, and a chunked upload carries no
+  // Content-Length for the cap below to check — so it would be read to the
+  // end whatever its size. Browsers always send a length for a FormData
+  // body; only a hand-rolled client ever meets this 411.
+  const declared = request.headers.get("content-length");
+  if (declared === null) {
+    return NextResponse.json({ error: "length-required" }, { status: 411 });
+  }
+  const declaredBytes = Number(declared);
+  if (!Number.isFinite(declaredBytes) || declaredBytes > MAX_BODY_BYTES) {
     // 413 is a refusal retrying cannot fix: the phone parks the capture as
     // "needs attention" instead of re-sending the same oversized body.
     return NextResponse.json({ error: "too-large" }, { status: 413 });

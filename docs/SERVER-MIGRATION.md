@@ -59,6 +59,12 @@ Caddy is the least-work option — automatic certificates, two lines:
 ```
 # /etc/caddy/Caddyfile
 app.example.com {
+    # Uploads are parsed in memory; let the proxy refuse an oversized body
+    # before it reaches the app (the app's own cap is 80 MB, and it refuses
+    # a body with no Content-Length at all).
+    request_body {
+        max_size 100MB
+    }
     reverse_proxy localhost:3000
 }
 ```
@@ -106,9 +112,12 @@ company profile.
 
 ## 6. Day-2 on the new server
 
-- **Backups offsite**: the app self-backs-up on the server too, but the
-  server can die whole — add a nightly `rsync -aH` of `BACKUP_DIR` to the NAS
-  (full circle: the NAS becomes the offsite copy) or object storage.
+- **Backups offsite, encrypted**: the app self-backs-up on the server too,
+  but the server can die whole, and its backups hold every tenant in plain
+  files. Run `scripts/offsite-backup.sh` nightly from cron: it encrypts the
+  newest complete backup before it leaves the box and ships it to the NAS
+  (full circle: the NAS becomes the offsite copy) or to object storage. The
+  setup, the cron line and the restore are in docs/BACKUPS.md § Offsite.
 - **Updates**: same auto-update flow as the NAS if installed
   (`scripts/install-auto-update.sh`), or `git pull && docker compose up -d
   --build` by hand after merges.

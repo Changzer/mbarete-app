@@ -8,6 +8,12 @@ import { makeLimiter } from "@/lib/rate-limit";
 // stops a script from filling the disk.
 const uploadLimiter = makeLimiter({ max: 300, windowMs: 10 * 60 * 1000 });
 
+// One photo (8MB cap in uploads.ts) plus multipart overhead. Checked against
+// Content-Length before the body is parsed, and a body with no length at all
+// is refused outright: formData() would otherwise buffer a chunked upload to
+// its end, whatever that end is.
+const MAX_BODY_BYTES = 10 * 1024 * 1024;
+
 export async function POST(request: Request) {
   const user = await sessionUser();
   if (!user) {
@@ -19,6 +25,15 @@ export async function POST(request: Request) {
   }
   if (uploadLimiter.hit(`u${user.id}`)) {
     return NextResponse.json({ error: "rate limited" }, { status: 429 });
+  }
+
+  const declared = request.headers.get("content-length");
+  if (declared === null) {
+    return NextResponse.json({ error: "length-required" }, { status: 411 });
+  }
+  const declaredBytes = Number(declared);
+  if (!Number.isFinite(declaredBytes) || declaredBytes > MAX_BODY_BYTES) {
+    return NextResponse.json({ error: "too-large" }, { status: 413 });
   }
 
   const formData = await request.formData();

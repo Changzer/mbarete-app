@@ -188,6 +188,7 @@
     "aiFillHelp": "添加照片后会自动识别——期间可继续填写表单。保存前请核对所有内容。",
     "aiErrorNoPhotos": "请先添加至少一张照片。",
     "aiErrorFailed": "无法识别照片——请手动填写，稍后再试。",
+    "aiErrorLimit": "AI 识别额度已用完——请手动填写，或稍后再试。",
     "aiNotes": "AI 备注",
     "cbmOverride": "每箱体积（供应商报价，m³）",
     "cbmOverrideHelp": "选填。如供应商直接报出每箱 CBM，请填在这里——将优先于按尺寸计算的结果。",
@@ -303,6 +304,7 @@
     "aiFilling": "正在识别照片…",
     "aiErrorNoPhotos": "请先添加至少一张照片。",
     "aiErrorFailed": "无法识别照片——请手动填写，稍后再试。",
+    "aiErrorLimit": "AI 识别额度已用完——请手动填写，或稍后再试。",
     "aiNotes": "AI 备注",
     "wechatQrHelp": "识别自名片的微信二维码——用微信扫一扫即可添加对方。",
     "wechatQrScanning": "正在照片中查找微信二维码……",
@@ -781,6 +783,7 @@
     "statusPending": "尚未读取",
     "statusRead": "AI 已读取",
     "readFailed": "AI 暂时无法读取 — 等服务器联网后重试。",
+    "readLimited": "今日 AI 识别额度已用完——明天再读，或手动填写。",
     "importFailed": "导入失败 — 请刷新页面后重试。",
     "openInForm": "在表单中打开",
     "importContact": "创建联系人",
@@ -890,7 +893,11 @@
       "thanksTitle": "已加入名单。",
       "thanksBody": "我们会审核您的申请，并在开放新的内测名额时联系您。",
       "errorInvalid": "请检查表单后重试。",
-      "errorRateLimited": "尝试次数过多，请稍后再试。"
+      "errorRateLimited": "尝试次数过多，请稍后再试。",
+      "consentAgree": "提交即表示您同意我们的",
+      "consentTerms": "《服务条款》",
+      "consentAnd": "与",
+      "consentPrivacy": "《隐私政策》"
     },
     "metaTitle": "Mbarete — 面向义乌与中国采购的工作平台",
     "metaDescription": "离线采集产品，生成中英双语目录，比选供应商，并快速导出客户可用的报价单。"

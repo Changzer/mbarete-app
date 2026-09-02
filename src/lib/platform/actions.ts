@@ -9,12 +9,18 @@ import { requirePlatformAdmin } from "@/lib/authz";
 import { PLANS, type PlanId } from "@/lib/plans";
 import { platformReauth } from "@/lib/platform/reauth";
 import { makeLimiter } from "@/lib/rate-limit";
+import { recordPlatformEvent } from "@/lib/platform/audit";
+import { recordError } from "@/lib/monitoring";
 
 /**
  * Every cross-tenant WRITE here demands step-up authentication: a session
  * alone may look at the panel, but changing what a tenant has additionally
  * requires the operator's password again, recently (reauth.ts). The check
  * lives server-side in each action — the panel UI only mirrors it.
+ *
+ * And every such write is recorded (audit.ts): who did what to which
+ * company, visible on the panel itself. The record is awaited, so an
+ * action that cannot be logged fails rather than happening in silence.
  */
 export type PlatformWriteResult = { ok: boolean; error?: "reauth" };
 
@@ -57,9 +63,16 @@ export async function setCompanyModule(
   module: "orders" | "finance",
   enabled: boolean,
 ): Promise<PlatformWriteResult> {
-  if (!(await freshOperatorOr())) return { ok: false, error: "reauth" };
+  const operator = await freshOperatorOr();
+  if (!operator) return { ok: false, error: "reauth" };
   const column = module === "orders" ? { moduleOrders: enabled } : { moduleFinance: enabled };
   await db.update(companies).set(column).where(eq(companies.id, companyId));
+  await recordPlatformEvent({
+    operatorUserId: operator.id,
+    action: "module",
+    targetCompanyId: companyId,
+    detail: `${module} ${enabled ? "on" : "off"}`,
+  });
   revalidatePath("/16015975/mbarete-admin");
   return { ok: true };
 }
@@ -70,7 +83,8 @@ export async function setCompanyModule(
  * overridable afterwards — the plan is a preset, not a cage.
  */
 export async function setCompanyPlan(companyId: number, plan: PlanId): Promise<PlatformWriteResult> {
-  if (!(await freshOperatorOr())) return { ok: false, error: "reauth" };
+  const operator = await freshOperatorOr();
+  if (!operator) return { ok: false, error: "reauth" };
   const entitlements = PLANS[plan];
   if (!entitlements) return { ok: false };
   await db
@@ -81,6 +95,12 @@ export async function setCompanyPlan(companyId: number, plan: PlanId): Promise<P
       moduleFinance: entitlements.modules.finance,
     })
     .where(eq(companies.id, companyId));
+  await recordPlatformEvent({
+    operatorUserId: operator.id,
+    action: "plan",
+    targetCompanyId: companyId,
+    detail: plan,
+  });
   revalidatePath("/16015975/mbarete-admin");
   return { ok: true };
 }
@@ -91,10 +111,17 @@ export async function setCompanyPlan(companyId: number, plan: PlanId): Promise<P
  * Stacks on any plan and survives plan changes.
  */
 export async function setExtraSeats(companyId: number, extraSeats: number): Promise<PlatformWriteResult> {
-  if (!(await freshOperatorOr())) return { ok: false, error: "reauth" };
+  const operator = await freshOperatorOr();
+  if (!operator) return { ok: false, error: "reauth" };
   const seats = Math.max(0, Math.min(999, Math.trunc(extraSeats)));
   if (!Number.isFinite(seats)) return { ok: false };
   await db.update(companies).set({ extraSeats: seats }).where(eq(companies.id, companyId));
+  await recordPlatformEvent({
+    operatorUserId: operator.id,
+    action: "seats",
+    targetCompanyId: companyId,
+    detail: `extra seats ${seats}`,
+  });
   revalidatePath("/16015975/mbarete-admin");
   return { ok: true };
 }
@@ -105,12 +132,21 @@ export async function setExtraSeats(companyId: number, extraSeats: number): Prom
  * however the referral itself travelled.
  */
 export async function approveCompany(companyId: number): Promise<PlatformWriteResult> {
-  if (!(await freshOperatorOr())) return { ok: false, error: "reauth" };
+  const operator = await freshOperatorOr();
+  if (!operator) return { ok: false, error: "reauth" };
   const [row] = await db
     .update(companies)
     .set({ status: "active" })
     .where(and(eq(companies.id, companyId), eq(companies.status, "pending")))
     .returning({ ownerUserId: companies.ownerUserId, name: companies.name });
+  if (row) {
+    await recordPlatformEvent({
+      operatorUserId: operator.id,
+      action: "approve",
+      targetCompanyId: companyId,
+      targetUserId: row.ownerUserId,
+    });
+  }
   if (row?.ownerUserId) {
     const { isMailConfigured, sendMail } = await import("@/lib/mail");
     if (isMailConfigured()) {
@@ -150,8 +186,9 @@ export async function setCompanySuspended(
   companyId: number,
   suspended: boolean,
 ): Promise<PlatformWriteResult> {
-  if (!(await freshOperatorOr())) return { ok: false, error: "reauth" };
-  await db
+  const operator = await freshOperatorOr();
+  if (!operator) return { ok: false, error: "reauth" };
+  const changed = await db
     .update(companies)
     .set({ status: suspended ? "suspended" : "active" })
     // Freezing a pending company is meaningless — approval is the only door
@@ -161,7 +198,15 @@ export async function setCompanySuspended(
         eq(companies.id, companyId),
         eq(companies.status, suspended ? "active" : "suspended"),
       ),
-    );
+    )
+    .returning({ id: companies.id });
+  if (changed.length > 0) {
+    await recordPlatformEvent({
+      operatorUserId: operator.id,
+      action: suspended ? "suspend" : "unsuspend",
+      targetCompanyId: companyId,
+    });
+  }
   revalidatePath("/16015975/mbarete-admin");
   return { ok: true };
 }
@@ -174,13 +219,21 @@ export type ResetLinkResult = { ok: boolean; error?: "reauth" | "no-user"; link?
  * is broken, or before SMTP exists at all. Exactly the mailed link: same
  * hashed single-use token, same 30 minutes, same session-killing reset
  * flow at the other end. The operator never sees or sets the password.
+ *
+ * The user is told. This is the one panel action that can end in the
+ * operator holding a tenant's session, so besides the audit row the
+ * account's own mailbox gets a notice (when mail works at all): a link
+ * was minted for you by support, nothing has changed yet, ignore it if
+ * you did not ask. An account whose recovery can happen behind its back
+ * is not one a company should have to take on trust.
  */
 export async function makePasswordResetLink(email: string): Promise<ResetLinkResult> {
-  if (!(await freshOperatorOr())) return { ok: false, error: "reauth" };
+  const operator = await freshOperatorOr();
+  if (!operator) return { ok: false, error: "reauth" };
   const normalized = String(email ?? "").toLowerCase().trim();
   if (!normalized || normalized.length > 200) return { ok: false, error: "no-user" };
   const user = await db
-    .select({ id: users.id, active: users.active })
+    .select({ id: users.id, active: users.active, companyId: users.companyId })
     .from(users)
     .where(eq(users.email, normalized))
     .limit(1)
@@ -197,6 +250,29 @@ export async function makePasswordResetLink(email: string): Promise<ResetLinkRes
     tokenHash: hashInviteToken(token),
     expiresAt: isoIn(30 * 60 * 1000),
   });
+  await recordPlatformEvent({
+    operatorUserId: operator.id,
+    action: "reset-link",
+    targetCompanyId: user.companyId,
+    targetUserId: user.id,
+    detail: normalized,
+  });
+
+  const { isMailConfigured, sendMail } = await import("@/lib/mail");
+  if (isMailConfigured()) {
+    const when = new Date().toISOString().slice(0, 16).replace("T", " ");
+    await sendMail({
+      to: normalized,
+      subject: "Mbarete: a password reset link was generated for your account / 已为您的账号生成密码重置链接",
+      text:
+        `Platform support generated a one-time password reset link for your Mbarete account at ${when} UTC, ` +
+        "valid for 30 minutes. No password has been changed. If you did not ask for help signing in, " +
+        "ignore this message — the link expires on its own — and tell your company's admin.\n\n" +
+        `平台客服已于 ${when}（UTC）为您的 Mbarete 账号生成了一次性密码重置链接，30 分钟内有效。` +
+        "密码尚未更改。如果您没有请求过登录帮助，请忽略本邮件（链接会自动失效），并告知贵公司的管理员。",
+    }).catch((err) => recordError("mail:operator-reset-notice", err));
+  }
+
   const origin = process.env.APP_ORIGIN || "http://localhost:3000";
   return { ok: true, link: `${origin}/en/reset/${token}` };
 }
@@ -206,9 +282,15 @@ export async function makePasswordResetLink(email: string): Promise<ResetLinkRes
  * The same run the scheduler makes; see src/lib/backups.ts.
  */
 export async function backupNow(): Promise<{ ok: boolean; detail: string }> {
-  if (!(await freshOperatorOr())) return { ok: false, detail: "reauth" };
+  const operator = await freshOperatorOr();
+  if (!operator) return { ok: false, detail: "reauth" };
   const { runBackup } = await import("@/lib/backups");
   const result = await runBackup();
+  await recordPlatformEvent({
+    operatorUserId: operator.id,
+    action: "backup",
+    detail: result.ok ? result.name : `failed: ${result.error}`,
+  });
   revalidatePath("/16015975/mbarete-admin");
   return result.ok
     ? { ok: true, detail: `${result.name}: ${result.rows} rows, ${result.files} files` }
@@ -231,6 +313,7 @@ export async function sendTestEmail(): Promise<{ ok: boolean; detail: string }> 
     return { ok: false, detail: "SMTP is not configured (SMTP_HOST / SMTP_USER / SMTP_PASS)" };
   }
   const to = process.env.ALERT_EMAIL || operator.email;
+  await recordPlatformEvent({ operatorUserId: operator.id, action: "test-email", detail: to });
   try {
     await sendMail({
       to,

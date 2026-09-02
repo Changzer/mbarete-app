@@ -15,7 +15,7 @@ class SeatLimitError extends Error {}
 import { signIn } from "@/lib/auth";
 import { makeLimiter, clientIp } from "@/lib/rate-limit";
 import { INVITE_TTL_MS, hashInviteToken, newInviteToken, isoNow, isoIn } from "@/lib/invites";
-import { sendVerificationEmail } from "@/lib/actions/account";
+import { sendVerificationEmail } from "@/lib/verification-mail";
 import { getLocale } from "next-intl/server";
 
 /**
@@ -64,28 +64,6 @@ export async function revokeInvite(inviteId: number): Promise<RevokeInviteResult
     .where(and(eq(invites.id, inviteId), eq(invites.companyId, admin.companyId)));
   revalidatePath("/[locale]/users", "page");
   return {};
-}
-
-/** Pending (unused, unexpired) invites for the admin's own company. */
-export async function listPendingInvites(companyId: number) {
-  return db
-    .select({
-      id: invites.id,
-      role: invites.role,
-      createdAt: invites.createdAt,
-      expiresAt: invites.expiresAt,
-      createdByName: users.name,
-    })
-    .from(invites)
-    .leftJoin(users, eq(invites.createdBy, users.id))
-    .where(
-      and(
-        eq(invites.companyId, companyId),
-        isNull(invites.usedAt),
-        gt(invites.expiresAt, isoNow()),
-      ),
-    )
-    .orderBy(invites.createdAt);
 }
 
 /**

@@ -1,15 +1,7 @@
 "use server";
 
 import { requireUser } from "@/lib/authz";
-import { makeLimiter } from "@/lib/rate-limit";
-
-/**
- * A cost brake, not a security wall: every call here is a paid vision-model
- * request, so one account (or one stolen session) must not be able to burn
- * the API budget. Generous against real use — a buyer photographing a market
- * hall all morning stays far under it.
- */
-const aiLimiter = makeLimiter({ max: 120, windowMs: 60 * 60 * 1000 });
+import { reserveAiRead } from "@/lib/ai-budget";
 import { db } from "@/db";
 import { categories as categoriesTable } from "@/db/schema";
 import { getCategories } from "@/lib/queries/catalog";
@@ -108,11 +100,15 @@ export async function transcribeProduct(formData: FormData): Promise<TranscribeR
   const user = await requireUser();
 
   if (!isTranscriptionEnabled()) return { ok: false, error: "not-configured" };
-  if (aiLimiter.hit(`u${user.id}`)) return { ok: false, error: "failed" };
 
   let images = await collectImages(formData, "images");
   if (images.length === 0) images = await collectStoredImages(user.companyId, formData);
   if (images.length === 0) return { ok: false, error: "no-photos" };
+
+  // Every scan is paid: the per-user burst brake and the plan's daily
+  // allowance both live in ai-budget.ts, shared with the offline read.
+  const budget = await reserveAiRead({ companyId: user.companyId, userId: user.id });
+  if (budget !== "ok") return { ok: false, error: "limit" };
 
   const categories = await getCategories(user.companyId);
 
@@ -178,10 +174,12 @@ export async function transcribeCard(formData: FormData): Promise<CardTranscribe
   const user = await requireUser();
 
   if (!isTranscriptionEnabled()) return { ok: false, error: "not-configured" };
-  if (aiLimiter.hit(`u${user.id}`)) return { ok: false, error: "failed" };
 
   const images = await collectImages(formData, "cardImages");
   if (images.length === 0) return { ok: false, error: "no-photos" };
+
+  const budget = await reserveAiRead({ companyId: user.companyId, userId: user.id });
+  if (budget !== "ok") return { ok: false, error: "limit" };
 
   try {
     return await transcribeBusinessCard(images, (usage) =>

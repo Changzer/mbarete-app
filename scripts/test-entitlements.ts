@@ -9,7 +9,7 @@
  *   DEPLOY_MODE=saas DATABASE_URL=postgres://mbarete_app:... npx tsx scripts/test-entitlements.ts
  */
 import { db, pool } from "../src/db";
-import { companies, users, products, categories } from "../src/db/schema";
+import { companies, users, products, categories, aiUsage } from "../src/db/schema";
 import { eq } from "drizzle-orm";
 import { runWithTenant } from "../src/db/tenant-context";
 import {
@@ -20,6 +20,7 @@ import {
 } from "../src/lib/entitlements";
 import { isSaas } from "../src/lib/deploy";
 import { PLANS } from "../src/lib/plans";
+import { reserveAiRead } from "../src/lib/ai-budget";
 
 function fail(msg: string): never {
   console.error(`FAIL: ${msg}`);
@@ -121,12 +122,39 @@ async function main() {
     }
     ok("one bought seat, two racing invites: exactly one account");
 
+    // The AI allowance: counted from the spend ledger itself, per UTC day.
+    // A background read (no user) is judged on the company budget alone.
+    const aiCap = PLANS.free.maxAiReadsPerDay;
+    if (aiCap === null) fail("free plan is expected to meter AI reads");
+    await runWithTenant(companyId, async () => {
+      const before = await reserveAiRead({ companyId, userId: null });
+      if (before !== "ok") fail(`empty ledger but reserveAiRead said ${before}`);
+      await db.insert(aiUsage).values(
+        Array.from({ length: aiCap }, () => ({
+          companyId,
+          userId: null,
+          kind: "product",
+          provider: "test",
+          model: "test",
+          images: 1,
+          inputTokens: 0,
+          outputTokens: 0,
+        })),
+      );
+      const after = await reserveAiRead({ companyId, userId: null });
+      if (after !== "company-budget") {
+        fail(`ledger at ${aiCap}/${aiCap} but reserveAiRead said ${after}`);
+      }
+    });
+    ok(`AI reads stop at the plan's daily allowance (${aiCap}), counted from the ledger`);
+
     console.log("ALL ENTITLEMENT TESTS PASSED");
   } finally {
     // The test company and everything under it, gone — reruns start clean.
     await runWithTenant(companyId, async () => {
       await db.delete(products).where(eq(products.companyId, companyId));
       await db.delete(categories).where(eq(categories.companyId, companyId));
+      await db.delete(aiUsage).where(eq(aiUsage.companyId, companyId));
     });
     await db.delete(users).where(eq(users.companyId, companyId));
     await db.delete(companies).where(eq(companies.id, companyId));

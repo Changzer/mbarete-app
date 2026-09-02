@@ -12,6 +12,7 @@ import { SuspendToggle } from "./suspend-toggle";
 import { ResetLink } from "./reset-link";
 import { platformReauth } from "@/lib/platform/reauth";
 import { recentErrors, type ErrorEntry } from "@/lib/monitoring";
+import { recentPlatformEvents } from "@/lib/platform/audit";
 import { planOf, seatLimit, usageLabel } from "@/lib/plans";
 
 /**
@@ -162,6 +163,7 @@ export default async function PlatformAdminPage() {
   const operator = await requirePlatformAdmin();
   const { companies, totals } = await loadPlatformOverview();
   const waitlist = await loadWaitlist();
+  const events = await recentPlatformEvents(20);
   const backups = await backupStatus();
   const errors = recentErrors();
   const now = nowMs();
@@ -312,6 +314,7 @@ export default async function PlatformAdminPage() {
               </span>
               <Stat value={bytes(m.storageBytes)} label="stored" />
               <Stat value={m.aiScans} label="AI scans" />
+              <Stat value={usageLabel(m.aiReadsToday, planOf(m.plan).maxAiReadsPerDay)} label="AI today" />
               <Stat value={m.aiImages} label="images read" />
               <span
                 className="whitespace-nowrap text-xs text-sub"
@@ -326,6 +329,45 @@ export default async function PlatformAdminPage() {
           </li>
         ))}
       </ul>
+
+      <div className="mt-6 rounded-[12px] border border-line bg-surface p-4" data-testid="operator-log">
+        <div className="mb-2 text-sm font-bold text-ink">
+          Operator actions <span className="text-sub">(last {events.length})</span>
+        </div>
+        {events.length === 0 ? (
+          <p className="text-[12px] text-sub">
+            Nothing recorded yet. Every module switch, plan change, seat grant, approval,
+            freeze, reset link, backup and test email from this panel lands here.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-left text-[13px]">
+              <thead className="text-[12px] text-sub">
+                <tr>
+                  <th className="py-1 pr-4 font-semibold">When (UTC)</th>
+                  <th className="py-1 pr-4 font-semibold">Operator</th>
+                  <th className="py-1 pr-4 font-semibold">Action</th>
+                  <th className="py-1 pr-4 font-semibold">Company</th>
+                  <th className="py-1 font-semibold">Detail</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {events.map((e) => (
+                  <tr key={e.id}>
+                    <td className="whitespace-nowrap py-1.5 pr-4 tabular-nums text-sub">
+                      {e.createdAt.slice(0, 16)}
+                    </td>
+                    <td className="py-1.5 pr-4 text-sub">{e.operatorEmail ?? `#${e.operatorUserId}`}</td>
+                    <td className="py-1.5 pr-4 font-semibold text-ink">{e.action}</td>
+                    <td className="py-1.5 pr-4 text-ink">{e.companyName ?? "—"}</td>
+                    <td className="py-1.5 text-sub">{e.detail || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       <p className="mt-4 text-[11px] leading-relaxed text-faint">
         Catalog and Contacts are core and always on. Switching a module off makes its pages,

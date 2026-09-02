@@ -7,7 +7,7 @@ import { asc, eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { UserManager, type TeamUser } from "@/components/users/user-manager";
 import { InviteManager } from "@/components/users/invite-manager";
-import { listPendingInvites } from "@/lib/actions/invites";
+import { pendingInvites } from "@/lib/queries/users";
 
 export default async function UsersPage() {
   // requireUser (not sessionUser) so a dead session lands on login, not on a
@@ -48,7 +48,7 @@ export default async function UsersPage() {
         {t("title")}
       </h1>
       <div className="mb-6">
-        <InviteManager invites={await listPendingInvites(current.companyId)} />
+        <InviteManager invites={await pendingInvites(current.companyId)} />
       </div>
       <UserManager
         users={teamUsers}

@@ -146,6 +146,13 @@ apt install -y caddy
 
 ```
 test.yourdomain.com {
+    # The app buffers each upload in memory while it parses it. It refuses a
+    # body it cannot measure (411) and one over its own 80 MB cap (413), but
+    # the proxy is the right place to drop an oversized body before a byte of
+    # it reaches the app.
+    request_body {
+        max_size 100MB
+    }
     reverse_proxy localhost:3000
 }
 ```
