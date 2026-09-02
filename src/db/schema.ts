@@ -46,6 +46,12 @@ export const companies = pgTable("companies", {
    * platform panel while billing stays manual. Survives plan changes.
    */
   extraSeats: integer("extra_seats").notNull().default(0),
+  /**
+   * The panel's override of the plan's daily AI read allowance: NULL follows
+   * the plan, 0 switches AI reading off for this company, N is a custom cap.
+   * Binds on any deployment once set — it is explicit operator intent.
+   */
+  aiReadsPerDay: integer("ai_reads_per_day"),
   // Module visibility, flipped from the platform panel. Catalog and contacts
   // are the product's core and have no switch; these two are where premium
   // tiers will start. Off means the module's pages, actions and nav entries
@@ -1166,6 +1172,25 @@ export const waitlistSignups = pgTable("waitlist_signups", {
  * with reach into every tenant, and support access nobody can see
  * afterwards is not something a company should have to take on trust.
  */
+/**
+ * A company's own admin trail: every account change made from the Users
+ * page, with who made it. Tenant data behind RLS like everything else the
+ * company owns; the platform panel does not read it.
+ */
+export const adminEvents = pgTable(
+  "admin_events",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id").notNull(),
+    actorUserId: integer("actor_user_id").notNull(),
+    action: text("action").notNull(),
+    targetUserId: integer("target_user_id"),
+    detail: text("detail").notNull().default(""),
+    createdAt: text("created_at").notNull().default(utcNow),
+  },
+  (table) => [index("admin_events_company_idx").on(table.companyId, table.id)],
+);
+
 export const platformEvents = pgTable(
   "platform_events",
   {

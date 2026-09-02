@@ -143,8 +143,9 @@ container), for the newest complete snapshot:
 2. Streams it through `tar | gzip | openssl enc -aes-256-cbc -pbkdf2` with
    the passphrase in the key file — one `.tar.gz.enc` per snapshot, plus a
    `.sha256`.
-3. Ships both with `rsync` over SSH (default) or `rclone` (`OFFSITE_METHOD=rclone`
-   for S3, Backblaze, OneDrive…).
+3. Ships both with `rsync` over SSH (default), `rclone` (`OFFSITE_METHOD=rclone`
+   for S3, Backblaze, OneDrive…), or a plain copy into a mounted disk or share
+   (`OFFSITE_METHOD=copy OFFSITE_DEST=/mnt/nas/mbarete/`), checksum-verified.
 4. Remembers what was shipped so a rerun is a no-op, and keeps the last
    `KEEP_LOCAL` encrypted copies in `STAGING_DIR` (default 3).
 
@@ -179,6 +180,12 @@ openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass file:/root/.mbarete-offsi
 
 Test the restore once a quarter on a machine that is not the server. A
 backup nobody has ever restored is a hope, not a backup.
+
+Drill log (snapshot → encrypt → ship → verify → decrypt → restore → compare):
+
+- 2026-09-02 — local rig, `copy` method. 29 tables / 356 rows / 7 files; a
+  marker row inserted after the snapshot was gone after the restore; row
+  counts and a products checksum matched the snapshot exactly.
 
 ## What this does NOT cover
 

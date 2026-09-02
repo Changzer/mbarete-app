@@ -17,6 +17,7 @@ export type PlatformAction =
   | "module"
   | "plan"
   | "seats"
+  | "ai-budget"
   | "approve"
   | "suspend"
   | "unsuspend"

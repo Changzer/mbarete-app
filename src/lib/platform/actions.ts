@@ -127,6 +127,33 @@ export async function setExtraSeats(companyId: number, extraSeats: number): Prom
 }
 
 /**
+ * The company's daily AI read allowance, overriding the plan: null follows
+ * the plan again, 0 switches AI reading off for the company (the forms say
+ * so and keep working by hand), any other number is a custom cap. Every
+ * read is a paid vision request, so this is the operator's cost brake per
+ * tenant — and the switch for a tenant whose usage looks wrong.
+ */
+export async function setAiDailyBudget(
+  companyId: number,
+  limit: number | null,
+): Promise<PlatformWriteResult> {
+  const operator = await freshOperatorOr();
+  if (!operator) return { ok: false, error: "reauth" };
+  const value =
+    limit === null ? null : Number.isInteger(limit) && limit >= 0 && limit <= 100_000 ? limit : NaN;
+  if (Number.isNaN(value)) return { ok: false };
+  await db.update(companies).set({ aiReadsPerDay: value }).where(eq(companies.id, companyId));
+  await recordPlatformEvent({
+    operatorUserId: operator.id,
+    action: "ai-budget",
+    targetCompanyId: companyId,
+    detail: value === null ? "plan default" : value === 0 ? "off (0/day)" : `${value}/day`,
+  });
+  revalidatePath("/16015975/mbarete-admin");
+  return { ok: true };
+}
+
+/**
  * Lets a pending company (a referral signup) into service. Best-effort
  * email tells the owner; without SMTP the operator passes the word along
  * however the referral itself travelled.

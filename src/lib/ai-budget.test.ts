@@ -3,30 +3,21 @@ import assert from "node:assert/strict";
 import { decideAiRead, utcDayStart } from "./ai-budget";
 
 test("ai budget: the user's hourly brake answers first", () => {
-  assert.equal(
-    decideAiRead({ userOverLimit: true, metered: true, dailyLimit: 10, usedToday: 0 }),
-    "user-limit",
-  );
+  assert.equal(decideAiRead({ userOverLimit: true, dailyLimit: 10, usedToday: 0 }), "user-limit");
 });
 
-test("ai budget: the company's daily allowance binds only when metered", () => {
+test("ai budget: the daily allowance binds at the cap; null is unlimited, zero is off", () => {
   assert.equal(
-    decideAiRead({ userOverLimit: false, metered: true, dailyLimit: 50, usedToday: 50 }),
+    decideAiRead({ userOverLimit: false, dailyLimit: 50, usedToday: 50 }),
     "company-budget",
   );
+  assert.equal(decideAiRead({ userOverLimit: false, dailyLimit: 50, usedToday: 49 }), "ok");
+  // No cap (self-hosted, or a plan without one): never refused however busy.
+  assert.equal(decideAiRead({ userOverLimit: false, dailyLimit: null, usedToday: 9999 }), "ok");
+  // The panel's "off": nothing gets through, not even the first read.
   assert.equal(
-    decideAiRead({ userOverLimit: false, metered: true, dailyLimit: 50, usedToday: 49 }),
-    "ok",
-  );
-  // Self-hosted pays its own API bill: the same numbers are never refused.
-  assert.equal(
-    decideAiRead({ userOverLimit: false, metered: false, dailyLimit: 50, usedToday: 500 }),
-    "ok",
-  );
-  // A plan with no cap is unlimited however busy the day was.
-  assert.equal(
-    decideAiRead({ userOverLimit: false, metered: true, dailyLimit: null, usedToday: 9999 }),
-    "ok",
+    decideAiRead({ userOverLimit: false, dailyLimit: 0, usedToday: 0 }),
+    "company-budget",
   );
 });
 

@@ -77,14 +77,33 @@ export function makeLimiter({
 }
 
 /**
- * The caller's address as the reverse proxy reports it. Behind the NAS or a
- * cloud proxy the first X-Forwarded-For hop is the client; the constant
- * fallback means a missing header shares one bucket rather than none. The
- * header is spoofable by a caller that reaches the app directly — these
- * brakes are abuse dampers, not authentication, and every gate they guard
- * still checks the session.
+ * The last hop of an X-Forwarded-For header: the address the nearest proxy
+ * itself saw, which is the one it vouches for. Caddy (2.5+) drops the header
+ * a client sends unless the client is a configured trusted proxy, then
+ * appends the peer address — so the LAST hop is the proxy's word and the
+ * FIRST is whatever the client chose to claim wherever a proxy is lenient.
+ * Keying a limiter on the first hop lets one machine become a thousand.
+ * Null when the header is absent or empty.
+ */
+export function lastForwardedHop(header: string | null | undefined): string | null {
+  if (!header) return null;
+  const hops = header
+    .split(",")
+    .map((h) => h.trim())
+    .filter(Boolean);
+  return hops.length > 0 ? hops[hops.length - 1] : null;
+}
+
+/**
+ * The caller's address as the reverse proxy reports it; the constant
+ * fallback means a missing header shares one bucket rather than none. A
+ * caller that reaches the app directly, bypassing the proxy, can still
+ * write the header — these brakes are abuse dampers, not authentication,
+ * and every gate they guard still checks the session. (If another proxy
+ * is ever put in front of Caddy — a CDN, a tunnel — list it in Caddy's
+ * trusted_proxies, or every visitor will share that proxy's address here.)
  */
 export async function clientIp(): Promise<string> {
   const h = await headers();
-  return h.get("x-forwarded-for")?.split(",")[0].trim() || h.get("x-real-ip") || "unknown";
+  return lastForwardedHop(h.get("x-forwarded-for")) ?? h.get("x-real-ip") ?? "unknown";
 }

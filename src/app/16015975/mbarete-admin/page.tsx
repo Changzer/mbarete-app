@@ -6,6 +6,7 @@ import { BackupNow } from "./backup-now";
 import { TestEmail } from "./test-email";
 import { backupStatus, type BackupStatus } from "@/lib/backups";
 import { SeatStepper } from "./seat-stepper";
+import { AiBudgetControl } from "./ai-budget-control";
 import { UnlockPanel } from "./unlock-panel";
 import { ApproveButton } from "./approve-button";
 import { SuspendToggle } from "./suspend-toggle";
@@ -289,6 +290,14 @@ export default async function PlatformAdminPage() {
                   <SeatStepper companyId={m.id} extraSeats={m.extraSeats} />
                 </span>
                 <span className="flex items-center gap-1.5 text-[11px] text-faint">
+                  AI/day
+                  <AiBudgetControl
+                    companyId={m.id}
+                    override={m.aiReadsPerDay}
+                    planLimit={planOf(m.plan).maxAiReadsPerDay}
+                  />
+                </span>
+                <span className="flex items-center gap-1.5 text-[11px] text-faint">
                   Orders
                   <ModuleToggle companyId={m.id} module="orders" enabled={m.moduleOrders} />
                 </span>
@@ -314,7 +323,10 @@ export default async function PlatformAdminPage() {
               </span>
               <Stat value={bytes(m.storageBytes)} label="stored" />
               <Stat value={m.aiScans} label="AI scans" />
-              <Stat value={usageLabel(m.aiReadsToday, planOf(m.plan).maxAiReadsPerDay)} label="AI today" />
+              <Stat
+                value={usageLabel(m.aiReadsToday, m.aiReadsPerDay ?? planOf(m.plan).maxAiReadsPerDay)}
+                label="AI today"
+              />
               <Stat value={m.aiImages} label="images read" />
               <span
                 className="whitespace-nowrap text-xs text-sub"
@@ -376,7 +388,9 @@ export default async function PlatformAdminPage() {
         defaults and its limits (users, products, storage); the switches stay individually
         overridable after. Seats adds paid seats on top of the plan&apos;s cap (billing is
         manual for now — collect first, then click plus); extras stack on any plan and
-        survive plan changes.
+        survive plan changes. AI/day caps a company&apos;s photo reads per UTC day: blank
+        follows the plan, 0 switches AI reading off for that company (the forms still work
+        by hand), any number is a custom cap. Every read is a paid vision request.
       </p>
     </div>
   );

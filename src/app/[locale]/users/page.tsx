@@ -8,6 +8,8 @@ import { auth } from "@/lib/auth";
 import { UserManager, type TeamUser } from "@/components/users/user-manager";
 import { InviteManager } from "@/components/users/invite-manager";
 import { pendingInvites } from "@/lib/queries/users";
+import { recentAdminEvents } from "@/lib/admin-events";
+import { AdminActivity } from "@/components/users/admin-activity";
 
 export default async function UsersPage() {
   // requireUser (not sessionUser) so a dead session lands on login, not on a
@@ -55,6 +57,9 @@ export default async function UsersPage() {
         currentUserId={Number(session?.user?.id ?? 0)}
         ownerUserId={company?.ownerUserId ?? null}
       />
+      <div className="mt-6">
+        <AdminActivity events={await recentAdminEvents(current.companyId)} />
+      </div>
     </div>
   );
 }

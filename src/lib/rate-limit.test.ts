@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { makeLimiter } from "./rate-limit";
+import { makeLimiter, lastForwardedHop } from "./rate-limit";
 
 test("limiter: allows up to max hits in a window, then refuses", () => {
   const l = makeLimiter({ max: 3, windowMs: 60_000 });
@@ -42,4 +42,13 @@ test("lockout is keyed per (ip, email) pair — attacker cannot lock the victim"
   for (let i = 0; i < 10; i += 1) pairLockout.hit("evil-ip|boss@company.com");
   assert.equal(pairLockout.isLimited("evil-ip|boss@company.com"), true);
   assert.equal(pairLockout.isLimited("home-ip|boss@company.com"), false);
+});
+
+test("forwarded-for: the proxy's own hop wins, not the client's claim", () => {
+  // Caddy appended 203.0.113.9 after a client that claimed to be 10.0.0.1.
+  assert.equal(lastForwardedHop("10.0.0.1, 203.0.113.9"), "203.0.113.9");
+  assert.equal(lastForwardedHop("203.0.113.9"), "203.0.113.9");
+  assert.equal(lastForwardedHop(" 1.1.1.1 ,  2.2.2.2 , "), "2.2.2.2");
+  assert.equal(lastForwardedHop(""), null);
+  assert.equal(lastForwardedHop(null), null);
 });

@@ -19,10 +19,12 @@
 #                   once with: (umask 077; openssl rand -base64 48 > /root/.mbarete-offsite.key)
 #                   and keep a copy somewhere that is not this server — an
 #                   archive nobody can decrypt is not a backup.
-#   OFFSITE_DEST    where archives go. REQUIRED. Either an rsync target
-#                   (user@nas:/volume1/backups/mbarete/) or an rclone remote
-#                   (remote:bucket/mbarete/), chosen by OFFSITE_METHOD.
-#   OFFSITE_METHOD  rsync (default) or rclone.
+#   OFFSITE_DEST    where archives go. REQUIRED. An rsync target
+#                   (user@nas:/volume1/backups/mbarete/), an rclone remote
+#                   (remote:bucket/mbarete/), or a directory on a mounted
+#                   disk or share (/mnt/nas/mbarete/), chosen by OFFSITE_METHOD.
+#   OFFSITE_METHOD  rsync (default), rclone, or copy (plain cp into a
+#                   mounted directory — needs no extra tool).
 #   BACKUP_SRC      directory holding the app's backup-*/ folders. Default:
 #                   the compose volume's mountpoint (docker volume inspect).
 #   STAGING_DIR     where archives are built. Default: /var/tmp/mbarete-offsite
@@ -53,12 +55,13 @@ log() {
 
 [ -n "${OFFSITE_KEY:-}" ] || die "OFFSITE_KEY is not set (path to the passphrase file)"
 [ -r "$OFFSITE_KEY" ] || die "cannot read OFFSITE_KEY at $OFFSITE_KEY"
-[ -n "${OFFSITE_DEST:-}" ] || die "OFFSITE_DEST is not set (rsync target or rclone remote)"
+[ -n "${OFFSITE_DEST:-}" ] || die "OFFSITE_DEST is not set (rsync target, rclone remote, or mounted directory)"
 command -v openssl >/dev/null 2>&1 || die "openssl is not installed"
 case "$OFFSITE_METHOD" in
   rsync) command -v rsync >/dev/null 2>&1 || die "rsync is not installed" ;;
   rclone) command -v rclone >/dev/null 2>&1 || die "rclone is not installed" ;;
-  *) die "OFFSITE_METHOD must be rsync or rclone" ;;
+  copy) [ -d "$OFFSITE_DEST" ] || die "OFFSITE_DEST is not a mounted directory: $OFFSITE_DEST" ;;
+  *) die "OFFSITE_METHOD must be rsync, rclone or copy" ;;
 esac
 
 # Where the app writes its backups. Compose keeps them in a named volume;
@@ -116,6 +119,11 @@ case "$OFFSITE_METHOD" in
     rclone copy "$archive.sha256" "$OFFSITE_DEST"
     # Read it back: the copy must exist remotely with the size we sent.
     rclone check --one-way --size-only "$STAGING_DIR" "$OFFSITE_DEST" --include "$name.tar.gz.enc" >/dev/null
+    ;;
+  copy)
+    # A mounted share or disk: copy, then prove the copy by its checksum.
+    cp "$archive" "$archive.sha256" "$OFFSITE_DEST/"
+    (cd "$OFFSITE_DEST" && sha256sum -c "$name.tar.gz.enc.sha256" >/dev/null) || die "copy to $OFFSITE_DEST failed its checksum"
     ;;
 esac
 touch "$marker"
