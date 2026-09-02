@@ -49,7 +49,7 @@ export default async function SettingsPage() {
         </h1>
         <div className="flex flex-col gap-4">
           <CompanyLogoCard logoPath={profile.logoPath} />
-          <CompanyProfileForm profile={profile} />
+          <CompanyProfileForm profile={profile} currencies={rates.map((r) => r.currencyCode)} />
         </div>
       </section>
 

@@ -32,6 +32,7 @@ export async function getCompanyProfile(companyId: number): Promise<CompanyProfi
       incoterms: "",
       validityDays: 30,
       footerNote: "",
+      functionalCurrency: "",
       updatedAt: "",
     }
   );

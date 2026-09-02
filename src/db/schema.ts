@@ -339,6 +339,11 @@ export const companyProfile = pgTable("company_profile", {
   incoterms: text("incoterms").notNull().default(""),
   validityDays: integer("validity_days").notNull().default(30),
   footerNote: text("footer_note").notNull().default(""),
+  /**
+   * The currency profit is real in (see lib/functional-currency.ts). Order
+   * results and the finance report open in it; "" means not chosen yet.
+   */
+  functionalCurrency: text("functional_currency").notNull().default(""),
   updatedAt: text("updated_at").notNull().default(utcNow),
 });
 

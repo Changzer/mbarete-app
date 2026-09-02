@@ -5,6 +5,8 @@ import { getFinanceData } from "@/lib/queries/finance";
 import { listPeriodCloses } from "@/lib/queries/accountant";
 import { AccountantPackCard } from "@/components/finance/accountant-pack-card";
 import { computeFinanceReport } from "@/lib/finance-report";
+import { getCompanyProfile } from "@/lib/queries/settings";
+import { pickReportCurrency, resolveFunctionalCurrency } from "@/lib/functional-currency";
 
 /**
  * The whole business on one page: expected results, open balances in both
@@ -31,12 +33,14 @@ export default async function FinancePage({
   const { orders, rates } = await getFinanceData(user!.companyId);
   const closes = await listPeriodCloses(user!.companyId);
   const codes = Object.keys(rates).sort();
-  // RMB is the functional currency: costs are RMB, so profit is real in RMB.
-  const fallback = rates["RMB"] !== undefined ? "RMB" : "USD";
-  const reportCurrency =
-    currency && rates[currency.toUpperCase()] !== undefined
-      ? currency.toUpperCase()
-      : fallback;
+  // The company's functional currency (Settings) is where profit is real;
+  // the picker overrides it for one view.
+  const profile = await getCompanyProfile(user!.companyId);
+  const reportCurrency = pickReportCurrency(
+    currency,
+    resolveFunctionalCurrency(profile.functionalCurrency, rates),
+    rates,
+  );
   const report = computeFinanceReport(orders, reportCurrency, rates);
 
   const money = (n: number) =>

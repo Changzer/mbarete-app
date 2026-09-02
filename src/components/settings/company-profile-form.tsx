@@ -32,7 +32,14 @@ function Field({
   );
 }
 
-export function CompanyProfileForm({ profile }: { profile: CompanyProfile }) {
+export function CompanyProfileForm({
+  profile,
+  currencies,
+}: {
+  profile: CompanyProfile;
+  /** Codes in the rate table — the only currencies a result can be shown in. */
+  currencies: string[];
+}) {
   const t = useTranslations("company");
   const common = useTranslations("common");
   const [errorMessage, formAction, isPending] = useActionState(
@@ -64,6 +71,29 @@ export function CompanyProfileForm({ profile }: { profile: CompanyProfile }) {
             <Field name="phone" label={t("phone")} defaultValue={profile.phone} />
             <Field name="email" label={t("email")} defaultValue={profile.email} />
             <Field name="website" label={t("website")} defaultValue={profile.website} />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="functionalCurrency">{t("functionalCurrency")}</Label>
+              {/* A native select: "" (automatic) is a legitimate choice here,
+                  and the value must post with the rest of the form. */}
+              <select
+                id="functionalCurrency"
+                name="functionalCurrency"
+                defaultValue={profile.functionalCurrency}
+                data-testid="functional-currency"
+                className="focus-ring h-11 w-full rounded-[10px] border border-line bg-surface px-3 text-[13.5px] text-ink"
+              >
+                <option value="">{t("functionalCurrencyAuto")}</option>
+                {currencies.map((code) => (
+                  <option key={code} value={code}>
+                    {code}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-sub">{t("functionalCurrencyHint")}</p>
+            </div>
           </div>
 
           <div className="border-t border-line pt-4">

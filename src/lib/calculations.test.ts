@@ -22,6 +22,7 @@ import {
   formatWeightKg,
   missingCartonFigures,
   computeOrderFinance,
+  computeOrderFinanceView,
   sellUnitPrice,
   deriveLineFigures,
 } from "./calculations";
@@ -658,4 +659,86 @@ test("the sell side converts from ITS currency; a moved cost currency cannot rel
   // Old rows carry no sellCurrency and keep meaning the cost currency.
   const old = { ...line, sellCurrency: undefined, unitPrice: 10, currency: "CNY" };
   assert.equal(computeSnapshotTotals([old], ["USD"], rates).goods.USD, 21);
+});
+
+// --- order finance, per side ---------------------------------------------------
+
+const RATES3 = { USD: 1, CNY: 0.14, BRL: 0.2 };
+
+// Quoted 1000 BRL to the client; the goods cost 700 CNY (= 490 BRL at these
+// rates). Client paid 400 BRL, supplier got 400 CNY, 70 CNY of freight.
+const SIDES = {
+  expectedRevenue: 1000,
+  expectedCost: 490,
+  paymentsIn: [{ amount: 400, currency: "BRL" }],
+  paymentsOut: [{ amount: 400, currency: "CNY" }],
+  expenses: [{ amount: 70, currency: "CNY" }],
+};
+
+test("finance view: each side reads in its own currency, the result in the chosen one", () => {
+  const fin = computeOrderFinanceView(
+    SIDES,
+    { quote: "BRL", supplier: "CNY", result: "CNY" },
+    RATES3,
+  );
+  assert.equal(fin.client.currency, "BRL");
+  closeTo(fin.client.expected, 1000);
+  closeTo(fin.client.received, 400);
+  closeTo(fin.client.outstanding, 600);
+
+  assert.equal(fin.supplier.currency, "CNY");
+  closeTo(fin.supplier.expected, 700);
+  closeTo(fin.supplier.paid, 400); // exactly what was typed — no round trip
+  closeTo(fin.supplier.outstanding, 300);
+
+  assert.equal(fin.result.currency, "CNY");
+  closeTo(fin.result.expensesTotal, 70);
+  closeTo(fin.result.netExpected, (1000 * 0.2) / 0.14 - 700 - 70);
+  closeTo(fin.result.netActual, (400 * 0.2) / 0.14 - 400 - 70);
+  closeTo(fin.result.fxGainLoss, 0);
+  assert.deepEqual(fin.missingRates, []);
+});
+
+test("finance view: switching the result currency never moves either side", () => {
+  const inCny = computeOrderFinanceView(
+    SIDES,
+    { quote: "BRL", supplier: "CNY", result: "CNY" },
+    RATES3,
+  );
+  const inBrl = computeOrderFinanceView(
+    SIDES,
+    { quote: "BRL", supplier: "CNY", result: "BRL" },
+    RATES3,
+  );
+  assert.deepEqual(inCny.client, inBrl.client);
+  assert.deepEqual(inCny.supplier, inBrl.supplier);
+  closeTo(inBrl.result.netExpected, 1000 - 490 - (70 * 0.14) / 0.2);
+  closeTo(inBrl.result.netExpected, (inCny.result.netExpected * 0.14) / 0.2);
+});
+
+test("finance view: FX lands in the result currency when a payment's day rate differs", () => {
+  // The client's 400 BRL arrived on a day BRL was worth 0.25 USD, not 0.2.
+  const fin = computeOrderFinanceView(
+    {
+      ...SIDES,
+      paymentsIn: [{ amount: 400, currency: "BRL", rates: { USD: 1, CNY: 0.14, BRL: 0.25 } }],
+    },
+    { quote: "BRL", supplier: "CNY", result: "CNY" },
+    RATES3,
+  );
+  closeTo(fin.result.fxGainLoss, (400 * 0.25) / 0.14 - (400 * 0.2) / 0.14);
+  // On the client's own side 400 BRL is 400 BRL, whatever the day's rate.
+  closeTo(fin.client.received, 400);
+  closeTo(fin.client.outstanding, 600);
+});
+
+test("finance view: an unknown result currency is flagged, not a crash", () => {
+  const fin = computeOrderFinanceView(
+    SIDES,
+    { quote: "BRL", supplier: "CNY", result: "GBP" },
+    RATES3,
+  );
+  assert.deepEqual(fin.missingRates, ["GBP"]);
+  closeTo(fin.client.received, 400);
+  closeTo(fin.supplier.paid, 400);
 });
