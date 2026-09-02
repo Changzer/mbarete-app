@@ -9,6 +9,9 @@ import { users, companies } from "@/db/schema";
 import { eq, ne, and } from "drizzle-orm";
 import { requireAdmin } from "@/lib/authz";
 import { platformReauth } from "@/lib/platform/reauth";
+import { recordAdminEvent } from "@/lib/admin-events";
+import { isMailConfigured, sendMail } from "@/lib/mail";
+import { recordError } from "@/lib/monitoring";
 
 /**
  * Team management is admin ground: an admin adds accounts, resets passwords
@@ -91,18 +94,28 @@ export async function createUser(
   const passwordHash = await bcrypt.hash(password, 10);
   // Cap re-checked under the company's row lock, in the same transaction as
   // the insert — two admins racing for the last seat get exactly one yes.
-  const won = await db.transaction(async (tx) => {
-    if (!(await seatAvailableLocked(tx, admin.companyId))) return false;
-    await tx.insert(users).values({
-      companyId: admin.companyId,
-      name,
-      email,
-      role,
-      passwordHash,
-    });
-    return true;
+  const created = await db.transaction(async (tx) => {
+    if (!(await seatAvailableLocked(tx, admin.companyId))) return null;
+    const [row] = await tx
+      .insert(users)
+      .values({
+        companyId: admin.companyId,
+        name,
+        email,
+        role,
+        passwordHash,
+      })
+      .returning({ id: users.id });
+    return row.id;
   });
-  if (!won) return { error: "limit" };
+  if (created === null) return { error: "limit" };
+  await recordAdminEvent({
+    companyId: admin.companyId,
+    actorUserId: admin.id,
+    action: "user-created",
+    targetUserId: created,
+    detail: `${email} · ${role}`,
+  });
 
   revalidatePath("/users");
   return {};
@@ -124,7 +137,7 @@ export async function updateUser(
   const { name, email, password } = parsed.data;
 
   const target = await db
-    .select({ id: users.id })
+    .select({ id: users.id, email: users.email })
     .from(users)
     .where(and(eq(users.companyId, admin.companyId), eq(users.id, id)))
     .limit(1)
@@ -163,6 +176,51 @@ export async function updateUser(
     .where(eq(users.id, id));
   // A new password ends any step-up window the old one had opened.
   if (password) platformReauth.clear(id);
+
+  // The trail, then the notice. A credential rewritten from this page is
+  // exactly what an account takeover looks like from the inside, so the
+  // account hears about it (the OLD address, for an email change — the new
+  // one belongs to whoever typed it) and every admin can see it here.
+  const emailChanged = target.email !== email;
+  const event = { companyId: admin.companyId, actorUserId: admin.id, targetUserId: id };
+  if (password) await recordAdminEvent({ ...event, action: "password-set" });
+  if (emailChanged) {
+    await recordAdminEvent({
+      ...event,
+      action: "email-changed",
+      detail: `${target.email} → ${email}`,
+    });
+  }
+  if (!password && !emailChanged) await recordAdminEvent({ ...event, action: "user-updated" });
+
+  if (admin.id !== id && isMailConfigured() && (password || emailChanged)) {
+    const when = new Date().toISOString().slice(0, 16).replace("T", " ");
+    const by = admin.email;
+    if (password) {
+      await sendMail({
+        to: email,
+        subject: "Mbarete: your password was changed by an admin / 管理员已更改您的密码",
+        text:
+          `An admin of your company (${by}) set a new password on your Mbarete account at ${when} UTC. ` +
+          "If you asked for this, sign in with the password they gave you and change it. " +
+          "If you did not, tell your company's owner now.\n\n" +
+          `贵公司的管理员（${by}）于 ${when}（UTC）为您的 Mbarete 账号设置了新密码。` +
+          "如果这是您要求的，请使用管理员提供的密码登录并尽快修改。如果不是，请立即联系贵公司的负责人。",
+      }).catch((err) => recordError("mail:admin-password-notice", err));
+    }
+    if (emailChanged) {
+      await sendMail({
+        to: target.email,
+        subject: "Mbarete: your sign-in email was changed / 您的登录邮箱已更改",
+        text:
+          `An admin of your company (${by}) changed the sign-in email of your Mbarete account ` +
+          `from ${target.email} to ${email} at ${when} UTC. This address no longer signs in. ` +
+          "If you did not expect this, tell your company's owner now.\n\n" +
+          `贵公司的管理员（${by}）于 ${when}（UTC）将您的 Mbarete 登录邮箱从 ${target.email} 更改为 ${email}。` +
+          "此地址已无法登录。如果这不在您的预期之内，请立即联系贵公司的负责人。",
+      }).catch((err) => recordError("mail:admin-email-notice", err));
+    }
+  }
 
   revalidatePath("/users");
   revalidatePath("/catalog");
@@ -216,6 +274,12 @@ export async function setUserActive(
   }
 
   await db.update(users).set({ active }).where(eq(users.id, id));
+  await recordAdminEvent({
+    companyId: admin.companyId,
+    actorUserId: admin.id,
+    action: active ? "user-activated" : "user-deactivated",
+    targetUserId: id,
+  });
 
   revalidatePath("/users");
   return {};
@@ -265,6 +329,13 @@ export async function setUserRole(
   }
 
   await db.update(users).set({ role }).where(eq(users.id, id));
+  await recordAdminEvent({
+    companyId: admin.companyId,
+    actorUserId: admin.id,
+    action: "role-changed",
+    targetUserId: id,
+    detail: `${target.role} → ${role}`,
+  });
 
   revalidatePath("/users");
   return {};

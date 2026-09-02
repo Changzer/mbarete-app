@@ -155,6 +155,27 @@
       "when": 1788200000000,
       "tag": "0021_functional-currency",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1788250000000,
+      "tag": "0022_ai-budget-override",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1788250001000,
+      "tag": "0023_admin-events",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1788250002000,
+      "tag": "0024_carton-cbm-sanity",
+      "breakpoints": true
     }
   ]
 }

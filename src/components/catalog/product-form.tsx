@@ -34,6 +34,7 @@ import type { MatchCandidate } from "@/lib/contact-match";
 import {
   computeCbm,
   estimateCartonCbm,
+  MAX_PLAUSIBLE_CARTON_CBM,
   estimateCartonWeightKg,
   formatCbm,
   DEFAULT_PACKING_ALLOWANCE_PCT,
@@ -228,6 +229,15 @@ export function ProductForm({
   // A segmented control rather than a text field, so it is state, not a DOM
   // value the AI pass can poke at — see applyTranscription.
   const [currency, setCurrency] = useState(defaultValues?.currency ?? "USD");
+  // The carton figure the form would save right now (vendor override, else
+  // from the dimensions) — only to warn when it cannot be a carton.
+  const [cartonCbm, setCartonCbm] = useState<number>(() => {
+    const d = defaultValues;
+    if (!d) return 0;
+    return d.cbmOverride && d.cbmOverride > 0
+      ? d.cbmOverride
+      : computeCbm(d.lengthCm ?? 0, d.widthCm ?? 0, d.heightCm ?? 0);
+  });
   const [piece, setPiece] = useState({
     lengthCm: String(defaultValues?.pieceLengthCm ?? 0),
     widthCm: String(defaultValues?.pieceWidthCm ?? 0),
@@ -289,7 +299,12 @@ export function ProductForm({
     setIfUntouched("widthCm", fields.widthCm);
     setIfUntouched("heightCm", fields.heightCm);
     setIfUntouched("weightKg", fields.weightKg);
-    setIfUntouched("cbmOverride", fields.cbm);
+    // A CBM beside three read dimensions is never taken: the dimensions
+    // compute it, and an invented figure here would override them on save.
+    if (!(fields.lengthCm && fields.widthCm && fields.heightCm)) {
+      setIfUntouched("cbmOverride", fields.cbm);
+    }
+    updateCartonCbm();
     if (fields.qtyPerBox !== undefined) {
       setQtyPerBox((prev) =>
         overwrite || prev === "" || prev === "1" ? String(fields.qtyPerBox) : prev,
@@ -546,6 +561,17 @@ export function ProductForm({
   const estimatedCbm = estimateCartonCbm(pieceDims, perBox, allowancePct);
   const estimatedWeight = estimateCartonWeightKg(num(piece.weightKg), perBox, allowancePct);
   const bareCbm = computeCbm(pieceDims.lengthCm, pieceDims.widthCm, pieceDims.heightCm) * perBox;
+
+  function updateCartonCbm() {
+    const form = formRef.current;
+    if (!form) return;
+    const read = (name: string) =>
+      num((form.elements.namedItem(name) as HTMLInputElement | null)?.value ?? "");
+    const override = read("cbmOverride");
+    setCartonCbm(
+      override > 0 ? override : computeCbm(read("lengthCm"), read("widthCm"), read("heightCm")),
+    );
+  }
 
   // Editing something that has already been measured opens the disclosure: it
   // folds to keep a *new* capture short, not to hide figures already there.
@@ -894,7 +920,7 @@ export function ProductForm({
                 <p className="rounded-[10px] bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-sub">
                   {t("cartonHelp")} {t("measurementsOptional")}
                 </p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3" onInput={updateCartonCbm}>
                   {(
                     [
                       ["lengthCm", t("length"), defaultValues?.lengthCm, "cm"],
@@ -934,6 +960,14 @@ export function ProductForm({
                     />
                   </Field>
                 </div>
+                {cartonCbm > MAX_PLAUSIBLE_CARTON_CBM ? (
+                  <p
+                    className="rounded-[10px] bg-warn-soft px-3 py-2 text-[11px] leading-relaxed text-warn"
+                    data-testid="cbm-implausible"
+                  >
+                    {t("cbmImplausible", { cbm: formatCbm(cartonCbm) })}
+                  </p>
+                ) : null}
               </>
             ) : (
               <>

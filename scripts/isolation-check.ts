@@ -18,7 +18,7 @@ import {
 } from "../src/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { runWithTenant } from "../src/db/tenant-context";
-import { periodCloses } from "../src/db/schema";
+import { periodCloses, adminEvents } from "../src/db/schema";
 import { listPeriodCloses } from "../src/lib/queries/accountant";
 import { getProducts, getProductById, getCategories } from "../src/lib/queries/catalog";
 import { getContactsByType, getContactById } from "../src/lib/queries/contacts";
@@ -141,6 +141,13 @@ async function makeCompany(name: string) {
       capturedAt: "2026-01-01",
     })
     .returning();
+  await db.insert(adminEvents).values({
+    companyId: company.id,
+    actorUserId: user.id,
+    action: "user-created",
+    targetUserId: user.id,
+    detail: name,
+  });
   return { company, user, category, supplier, client, product, offer, order, draft };
   });
 }
@@ -151,6 +158,7 @@ async function destroyCompany(companyId: number) {
   // are behind RLS, so clean up as their own tenant; users and companies are
   // exempt and go last.
   await runWithTenant(companyId, async () => {
+    await db.delete(adminEvents).where(eq(adminEvents.companyId, companyId));
     await db.delete(periodCloses).where(eq(periodCloses.companyId, companyId));
     await db.delete(captureDraftImages).where(eq(captureDraftImages.companyId, companyId));
     await db.delete(captureDrafts).where(eq(captureDrafts.companyId, companyId));
@@ -205,6 +213,11 @@ async function main() {
     check(
       "period_closes RLS hides A's digest from B's scope",
       closeRowsB.length === 1 && closeRowsB[0].packSha256 === "digest-AttackerB",
+    );
+    const adminRowsB = await db.select().from(adminEvents);
+    check(
+      "admin_events RLS hides A's admin trail from B's scope",
+      adminRowsB.length === 1 && adminRowsB[0].detail === "AttackerB",
     );
     const finance = await getFinanceData(B.company.id);
     check("finance report excludes A's orders", finance.orders.every((o) => o.id === B.order.id));

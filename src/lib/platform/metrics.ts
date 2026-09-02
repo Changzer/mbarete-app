@@ -50,8 +50,10 @@ export type CompanyMetrics = {
   aiImages: number;
   aiInputTokens: number;
   aiOutputTokens: number;
-  /** Scans since UTC midnight — against the plan's daily allowance. */
+  /** Scans since UTC midnight — against the daily allowance. */
   aiReadsToday: number;
+  /** The panel's override of that allowance; null follows the plan. */
+  aiReadsPerDay: number | null;
 };
 
 export type PlatformOverview = {
@@ -203,6 +205,7 @@ export async function loadPlatformOverview(): Promise<PlatformOverview> {
       aiInputTokens: Number(ai?.input ?? 0),
       aiOutputTokens: Number(ai?.output ?? 0),
       aiReadsToday: aiTodayBy.get(c.id)?.[0]?.n ?? 0,
+      aiReadsPerDay: c.aiReadsPerDay,
     };
   });
 

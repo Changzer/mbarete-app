@@ -129,6 +129,16 @@ async function main() {
     await runWithTenant(companyId, async () => {
       const before = await reserveAiRead({ companyId, userId: null });
       if (before !== "ok") fail(`empty ledger but reserveAiRead said ${before}`);
+
+      // The panel's override: 0 is "off" even on an empty ledger, and
+      // clearing it hands the decision back to the plan.
+      await db.update(companies).set({ aiReadsPerDay: 0 }).where(eq(companies.id, companyId));
+      const off = await reserveAiRead({ companyId, userId: null });
+      if (off !== "company-budget") fail(`override 0 but reserveAiRead said ${off}`);
+      await db.update(companies).set({ aiReadsPerDay: null }).where(eq(companies.id, companyId));
+      const backToPlan = await reserveAiRead({ companyId, userId: null });
+      if (backToPlan !== "ok") fail(`override cleared but reserveAiRead said ${backToPlan}`);
+
       await db.insert(aiUsage).values(
         Array.from({ length: aiCap }, () => ({
           companyId,
@@ -145,8 +155,16 @@ async function main() {
       if (after !== "company-budget") {
         fail(`ledger at ${aiCap}/${aiCap} but reserveAiRead said ${after}`);
       }
+
+      // A custom cap above the plan's lets the same company through again.
+      await db
+        .update(companies)
+        .set({ aiReadsPerDay: aiCap + 10 })
+        .where(eq(companies.id, companyId));
+      const raised = await reserveAiRead({ companyId, userId: null });
+      if (raised !== "ok") fail(`override ${aiCap + 10} but reserveAiRead said ${raised}`);
     });
-    ok(`AI reads stop at the plan's daily allowance (${aiCap}), counted from the ledger`);
+    ok(`AI reads stop at the plan's daily allowance (${aiCap}); the panel's override binds first`);
 
     console.log("ALL ENTITLEMENT TESTS PASSED");
   } finally {

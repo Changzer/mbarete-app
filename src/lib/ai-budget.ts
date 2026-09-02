@@ -1,8 +1,8 @@
 import { and, count, eq, gte } from "drizzle-orm";
-import { db } from "@/db";
-import { aiUsage } from "@/db/schema";
+import { db, one } from "@/db";
+import { aiUsage, companies } from "@/db/schema";
 import { isSaas } from "@/lib/deploy";
-import { companyPlan } from "@/lib/entitlements";
+import { planOf } from "@/lib/plans";
 import { makeLimiter } from "@/lib/rate-limit";
 
 /**
@@ -17,8 +17,10 @@ import { makeLimiter } from "@/lib/rate-limit";
  * - Per user, per hour: a burst brake. In memory, like every limiter here.
  * - Per company, per UTC day: the plan's allowance, counted from the spend
  *   ledger itself (ai_usage), so it survives restarts and is the same
- *   number the panel shows. Binds only on SaaS — a self-hosted install pays
- *   its own API bill and is never metered.
+ *   number the panel shows. The plan's figure binds only on SaaS — a
+ *   self-hosted install pays its own API bill and is never metered — but
+ *   the panel can override it per company (companies.ai_reads_per_day),
+ *   and an override binds wherever it is set: 0 switches AI reading off.
  */
 
 export const AI_PER_USER_PER_HOUR = 120;
@@ -27,18 +29,35 @@ const perUser = makeLimiter({ max: AI_PER_USER_PER_HOUR, windowMs: 60 * 60 * 100
 
 export type AiReadDecision = "ok" | "user-limit" | "company-budget";
 
-/** The decision, given what the counters say. Pure, tested without a database. */
+/**
+ * The decision, given what the counters say. Pure, tested without a
+ * database. A null daily limit is "unlimited"; zero refuses every read.
+ */
 export function decideAiRead(input: {
   userOverLimit: boolean;
-  metered: boolean;
   dailyLimit: number | null;
   usedToday: number;
 }): AiReadDecision {
   if (input.userOverLimit) return "user-limit";
-  if (input.metered && input.dailyLimit !== null && input.usedToday >= input.dailyLimit) {
+  if (input.dailyLimit !== null && input.usedToday >= input.dailyLimit) {
     return "company-budget";
   }
   return "ok";
+}
+
+/**
+ * The daily cap that binds for a company: the panel's override when one is
+ * set, else the plan's allowance on SaaS, else nothing.
+ */
+export async function companyAiDailyLimit(companyId: number): Promise<number | null> {
+  const row = await db
+    .select({ plan: companies.plan, override: companies.aiReadsPerDay })
+    .from(companies)
+    .where(eq(companies.id, companyId))
+    .limit(1)
+    .then(one);
+  if (row?.override !== null && row?.override !== undefined) return row.override;
+  return isSaas() ? planOf(row?.plan ?? "").maxAiReadsPerDay : null;
 }
 
 /** "YYYY-MM-DD 00:00:00" in UTC — the ledger's created_at format, at midnight. */
@@ -66,9 +85,7 @@ export async function reserveAiRead(input: {
   userId: number | null;
 }): Promise<AiReadDecision> {
   const userOverLimit = input.userId !== null && perUser.hit(`u${input.userId}`);
-  const metered = isSaas();
-  const dailyLimit = metered ? (await companyPlan(input.companyId)).maxAiReadsPerDay : null;
-  const usedToday =
-    metered && dailyLimit !== null ? await companyAiReadsToday(input.companyId) : 0;
-  return decideAiRead({ userOverLimit, metered, dailyLimit, usedToday });
+  const dailyLimit = await companyAiDailyLimit(input.companyId);
+  const usedToday = dailyLimit !== null ? await companyAiReadsToday(input.companyId) : 0;
+  return decideAiRead({ userOverLimit, dailyLimit, usedToday });
 }

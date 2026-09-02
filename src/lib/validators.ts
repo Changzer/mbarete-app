@@ -37,7 +37,8 @@ export const productSchema = z
     pieceHeightCm: z.coerce.number().nonnegative().default(0),
     pieceWeightKg: z.coerce.number().nonnegative().default(0),
     packingAllowancePct: z.coerce.number().nonnegative().max(200).default(15),
-    cbmOverride: z.coerce.number().nonnegative().optional(),
+    // No carton is bigger than a couple of pallets; see MAX_PLAUSIBLE_CARTON_CBM.
+    cbmOverride: z.coerce.number().nonnegative().max(5).optional(),
     supplierId: z.coerce.number().int().positive().optional(),
     duplicatedFromId: z.coerce.number().int().positive().optional(),
     active: z.coerce.boolean().default(true),
