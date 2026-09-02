@@ -148,6 +148,13 @@
       "when": 1788150000000,
       "tag": "0020_platform-events",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1788200000000,
+      "tag": "0021_functional-currency",
+      "breakpoints": true
     }
   ]
 }

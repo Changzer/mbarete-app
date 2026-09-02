@@ -504,8 +504,8 @@ export type OrderFinance = {
   netActual: number;
   /**
    * What rate movement between the quote and the money actually moving has
-   * done to this order so far, in the quote currency. Positive: rates moved
-   * in Mbarete's favour. Zero when every movement was in the quote currency
+   * done to this order so far, in the target currency. Positive: rates moved
+   * in Mbarete's favour. Zero when every movement was in the target currency
    * or predates per-day rates.
    */
   fxGainLoss: number;
@@ -518,7 +518,13 @@ export type OrderFinance = {
 };
 
 /**
- * The money position of one order, everything in the quote currency.
+ * The money position of one order in ONE target currency.
+ *
+ * The quoted figures arrive in the quote currency and convert at the
+ * order's own rates (the ones it was priced with), so a stored quote never
+ * moves. Each movement converts at the rates of its own day where it has
+ * them. A target the rate table cannot reach is reported in missingRates
+ * and its quoted figures read as zero — never a crash on the order page.
  *
  * Actual and expected are kept apart on purpose. Actual is cash that moved:
  * received minus paid minus expenses — negative early in an order's life,
@@ -526,12 +532,27 @@ export type OrderFinance = {
  * Expected is where the order lands once both sides settle in full. The gap
  * between them is exactly the two outstanding balances.
  */
-export function computeOrderFinance(
+function financeIn(
   input: OrderFinanceInput,
   quoteCurrency: string,
+  target: string,
   rates: CurrencyRates,
 ): OrderFinance {
   const missing = new Set<string>();
+
+  const quoted = (amount: number) => {
+    try {
+      return convert(amount, quoteCurrency, target, rates);
+    } catch (err) {
+      if (err instanceof UnknownCurrencyError) {
+        missing.add(err.currency);
+        return 0;
+      }
+      throw err;
+    }
+  };
+  const expectedRevenue = quoted(input.expectedRevenue);
+  const expectedCost = quoted(input.expectedCost);
 
   // Each entry converts at the rates of its own day where it has them; the
   // quote-rate sum alongside is what the same money would have been worth at
@@ -541,7 +562,7 @@ export function computeOrderFinance(
     for (const e of entries) {
       try {
         const useRates = !atQuoteRates && e.rates ? e.rates : rates;
-        total += convert(e.amount, e.currency, quoteCurrency, useRates);
+        total += convert(e.amount, e.currency, target, useRates);
       } catch (err) {
         if (err instanceof UnknownCurrencyError) missing.add(err.currency);
         else throw err;
@@ -559,18 +580,99 @@ export function computeOrderFinance(
     (paidOut - sum(input.paymentsOut, true)) -
     (expensesTotal - sum(input.expenses, true));
 
-  const netExpected = input.expectedRevenue - input.expectedCost - expensesTotal;
+  const netExpected = expectedRevenue - expectedCost - expensesTotal;
   return {
     received,
     paidOut,
     expensesTotal,
-    clientOutstanding: input.expectedRevenue - received,
-    supplierOutstanding: input.expectedCost - paidOut,
+    clientOutstanding: expectedRevenue - received,
+    supplierOutstanding: expectedCost - paidOut,
     netActual: received - paidOut - expensesTotal,
     fxGainLoss,
     netExpected,
-    marginPct:
-      input.expectedRevenue > 0 ? (netExpected / input.expectedRevenue) * 100 : null,
+    marginPct: expectedRevenue > 0 ? (netExpected / expectedRevenue) * 100 : null,
     missingRates: [...missing],
+  };
+}
+
+/** The money position of one order, everything in the quote currency. */
+export function computeOrderFinance(
+  input: OrderFinanceInput,
+  quoteCurrency: string,
+  rates: CurrencyRates,
+): OrderFinance {
+  return financeIn(input, quoteCurrency, quoteCurrency, rates);
+}
+
+/**
+ * The order page's view of the same position, with each side in the
+ * currency it is actually settled in.
+ *
+ * What the client owes and pays is a BRL fact; what the supplier bills and
+ * is paid is a CNY fact — converting either only makes a fixed obligation
+ * look like it moves with the rate, and "paid to supplier 11524.59 BRL"
+ * against a 15000 CNY transfer the person just typed reads as an error.
+ * Only the bottom line, which subtracts one side from the other, has to
+ * land in one currency, and that one is the reader's choice (the company's
+ * functional currency by default).
+ */
+export type OrderFinanceView = {
+  client: {
+    currency: string;
+    /** Goods + commission, as quoted. */
+    expected: number;
+    received: number;
+    outstanding: number;
+  };
+  supplier: {
+    currency: string;
+    /** The goods at the supplier's price. */
+    expected: number;
+    paid: number;
+    outstanding: number;
+  };
+  result: {
+    currency: string;
+    expensesTotal: number;
+    fxGainLoss: number;
+    netActual: number;
+    netExpected: number;
+    marginPct: number | null;
+  };
+  missingRates: string[];
+};
+
+export function computeOrderFinanceView(
+  input: OrderFinanceInput,
+  currencies: { quote: string; supplier: string; result: string },
+  rates: CurrencyRates,
+): OrderFinanceView {
+  const client = financeIn(input, currencies.quote, currencies.quote, rates);
+  const supplier = financeIn(input, currencies.quote, currencies.supplier, rates);
+  const result = financeIn(input, currencies.quote, currencies.result, rates);
+  return {
+    client: {
+      currency: currencies.quote,
+      expected: client.received + client.clientOutstanding,
+      received: client.received,
+      outstanding: client.clientOutstanding,
+    },
+    supplier: {
+      currency: currencies.supplier,
+      expected: supplier.paidOut + supplier.supplierOutstanding,
+      paid: supplier.paidOut,
+      outstanding: supplier.supplierOutstanding,
+    },
+    result: {
+      currency: currencies.result,
+      expensesTotal: result.expensesTotal,
+      fxGainLoss: result.fxGainLoss,
+      netActual: result.netActual,
+      netExpected: result.netExpected,
+      marginPct: result.marginPct,
+    },
+    missingRates: [
+      ...new Set([...client.missingRates, ...supplier.missingRates, ...result.missingRates]),
+    ],
   };
 }

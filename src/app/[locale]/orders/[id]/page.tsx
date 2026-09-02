@@ -3,9 +3,10 @@ import { getTranslations } from "next-intl/server";
 import { getOrderView } from "@/lib/queries/order-view";
 import { getOrderFinanceRows, parseRatesSnapshot } from "@/lib/queries/orders";
 import { getUserNames } from "@/lib/queries/users";
-import { getBankAccounts } from "@/lib/queries/settings";
+import { getBankAccounts, getCompanyProfile } from "@/lib/queries/settings";
 import type { Locale } from "@/i18n/routing";
-import { computeOrderFinance, formatCbm } from "@/lib/calculations";
+import { computeOrderFinanceView, formatCbm } from "@/lib/calculations";
+import { pickReportCurrency, resolveFunctionalCurrency } from "@/lib/functional-currency";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
@@ -28,8 +29,10 @@ const STATUS_VARIANT = {
 
 export default async function OrderDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string; locale: string }>;
+  searchParams: Promise<{ result?: string }>;
 }) {
   const _mbUser = await requireUser();
   const { companyId } = _mbUser;
@@ -39,19 +42,30 @@ export default async function OrderDetailPage({
   const catalogT = await getTranslations("catalog");
   const proformaT = await getTranslations("proforma");
 
-  const [view, userNames, finance, bankAccounts] = await Promise.all([
-    getOrderView(companyId, Number(id), locale as Locale),
-    getUserNames(companyId),
-    getOrderFinanceRows(Number(id)),
-    getBankAccounts(companyId),
-  ]);
+  const [view, userNames, finance, bankAccounts, profile, { result: requestedResult }] =
+    await Promise.all([
+      getOrderView(companyId, Number(id), locale as Locale),
+      getUserNames(companyId),
+      getOrderFinanceRows(Number(id)),
+      getBankAccounts(companyId),
+      getCompanyProfile(companyId),
+      searchParams,
+    ]);
   if (!view) notFound();
   const { order, client, rows, targets, totals, effectiveRates } = view;
 
   // The money position: what the client is billed against what the supplier
-  // charges, then every recorded movement on top.
+  // charges, then every recorded movement on top. Each side reads in its own
+  // currency; the bottom line in the reader's pick, the company's functional
+  // currency by default.
   const quote = order.displayCurrency;
-  const fin = computeOrderFinance(
+  const supplierCurrency = rows[0]?.currencySnapshot ?? order.secondaryCurrency;
+  const resultCurrency = pickReportCurrency(
+    requestedResult,
+    resolveFunctionalCurrency(profile.functionalCurrency, effectiveRates),
+    effectiveRates,
+  );
+  const fin = computeOrderFinanceView(
     {
       expectedRevenue: totals.grandTotal[quote] ?? 0,
       expectedCost: totals.cost[quote] ?? 0,
@@ -66,10 +80,10 @@ export default async function OrderDetailPage({
         rates: parseRatesSnapshot(e.ratesSnapshot),
       })),
     },
-    quote,
+    { quote, supplier: supplierCurrency, result: resultCurrency },
     effectiveRates,
   );
-  const supplierCurrency = rows[0]?.currencySnapshot ?? order.secondaryCurrency;
+  const resultCurrencies = Object.keys(effectiveRates).sort();
 
   // Lines whose product had no measurements when the order was saved.
   const hasUnmeasured = rows.some((r) => r.lineCbm <= 0 || r.lineWeightKg <= 0);
@@ -309,7 +323,7 @@ export default async function OrderDetailPage({
         />
       </div>
 
-      <OrderResult fin={fin} quote={quote} />
+      <OrderResult fin={fin} orderId={order.id} currencies={resultCurrencies} />
 
       <OrderChangelog companyId={companyId} orderId={order.id} locale={locale} />
     </div>

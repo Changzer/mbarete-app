@@ -88,6 +88,13 @@ const companySchema = z.object({
   incoterms: z.string().trim().default(""),
   validityDays: z.coerce.number().int().min(0).max(3650).default(30),
   footerNote: z.string().default(""),
+  // A currency code from the rate table, or "" for the automatic fallback.
+  functionalCurrency: z
+    .string()
+    .trim()
+    .max(8)
+    .default("")
+    .transform((s) => s.toUpperCase()),
 });
 
 export async function saveCompanyProfile(
