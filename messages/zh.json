@@ -192,6 +192,7 @@
     "aiNotes": "AI 备注",
     "cbmOverride": "每箱体积（供应商报价，m³）",
     "cbmOverrideHelp": "选填。如供应商直接报出每箱 CBM，请填在这里——将优先于按尺寸计算的结果。",
+    "cbmImplausible": "每箱 {cbm} m³ 比一个托盘还大。每箱 CBM 通常在 0.01–0.5 m³ 之间——保存前请检查单位（厘米而非毫米）和供应商报的数字。",
     "supplier": "供应商",
     "noSupplier": "无供应商",
     "noSupplierMatches": "没有匹配的供应商。",

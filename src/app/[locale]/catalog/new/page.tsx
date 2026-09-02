@@ -110,7 +110,12 @@ export default async function NewProductPage({
           widthCm: num(f.widthCm) ?? tr.widthCm,
           heightCm: num(f.heightCm) ?? tr.heightCm,
           weightKg: num(f.weightKg) ?? tr.weightKg,
-          cbmOverride: num(f.cbmOverride) ?? tr.cbm,
+          // The reading's own CBM only stands in when it read no dimensions;
+          // beside them it is arithmetic the save does itself. Older captures
+          // may still carry an invented figure next to real dimensions.
+          cbmOverride:
+            num(f.cbmOverride) ??
+            (tr.lengthCm && tr.widthCm && tr.heightCm ? undefined : tr.cbm),
           dimensionSource: f.dimensionSource === "piece" ? ("piece" as const) : ("carton" as const),
           pieceLengthCm: num(f.pieceLengthCm),
           pieceWidthCm: num(f.pieceWidthCm),

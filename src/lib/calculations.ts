@@ -26,6 +26,20 @@ export function computeCbm(lengthCm: number, widthCm: number, heightCm: number) 
 }
 
 /**
+ * The most a single export carton can plausibly be, in m³. A standard
+ * pallet is about 1.2 m³ and no carton is bigger than a pallet, so anything
+ * past 2 is a units mistake (mm typed as cm gives 1000×), a misread board,
+ * or an invented figure — never a carton. A product that fails this is
+ * flagged in the form and never accepted from an AI reading; a hand-typed
+ * value still saves below the hard cap in validators.ts.
+ */
+export const MAX_PLAUSIBLE_CARTON_CBM = 2;
+
+export function isPlausibleCartonCbm(cbm: number): boolean {
+  return cbm > 0 && cbm <= MAX_PLAUSIBLE_CARTON_CBM;
+}
+
+/**
  * Two regimes, because CBM lives at two scales. Order totals are metres —
  * and "6.0000 m³" misreads as six thousand at a glance, so anything from one
  * cube up shows two decimals. Single cartons are a FRACTION of a cube

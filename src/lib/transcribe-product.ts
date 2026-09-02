@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isPlausibleCartonCbm } from "@/lib/calculations";
 import { extractJson, type VisionImage, type VisionUsage } from "@/lib/vision";
 
 /**
@@ -222,6 +223,22 @@ export function sanitizeTranscription(
       ? Math.round(v * 10 ** decimals) / 10 ** decimals
       : undefined;
 
+  // Three dimensions on the board make the CBM arithmetic, not a reading:
+  // the form computes it from them, so a model's own figure beside them is
+  // dropped — one reading put "15" next to a 60×45×42 carton (0.11 m³),
+  // and that 15 became the product's volume. A standalone CBM survives
+  // only when it could be a carton at all.
+  const lengthCm = measure(raw.lengthCm);
+  const widthCm = measure(raw.widthCm);
+  const heightCm = measure(raw.heightCm);
+  const readCbm = measure(raw.cbm, 4);
+  const cbm =
+    lengthCm && widthCm && heightCm
+      ? undefined
+      : readCbm !== undefined && isPlausibleCartonCbm(readCbm)
+        ? readCbm
+        : undefined;
+
   const price =
     raw.price !== null && Number.isFinite(raw.price) && raw.price >= 0
       ? Math.round(raw.price * 100) / 100
@@ -255,11 +272,11 @@ export function sanitizeTranscription(
       moq: positiveInt(raw.moq),
       qtyPerBox: positiveInt(raw.qtyPerBox),
       categoryId,
-      lengthCm: measure(raw.lengthCm),
-      widthCm: measure(raw.widthCm),
-      heightCm: measure(raw.heightCm),
+      lengthCm,
+      widthCm,
+      heightCm,
       weightKg: measure(raw.weightKg),
-      cbm: measure(raw.cbm, 4),
+      cbm,
     },
     notes: text(raw.notes) ?? null,
     boardText: text(raw.boardText) ?? null,

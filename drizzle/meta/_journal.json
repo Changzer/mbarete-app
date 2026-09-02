@@ -169,6 +169,13 @@
       "when": 1788250001000,
       "tag": "0023_admin-events",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1788250002000,
+      "tag": "0024_carton-cbm-sanity",
+      "breakpoints": true
     }
   ]
 }

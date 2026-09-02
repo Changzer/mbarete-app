@@ -161,17 +161,45 @@ test("a category id outside the list is rejected", () => {
 
 test("carton figures pass through when positive, drop otherwise", () => {
   const { fields } = sanitizeTranscription(
-    raw({ lengthCm: 60, widthCm: 40.5, heightCm: 50, weightKg: 12.345, cbm: 0.02 }),
+    raw({ lengthCm: 60, widthCm: 40.5, heightCm: 50, weightKg: 12.345 }),
     CATEGORY_IDS,
   );
   assert.equal(fields.lengthCm, 60);
   assert.equal(fields.widthCm, 40.5);
   assert.equal(fields.weightKg, 12.35);
-  assert.equal(fields.cbm, 0.02);
 
   const dropped = sanitizeTranscription(raw({ weightKg: 0, cbm: -1 }), CATEGORY_IDS).fields;
   assert.equal(dropped.weightKg, undefined);
   assert.equal(dropped.cbm, undefined);
+});
+
+test("a CBM beside three dimensions is dropped — the dimensions decide", () => {
+  // The reading that shipped a 15 m³ carton: correct dimensions, invented CBM.
+  const { fields } = sanitizeTranscription(
+    raw({ lengthCm: 60, widthCm: 45, heightCm: 42, cbm: 15 }),
+    CATEGORY_IDS,
+  );
+  assert.equal(fields.lengthCm, 60);
+  assert.equal(fields.heightCm, 42);
+  assert.equal(fields.cbm, undefined);
+  // Even a correct one: it is arithmetic the form does itself.
+  const agreeing = sanitizeTranscription(
+    raw({ lengthCm: 60, widthCm: 45, heightCm: 42, cbm: 0.1134 }),
+    CATEGORY_IDS,
+  ).fields;
+  assert.equal(agreeing.cbm, undefined);
+});
+
+test("a standalone CBM survives only when it could be a carton", () => {
+  assert.equal(sanitizeTranscription(raw({ cbm: 0.02 }), CATEGORY_IDS).fields.cbm, 0.02);
+  assert.equal(sanitizeTranscription(raw({ cbm: 1.2 }), CATEGORY_IDS).fields.cbm, 1.2);
+  // A pallet is 1.2 m³; nothing hand-carried is 15.
+  assert.equal(sanitizeTranscription(raw({ cbm: 15 }), CATEGORY_IDS).fields.cbm, undefined);
+  // Two of three dimensions are not enough to compute, so the figure stays.
+  assert.equal(
+    sanitizeTranscription(raw({ lengthCm: 60, widthCm: 45, cbm: 0.11 }), CATEGORY_IDS).fields.cbm,
+    0.11,
+  );
 });
 
 test("a category proposal only survives when nothing matched and both names exist", () => {

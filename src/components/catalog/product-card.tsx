@@ -231,11 +231,11 @@ export function ProductCard({
             </Figure>
             <Figure label={t("qtyPerBox")}>{product.qtyPerBox}</Figure>
             <Figure label={estimated ? t("pieceSize") : t("size")}>
-              {unmeasured && !estimated
-                ? t("notRecorded")
-                : estimated
-                  ? `${product.pieceLengthCm}×${product.pieceWidthCm}×${product.pieceHeightCm}`
-                  : `${product.lengthCm}×${product.widthCm}×${product.heightCm}`}
+              {estimated
+                ? `${product.pieceLengthCm}×${product.pieceWidthCm}×${product.pieceHeightCm}`
+                : product.lengthCm > 0 || product.widthCm > 0 || product.heightCm > 0
+                  ? `${product.lengthCm}×${product.widthCm}×${product.heightCm}`
+                  : t("notRecorded")}
             </Figure>
             <Figure label={t("weight")} estimated={estimated} estimatedLabel={t("estimated")}>
               {product.weightKg > 0 ? `${formatWeightKg(product.weightKg)} kg` : t("notRecorded")}

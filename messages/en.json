@@ -192,6 +192,7 @@
     "aiNotes": "AI notes",
     "cbmOverride": "CBM per carton, from vendor (m³)",
     "cbmOverrideHelp": "Optional. If the vendor quotes the carton CBM directly, enter it here — it is used instead of computing from the dimensions.",
+    "cbmImplausible": "{cbm} m³ per carton is bigger than a pallet. Carton CBM is usually between 0.01 and 0.5 m³ — check the units (cm, not mm) and the vendor's figure before saving.",
     "supplier": "Supplier",
     "noSupplier": "No supplier",
     "noSupplierMatches": "No suppliers match.",
