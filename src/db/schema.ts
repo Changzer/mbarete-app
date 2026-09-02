@@ -1152,3 +1152,27 @@ export const waitlistSignups = pgTable("waitlist_signups", {
   locale: text("locale").notNull(),
   createdAt: text("created_at").notNull().default(utcNow),
 });
+
+/**
+ * What the platform operator did, to whom. Platform data, no RLS: the
+ * operator acts across tenants by definition, and the panel reads it back
+ * under platform scope. Every cross-tenant write from the panel and every
+ * reset link minted there leaves a row here — the panel is a support tool
+ * with reach into every tenant, and support access nobody can see
+ * afterwards is not something a company should have to take on trust.
+ */
+export const platformEvents = pgTable(
+  "platform_events",
+  {
+    id: serial("id").primaryKey(),
+    operatorUserId: integer("operator_user_id")
+      .notNull()
+      .references(() => users.id),
+    action: text("action").notNull(),
+    targetCompanyId: integer("target_company_id"),
+    targetUserId: integer("target_user_id"),
+    detail: text("detail").notNull().default(""),
+    createdAt: text("created_at").notNull().default(utcNow),
+  },
+  (table) => [index("platform_events_created_idx").on(table.createdAt)],
+);

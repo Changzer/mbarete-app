@@ -107,7 +107,7 @@ export type TranscribeResult =
       /** Set by the server action once the crop is saved to the uploads volume. */
       thumbPath?: string;
     }
-  | { ok: false; error: "no-photos" | "not-configured" | "failed" };
+  | { ok: false; error: "no-photos" | "not-configured" | "failed" | "limit" };
 
 const SYSTEM_PROMPT = `You transcribe supplier-booth photos into catalog entries for a sourcing company that buys wholesale goods at Chinese markets.
 

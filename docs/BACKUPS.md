@@ -128,13 +128,63 @@ docker compose restart mbarete-app
   restored ids.
 - `--skip-uploads` restores only the database.
 
+## Offsite, encrypted
+
+Retention protects against mistakes and disk loss (if `BACKUP_DIR` is on
+another disk), not against the whole machine burning down or being seized.
+The snapshots are plain, readable files — every tenant's contacts, prices
+and invoices — so a copy that leaves the server must leave encrypted.
+
+`scripts/offsite-backup.sh` does exactly that, from the host (not the
+container), for the newest complete snapshot:
+
+1. Finds the newest snapshot directory with a `manifest.json` in the backup
+   volume (auto-detected from Docker, or `BACKUP_SRC`).
+2. Streams it through `tar | gzip | openssl enc -aes-256-cbc -pbkdf2` with
+   the passphrase in the key file — one `.tar.gz.enc` per snapshot, plus a
+   `.sha256`.
+3. Ships both with `rsync` over SSH (default) or `rclone` (`OFFSITE_METHOD=rclone`
+   for S3, Backblaze, OneDrive…).
+4. Remembers what was shipped so a rerun is a no-op, and keeps the last
+   `KEEP_LOCAL` encrypted copies in `STAGING_DIR` (default 3).
+
+Set it up once:
+
+```sh
+# The key. Anyone with this file and a copy can read every tenant's data;
+# nobody without it can. Keep a second copy of it OFF this machine — a
+# password manager entry is fine — or the offsite copies are worthless.
+(umask 077; openssl rand -base64 48 > /root/.mbarete-offsite.key)
+
+# Try it by hand first.
+OFFSITE_KEY=/root/.mbarete-offsite.key \
+OFFSITE_DEST=user@nas:/volume1/backups/mbarete/ \
+/opt/mbarete-app/scripts/offsite-backup.sh
+
+# Then daily, an hour after the app's own snapshot (BACKUP_HOUR_UTC).
+crontab -e
+30 6 * * * OFFSITE_KEY=/root/.mbarete-offsite.key OFFSITE_DEST=user@nas:/volume1/backups/mbarete/ /opt/mbarete-app/scripts/offsite-backup.sh >> /var/log/mbarete-offsite.log 2>&1
+```
+
+Restoring from an offsite copy: bring the `.enc` file back, verify, decrypt
+into a directory, then restore that directory like any local snapshot.
+
+```sh
+sha256sum -c 2026-09-01T06-00-00Z.tar.gz.enc.sha256
+mkdir restore && cd restore
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass file:/root/.mbarete-offsite.key \
+  -in ../2026-09-01T06-00-00Z.tar.gz.enc | tar -xzf -
+# → ./2026-09-01T06-00-00Z/ with manifest.json, tables/, uploads/
+```
+
+Test the restore once a quarter on a machine that is not the server. A
+backup nobody has ever restored is a hope, not a backup.
+
 ## What this does NOT cover
 
-- **Offsite copies.** Retention protects against mistakes and disk loss (if
-  `BACKUP_DIR` is on another disk), not against the whole machine burning
-  down. Sync `BACKUP_DIR` somewhere else — it is plain files, so anything
-  works: `rsync -a`, Syncthing, a cloud drive client. Hardlinks are
-  preserved by `rsync -aH`.
+- **Offsite copies you did not set up.** The app takes snapshots; shipping
+  them off the machine is the host's cron job above, and it only exists once
+  someone creates the key and the destination.
 - **Point-in-time recovery.** Snapshots are daily; work since the last one
   is lost on restore. For a busy SaaS on a real server, add continuous WAL
   archiving at the Postgres level later.

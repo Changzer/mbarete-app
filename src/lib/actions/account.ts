@@ -11,6 +11,7 @@ import { isMailConfigured, sendMail } from "@/lib/mail";
 import { makeLimiter, clientIp } from "@/lib/rate-limit";
 import { platformReauth } from "@/lib/platform/reauth";
 import { recordError } from "@/lib/monitoring";
+import { sendVerificationEmail, appOrigin } from "@/lib/verification-mail";
 import { hashInviteToken as hashToken, newInviteToken as newToken, isoNow, isoIn } from "@/lib/invites";
 
 /**
@@ -23,12 +24,6 @@ import { hashInviteToken as hashToken, newInviteToken as newToken, isoNow, isoIn
  */
 
 const RESET_TTL_MS = 30 * 60 * 1000;
-const VERIFY_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-
-function appOrigin(): string {
-  // The public origin for links in emails. On the NAS this is the LAN URL.
-  return process.env.APP_ORIGIN || "http://localhost:3000";
-}
 
 // ---------------------------------------------------------------- forgot ---
 
@@ -166,27 +161,6 @@ export async function resetPassword(
 }
 
 // ---------------------------------------------------------------- verify ---
-
-/** Creates and emails a verification link; quiet no-op without SMTP. */
-export async function sendVerificationEmail(userId: number, email: string, locale: string) {
-  if (!isMailConfigured()) return;
-  const token = newToken();
-  await db.insert(authTokens).values({
-    userId,
-    kind: "verify",
-    tokenHash: hashToken(token),
-    expiresAt: isoIn(VERIFY_TTL_MS),
-  });
-  const link = `${appOrigin()}/${locale}/verify/${token}`;
-  const subject = locale === "zh" ? "验证您的 Mbarete 邮箱" : "Verify your Mbarete email";
-  const text =
-    locale === "zh"
-      ? `点击以下链接验证此邮箱（7 天内有效）：\n${link}`
-      : `Click the link below to verify this email address (valid for 7 days):\n${link}`;
-  await sendMail({ to: email, subject, text }).catch((err) =>
-    recordError("mail:verification", err),
-  );
-}
 
 export async function verifyEmailToken(token: string): Promise<boolean> {
   if (!token || token.length > 200) return false;

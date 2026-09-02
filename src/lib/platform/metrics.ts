@@ -1,7 +1,8 @@
-import { count, countDistinct, desc, eq, max, sql, sum, inArray } from "drizzle-orm";
+import { count, countDistinct, desc, eq, gte, max, sql, sum, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { companies, users, products, orders, contacts, userActivityDays, invites, aiUsage, waitlistSignups } from "@/db/schema";
 import { companyStorageBytes } from "@/lib/uploads";
+import { utcDayStart } from "@/lib/ai-budget";
 
 /**
  * Everything the operator panel shows, in one pass.
@@ -49,6 +50,8 @@ export type CompanyMetrics = {
   aiImages: number;
   aiInputTokens: number;
   aiOutputTokens: number;
+  /** Scans since UTC midnight — against the plan's daily allowance. */
+  aiReadsToday: number;
 };
 
 export type PlatformOverview = {
@@ -73,6 +76,7 @@ export async function loadPlatformOverview(): Promise<PlatformOverview> {
     inviteCounts,
     activityRows,
     aiRows,
+    aiTodayRows,
   ] = await Promise.all([
     db.select().from(companies).orderBy(companies.id),
     db
@@ -116,6 +120,11 @@ export async function loadPlatformOverview(): Promise<PlatformOverview> {
       })
       .from(aiUsage)
       .groupBy(aiUsage.companyId),
+    db
+      .select({ companyId: aiUsage.companyId, n: count() })
+      .from(aiUsage)
+      .where(gte(aiUsage.createdAt, utcDayStart()))
+      .groupBy(aiUsage.companyId),
   ]);
 
   const byCompany = <T extends { companyId: number }>(rows: T[]) => {
@@ -134,6 +143,7 @@ export async function loadPlatformOverview(): Promise<PlatformOverview> {
   const invitesBy = byCompany(inviteCounts);
   const activityBy = byCompany(activityRows);
   const aiBy = byCompany(aiRows);
+  const aiTodayBy = byCompany(aiTodayRows);
 
   const storage = new Map<number, number>();
   await Promise.all(
@@ -192,6 +202,7 @@ export async function loadPlatformOverview(): Promise<PlatformOverview> {
       aiImages: Number(ai?.images ?? 0),
       aiInputTokens: Number(ai?.input ?? 0),
       aiOutputTokens: Number(ai?.output ?? 0),
+      aiReadsToday: aiTodayBy.get(c.id)?.[0]?.n ?? 0,
     };
   });
 

@@ -26,7 +26,7 @@ export type TranscribedContactFields = {
 
 export type CardTranscribeResult =
   | { ok: true; fields: TranscribedContactFields; notes: string | null }
-  | { ok: false; error: "no-photos" | "not-configured" | "failed" };
+  | { ok: false; error: "no-photos" | "not-configured" | "failed" | "limit" };
 
 /** Everything nullable: the model must leave unknowns empty, never guess. */
 const cardSchema = z.object({

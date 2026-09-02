@@ -13,6 +13,7 @@ import {
 } from "@/lib/transcribe-product";
 import { transcribeBusinessCard } from "@/lib/transcribe-card";
 import { recordAiUsage } from "@/lib/ai-usage";
+import { reserveAiRead } from "@/lib/ai-budget";
 import { cropAndSaveThumb } from "@/lib/thumb-crop";
 
 /**
@@ -177,6 +178,14 @@ export async function readDraft(companyId: number, draftId: number): Promise<voi
   const payload = await loadStoredImages(images.map((i) => i.path));
   if (payload.length === 0) {
     await recordReadFailure(draftId, "image-missing");
+    return;
+  }
+
+  // The same brakes as the live form: a capture is a paid scan too, and the
+  // draft keeps its retry button so the read can be asked for again tomorrow.
+  const budget = await reserveAiRead({ companyId, userId: draft.userId ?? null });
+  if (budget !== "ok") {
+    await recordReadFailure(draftId, "limit");
     return;
   }
 

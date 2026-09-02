@@ -182,7 +182,7 @@ export function ContactForm({
   const formRef = useRef<HTMLFormElement>(null);
   const [removed, setRemoved] = useState<number[]>([]);
   const [aiPending, setAiPending] = useState(false);
-  const [aiError, setAiError] = useState<"no-photos" | "failed" | null>(null);
+  const [aiError, setAiError] = useState<"no-photos" | "failed" | "limit" | null>(null);
   const [aiNotes, setAiNotes] = useState<string | null>(null);
   // Whether AI wrote into this form — drives the "AI-read, please verify"
   // label the AI-output rules ask for (and honesty asks for anyway).
@@ -234,6 +234,8 @@ export function ContactForm({
         setSimilar(findSimilarContact(candidates, result.fields) ?? null);
       } else if (result.error === "no-photos") {
         setAiError("no-photos");
+      } else if (result.error === "limit") {
+        setAiError("limit");
       } else {
         setAiError("failed");
       }
@@ -413,7 +415,11 @@ export function ContactForm({
             </Button>
             {aiError ? (
               <p className="text-[12px] font-semibold text-danger" data-testid="card-ai-error">
-                {aiError === "no-photos" ? t("aiErrorNoPhotos") : t("aiErrorFailed")}
+                {aiError === "no-photos"
+                    ? t("aiErrorNoPhotos")
+                    : aiError === "limit"
+                      ? t("aiErrorLimit")
+                      : t("aiErrorFailed")}
               </p>
             ) : aiNotes ? (
               <p

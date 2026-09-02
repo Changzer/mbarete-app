@@ -21,6 +21,13 @@ export type Plan = {
   maxUsers: number | null;
   maxProducts: number | null;
   maxStorageBytes: number | null;
+  /**
+   * AI photo reads per UTC day, counted from the spend ledger (ai_usage) —
+   * every read is a paid vision request, and this is the one number that
+   * bounds what a company can cost us in a day. Both scan paths (the live
+   * form and the offline capture's background read) draw on it.
+   */
+  maxAiReadsPerDay: number | null;
 };
 
 const MB = 1024 * 1024;
@@ -34,6 +41,7 @@ export const PLANS: Record<PlanId, Plan> = {
     maxUsers: 1,
     maxProducts: 50,
     maxStorageBytes: 250 * MB,
+    maxAiReadsPerDay: 50,
   },
   pro: {
     id: "pro",
@@ -41,6 +49,9 @@ export const PLANS: Record<PlanId, Plan> = {
     maxUsers: 5,
     maxProducts: null,
     maxStorageBytes: null,
+    // A generous ceiling rather than "unlimited": a runaway client or a
+    // stolen session on a paid account is still bounded per day.
+    maxAiReadsPerDay: 1000,
   },
 };
 

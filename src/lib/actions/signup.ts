@@ -10,7 +10,7 @@ import { createCompanyWithOwner } from "@/lib/company";
 import { isSaas, signupCode } from "@/lib/deploy";
 import { companyByReferralCode } from "@/lib/referrals";
 import { makeLimiter, clientIp } from "@/lib/rate-limit";
-import { sendVerificationEmail } from "@/lib/actions/account";
+import { sendVerificationEmail } from "@/lib/verification-mail";
 import { getLocale } from "next-intl/server";
 
 export type SignupError =

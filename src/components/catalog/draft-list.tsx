@@ -120,7 +120,7 @@ function DraftCard({ draft, aiEnabled }: { draft: DraftListItem; aiEnabled: bool
           read drafts too — their re-read can fail just the same. */}
       {draft.transcriptError ? (
         <p className="text-xs text-warn" data-testid="draft-read-error">
-          {t("readFailed")}
+          {draft.transcriptError === "limit" ? t("readLimited") : t("readFailed")}
         </p>
       ) : null}
       {importError ? (

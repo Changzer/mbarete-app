@@ -35,3 +35,9 @@ test("plans: usage labels show the cap only when there is one", () => {
   assert.equal(usageLabel(12, 50), "12/50");
   assert.equal(usageLabel(12, null), "12");
 });
+
+test("plans: AI reads are capped per day on both plans, tighter on free", () => {
+  assert.equal(PLANS.free.maxAiReadsPerDay, 50);
+  assert.equal(PLANS.pro.maxAiReadsPerDay, 1000);
+  assert.ok(PLANS.free.maxAiReadsPerDay! < PLANS.pro.maxAiReadsPerDay!);
+});
