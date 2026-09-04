@@ -17,9 +17,13 @@ import type { BuilderProduct } from "@/components/orders/order-builder";
  * an editable value is a labeled, boxed field with a pencil; a computed
  * value is plain text with a name; red is reserved for problems.
  *
- * Stacked on phones; from 640px up the card lays out as a table row
- * (name | quantity | price | subtotal) where leftover width goes to the
- * name, never to the controls.
+ * Three tiers by the CARD's own width (a container query, not a viewport
+ * one: beside the sticky summary column the card is two thirds of the page,
+ * and a 1024px screen leaves it too narrow for a row). Phones stack
+ * everything; from 36rem the name takes its own line above one row of
+ * quantity | price | subtotal; from 48rem it is one table row (name |
+ * quantity | price | subtotal) where leftover width goes to the name, never
+ * to the controls.
  */
 export function LineCard({
   product,
@@ -54,7 +58,7 @@ export function LineCard({
   return (
     <div
       data-testid={`line-${product.sku}`}
-      className={`relative mb-3 rounded-2xl bg-surface p-4 ${
+      className={`relative mb-3 rounded-2xl bg-surface p-4 @container ${
         below || partial ? "border-2 border-action" : "border border-line"
       }`}
     >
@@ -67,10 +71,15 @@ export function LineCard({
         <X size={18} />
       </button>
 
-      <div className="grid grid-cols-[1fr_112px] gap-3 sm:grid-cols-[minmax(170px,1fr)_252px_120px_104px] sm:items-end sm:gap-x-5">
+      <div className="grid grid-cols-[1fr_112px] gap-3 @xl:grid-cols-[252px_120px_minmax(104px,1fr)] @xl:items-end @xl:gap-x-5 @3xl:grid-cols-[minmax(220px,1fr)_252px_120px_104px]">
         {/* name — the only column that absorbs extra width */}
-        <div className="col-span-full pr-7 sm:col-auto sm:self-center">
-          <div className="text-[16px] font-bold leading-tight text-ink">{product.name}</div>
+        <div className="col-span-full min-w-0 pr-7 @3xl:col-auto @3xl:self-center">
+          <div
+            className="line-clamp-3 text-[16px] font-bold leading-tight text-ink [overflow-wrap:anywhere]"
+            title={product.name}
+          >
+            {product.name}
+          </div>
           <div className="mt-0.5 font-mono text-[11.5px] text-sub">
             {product.categoryName} · {t("moq")} {product.moq} ·{" "}
             {hasCarton ? `${product.qtyPerBox}/${t("ctnShort")}` : (
@@ -141,7 +150,7 @@ export function LineCard({
         </div>
 
         {/* computed */}
-        <div className="col-span-full flex items-baseline justify-between border-t border-line pt-2.5 sm:col-auto sm:flex-col sm:items-end sm:gap-1.5 sm:border-t-0 sm:pt-0">
+        <div className="col-span-full flex items-baseline justify-between border-t border-line pt-2.5 @xl:col-auto @xl:flex-col @xl:items-end @xl:gap-1.5 @xl:border-t-0 @xl:pt-0">
           <span className="font-mono text-[11px] tracking-[0.12em] text-sub">
             {t("keypadSubtotal").toUpperCase()}
           </span>
