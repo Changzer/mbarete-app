@@ -3,6 +3,7 @@ import { getOpenDrafts } from "@/lib/queries/drafts";
 import { isTranscriptionEnabled } from "@/lib/transcribe-product";
 import { DraftList } from "@/components/catalog/draft-list";
 import { requireUser } from "@/lib/authz";
+import { getSuppliersForPicker } from "@/lib/queries/contacts";
 
 /**
  * Captures delivered from phones, waiting to be reviewed into the catalog or
@@ -13,7 +14,7 @@ import { requireUser } from "@/lib/authz";
 export default async function DraftsPage() {
   const t = await getTranslations("drafts");
   const { companyId } = await requireUser();
-  const drafts = await getOpenDrafts(companyId);
+  const [drafts, suppliers] = await Promise.all([getOpenDrafts(companyId), getSuppliersForPicker(companyId)]);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
@@ -21,7 +22,11 @@ export default async function DraftsPage() {
         {t("title")}
       </h1>
       <p className="mb-6 text-sm text-sub">{t("help")}</p>
-      <DraftList drafts={drafts} aiEnabled={isTranscriptionEnabled()} />
+      <DraftList
+        drafts={drafts}
+        aiEnabled={isTranscriptionEnabled()}
+        suppliers={suppliers.map((s) => ({ id: s.id, name: s.companyName || s.companyNameZh, booth: s.boothLocation }))}
+      />
     </div>
   );
 }

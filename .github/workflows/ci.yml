@@ -84,6 +84,14 @@ jobs:
           echo "app never became healthy" && exit 1
       - run: npm run test:e2e
 
+      # Continuous field capture in the same browser and against the same
+      # server: per-photo persistence and reload recovery, booth visits and
+      # a supplier decided before every capture has arrived, a delivery whose
+      # response is lost after the server committed, addenda offline and
+      # after delivery, the legacy queue across the store upgrade, and
+      # another account's captures staying on the phone.
+      - run: npm run test:capture
+
       # The disaster drill on the data the golden path just created: back it
       # up, damage rows and files, prove a corrupted backup is refused before
       # anything is truncated, then restore the intact one exactly.

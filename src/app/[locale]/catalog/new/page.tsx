@@ -90,7 +90,8 @@ export default async function NewProductPage({
         const f = reviewable.fields;
         const tr = reviewable.transcript;
         const catId = num(f.categoryId) ?? tr.categoryId;
-        const supId = num(f.supplierId);
+        // The supplier typed at the booth, else what the visit resolved to.
+        const supId = num(f.supplierId) ?? reviewable.effectiveSupplierId ?? undefined;
         return {
           sku: f.sku || undefined,
           supplierCode: f.supplierCode || tr.supplierCode,

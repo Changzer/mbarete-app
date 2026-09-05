@@ -85,6 +85,14 @@ export async function POST(request: Request) {
   const clientId = String(form.get("clientId") ?? "");
   const capturedAt = String(form.get("capturedAt") ?? "");
   const kind = form.get("kind") === "contact" ? "contact" : "product";
+  // The capture screen's booth context. Absent from the old form's queue.
+  const visitId = String(form.get("visitId") ?? "").slice(0, 80);
+  const idOrUndefined = (v: FormDataEntryValue | null) => {
+    const n = Number(v);
+    return Number.isInteger(n) && n > 0 ? n : undefined;
+  };
+  const visitSupplierId = idOrUndefined(form.get("visitSupplierId"));
+  const supplierId = idOrUndefined(form.get("supplierId"));
 
   let fields: Record<string, string>;
   try {
@@ -122,6 +130,9 @@ export async function POST(request: Request) {
     files: [...files, ...(qr ? [{ file: qr, role: "qr" as const }] : [])],
     userId: user.id,
     companyId: user.companyId,
+    visitId: visitId || undefined,
+    visitSupplierId,
+    supplierId,
   });
 
   if (!result.ok) {

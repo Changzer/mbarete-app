@@ -21,12 +21,28 @@ import {
   type OfflineDraft,
 } from "@/lib/offline/draft";
 import {
+  deleteAddendum,
+  deleteCaptureOriginals,
   deleteDraft,
   getDraft,
+  getVisit,
+  listAddenda,
+  listCaptures,
   listDrafts,
   mintClientId,
+  putAddendum,
+  putCapture,
   putDraft,
 } from "@/lib/client/outbox-db";
+import {
+  addendumToFormData,
+  afterDelivery,
+  blockedCount,
+  captureToFormData,
+  deliveryPlan,
+  owedCount,
+} from "@/lib/offline/capture";
+import { photosOf } from "@/lib/client/capture-store";
 
 /**
  * The outbox: captures saved to the phone, and the loop that ships them.
@@ -49,6 +65,8 @@ export type OutboxState = {
   needsSignIn: boolean;
   /** The last word on reachability: an OS offline event, or a failed probe. */
   offline: boolean;
+  /** Bumped after every delivery pass, so screens showing local rows refresh. */
+  epoch: number;
 };
 
 type OutboxApi = OutboxState & {
@@ -141,6 +159,7 @@ export function OutboxProvider({
     syncing: false,
     needsSignIn: false,
     offline: false,
+    epoch: 0,
   });
 
   // One delivery pass at a time; a second request marks the pass dirty so it
@@ -150,12 +169,18 @@ export function OutboxProvider({
 
   const refreshCounts = useCallback(async () => {
     try {
-      const drafts = await listDrafts(storageScope);
+      const [drafts, captures, addenda] = await Promise.all([
+        listDrafts(storageScope),
+        listCaptures(storageScope),
+        listAddenda(storageScope),
+      ]);
       const open = unsentDrafts(drafts);
       setState((prev) => ({
         ...prev,
-        pending: open.length,
-        blocked: open.filter((d) => d.status === "blocked").length,
+        pending: open.length + owedCount(captures, addenda),
+        blocked:
+          open.filter((d) => d.status === "blocked").length + blockedCount(captures, addenda),
+        epoch: prev.epoch + 1,
       }));
     } catch {
       // IndexedDB unavailable (private mode): nothing to count.
@@ -183,12 +208,14 @@ export function OutboxProvider({
         if (!reachable) break;
 
         let drafts: OfflineDraft[];
+        let plan: ReturnType<typeof deliveryPlan>;
         try {
           drafts = deliveryOrder(await listDrafts(storageScope));
+          plan = deliveryPlan(await listCaptures(storageScope), await listAddenda(storageScope));
         } catch {
           break;
         }
-        if (drafts.length === 0) break;
+        if (drafts.length === 0 && plan.captures.length === 0 && plan.addenda.length === 0) break;
 
         for (const draft of drafts) {
           // Pace retries: a draft that just failed waits its turn instead of
@@ -235,6 +262,79 @@ export function OutboxProvider({
               // queue — the rest would only re-upload their photos to collect
               // the same answer, every pass, until someone signs in.
               break;
+            }
+          }
+        }
+
+        // Field captures next, then addenda for captures the server holds.
+        // Same verdict rules as the old queue: a 2xx counts only with our
+        // endpoint's body, and the phone lets go only after "sent" is on disk.
+        let linkDied = false;
+        for (const capture of plan.captures) {
+          if (capture.attempts > 0) {
+            await new Promise((resolve) =>
+              setTimeout(resolve, Math.min(nextAttemptDelayMs(capture.attempts), 5000)),
+            );
+          }
+          let verdict: ReturnType<typeof interpretDelivery>;
+          try {
+            const visit = await getVisit(storageScope, capture.visitId);
+            const photos = await photosOf(storageScope, capture.captureId);
+            const res = await fetch("/api/drafts", {
+              method: "POST",
+              body: captureToFormData(capture, visit, photos),
+            });
+            verdict = interpretDelivery(res.status, await res.json().catch(() => null));
+          } catch {
+            verdict = { status: null };
+          }
+          const after = afterDelivery(capture, "capture", verdict.status, verdict);
+          setState((prev) => ({
+            ...prev,
+            needsSignIn: verdict.status === 401 || verdict.status === 403,
+            offline: verdict.status === null,
+          }));
+          if (after.status === "sent") {
+            await putCapture(storageScope, { ...after, draftId: verdict.draftId }).catch(() => {});
+            await deleteCaptureOriginals(storageScope, capture.captureId).catch(() => {});
+          } else {
+            await putCapture(storageScope, after).catch(() => {});
+            if (verdict.status === null || verdict.status === 401 || verdict.status === 403) {
+              linkDied = true;
+              break;
+            }
+          }
+        }
+        if (!linkDied) {
+          for (const addendum of plan.addenda) {
+            if (addendum.attempts > 0) {
+              await new Promise((resolve) =>
+                setTimeout(resolve, Math.min(nextAttemptDelayMs(addendum.attempts), 5000)),
+              );
+            }
+            let status: number | null;
+            let error: string | undefined;
+            try {
+              const photos = await photosOf(storageScope, addendum.captureId);
+              const res = await fetch("/api/drafts/photos", {
+                method: "POST",
+                body: addendumToFormData(addendum, photos),
+              });
+              const body = (await res.json().catch(() => null)) as { imageId?: unknown; error?: unknown } | null;
+              // The same captive-portal rule: a 2xx without our body is no answer.
+              const proven = res.ok && body && typeof body.imageId === "number";
+              status = res.ok ? (proven ? res.status : null) : res.status;
+              error = typeof body?.error === "string" ? body.error : undefined;
+            } catch {
+              status = null;
+            }
+            const after = afterDelivery(addendum, "addendum", status, { error });
+            if (after.status === "sent") {
+              await putAddendum(storageScope, after).catch(() => {});
+              await deleteAddendum(storageScope, addendum).catch(() => {});
+            } else {
+              await putAddendum(storageScope, after).catch(() => {});
+              if (status === null || status === 401 || status === 403) break;
             }
           }
         }

@@ -40,19 +40,40 @@ export const STUB_READING = {
   notes: null,
 };
 
+/** The card lying beside the handbag: what "identify supplier" reads. */
+export const STUB_CARD = {
+  companyNameEn: "Yiwu Golden Bag Co., Ltd.",
+  companyNameZh: "义乌金袋皮具有限公司",
+  taxId: null,
+  contactPerson: "陈瑶 (Chen Yao)",
+  phone: "13800001234",
+  email: null,
+  whatsapp: null,
+  wechat: null,
+  boothLocation: "No.4642, Street 9, Area C, 2/F, District 1 (义乌国际商贸城一区2楼C区9街4642店)",
+  bankInfo: null,
+  notes: "WeChat QR on card back",
+};
+
 const server = http.createServer((req, res) => {
   if (req.method !== "POST" || !req.url?.endsWith("/chat/completions")) {
     res.writeHead(404).end();
     return;
   }
-  // Drain the body — the pipeline sends megabytes of base64 photos and a
+  // Buffer the body — the pipeline sends megabytes of base64 photos and a
   // response before the request finishes reads as a broken socket to fetch.
-  req.on("data", () => {});
+  // Only the user text is looked at: a business-card request (the contact
+  // form, a contact capture, "identify supplier from a photo") gets the
+  // card reading, everything else the product one.
+  const chunks = [];
+  req.on("data", (c) => chunks.push(c));
   req.on("end", () => {
+    const text = Buffer.concat(chunks).toString("utf8");
+    const reading = text.includes("business card") ? STUB_CARD : STUB_READING;
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(
       JSON.stringify({
-        choices: [{ message: { content: JSON.stringify(STUB_READING) } }],
+        choices: [{ message: { content: JSON.stringify(reading) } }],
         // Fixed pretend bill so usage accounting is exercised end to end.
         usage: { prompt_tokens: 2400, completion_tokens: 350 },
       }),

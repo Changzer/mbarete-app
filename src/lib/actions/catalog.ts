@@ -15,7 +15,7 @@ import {
   captureDrafts,
   captureDraftImages,
 } from "@/db/schema";
-import { eq, and, ne } from "drizzle-orm";
+import { eq, and, ne, inArray } from "drizzle-orm";
 import { productSchema, categorySchema } from "@/lib/validators";
 import {
   computeCbm,
@@ -281,14 +281,36 @@ export async function createProduct(
   const thumbPath = await resolveThumbPath(user.companyId, formData);
   const duplicatedFromId = await resolveDuplicatedFromId(user.companyId, data.duplicatedFromId);
 
-  let inserted;
+  // Promoting a capture draft: the draft's row is locked for the whole
+  // transaction below, so two saves of the same review tab serialize, and
+  // the second finds the draft already imported and lands where the first
+  // did — never a twin product, never photos stolen from the first.
+  const draftId = Number(formData.get("draftId"));
+  const promoting = Number.isFinite(draftId) && draftId > 0 ? draftId : null;
+
+  let outcome:
+    | { kind: "created"; productId: number }
+    | { kind: "already"; productId: number | null }
+    | { kind: "limit" }
+    | { kind: "duplicate-sku" };
   try {
-    // The cap decision and the insert share one transaction under the
-    // company's row lock: two requests racing for the last slot serialize,
-    // and the second re-counts AFTER the first committed. The early check
-    // above is the friendly refusal; this one is the wall.
-    const won = await db.transaction(async (tx) => {
-      if (!(await productSlotAvailableLocked(tx, user.companyId))) return null;
+    // Everything that makes a product a product — the row, its first
+    // supplier quote, its image rows, and the settlement of the draft it
+    // came from — in ONE transaction. A failure anywhere leaves nothing:
+    // no product without images, no draft still open beside its product.
+    // Files were written before this and are cleaned up after, outside it.
+    outcome = await db.transaction(async (tx) => {
+      if (promoting !== null) {
+        const [draftRow] = await tx
+          .select({ id: captureDrafts.id, status: captureDrafts.status, productId: captureDrafts.productId })
+          .from(captureDrafts)
+          .where(and(eq(captureDrafts.companyId, user.companyId), eq(captureDrafts.id, promoting)))
+          .for("update");
+        if (draftRow && draftRow.status === "imported") {
+          return { kind: "already" as const, productId: draftRow.productId };
+        }
+      }
+      if (!(await productSlotAvailableLocked(tx, user.companyId))) return { kind: "limit" as const };
       const [row] = await tx
         .insert(products)
         .values({
@@ -315,85 +337,94 @@ export async function createProduct(
           updatedAt: new Date().toISOString(),
         })
         .returning({ id: products.id });
-      return row;
+      const newProductId = row.id;
+
+      // The price typed on the registration form becomes the product's
+      // first supplier quote, credited to whichever supplier the form
+      // named. Left unrecorded when it named none — honest about knowing
+      // a price but not its source, and a real supplier can be attached later.
+      await tx.insert(productSuppliers).values({
+        companyId: user.companyId,
+        productId: newProductId,
+        supplierId,
+        price: data.price,
+        currency: data.currency,
+        moq: data.moq,
+        quotedOn: new Date().toISOString().slice(0, 10),
+        createdBy: userId,
+      });
+
+      for (const [i, path] of uploaded.entries()) {
+        await tx
+          .insert(productImages)
+          .values({ companyId: user.companyId, productId: newProductId, path, sortOrder: i });
+      }
+
+      // Saving from a capture draft: the photos are already on disk under
+      // the draft, so they move across instead of being uploaded again, and
+      // the draft is settled so it leaves the review queue.
+      if (promoting !== null) {
+        const settled = await tx
+          .update(captureDrafts)
+          .set({ status: "imported", productId: newProductId, updatedAt: new Date().toISOString() })
+          .where(
+            and(
+              eq(captureDrafts.companyId, user.companyId),
+              eq(captureDrafts.id, promoting),
+              inArray(captureDrafts.status, ["pending", "read"]),
+            ),
+          )
+          .returning({ id: captureDrafts.id });
+        if (settled.length > 0) {
+          const draftImageRows = await tx
+            .select()
+            .from(captureDraftImages)
+            .where(eq(captureDraftImages.draftId, promoting));
+          const draftImages = draftImageRows.sort((a, b) => a.sortOrder - b.sortOrder);
+          for (const [i, image] of draftImages.entries()) {
+            await tx.insert(productImages).values({
+              companyId: user.companyId,
+              productId: newProductId,
+              path: image.path,
+              sortOrder: uploaded.length + i,
+            });
+          }
+          // Original photos and addenda alike now belong to the product; the
+          // draft keeps no image rows, so a late addendum for it lands on
+          // the product directly (see /api/drafts/photos).
+          await tx.delete(captureDraftImages).where(eq(captureDraftImages.draftId, promoting));
+        }
+      }
+
+      return { kind: "created" as const, productId: newProductId };
     });
-    if (!won) {
-      for (const path of uploaded) await deleteUpload(path);
-      return "limit-products";
-    }
-    inserted = won;
   } catch {
     // Two saves racing onto the same auto-assigned SKU: the loser retries by hand.
     for (const path of uploaded) await deleteUpload(path);
     return "duplicate-sku";
   }
 
-  const newProductId = inserted.id;
+  if (outcome.kind === "limit") {
+    for (const path of uploaded) await deleteUpload(path);
+    return "limit-products";
+  }
+  if (outcome.kind === "already") {
+    // The retry of a promotion that already succeeded: this attempt's
+    // uploads are surplus, and the reviewer lands where the first save did.
+    for (const path of uploaded) await deleteUpload(path);
+    revalidatePath("/catalog/drafts");
+    revalidatePath("/catalog");
+    const locale = (await getLocale()) as Locale;
+    redirect({ href: "/catalog?saved=1", locale });
+  }
+
+  if (outcome.kind !== "created") return "invalid";
+  const newProductId = outcome.productId;
 
   await logEntityEvent(user.companyId, "product", newProductId, userId, "created", {
     name: productLogName({ sku, nameEn: data.nameEn }),
   });
-
-  // The price typed on the registration form becomes the product's first
-  // supplier quote, credited to whichever supplier the form named. Left
-  // unrecorded when it named none — honest about knowing a price but not
-  // its source, and a real supplier can be attached later.
-  await db.insert(productSuppliers)
-    .values({
-      companyId: user.companyId,
-      productId: newProductId,
-      supplierId,
-      price: data.price,
-      currency: data.currency,
-      moq: data.moq,
-      quotedOn: new Date().toISOString().slice(0, 10),
-      createdBy: userId,
-    });
-
-  for (const [i, path] of uploaded.entries()) {
-    await db
-      .insert(productImages)
-      .values({ companyId: user.companyId, productId: newProductId, path, sortOrder: i });
-  }
-
-  // Saving from a capture draft (photos taken offline at a booth): the photos
-  // are already on disk under the draft, so they move across instead of being
-  // uploaded again, and the draft is settled so it leaves the review queue.
-  const draftId = Number(formData.get("draftId"));
-  if (Number.isFinite(draftId) && draftId > 0) {
-    const draft = await db
-      .select()
-      .from(captureDrafts)
-      .where(and(eq(captureDrafts.companyId, user.companyId), eq(captureDrafts.id, draftId)))
-      .limit(1)
-      .then(one);
-    // Only an open draft is promotable — a second save of the same review tab
-    // must not steal photos from the product the first save created.
-    if (draft && (draft.status === "pending" || draft.status === "read")) {
-      const draftImageRows = await db
-        .select()
-        .from(captureDraftImages)
-        .where(eq(captureDraftImages.draftId, draftId));
-      const draftImages = draftImageRows.sort((a, b) => a.sortOrder - b.sortOrder);
-      for (const [i, image] of draftImages.entries()) {
-        await db.insert(productImages).values({
-          companyId: user.companyId,
-          productId: newProductId,
-          path: image.path,
-          sortOrder: uploaded.length + i,
-        });
-      }
-      await db.delete(captureDraftImages).where(eq(captureDraftImages.draftId, draftId));
-      await db.update(captureDrafts)
-        .set({
-          status: "imported",
-          productId: newProductId,
-          updatedAt: new Date().toISOString(),
-        })
-        .where(eq(captureDrafts.id, draftId));
-      revalidatePath("/catalog/drafts");
-    }
-  }
+  if (promoting !== null) revalidatePath("/catalog/drafts");
 
   revalidatePath("/catalog");
 

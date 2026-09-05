@@ -1036,12 +1036,30 @@ export const captureDrafts = pgTable(
     productId: integer("product_id"),
     /** When the photo was taken, per the phone — not when it arrived here. */
     capturedAt: text("captured_at").notNull(),
+    /**
+     * The booth visit this capture was taken under (capture_visits.client_
+     * visit_id), minted on the phone. Null for captures from before visits
+     * existed and for the old form's offline queue.
+     */
+    visitId: text("visit_id"),
+    /**
+     * A supplier set on THIS capture, overriding the visit's. Null means
+     * "follow the visit" — resolved at read time, never copied, so a visit
+     * decided after the capture arrived still applies to it.
+     */
+    supplierId: integer("supplier_id"),
     createdAt: text("created_at").notNull().default(utcNow),
     updatedAt: text("updated_at").notNull().default(utcNow),
   },
   (table) => [
     index("capture_drafts_company_status_idx").on(table.companyId, table.status),
+    index("capture_drafts_company_visit_idx").on(table.companyId, table.visitId),
     uniqueIndex("capture_drafts_company_id_uq").on(table.companyId, table.id),
+    foreignKey({
+      name: "capture_drafts_company_supplier_fk",
+      columns: [table.companyId, table.supplierId],
+      foreignColumns: [contacts.companyId, contacts.id],
+    }),
     foreignKey({
       name: "capture_drafts_company_user_fk",
       columns: [table.companyId, table.userId],
@@ -1072,15 +1090,60 @@ export const captureDraftImages = pgTable(
       .default("image"),
     path: text("path").notNull(),
     sortOrder: integer("sort_order").notNull().default(0),
+    /**
+     * Set when the photo arrived as an addendum — evidence added after the
+     * capture was sealed. Unique, so a redelivered addendum finds its row
+     * instead of storing the photo twice. Null for original photos.
+     */
+    clientAddendumId: text("client_addendum_id"),
     createdAt: text("created_at").notNull().default(utcNow),
   },
   (table) => [
     index("capture_draft_images_draft_idx").on(table.draftId),
+    uniqueIndex("capture_draft_images_addendum_uq").on(table.clientAddendumId),
     foreignKey({
       name: "capture_draft_images_company_draft_fk",
       columns: [table.companyId, table.draftId],
       foreignColumns: [captureDrafts.companyId, captureDrafts.id],
     }).onDelete("cascade"),
+  ],
+);
+
+/**
+ * A booth visit: the run of captures taken at one supplier's stand, minted
+ * on the phone before anyone knows who the supplier is. It exists so the
+ * supplier decision has somewhere to live that outlasts any one capture —
+ * the reviewer approves a supplier for the visit, and every capture of it
+ * that has not set its own supplier resolves to that decision, including
+ * the ones still on a phone in a steel hall. The row is created by whichever
+ * capture of the visit arrives first.
+ */
+export const captureVisits = pgTable(
+  "capture_visits",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    /** The id the phone minted; unique per company. */
+    clientVisitId: text("client_visit_id").notNull(),
+    /** The approved supplier for this visit, once decided. */
+    supplierId: integer("supplier_id"),
+    /** When the visit began, per the phone. */
+    startedAt: text("started_at").notNull(),
+    createdBy: integer("created_by"),
+    decidedBy: integer("decided_by"),
+    decidedAt: text("decided_at"),
+    createdAt: text("created_at").notNull().default(utcNow),
+    updatedAt: text("updated_at").notNull().default(utcNow),
+  },
+  (table) => [
+    uniqueIndex("capture_visits_company_client_uq").on(table.companyId, table.clientVisitId),
+    foreignKey({
+      name: "capture_visits_company_supplier_fk",
+      columns: [table.companyId, table.supplierId],
+      foreignColumns: [contacts.companyId, contacts.id],
+    }),
   ],
 );
 
