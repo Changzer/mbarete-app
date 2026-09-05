@@ -56,6 +56,41 @@ async function query(text, params = []) {
   }
 }
 
+/** The signed-in account's company: the seed decides its id, the spec must not. */
+async function companyOf() {
+  const [row] = await query("select company_id from users where email = $1", [EMAIL]);
+  assert.ok(row, `seeded account ${EMAIL} exists`);
+  return row.company_id;
+}
+
+/**
+ * Two suppliers to choose between. A fresh CI database has none; the rows
+ * are written under the tenant setting so the insert passes RLS whatever
+ * role DATABASE_ADMIN_URL turns out to be.
+ */
+async function ensureSuppliers(companyId) {
+  const client = new pg.Client({ connectionString: DB_URL });
+  await client.connect();
+  try {
+    await client.query("select set_config('app.company_id', $1::text, false)", [companyId]);
+    const { rows } = await client.query(
+      "select id from contacts where company_id = $1 and type = 'supplier' and active order by id",
+      [companyId],
+    );
+    const ids = rows.map((r) => r.id);
+    for (const name of ["E2E Supplier A", "E2E Supplier B"].slice(ids.length)) {
+      const { rows: inserted } = await client.query(
+        "insert into contacts (company_id, type, company_name) values ($1, 'supplier', $2) returning id",
+        [companyId, name],
+      );
+      ids.push(inserted[0].id);
+    }
+    return ids;
+  } finally {
+    await client.end();
+  }
+}
+
 async function until(fn, { timeout = 20_000, every = 400, label = "condition" } = {}) {
   const started = Date.now();
   for (;;) {
@@ -235,9 +270,9 @@ test("a visit's supplier, approved before all captures arrive, resolves late arr
     for (const id of ["cap-e2e-1", "cap-e2e-2"]) assert.equal((await post(`${id}-${visit}`)).status(), 201);
 
     // The reviewer approves the visit's supplier.
-    const [supplier] = await query(
-      "select id, company_name from contacts where company_id = 1 and type = 'supplier' and active order by id limit 1",
-    );
+    const company = await companyOf();
+    const [supplierId, otherId] = await ensureSuppliers(company);
+    const [supplier] = await query("select id, company_name from contacts where id = $1", [supplierId]);
     await page.goto(`${BASE}/en/catalog/drafts`);
     const header = page.locator(`[data-testid="visit-${visit}"] [data-testid="visit-supplier-select"]`);
     await header.selectOption(String(supplier.id));
@@ -266,22 +301,16 @@ test("a visit's supplier, approved before all captures arrive, resolves late arr
     assert.equal(await cards.locator('[data-testid="draft-effective-supplier"]').count(), 5);
 
     // An explicit override on one capture wins over the visit.
-    const [other] = await query(
-      "select id from contacts where company_id = 1 and type = 'supplier' and active and id <> $1 order by id limit 1",
-      [supplier.id],
-    );
-    if (other) {
-      await cards.first().locator('[data-testid="draft-supplier-select"]').selectOption(String(other.id));
-      await until(async () => {
-        const r = await query(
-          `select coalesce(d.supplier_id, v.supplier_id) as effective from capture_drafts d
-           join capture_visits v on v.company_id = d.company_id and v.client_visit_id = d.visit_id
-           where d.visit_id = $1 and d.supplier_id = $2`,
-          [visit, other.id],
-        );
-        return r.length === 1 && r[0].effective === other.id;
-      }, { label: "override saved" });
-    }
+    await cards.first().locator('[data-testid="draft-supplier-select"]').selectOption(String(otherId));
+    await until(async () => {
+      const r = await query(
+        `select coalesce(d.supplier_id, v.supplier_id) as effective from capture_drafts d
+         join capture_visits v on v.company_id = d.company_id and v.client_visit_id = d.visit_id
+         where d.visit_id = $1 and d.supplier_id = $2`,
+        [visit, otherId],
+      );
+      return r.length === 1 && r[0].effective === otherId;
+    }, { label: "override saved" });
 
     // A mistaken visit assignment is corrected by clearing it: the four that
     // follow the visit go back to unresolved, the override stays.
@@ -292,7 +321,7 @@ test("a visit's supplier, approved before all captures arrive, resolves late arr
          where d.visit_id = $1 and coalesce(d.supplier_id, v.supplier_id) is null`,
         [visit],
       );
-      return r[0].n === (other ? 4 : 5);
+      return r[0].n === 4;
     }, { label: "visit cleared" });
     await context.close();
   } finally {
@@ -498,13 +527,14 @@ test("identifying a supplier from a capture photo attaches the approved supplier
     await group.locator('[data-testid="identify-supplier"]').click();
     await group.locator('[data-testid^="identify-image-"]').first().click();
     await group.locator('[data-testid="supplier-reading"]').waitFor({ timeout: 30_000 });
-    const before = (await query("select count(*)::int as n from contacts where company_id = 1 and type = 'supplier'"))[0].n;
+    const company = await companyOf();
+    const before = (await query("select count(*)::int as n from contacts where company_id = $1 and type = 'supplier'", [company]))[0].n;
     await group.locator('[data-testid="create-supplier-from-reading"]').click();
     await until(async () => {
       const [row] = await query("select supplier_id from capture_visits where client_visit_id = $1", [visit]);
       return row?.supplier_id ? row : null;
     }, { label: "the visit to get its supplier" });
-    const after = (await query("select count(*)::int as n from contacts where company_id = 1 and type = 'supplier'"))[0].n;
+    const after = (await query("select count(*)::int as n from contacts where company_id = $1 and type = 'supplier'", [company]))[0].n;
     assert.equal(after, before + 1, "one supplier created from the reading");
     // The evidence photo is still the draft's own photo — nothing was copied.
     const [img] = await query("select count(*)::int as n from capture_draft_images i join capture_drafts d on d.id = i.draft_id where d.visit_id = $1", [visit]);
