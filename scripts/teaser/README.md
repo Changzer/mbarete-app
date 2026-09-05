@@ -16,9 +16,11 @@ cp .env.example .env.local        # AUTH_SECRET, ADMIN_EMAIL=demo@mbarete.local,
 npm run build && npm start        # production mode — dev mode leaves the Next.js
                                   # badge in shots and breaks photo previews
                                   # (StrictMode revokes the object URLs)
-node scripts/teaser/vision-mock.mjs &   # answers "Fill from photos" with the
-                                        # highlighter reading, delayed ~3.8s so
-                                        # "Reading photos…" is visible on camera
+node scripts/teaser/vision-mock.mjs &   # answers "Fill from photos" with a fixed
+                                        # product reading (the vacuum bottle),
+                                        # delayed ~3.8s so "Reading photos…" is
+                                        # visible on camera. Edit READING there
+                                        # to capture a different product.
 ```
 
 Copy the product photos from `videos/mbarete-teaser/assets/` into `uploads/c1/`
@@ -43,6 +45,9 @@ and desktop (1440×900@2x) sizes, EN and ZH. `SKIP_MOBILE=1` reruns only the
 desktop shots (a mobile rerun would register a duplicate product).
 
 Optimized copies used by the video live in `videos/mbarete-teaser/assets/shots/`.
+The phone screens the live-action cut feeds to Seedance live in
+`videos/mbarete-teaser/assets/seedance-refs/` — see
+`videos/mbarete-teaser/SEEDANCE-PROMPT.md`.
 
 ## 3. Render the video
 
