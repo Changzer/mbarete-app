@@ -18,7 +18,7 @@ import {
 } from "../src/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { runWithTenant } from "../src/db/tenant-context";
-import { periodCloses, adminEvents } from "../src/db/schema";
+import { periodCloses, adminEvents, captureVisits } from "../src/db/schema";
 import { listPeriodCloses } from "../src/lib/queries/accountant";
 import { getProducts, getProductById, getCategories } from "../src/lib/queries/catalog";
 import { getContactsByType, getContactById } from "../src/lib/queries/contacts";
@@ -148,6 +148,13 @@ async function makeCompany(name: string) {
     targetUserId: user.id,
     detail: name,
   });
+  await db.insert(captureVisits).values({
+    companyId: company.id,
+    clientVisitId: `vis-${name}`,
+    supplierId: supplier.id,
+    startedAt: "2026-01-01T00:00:00.000Z",
+    createdBy: user.id,
+  });
   return { company, user, category, supplier, client, product, offer, order, draft };
   });
 }
@@ -158,6 +165,7 @@ async function destroyCompany(companyId: number) {
   // are behind RLS, so clean up as their own tenant; users and companies are
   // exempt and go last.
   await runWithTenant(companyId, async () => {
+    await db.delete(captureVisits).where(eq(captureVisits.companyId, companyId));
     await db.delete(adminEvents).where(eq(adminEvents.companyId, companyId));
     await db.delete(periodCloses).where(eq(periodCloses.companyId, companyId));
     await db.delete(captureDraftImages).where(eq(captureDraftImages.companyId, companyId));
@@ -219,6 +227,24 @@ async function main() {
       "admin_events RLS hides A's admin trail from B's scope",
       adminRowsB.length === 1 && adminRowsB[0].detail === "AttackerB",
     );
+    const visitRowsB = await db.select().from(captureVisits);
+    check(
+      "capture_visits RLS hides A's booth visits from B's scope",
+      visitRowsB.length === 1 && visitRowsB[0].clientVisitId === "vis-AttackerB",
+    );
+    // The supplier decision cannot point across the wall either: B's visit
+    // cannot be assigned A's supplier (composite FK inside the company).
+    let crossAssigned = false;
+    try {
+      await db
+        .update(captureVisits)
+        .set({ supplierId: A.supplier.id })
+        .where(eq(captureVisits.companyId, B.company.id));
+      crossAssigned = true;
+    } catch {
+      crossAssigned = false;
+    }
+    check("a visit cannot be assigned another company's supplier", !crossAssigned);
     const finance = await getFinanceData(B.company.id);
     check("finance report excludes A's orders", finance.orders.every((o) => o.id === B.order.id));
     check(

@@ -15,6 +15,7 @@ import { transcribeBusinessCard } from "@/lib/transcribe-card";
 import { recordAiUsage } from "@/lib/ai-usage";
 import { reserveAiRead } from "@/lib/ai-budget";
 import { cropAndSaveThumb } from "@/lib/thumb-crop";
+import { supplierVisibleTo, upsertVisit } from "@/lib/capture-visits";
 
 /**
  * Storing a capture that came off a phone, and reading it once there is a
@@ -52,9 +53,27 @@ export async function ingestDraft(input: {
   files: IngestFile[];
   userId: number;
   companyId: number;
+  /** The booth visit the phone took this under, when the capture screen sent it. */
+  visitId?: string;
+  /** A supplier the phone already knew for the visit; recorded only if the visit has none. */
+  visitSupplierId?: number;
+  /** A supplier set on this capture alone, overriding the visit's. */
+  supplierId?: number;
 }): Promise<IngestResult> {
   if (!input.clientId.trim()) return { ok: false, error: "invalid" };
   if (!input.capturedAt.trim()) return { ok: false, error: "invalid" };
+  // A posted supplier id is a claim: only this company's active suppliers
+  // count, and an unknown one is dropped rather than refusing the capture —
+  // the photos are the point, the association can be made at review.
+  const visitId = input.visitId?.trim() || null;
+  const visitSupplierId =
+    input.visitSupplierId && (await supplierVisibleTo(input.companyId, input.visitSupplierId))
+      ? input.visitSupplierId
+      : null;
+  const supplierId =
+    input.supplierId && (await supplierVisibleTo(input.companyId, input.supplierId))
+      ? input.supplierId
+      : null;
 
   const existing = await db
     .select({ id: captureDrafts.id })
@@ -86,6 +105,18 @@ export async function ingestDraft(input: {
   let draftId: number;
   try {
     draftId = await db.transaction(async (tx) => {
+      // The visit row rides in the same transaction as the capture: a
+      // capture that names a visit the database does not have would leave
+      // the supplier decision nowhere to land.
+      if (visitId) {
+        await upsertVisit(tx, {
+          companyId: input.companyId,
+          clientVisitId: visitId,
+          startedAt: input.capturedAt,
+          supplierId: visitSupplierId,
+          userId: input.userId,
+        });
+      }
       const [inserted] = await tx
         .insert(captureDrafts)
         .values({
@@ -95,6 +126,8 @@ export async function ingestDraft(input: {
           userId: input.userId,
           fields: JSON.stringify(input.fields),
           capturedAt: input.capturedAt,
+          visitId,
+          supplierId,
           updatedAt: new Date().toISOString(),
         })
         .returning({ id: captureDrafts.id });
@@ -274,7 +307,7 @@ async function recordReadFailure(draftId: number, error: string) {
  * A photo that will not load is skipped rather than fatal: four good photos
  * out of five still transcribe, and the missing one is visible on the draft.
  */
-async function loadStoredImages(publicPaths: string[]): Promise<TranscribeImage[]> {
+export async function loadStoredImages(publicPaths: string[]): Promise<TranscribeImage[]> {
   const images: TranscribeImage[] = [];
   for (const publicPath of publicPaths) {
     const filename = publicPath.replace(/^\/uploads\//, "");

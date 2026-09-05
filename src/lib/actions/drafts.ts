@@ -139,3 +139,110 @@ function parseRecord(raw: string): Record<string, string> {
     return {};
   }
 }
+
+// ------------------------------------------------------------ suppliers ---
+
+import {
+  createSupplierFromReading,
+  identifySupplierFromImage,
+  setDraftSupplier,
+  setVisitSupplier,
+  type SupplierReading,
+} from "@/lib/capture-visits";
+import { z } from "zod";
+
+/**
+ * The reviewer's decision for a booth visit. Every capture of the visit
+ * that has no supplier of its own resolves to it — the ones already here
+ * and the ones still on a phone. Null clears a mistaken assignment.
+ */
+export async function assignVisitSupplier(
+  clientVisitId: string,
+  supplierId: number | null,
+): Promise<string | undefined> {
+  const user = await requireSession();
+  const result = await setVisitSupplier({
+    companyId: user.companyId,
+    clientVisitId,
+    supplierId,
+    userId: user.id,
+  });
+  if (result !== "ok") return result;
+  revalidatePath("/catalog/drafts");
+  return undefined;
+}
+
+/** A supplier on one capture, overriding its visit; null returns it to the visit. */
+export async function assignDraftSupplier(
+  draftId: number,
+  supplierId: number | null,
+): Promise<string | undefined> {
+  const user = await requireSession();
+  const result = await setDraftSupplier({ companyId: user.companyId, draftId, supplierId });
+  if (result !== "ok") return result;
+  revalidatePath("/catalog/drafts");
+  return undefined;
+}
+
+/** Reads a supplier off one capture photo. Nothing is written; see capture-visits.ts. */
+export async function identifySupplier(
+  imageId: number,
+): Promise<{ ok: true; reading: SupplierReading } | { ok: false; error: string }> {
+  const user = await requireSession();
+  const result = await identifySupplierFromImage({
+    companyId: user.companyId,
+    userId: user.id,
+    imageId,
+  });
+  return result;
+}
+
+const readingSchema = z.object({
+  companyName: z.string().trim().max(200).optional(),
+  companyNameZh: z.string().trim().max(200).optional(),
+  contactPerson: z.string().trim().max(200).optional(),
+  phone: z.string().trim().max(200).optional(),
+  email: z.string().trim().max(200).optional(),
+  whatsapp: z.string().trim().max(200).optional(),
+  wechat: z.string().trim().max(200).optional(),
+  boothLocation: z.string().trim().max(400).optional(),
+  bankInfo: z.string().trim().max(1000).optional(),
+});
+
+/**
+ * The person approved a reading: use the matched supplier, or create one
+ * from the reading, then attach it to the visit (or to the one capture,
+ * when it has no visit). The approval is the only path from a reading to
+ * an association — the AI never makes it on its own.
+ */
+export async function approveSupplierReading(input: {
+  clientVisitId: string | null;
+  draftId: number;
+  useExistingId: number | null;
+  fields: unknown;
+}): Promise<{ supplierId?: number; error?: string }> {
+  const user = await requireSession();
+  let supplierId = input.useExistingId;
+  if (supplierId === null) {
+    const parsed = readingSchema.safeParse(input.fields ?? {});
+    if (!parsed.success) return { error: "invalid" };
+    supplierId = await createSupplierFromReading({
+      companyId: user.companyId,
+      userId: user.id,
+      fields: parsed.data,
+      evidenceDraftId: input.draftId,
+    });
+  }
+  const result = input.clientVisitId
+    ? await setVisitSupplier({
+        companyId: user.companyId,
+        clientVisitId: input.clientVisitId,
+        supplierId,
+        userId: user.id,
+      })
+    : await setDraftSupplier({ companyId: user.companyId, draftId: input.draftId, supplierId });
+  if (result !== "ok") return { error: result };
+  revalidatePath("/catalog/drafts");
+  revalidatePath("/contacts");
+  return { supplierId };
+}

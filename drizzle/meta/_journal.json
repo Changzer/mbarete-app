@@ -176,6 +176,13 @@
       "when": 1788250002000,
       "tag": "0024_carton-cbm-sanity",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1788250003000,
+      "tag": "0025_capture-visits",
+      "breakpoints": true
     }
   ]
 }

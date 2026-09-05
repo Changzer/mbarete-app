@@ -60,13 +60,14 @@ const transcriptionSchema = z.object({
   heightCm: z.number().nullable(),
   weightKg: z.number().nullable(),
   cbm: z.number().nullable(),
+  uncertain: z.array(z.string()).nullable().optional(),
   notes: z.string().nullable(),
 });
 
 // Keep in sync with transcriptionSchema — this is what the JSON-mode backend
 // is told to return.
 const JSON_SPEC =
-  '{"boardText": string|null, "supplierCode": string|null, "thumbImage": number|null, "thumbBox": {"left": number, "top": number, "right": number, "bottom": number}|null, "nameEn": string|null, "nameZh": string|null, "descriptionEn": string|null, "descriptionZh": string|null, "price": number|null, "currency": string|null, "moq": number|null, "qtyPerBox": number|null, "categoryId": number|null, "newCategoryEn": string|null, "newCategoryZh": string|null, "lengthCm": number|null, "widthCm": number|null, "heightCm": number|null, "weightKg": number|null, "cbm": number|null, "notes": string|null}';
+  '{"boardText": string|null, "supplierCode": string|null, "thumbImage": number|null, "thumbBox": {"left": number, "top": number, "right": number, "bottom": number}|null, "nameEn": string|null, "nameZh": string|null, "descriptionEn": string|null, "descriptionZh": string|null, "price": number|null, "currency": string|null, "moq": number|null, "qtyPerBox": number|null, "categoryId": number|null, "newCategoryEn": string|null, "newCategoryZh": string|null, "lengthCm": number|null, "widthCm": number|null, "heightCm": number|null, "weightKg": number|null, "cbm": number|null, "uncertain": string[]|null, "notes": string|null}';
 
 export type RawTranscription = z.infer<typeof transcriptionSchema>;
 
@@ -89,6 +90,8 @@ export type TranscribedFields = {
   heightCm?: number;
   weightKg?: number;
   cbm?: number;
+  /** Field names the model read with doubt — review looks at these first. */
+  uncertain?: string[];
 };
 
 export type TranscribeResult =
@@ -133,6 +136,8 @@ Rules:
 - Descriptions are one or two short sentences of facts visible in the photos; null when the name already says everything.
 - categoryId must be an id from the category list you are given, or null when none fits. Never invent an id. When it is null but the product clearly belongs to a category the list is missing, propose one via newCategoryEn and newCategoryZh — a short, general product-type name in BOTH languages (e.g. "Stationery" / "文具", "Beauty Tools" / "美妆工具"), never a name as specific as the product itself. Both null when an existing category fits.
 - Use null for anything not clearly readable — never guess a number.
+- A bare quantity with no MOQ/min/起订 marking (e.g. "1500 pc" on its own) is NOT the MOQ: leave moq null, copy it into notes, and list "moq" in uncertain.
+- uncertain: the names of the fields above whose reading you are not confident of (e.g. ["price", "moq"]) — a smudged digit, a comma that could be either separator, a quantity of unclear meaning. Empty or null when every field is clear.
 - notes: at most 15 words, in English, only for uncertain readings or board info that has no field. Null when there is nothing to flag.`;
 
 export async function transcribeProductPhotos(
@@ -239,6 +244,11 @@ export function sanitizeTranscription(
         ? readCbm
         : undefined;
 
+  // Names of fields the model doubted; absent (not empty) when it doubted none.
+  const uncertain = Array.isArray(raw.uncertain)
+    ? raw.uncertain.filter((f): f is string => typeof f === "string" && f.length <= 40).slice(0, 8)
+    : [];
+
   const price =
     raw.price !== null && Number.isFinite(raw.price) && raw.price >= 0
       ? Math.round(raw.price * 100) / 100
@@ -277,6 +287,7 @@ export function sanitizeTranscription(
       heightCm,
       weightKg: measure(raw.weightKg),
       cbm,
+      ...(uncertain.length > 0 ? { uncertain } : {}),
     },
     notes: text(raw.notes) ?? null,
     boardText: text(raw.boardText) ?? null,
