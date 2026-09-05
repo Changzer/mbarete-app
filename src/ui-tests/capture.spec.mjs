@@ -11,13 +11,17 @@
 import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
 import test from "node:test";
+import { existsSync } from "node:fs";
 import { chromium } from "playwright";
 import pg from "pg";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
 const EMAIL = process.env.ADMIN_EMAIL ?? "admin@example.com";
 const PASSWORD = process.env.ADMIN_PASSWORD ?? "change-me";
-const EXECUTABLE = process.env.PLAYWRIGHT_CHROMIUM ?? "/opt/pw-browsers/chromium";
+const EXECUTABLE =
+  process.env.CHROMIUM_PATH ??
+  process.env.PLAYWRIGHT_CHROMIUM ??
+  (existsSync("/opt/pw-browsers/chromium") ? "/opt/pw-browsers/chromium" : undefined);
 const DB_URL = process.env.DATABASE_ADMIN_URL ?? process.env.DATABASE_URL;
 const VIEWPORT = { width: 390, height: 844 };
 
@@ -29,7 +33,7 @@ const PNG = Buffer.from(
 );
 const photo = (name) => ({ name, mimeType: "image/png", buffer: PNG });
 
-const launch = () => chromium.launch({ executablePath: EXECUTABLE });
+const launch = () => chromium.launch(EXECUTABLE ? { executablePath: EXECUTABLE } : {});
 
 async function signedIn(browser, options = {}) {
   const context = await browser.newContext({ viewport: VIEWPORT, ...options });
@@ -350,7 +354,10 @@ test("evidence added to the previous product travels as an addendum, offline and
     await takePhotos(page, 1, "off");
     await allSaved(page, 1);
     const captureId = await captureIdOf(page);
-    await page.click('[data-testid="next-product"]');
+    await nextProduct(page, 2);
+    // "Add photo to previous" is offered only once the seal has committed;
+    // the test uses the hidden input, so it waits for the chip like a thumb would.
+    await page.locator('[data-testid="previous-state"]').waitFor();
     // Before delivery: the addendum is stored beside the capture and waits.
     await page.locator('[data-testid="addendum-input"]').setInputFiles(photo("more1.png"));
     await page.locator('[data-testid="addendum-banner"]').waitFor();
