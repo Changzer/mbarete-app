@@ -33,6 +33,8 @@ import fs from "node:fs/promises";
 import nodePath from "node:path";
 import { normalizeDecimalInput } from "@/lib/decimal-input";
 import { suggestNextSku } from "@/lib/queries/catalog";
+import { getCatalogProduct } from "@/lib/queries/catalog-view";
+import type { CatalogProduct } from "@/components/catalog/product-card";
 import { canAddProduct, productSlotAvailableLocked } from "@/lib/entitlements";
 import { syncProductFromOffers } from "@/lib/queries/offers";
 
@@ -727,4 +729,16 @@ export async function deleteCategory(id: number): Promise<string | undefined> {
     .where(and(eq(categories.companyId, admin.companyId), eq(categories.id, id)));
   revalidatePath("/catalog");
   return undefined;
+}
+
+/**
+ * One product as the catalog card shows it, for a screen that lists
+ * products without their detail — an order line. Null when it is not this
+ * company's, which the tenant scope already guarantees.
+ */
+export async function loadProductDetail(productId: number): Promise<CatalogProduct | null> {
+  const user = await requireUser();
+  if (!Number.isInteger(productId) || productId <= 0) return null;
+  const locale = (await getLocale()) as Locale;
+  return getCatalogProduct(user.companyId, locale, productId);
 }

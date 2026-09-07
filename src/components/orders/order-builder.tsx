@@ -28,6 +28,9 @@ import { createOrder, updateOrder, type OrderActionResult } from "@/lib/actions/
 import { LineCard } from "@/components/orders/line-card";
 import { OrderKeypad } from "@/components/orders/order-keypad";
 import { ProductPicker } from "@/components/orders/product-picker";
+import { ProductDetailDialog } from "@/components/catalog/product-detail-dialog";
+import type { CatalogProduct } from "@/components/catalog/product-card";
+import { loadProductDetail } from "@/lib/actions/catalog";
 import { AlertTriangle, Plus } from "lucide-react";
 import { createContact, updateContact } from "@/lib/actions/contacts";
 import { ContactForm } from "@/components/contacts/contact-form";
@@ -129,6 +132,23 @@ export function OrderBuilder({
   });
   const [error, setError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // The product detail sheet, loaded on demand: the builder ships the slim
+  // line data for every product, the full card only for the one tapped.
+  const [detail, setDetail] = useState<CatalogProduct | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailLoading, setDetailLoading] = useState<number | null>(null);
+  const openDetail = (productId: number) => {
+    if (detailLoading !== null) return;
+    setDetailLoading(productId);
+    loadProductDetail(productId)
+      .then((p) => {
+        if (p) {
+          setDetail(p);
+          setDetailOpen(true);
+        }
+      })
+      .finally(() => setDetailLoading(null));
+  };
   const [keypad, setKeypad] = useState<{ id: number; tab: "qty" | "price" } | null>(null);
   // A removed line lingers here for a few seconds so a mis-tap costs nothing.
   const [undo, setUndo] = useState<{ id: number; entry: { qty: number; sellPrice: string } } | null>(
@@ -352,6 +372,7 @@ export function OrderBuilder({
             onOpenKeypad={(id, tab) => setKeypad({ id, tab })}
             onFix={(id, qty) => setQuantity(id, qty)}
             onRemove={removeLine}
+            onOpenDetail={openDetail}
           />
         ))}
 
@@ -623,6 +644,15 @@ export function OrderBuilder({
           </div>
         </div>
       </div>
+
+      {detail ? (
+        <ProductDetailDialog
+          product={detail}
+          open={detailOpen}
+          onOpenChange={setDetailOpen}
+          allowDelete={false}
+        />
+      ) : null}
 
       {pickerOpen ? (
         <ProductPicker

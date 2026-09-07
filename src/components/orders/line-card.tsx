@@ -36,6 +36,7 @@ export function LineCard({
   onOpenKeypad,
   onFix,
   onRemove,
+  onOpenDetail,
 }: {
   product: BuilderProduct;
   qty: number;
@@ -45,6 +46,8 @@ export function LineCard({
   onOpenKeypad: (productId: number, tab: "qty" | "price") => void;
   onFix: (productId: number, qty: number) => void;
   onRemove: (productId: number) => void;
+  /** Opens the product's detail sheet; the name and thumbnail are the tap target. */
+  onOpenDetail?: (productId: number) => void;
 }) {
   const t = useTranslations("orders");
   // A thumbnail whose file is gone shows the placeholder, not a broken icon.
@@ -77,8 +80,16 @@ export function LineCard({
       </button>
 
       <div className="grid grid-cols-[1fr_112px] gap-3 @xl:grid-cols-[252px_120px_minmax(104px,1fr)] @xl:items-end @xl:gap-x-5 @3xl:grid-cols-[minmax(220px,1fr)_252px_120px_104px]">
-        {/* thumbnail + name — the only column that absorbs extra width */}
-        <div className="col-span-full flex min-w-0 items-center gap-3 pr-7 @3xl:col-auto @3xl:self-center">
+        {/* thumbnail + name — the only column that absorbs extra width. A tap
+            on either opens the same detail sheet the catalog shows. */}
+        <button
+          type="button"
+          onClick={onOpenDetail ? () => onOpenDetail(product.id) : undefined}
+          disabled={!onOpenDetail}
+          aria-label={t("productDetails", { name: product.name })}
+          className="col-span-full flex min-w-0 items-center gap-3 rounded-xl pr-7 text-left enabled:active:scale-[0.99] enabled:hover:[&_.line-name]:underline @3xl:col-auto @3xl:self-center"
+          data-testid={`detail-${product.sku}`}
+        >
           <span
             className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-line bg-surface-2"
             data-testid={`thumb-${product.sku}`}
@@ -99,21 +110,21 @@ export function LineCard({
               </span>
             )}
           </span>
-          <div className="min-w-0">
-            <div
-              className="line-clamp-3 text-[16px] font-bold leading-tight text-ink [overflow-wrap:anywhere]"
+          <span className="min-w-0">
+            <span
+              className="line-name line-clamp-3 block text-[16px] font-bold leading-tight text-ink [overflow-wrap:anywhere]"
               title={product.name}
             >
               {product.name}
-            </div>
-            <div className="mt-0.5 font-mono text-[11.5px] text-sub">
+            </span>
+            <span className="mt-0.5 block font-mono text-[11.5px] text-sub">
               {product.categoryName} · {t("moq")} {product.moq} ·{" "}
               {hasCarton ? `${product.qtyPerBox}/${t("ctnShort")}` : (
                 <span className="text-warn">{t("noCartonShort")}</span>
               )}
-            </div>
-          </div>
-        </div>
+            </span>
+          </span>
+        </button>
 
         {/* quantity field */}
         <div>

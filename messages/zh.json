@@ -428,6 +428,7 @@
     "backspace": "退格",
     "backToOrder": "返回订单",
     "addProductsTitle": "添加产品",
+    "productDetails": "产品详情：{name}",
     "pickerSearchPlaceholder": "名称或 SKU…",
     "pickerInOrder": "已在订单 · {qty} 件 — 点击编辑",
     "pickerNoMatch": "没有匹配“{query}”的产品，试试 SKU。",
