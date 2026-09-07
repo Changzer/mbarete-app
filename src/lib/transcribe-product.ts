@@ -92,6 +92,8 @@ export type TranscribedFields = {
   cbm?: number;
   /** Field names the model read with doubt — review looks at these first. */
   uncertain?: string[];
+  /** The board verbatim, kept on a draft's transcript so promotion stores it. */
+  boardText?: string;
 };
 
 export type TranscribeResult =

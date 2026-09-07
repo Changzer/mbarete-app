@@ -266,7 +266,11 @@ export async function readDraft(companyId: number, draftId: number): Promise<voi
       const thumbPath = result.thumb
         ? await cropAndSaveThumb(companyId, payload, result.thumb)
         : undefined;
-      fields = thumbPath ? { ...result.fields, thumbPath } : result.fields;
+      fields = {
+        ...result.fields,
+        ...(thumbPath ? { thumbPath } : {}),
+        ...(result.boardText ? { boardText: result.boardText } : {}),
+      };
       notes = result.notes;
     }
     // Guarded against the read racing the reviewer: the AI call takes

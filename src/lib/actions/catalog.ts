@@ -85,6 +85,8 @@ function formToProductInput(formData: FormData) {
     categoryId: formData.get("categoryId"),
     descriptionEn: formData.get("descriptionEn") ?? "",
     descriptionZh: formData.get("descriptionZh") ?? "",
+    boardText: formData.get("boardText") ?? "",
+    aiNotes: formData.get("aiNotes") ?? "",
     // Market-floor captures may carry no price yet: blank means "not quoted",
     // stored as 0 and visibly missing, never a reason to block the save.
     price: dec(formData.get("price")) || 0,
@@ -325,6 +327,8 @@ export async function createProduct(
           categoryId: data.categoryId,
           descriptionEn: data.descriptionEn,
           descriptionZh: data.descriptionZh,
+          boardText: data.boardText,
+          aiNotes: data.aiNotes,
           price: data.price,
           sellPrice: data.sellPrice,
           currency: data.currency,
@@ -558,6 +562,10 @@ export async function updateProduct(
       categoryId: data.categoryId,
       descriptionEn: data.descriptionEn,
       descriptionZh: data.descriptionZh,
+      // A fresh read on the edit form replaces the reading; an edit that
+      // carried none keeps what the capture recorded.
+      boardText: data.boardText || existing.boardText,
+      aiNotes: data.aiNotes || existing.aiNotes,
       price: data.price,
       sellPrice: data.sellPrice,
       currency: data.currency,

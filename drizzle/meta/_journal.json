@@ -183,6 +183,13 @@
       "when": 1788250003000,
       "tag": "0025_capture-visits",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1788773400000,
+      "tag": "0026_product-board-reading",
+      "breakpoints": true
     }
   ]
 }

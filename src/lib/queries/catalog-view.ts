@@ -49,6 +49,8 @@ export async function toCatalogProducts(
       name: localizeField(locale, p.nameEn, p.nameZh),
       altName: altName(locale, p.nameEn, p.nameZh),
       description: localizeField(locale, p.descriptionEn, p.descriptionZh),
+      boardText: p.boardText,
+      aiNotes: p.aiNotes,
       categoryName: cat ? localizeField(locale, cat.nameEn, cat.nameZh) : "",
       price: p.price,
       sellPrice: p.sellPrice,

@@ -18,6 +18,9 @@ export type CatalogProduct = {
   /** The other language's name, shown beside the primary one when it differs. */
   altName: string;
   description: string;
+  /** The price board as the AI read it at capture, and what it flagged. */
+  boardText: string;
+  aiNotes: string;
   categoryName: string;
   price: number;
   sellPrice: number;

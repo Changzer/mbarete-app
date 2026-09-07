@@ -156,6 +156,14 @@ export const products = pgTable(
     categoryId: integer("category_id").notNull(),
     descriptionEn: text("description_en").notNull().default(""),
     descriptionZh: text("description_zh").notNull().default(""),
+    /**
+     * What the AI read off the price board when this product was captured,
+     * verbatim, and what it flagged about the reading. Kept on the product so
+     * the desk can see later why a figure is what it is. Empty when the
+     * product was typed in by hand.
+     */
+    boardText: text("board_text").notNull().default(""),
+    aiNotes: text("ai_notes").notNull().default(""),
     price: numeric("price", { precision: 14, scale: 4, mode: "number" }).notNull(),
     // Default selling price for order lines. 0 means none set: the product
     // sells at the supplier price until a price is typed on the order.

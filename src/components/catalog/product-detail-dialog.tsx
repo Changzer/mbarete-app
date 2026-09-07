@@ -253,6 +253,27 @@ export function ProductDetailDialog({
             </div>
           ) : null}
 
+          {/* What the booth's board said, so a figure can be traced back to
+              the handwriting it came from months later. */}
+          {product.boardText || product.aiNotes ? (
+            <div
+              className="flex flex-col gap-1.5 rounded-[10px] bg-surface-2 px-3 py-2 text-[12px] leading-relaxed text-sub"
+              data-testid="product-board-reading"
+            >
+              {product.boardText ? (
+                <p>
+                  <span className="font-semibold">{t("aiBoardRead")}:</span>{" "}
+                  <span className="whitespace-pre-wrap font-mono text-ink">{product.boardText}</span>
+                </p>
+              ) : null}
+              {product.aiNotes ? (
+                <p>
+                  {t("aiNotes")}: {product.aiNotes}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
           <DialogFooter>
             {isAdmin && allowDelete ? (
               <Button
