@@ -429,6 +429,8 @@
     "backToOrder": "返回订单",
     "addProductsTitle": "添加产品",
     "productDetails": "产品详情：{name}",
+    "unpricedLines": "保存前每行都需要单价。缺少单价：{names}",
+    "saveFailed": "无法保存订单。请检查各行后重试。",
     "pickerSearchPlaceholder": "名称或 SKU…",
     "pickerInOrder": "已在订单 · {qty} 件 — 点击编辑",
     "pickerNoMatch": "没有匹配“{query}”的产品，试试 SKU。",

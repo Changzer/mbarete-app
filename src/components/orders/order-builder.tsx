@@ -308,6 +308,13 @@ export function OrderBuilder({
       setError("client");
       return;
     }
+    // A line with no price cannot be invoiced; the server refuses it, so say
+    // which lines before the round trip rather than after it, silently.
+    const unpriced = cartLines.filter((l) => !(l.product.sellPrice > 0)).map((l) => l.product.name);
+    if (unpriced.length > 0) {
+      setError(`price:${unpriced.join(", ")}`);
+      return;
+    }
 
     const payload = {
       clientId: Number(clientId),
@@ -607,6 +614,16 @@ export function OrderBuilder({
           {error === "conflict" ? (
             <p className="text-[12px] font-semibold text-danger" data-testid="order-conflict">
               {t("orderConflict")}
+            </p>
+          ) : null}
+          {error?.startsWith("price:") ? (
+            <p className="text-[12px] font-semibold text-danger" data-testid="order-unpriced">
+              {t("unpricedLines", { names: error.slice("price:".length) })}
+            </p>
+          ) : null}
+          {error && !["empty", "client", "moq", "frozen", "conflict"].includes(error) && !error.startsWith("price:") ? (
+            <p className="text-[12px] font-semibold text-danger" data-testid="order-save-failed">
+              {t("saveFailed")}
             </p>
           ) : null}
 
