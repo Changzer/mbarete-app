@@ -6,6 +6,7 @@ import { getUserNames } from "@/lib/queries/users";
 import { getBankAccounts, getCompanyProfile } from "@/lib/queries/settings";
 import type { Locale } from "@/i18n/routing";
 import { computeOrderFinanceView, formatCbm } from "@/lib/calculations";
+import { groupBySupplier } from "@/lib/order-groups";
 import { pickReportCurrency, resolveFunctionalCurrency } from "@/lib/functional-currency";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,12 @@ export default async function OrderDetailPage({
     ]);
   if (!view) notFound();
   const { order, client, rows, targets, totals, effectiveRates } = view;
+  // Lines under the supplier they come from, so a mixed order reads booth
+  // by booth. A supplier that has since been removed reads as unrecorded.
+  const groups = groupBySupplier(rows).map((g) => ({
+    ...g,
+    label: g.supplierName ?? catalogT("supplierUnknown"),
+  }));
 
   // The money position: what the client is billed against what the supplier
   // charges, then every recorded movement on top. Each side reads in its own
@@ -154,7 +161,14 @@ export default async function OrderDetailPage({
       {/* A phone reads the lines as cards: six columns of frozen figures do
           not survive 360px, and the figures are the point of this page. */}
       <ul className="flex flex-col gap-2 lg:hidden" data-testid="order-line-rows">
-        {rows.map((r) => (
+        {groups.map((g) => (
+          <li key={g.supplierId ?? "none"} className="flex flex-col gap-2" data-testid={`supplier-group-${g.supplierId ?? "none"}`}>
+            <p className="mt-1 flex items-baseline gap-2 px-1 font-mono text-[11px] font-medium tracking-[0.12em] text-sub">
+              <span className="uppercase">{g.label}</span>
+              <span className="text-faint">· {g.rows.length}</span>
+            </p>
+            <ul className="flex flex-col gap-2">
+        {g.rows.map((r) => (
           <li key={r.id} className="flex flex-col gap-1.5 rounded-[12px] border border-line bg-surface p-3">
             <div className="flex items-start justify-between gap-2">
               <span className="min-w-0 flex-1 text-[13.5px] font-bold text-ink">{r.name}</span>
@@ -180,6 +194,9 @@ export default async function OrderDetailPage({
             ) : null}
           </li>
         ))}
+            </ul>
+          </li>
+        ))}
       </ul>
 
       <div className="hidden overflow-x-auto rounded-[12px] border border-line bg-surface lg:block">
@@ -195,7 +212,14 @@ export default async function OrderDetailPage({
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
-            {rows.map((r) => (
+            {groups.map((g) => [
+              <tr key={`group-${g.supplierId ?? "none"}`} className="bg-surface-2/60" data-testid={`supplier-group-${g.supplierId ?? "none"}`}>
+                <td colSpan={6} className="px-4 py-1.5 font-mono text-[11px] font-medium tracking-[0.12em] text-sub">
+                  <span className="uppercase">{g.label}</span>
+                  <span className="ml-2 text-faint">· {g.rows.length}</span>
+                </td>
+              </tr>,
+              ...g.rows.map((r) => (
               <tr key={r.id}>
                 <td className="px-4 py-2 text-ink">{r.name}</td>
                 <td className="px-4 py-2 text-ink">
@@ -219,7 +243,8 @@ export default async function OrderDetailPage({
                   {r.sellTotal.toFixed(2)} {r.currencySnapshot}
                 </td>
               </tr>
-            ))}
+              )),
+            ])}
           </tbody>
         </table>
       </div>

@@ -429,6 +429,8 @@
     "backToOrder": "Back to order",
     "addProductsTitle": "Add products",
     "productDetails": "Product details: {name}",
+    "unpricedLines": "Every line needs a unit price before saving. Missing on: {names}",
+    "saveFailed": "Could not save the order. Check the lines and try again.",
     "pickerSearchPlaceholder": "Name or SKU…",
     "pickerInOrder": "In order · {qty} pcs — tap to edit",
     "pickerNoMatch": "No products match \"{query}\". Try the SKU.",
