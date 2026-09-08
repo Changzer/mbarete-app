@@ -33,6 +33,8 @@ import fs from "node:fs/promises";
 import nodePath from "node:path";
 import { normalizeDecimalInput } from "@/lib/decimal-input";
 import { suggestNextSku } from "@/lib/queries/catalog";
+import { getCatalogProduct } from "@/lib/queries/catalog-view";
+import type { CatalogProduct } from "@/components/catalog/product-card";
 import { canAddProduct, productSlotAvailableLocked } from "@/lib/entitlements";
 import { syncProductFromOffers } from "@/lib/queries/offers";
 
@@ -83,6 +85,8 @@ function formToProductInput(formData: FormData) {
     categoryId: formData.get("categoryId"),
     descriptionEn: formData.get("descriptionEn") ?? "",
     descriptionZh: formData.get("descriptionZh") ?? "",
+    boardText: formData.get("boardText") ?? "",
+    aiNotes: formData.get("aiNotes") ?? "",
     // Market-floor captures may carry no price yet: blank means "not quoted",
     // stored as 0 and visibly missing, never a reason to block the save.
     price: dec(formData.get("price")) || 0,
@@ -323,6 +327,8 @@ export async function createProduct(
           categoryId: data.categoryId,
           descriptionEn: data.descriptionEn,
           descriptionZh: data.descriptionZh,
+          boardText: data.boardText,
+          aiNotes: data.aiNotes,
           price: data.price,
           sellPrice: data.sellPrice,
           currency: data.currency,
@@ -556,6 +562,10 @@ export async function updateProduct(
       categoryId: data.categoryId,
       descriptionEn: data.descriptionEn,
       descriptionZh: data.descriptionZh,
+      // A fresh read on the edit form replaces the reading; an edit that
+      // carried none keeps what the capture recorded.
+      boardText: data.boardText || existing.boardText,
+      aiNotes: data.aiNotes || existing.aiNotes,
       price: data.price,
       sellPrice: data.sellPrice,
       currency: data.currency,
@@ -727,4 +737,16 @@ export async function deleteCategory(id: number): Promise<string | undefined> {
     .where(and(eq(categories.companyId, admin.companyId), eq(categories.id, id)));
   revalidatePath("/catalog");
   return undefined;
+}
+
+/**
+ * One product as the catalog card shows it, for a screen that lists
+ * products without their detail — an order line. Null when it is not this
+ * company's, which the tenant scope already guarantees.
+ */
+export async function loadProductDetail(productId: number): Promise<CatalogProduct | null> {
+  const user = await requireUser();
+  if (!Number.isInteger(productId) || productId <= 0) return null;
+  const locale = (await getLocale()) as Locale;
+  return getCatalogProduct(user.companyId, locale, productId);
 }

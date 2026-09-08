@@ -1,8 +1,11 @@
 "use client";
 
-import { X, Plus, Minus, Pencil } from "lucide-react";
+import { useState } from "react";
+import Image from "next/image";
+import { X, Plus, Minus, Pencil, Package } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { formatMoney } from "@/lib/money";
+import { authenticatedUploadLoader } from "@/lib/client/upload-image-loader";
 import {
   fullCartons,
   isBelowMoq,
@@ -33,6 +36,7 @@ export function LineCard({
   onOpenKeypad,
   onFix,
   onRemove,
+  onOpenDetail,
 }: {
   product: BuilderProduct;
   qty: number;
@@ -42,8 +46,12 @@ export function LineCard({
   onOpenKeypad: (productId: number, tab: "qty" | "price") => void;
   onFix: (productId: number, qty: number) => void;
   onRemove: (productId: number) => void;
+  /** Opens the product's detail sheet; the name and thumbnail are the tap target. */
+  onOpenDetail?: (productId: number) => void;
 }) {
   const t = useTranslations("orders");
+  // A thumbnail whose file is gone shows the placeholder, not a broken icon.
+  const [thumbBroken, setThumbBroken] = useState(false);
   const hasCarton = product.qtyPerBox > 1;
   const listPrice = sellUnitPrice(product);
   const edited = Math.abs(sellPrice - listPrice) > 0.004;
@@ -72,21 +80,51 @@ export function LineCard({
       </button>
 
       <div className="grid grid-cols-[1fr_112px] gap-3 @xl:grid-cols-[252px_120px_minmax(104px,1fr)] @xl:items-end @xl:gap-x-5 @3xl:grid-cols-[minmax(220px,1fr)_252px_120px_104px]">
-        {/* name — the only column that absorbs extra width */}
-        <div className="col-span-full min-w-0 pr-7 @3xl:col-auto @3xl:self-center">
-          <div
-            className="line-clamp-3 text-[16px] font-bold leading-tight text-ink [overflow-wrap:anywhere]"
-            title={product.name}
+        {/* thumbnail + name — the only column that absorbs extra width. A tap
+            on either opens the same detail sheet the catalog shows. */}
+        <button
+          type="button"
+          onClick={onOpenDetail ? () => onOpenDetail(product.id) : undefined}
+          disabled={!onOpenDetail}
+          aria-label={t("productDetails", { name: product.name })}
+          className="col-span-full flex min-w-0 items-center gap-3 rounded-xl pr-7 text-left enabled:active:scale-[0.99] enabled:hover:[&_.line-name]:underline @3xl:col-auto @3xl:self-center"
+          data-testid={`detail-${product.sku}`}
+        >
+          <span
+            className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-line bg-surface-2"
+            data-testid={`thumb-${product.sku}`}
           >
-            {product.name}
-          </div>
-          <div className="mt-0.5 font-mono text-[11.5px] text-sub">
-            {product.categoryName} · {t("moq")} {product.moq} ·{" "}
-            {hasCarton ? `${product.qtyPerBox}/${t("ctnShort")}` : (
-              <span className="text-warn">{t("noCartonShort")}</span>
+            {product.thumbPath && !thumbBroken ? (
+              <Image
+                loader={authenticatedUploadLoader}
+                src={product.thumbPath}
+                alt=""
+                fill
+                sizes="64px"
+                className="object-cover"
+                onError={() => setThumbBroken(true)}
+              />
+            ) : (
+              <span className="flex h-full w-full items-center justify-center text-sub">
+                <Package size={24} strokeWidth={1.5} />
+              </span>
             )}
-          </div>
-        </div>
+          </span>
+          <span className="min-w-0">
+            <span
+              className="line-name line-clamp-3 block text-[16px] font-bold leading-tight text-ink [overflow-wrap:anywhere]"
+              title={product.name}
+            >
+              {product.name}
+            </span>
+            <span className="mt-0.5 block font-mono text-[11.5px] text-sub">
+              {product.categoryName} · {t("moq")} {product.moq} ·{" "}
+              {hasCarton ? `${product.qtyPerBox}/${t("ctnShort")}` : (
+                <span className="text-warn">{t("noCartonShort")}</span>
+              )}
+            </span>
+          </span>
+        </button>
 
         {/* quantity field */}
         <div>

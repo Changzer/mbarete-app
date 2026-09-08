@@ -3,16 +3,11 @@ import { Link } from "@/i18n/navigation";
 import {
   getCategories,
   getProducts,
-  getImagesByProduct,
   getSupplierIdsInCatalog,
 } from "@/lib/queries/catalog";
 import { getSuppliersForPicker } from "@/lib/queries/contacts";
 import { countOpenDrafts } from "@/lib/queries/drafts";
-import { getUserNames } from "@/lib/queries/users";
-import { getOffersByProduct, OFFER_BASIS } from "@/lib/queries/offers";
-import { getExchangeRates } from "@/lib/queries/orders";
-import { comparablePrice } from "@/lib/offers";
-import { localizeField } from "@/lib/localize";
+import { toCatalogProducts } from "@/lib/queries/catalog-view";
 import type { Locale } from "@/i18n/routing";
 import { CatalogControls } from "@/components/catalog/catalog-controls";
 import { type CatalogProduct } from "@/components/catalog/product-card";
@@ -28,12 +23,6 @@ import { requireUser } from "@/lib/authz";
  * Empty when a product was registered in one language only, or when the two
  * names are the same string — repeating it would just be noise in the row.
  */
-function altName(locale: Locale, nameEn: string, nameZh: string) {
-  const other = locale === "zh" ? nameEn : nameZh;
-  const primary = localizeField(locale, nameEn, nameZh);
-  return other && other !== primary ? other : "";
-}
-
 /** A search param that must be a real row id, or nothing. */
 function positiveId(value: string | undefined) {
   const n = Number(value);
@@ -62,16 +51,7 @@ export default async function CatalogPage({
     sort: sort === "price-asc" ? "price-asc" : "default",
   });
 
-  const productIds = products.map((p) => p.id);
-  const [imagesByProduct, userNames, offersByProduct, rates] = await Promise.all([
-    getImagesByProduct(productIds),
-    getUserNames(companyId),
-    getOffersByProduct(companyId, productIds),
-    getExchangeRates(companyId),
-  ]);
-  const categoryMap = new Map(categories.map((c) => [c.id, c]));
   const suppliers = await getSuppliersForPicker(companyId);
-  const supplierMap = new Map(suppliers.map((s) => [s.id, s]));
 
   // The filter offers only suppliers that have products — plus whichever one is
   // currently selected, so a filter that has gone empty still names itself
@@ -81,62 +61,7 @@ export default async function CatalogPage({
     (s) => supplierIdsInCatalog.has(s.id) || s.id === supplierId,
   );
 
-  const catalogProducts: CatalogProduct[] = products.map((p) => {
-    const cat = categoryMap.get(p.categoryId);
-    return {
-      id: p.id,
-      sku: p.sku,
-      name: localizeField(locale as Locale, p.nameEn, p.nameZh),
-      // The other language's name, so a row can carry both and a search can
-      // match either — the supplier writes the Chinese one on the box.
-      altName: altName(locale as Locale, p.nameEn, p.nameZh),
-      description: localizeField(locale as Locale, p.descriptionEn, p.descriptionZh),
-      categoryName: cat
-        ? localizeField(locale as Locale, cat.nameEn, cat.nameZh)
-        : "",
-      price: p.price,
-      sellPrice: p.sellPrice,
-      currency: p.currency,
-      moq: p.moq,
-      qtyPerBox: p.qtyPerBox,
-      lengthCm: p.lengthCm,
-      widthCm: p.widthCm,
-      heightCm: p.heightCm,
-      weightKg: p.weightKg,
-      cbm: p.cbm,
-      dimensionSource: p.dimensionSource,
-      createdByName: p.createdBy ? userNames.get(p.createdBy) ?? null : null,
-      updatedByName: p.updatedBy ? userNames.get(p.updatedBy) ?? null : null,
-      pieceLengthCm: p.pieceLengthCm,
-      pieceWidthCm: p.pieceWidthCm,
-      pieceHeightCm: p.pieceHeightCm,
-      images: imagesByProduct.get(p.id) ?? [],
-      active: p.active,
-      supplierName: p.supplierId
-        ? (() => {
-            const s = supplierMap.get(p.supplierId);
-            return s ? localizeField(locale as Locale, s.companyName, s.companyNameZh) : null;
-          })()
-        : null,
-      supplierBooth: p.supplierId
-        ? supplierMap.get(p.supplierId)?.boothLocation || null
-        : null,
-      // Already ranked; the card only needs each offer's comparable value to
-      // work out how far behind the cheapest the others sit.
-      offers: (offersByProduct.get(p.id) ?? []).map((o) => ({
-        id: o.id,
-        supplierId: o.supplierId,
-        supplierName: o.supplierName,
-        price: o.price,
-        currency: o.currency,
-        moq: o.moq,
-        leadTimeDays: o.leadTimeDays,
-        quotedOn: o.quotedOn,
-        timesOrdered: o.timesOrdered,
-        comparable: comparablePrice(o, OFFER_BASIS, rates),
-      })),
-    };
-  });
+  const catalogProducts: CatalogProduct[] = await toCatalogProducts(companyId, locale as Locale, products);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-4 md:py-6">

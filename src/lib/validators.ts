@@ -20,6 +20,16 @@ export const productSchema = z
     categoryId: z.coerce.number().int().positive(),
     descriptionEn: z.string().default(""),
     descriptionZh: z.string().default(""),
+    // The AI's reading of the price board and its remarks, carried through
+    // the form unchanged so they land on the product.
+    boardText: z
+      .string()
+      .trim()
+      .max(4000)
+      .default("")
+      // Form submission turns the board's line breaks into CRLF; store them plain.
+      .transform((v) => v.replace(/\r\n?/g, "\n")),
+    aiNotes: z.string().trim().max(1000).default(""),
     price: z.coerce.number().nonnegative(),
     sellPrice: z.coerce.number().nonnegative().default(0),
     currency: z.string().min(1),

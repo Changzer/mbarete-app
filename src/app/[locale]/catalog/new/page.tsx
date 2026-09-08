@@ -102,6 +102,8 @@ export default async function NewProductPage({
           nameZh: f.nameZh || tr.nameZh,
           descriptionEn: f.descriptionEn || tr.descriptionEn,
           descriptionZh: f.descriptionZh || tr.descriptionZh,
+          boardText: tr.boardText,
+          aiNotes: reviewable.transcriptNotes || undefined,
           price: num(f.price) ?? tr.price,
           sellPrice: num(f.sellPrice),
           currency: f.currency || tr.currency,

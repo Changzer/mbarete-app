@@ -59,6 +59,8 @@ type ProductFormValues = {
   categoryId: number;
   descriptionEn: string;
   descriptionZh: string;
+  boardText: string;
+  aiNotes: string;
   price: number;
   sellPrice: number;
   currency: string;
@@ -167,13 +169,15 @@ export function ProductForm({
 
   const [aiPending, setAiPending] = useState(false);
   const [aiError, setAiError] = useState<"no-photos" | "failed" | "limit" | null>(null);
-  const [aiNotes, setAiNotes] = useState<string | null>(null);
+  // Both start from what the product (or the draft) already recorded, so an
+  // edit shows the booth's reading and posts it back unchanged.
+  const [aiNotes, setAiNotes] = useState<string | null>(defaultValues?.aiNotes || null);
   // Whether AI wrote into this form — drives the "AI-read, please verify"
   // label the AI-output rules ask for (and honesty asks for anyway).
   const [aiFilled, setAiFilled] = useState(false);
   // What the model read off the price board, shown so a wrong figure can be
   // spotted against the handwriting instead of trusted blindly.
-  const [aiBoardText, setAiBoardText] = useState<string | null>(null);
+  const [aiBoardText, setAiBoardText] = useState<string | null>(defaultValues?.boardText || null);
 
   // "0" is the no-supplier option: Radix Select items cannot carry an empty value.
   const [supplierId, setSupplierId] = useState(
@@ -832,6 +836,8 @@ export function ProductForm({
 
       <FormSection kicker={t("identityGroup")} className="lg:col-span-2">
         <input type="hidden" name="thumbPath" value={thumbPath} />
+        <input type="hidden" name="boardText" value={aiBoardText ?? ""} />
+        <input type="hidden" name="aiNotes" value={aiNotes ?? ""} />
         <div className="grid grid-cols-2 gap-3">
           <Field label={t("sku")} htmlFor="sku">
             <Input id="sku" name="sku" numeric defaultValue={defaultValues?.sku} />
@@ -878,6 +884,23 @@ export function ProductForm({
             defaultValue={defaultValues?.descriptionZh}
           />
         </Field>
+        {/* With no AI panel on this form, the booth's reading still has to
+            be visible somewhere: a figure is easier to trust beside the board. */}
+        {!transcribe && (aiBoardText || aiNotes) ? (
+          <div className="flex flex-col gap-1.5 rounded-[10px] bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-sub">
+            {aiBoardText ? (
+              <p data-testid="ai-board-text">
+                <span className="font-semibold">{t("aiBoardRead")}:</span>{" "}
+                <span className="whitespace-pre-wrap font-mono">{aiBoardText}</span>
+              </p>
+            ) : null}
+            {aiNotes ? (
+              <p data-testid="ai-notes">
+                {t("aiNotes")}: {aiNotes}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
       </FormSection>
 
       {/*
