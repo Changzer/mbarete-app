@@ -29,7 +29,23 @@ export const CONTENT_TYPES: Record<string, string> = {
   xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   xls: "application/vnd.ms-excel",
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  mp4: "video/mp4",
+  mov: "video/quicktime",
+  webm: "video/webm",
 };
+
+// Loading and factory-floor videos for the rebate dossier. Only that one
+// checklist item accepts them; the cap is an env knob because a reverse
+// proxy in front (Caddy) has to allow the same body size.
+const VIDEO_TYPES: Record<string, string> = {
+  "video/mp4": "mp4",
+  "video/quicktime": "mov",
+  "video/webm": "webm",
+};
+export const DOSSIER_VIDEO_MAX_MB = (() => {
+  const n = Number(process.env.DOSSIER_VIDEO_MAX_MB);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 250;
+})();
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 // Scanned supplier invoices routinely run past 8MB; storage is a NAS volume,
@@ -95,7 +111,7 @@ export function requiresUploadAuth(name: string) {
   return (
     uploadCompanyId(name) !== null ||
     isGatedUploadName(name) ||
-    new Set(["pdf", "xlsx", "xls", "docx"]).has(ext)
+    new Set(["pdf", "xlsx", "xls", "docx", "mp4", "mov", "webm"]).has(ext)
   );
 }
 
@@ -117,6 +133,11 @@ export async function saveUploadedReceipt(companyId: number, file: File): Promis
 /** Same store as photos, wider set of types: invoices arrive as PDFs and sheets. */
 export async function saveUploadedDocument(companyId: number, file: File): Promise<string> {
   return saveUpload(companyId, file, DOCUMENT_TYPES, MAX_DOCUMENT_BYTES, DOCUMENT_PREFIX);
+}
+
+/** A dossier video: mp4/mov/webm, gated like every document, capped by DOSSIER_VIDEO_MAX_MB. */
+export async function saveUploadedVideo(companyId: number, file: File): Promise<string> {
+  return saveUpload(companyId, file, VIDEO_TYPES, DOSSIER_VIDEO_MAX_MB * 1024 * 1024, DOCUMENT_PREFIX);
 }
 
 /**

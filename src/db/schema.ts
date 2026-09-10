@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  date,
   pgTable,
   numeric,
   foreignKey,
@@ -560,6 +561,21 @@ export const orders = pgTable(
     // (a composite SET NULL would null company_id too, so no FK action).
     bankAccountId: integer("bank_account_id"),
     notes: text("notes").notNull().default(""),
+    /**
+     * The rebate dossier's header, filled in after customs clearance and
+     * editable on any status: the export VAT treatment this shipment is
+     * filed under (退税 needs 专票 for the goods, 免税 a 普票), the customs
+     * declaration number the accountant files by, and the dates her sheet
+     * asks for. export_date is the one every deadline counts from.
+     */
+    taxRegime: text("tax_regime", { enum: ["undecided", "rebate", "exempt"] })
+      .notNull()
+      .default("undecided"),
+    customsDeclarationNo: text("customs_declaration_no"),
+    exportContractDate: date("export_contract_date", { mode: "string" }),
+    purchaseContractDate: date("purchase_contract_date", { mode: "string" }),
+    warehouseInDate: date("warehouse_in_date", { mode: "string" }),
+    exportDate: date("export_date", { mode: "string" }),
     // Optimistic concurrency: every mutation sends the version it read and
     // the UPDATE carries WHERE version = that — two people editing at once
     // produce a visible conflict, never silent last-write-wins.
@@ -683,10 +699,42 @@ export const orderDocuments = pgTable(
       .references(() => companies.id),
     orderId: integer("order_id").notNull(),
     kind: text("kind", {
-      enum: ["supplier_invoice", "packing_list", "bill_of_lading", "inspection", "other"],
+      enum: [
+        "supplier_invoice",
+        "packing_list",
+        "bill_of_lading",
+        "inspection",
+        "other",
+        // The rebate dossier's items (docs/EXPORT-DOSSIER.md). Kept in the
+        // one documents table so a file is a file wherever it was uploaded.
+        "customs_declaration",
+        "customs_agency_agreement",
+        "release_notice",
+        "export_invoice",
+        "proforma",
+        "export_contract",
+        "purchase_contract",
+        "domestic_freight_invoice",
+        "intl_freight_invoice",
+        "freight_breakdown",
+        "fx_settlement_slip",
+        "freight_payment_slip",
+        "factory_payment_slip",
+        "warehouse_slip",
+        "trade_correspondence",
+        "loading_video",
+      ],
     })
       .notNull()
       .default("other"),
+    /**
+     * For a supplier invoice only: what kind of fapiao it is. "special" is a
+     * 13% VAT special invoice, "special_3" the 3% one a small-scale factory
+     * issues (rebate capped at 3%), "ordinary_exempt" a tax-exempt ordinary
+     * invoice (exemption, never a rebate), "none" no invoice at all — a risk
+     * state the checklist flags, not a choice.
+     */
+    fapiaoType: text("fapiao_type", { enum: ["special", "special_3", "ordinary_exempt", "none"] }),
     /** Path under /uploads, uuid-named like product photos. */
     path: text("path").notNull(),
     /** The name the file arrived with, used when downloading it back. */
@@ -832,6 +880,7 @@ export const orderEvents = pgTable(
         "expense_removed",
         "document_added",
         "document_removed",
+        "dossier",
       ],
     }).notNull(),
     /** JSON payload; shape depends on kind. See src/lib/order-log.ts. */

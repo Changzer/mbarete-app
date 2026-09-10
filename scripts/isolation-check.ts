@@ -245,6 +245,23 @@ async function main() {
       crossAssigned = false;
     }
     check("a visit cannot be assigned another company's supplier", !crossAssigned);
+    // The rebate dossier rides on the order row and its documents: from B's
+    // scope, A's declaration number is not readable and A's order takes no
+    // dossier document of B's.
+    const dossierRowsB = await db
+      .select({ id: orders.id, customsDeclarationNo: orders.customsDeclarationNo })
+      .from(orders)
+      .where(eq(orders.id, A.order.id));
+    check("orders RLS hides A's dossier header from B's scope", dossierRowsB.length === 0);
+    await expectFkViolation("FK rejects a dossier document on A's order", () =>
+      db.insert(orderDocuments).values({
+        companyId: B.company.id,
+        orderId: A.order.id,
+        kind: "customs_declaration",
+        path: "/uploads/c1/doc-y.pdf",
+        originalName: "y.pdf",
+      }),
+    );
     const finance = await getFinanceData(B.company.id);
     check("finance report excludes A's orders", finance.orders.every((o) => o.id === B.order.id));
     check(
