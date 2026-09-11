@@ -6,7 +6,7 @@ import { chromium } from "playwright";
 import pg from "pg";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
-const PHOTO = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAGQAAABkAQMAAABKLAcXAAAABlBMVEX/AAD///9BHTQRAAAAFElEQVR4AWOgOxgFo2AUjIJRMHQAAAZUAAGyx1LGAAAAAElFTkSuQmCC", "base64");
+const PHOTO = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAIAAAD/gAIDAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABUElEQVR4nO3XwQmAUBDE0Om/6djCv0gILLwCwrAqju3wNsIttfdbubF2Y+2Pd8td1m6s3WXN/XDfY7gba3dZu8dwlV8Iv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4COD54t6yshm4MnAAAAAElFTkSuQmCC", "base64");
 const copy = JSON.parse(await readFile("messages/en.json", "utf8")).landing.form;
 const photo = (name = "product.png") => ({ name, mimeType: "image/png", buffer: PHOTO });
 
@@ -78,6 +78,9 @@ test("the service page stays readable in four languages and motion modes", async
           await page.waitForURL(new RegExp(`/${locale}$`));
         }
         phase = "signup redirect";
+        const retired = await page.request.get(`${BASE}/${locale}/signup?ref=OLDREF`, { maxRedirects: 0 });
+        assert.equal(retired.status(), 307, "retired signup redirects before HTML streaming");
+        assert.equal(new URL(retired.headers().location, BASE).pathname, `/${locale}/login`);
         await page.goto(`${BASE}/${locale}/signup?ref=OLDREF`);
         await page.waitForURL(new RegExp(`/${locale}/login$`));
         assert.equal(await page.locator('a[href*="/signup"]').count(), 0);
