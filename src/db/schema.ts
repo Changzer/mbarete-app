@@ -1268,6 +1268,50 @@ export const authTokens = pgTable(
 );
 
 /**
+ * Enquiries from the public services page — someone describing what they want
+ * to import. Platform data like "companies": a row exists before any company
+ * does, so no company_id and no RLS.
+ *
+ * No unique index on email, unlike waitlistSignups: a returning importer
+ * asking about a different product has sent a second enquiry, not a duplicate
+ * of the first, and dropping it would lose a live sale.
+ */
+export const serviceEnquiries = pgTable("service_enquiries", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  companyName: text("company_name").notNull(),
+  email: text("email").notNull(),
+  preferredContact: text("preferred_contact"),
+  message: text("message").notNull(),
+  // Free text: importers state quantity in the unit their trade uses, a
+  // destination may be a country or a named port, and a price carries its own
+  // currency. Columns that parsed any of it would reject real enquiries.
+  quantity: text("quantity"),
+  destination: text("destination"),
+  targetPrice: text("target_price"),
+  locale: text("locale").notNull(),
+  createdAt: text("created_at").notNull().default(utcNow),
+});
+
+/**
+ * Photos attached to an enquiry — a buyer showing us the thing they want made.
+ * A child table like captureDraftImages rather than an array column, matching
+ * how the rest of the schema handles "several files belong to this row".
+ *
+ * Paths point at "enq-" prefixed uploads, which the serving route releases
+ * only to the platform operator: they come from strangers with no account and
+ * must never sit on the open image path.
+ */
+export const serviceEnquiryImages = pgTable("service_enquiry_images", {
+  id: serial("id").primaryKey(),
+  enquiryId: integer("enquiry_id")
+    .notNull()
+    .references(() => serviceEnquiries.id, { onDelete: "cascade" }),
+  path: text("path").notNull(),
+  createdAt: text("created_at").notNull().default(utcNow),
+});
+
+/**
  * Pre-launch waiting list, filled from the public landing page. Platform
  * data like "companies", not tenant data — rows exist before any company
  * does, so no company_id and no RLS. Uniqueness on lower(email) lives in

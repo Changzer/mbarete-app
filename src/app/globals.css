@@ -366,6 +366,7 @@ body {
   /* The offsets are the deck edge — all that shows of the card beneath. */
   .lp-beat:nth-child(2) { top: 10px; }
   .lp-beat:nth-child(3) { top: 20px; }
+  .lp-beat:nth-child(4) { top: 30px; }
 }
 
 @media (min-width: 768px) {
@@ -415,11 +416,13 @@ body {
          sat 10px and 20px low: a strip of the beat underneath showed along the
          top of the stage, and the copy stepped down at every handoff. */
       .lp-beat:nth-child(2),
-      .lp-beat:nth-child(3) { top: 0; }
+      .lp-beat:nth-child(3),
+      .lp-beat:nth-child(4) { top: 0; }
 
       .lp-beat:nth-child(1) { z-index: 1; }
       .lp-beat:nth-child(2) { z-index: 2; animation-name: lp-fade-2; }
       .lp-beat:nth-child(3) { z-index: 3; animation-name: lp-fade-3; }
+      .lp-beat:nth-child(4) { z-index: 4; animation-name: lp-fade-4; }
 
       /* Backgrounds and copy are two different jobs. Flat backgrounds may
          overlap — that reads as a wash. Text may not: text dissolving through
@@ -435,14 +438,18 @@ body {
 
       .lp-beat:nth-child(2) > * { animation-name: lp-copy-2; }
       .lp-beat:nth-child(3) > * { animation-name: lp-copy-3; }
+      .lp-beat:nth-child(4) > * { animation-name: lp-copy-4; }
 
-      /* The spacer is the scroll the pinned stage is played over. The story is
-         then 300vh tall inside a 100vh viewport, so its view timeline runs over
-         400vh and the stack is pinned across the middle half of it: 25% to 75%.
-         Every percentage below is inside that window. */
+      /* The spacer is the scroll the pinned stage is played over: one screen
+         per handoff, so four beats need three. The story is then 400vh tall
+         inside a 100vh viewport, its view timeline runs over 500vh, and the
+         stack is pinned from the moment the story's top reaches 0 (100vh in,
+         = 20%) until its bottom reaches the fold (400vh in, = 80%). The three
+         handoffs below sit at the quarter points of that 20–80 window — 35%,
+         50% and 65% — with the copy a beat behind its own background. */
       .lp-spacer {
-        height: 200vh;
-        height: 200svh;
+        height: 300vh;
+        height: 300svh;
       }
     }
   }
@@ -451,21 +458,31 @@ body {
 /* pointer-events rides along in the keyframes: a scene sitting at opacity 0
    still swallows clicks otherwise, which would leave the visible beat dead. */
 @keyframes lp-fade-2 {
-  0%, 37% { opacity: 0; pointer-events: none; }
-  45%, 100% { opacity: 1; pointer-events: auto; }
+  0%, 31% { opacity: 0; pointer-events: none; }
+  39%, 100% { opacity: 1; pointer-events: auto; }
 }
 
 @keyframes lp-fade-3 {
-  0%, 60% { opacity: 0; pointer-events: none; }
-  68%, 100% { opacity: 1; pointer-events: auto; }
+  0%, 46% { opacity: 0; pointer-events: none; }
+  54%, 100% { opacity: 1; pointer-events: auto; }
+}
+
+@keyframes lp-fade-4 {
+  0%, 61% { opacity: 0; pointer-events: none; }
+  69%, 100% { opacity: 1; pointer-events: auto; }
 }
 
 @keyframes lp-copy-2 {
-  0%, 44% { opacity: 0; }
-  50%, 100% { opacity: 1; }
+  0%, 38% { opacity: 0; }
+  44%, 100% { opacity: 1; }
 }
 
 @keyframes lp-copy-3 {
-  0%, 67% { opacity: 0; }
-  73%, 100% { opacity: 1; }
+  0%, 53% { opacity: 0; }
+  59%, 100% { opacity: 1; }
+}
+
+@keyframes lp-copy-4 {
+  0%, 68% { opacity: 0; }
+  74%, 100% { opacity: 1; }
 }

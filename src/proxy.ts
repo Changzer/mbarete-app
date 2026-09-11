@@ -5,8 +5,21 @@ import { routing } from "@/i18n/routing";
 
 const intlMiddleware = createMiddleware(routing);
 
+/**
+ * Built from the locale list rather than spelled out: this used to read
+ * /^\/(en|zh)/, so adding a locale silently made every page under it look
+ * like a non-public path and bounced visitors to login. Longest first, so a
+ * tag never loses a prefix match to a shorter one that starts the same way.
+ */
+const LOCALE_PREFIX = new RegExp(
+  `^/(${[...routing.locales]
+    .sort((a, b) => b.length - a.length)
+    .map((l) => l.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("|")})(?=/|$)`,
+);
+
 function isPublicPath(pathname: string) {
-  const withoutLocale = pathname.replace(/^\/(en|zh)/, "") || "/";
+  const withoutLocale = pathname.replace(LOCALE_PREFIX, "") || "/";
   return (
     withoutLocale === "/" ||
     withoutLocale.startsWith("/login") ||
@@ -26,7 +39,9 @@ export default auth((req) => {
   const { pathname } = req.nextUrl;
 
   if (!req.auth && !isPublicPath(pathname)) {
-    const locale = pathname.startsWith("/zh") ? "zh" : routing.defaultLocale;
+    // Send them to login in the language they were already reading.
+    const matched = LOCALE_PREFIX.exec(pathname)?.[1];
+    const locale = matched ?? routing.defaultLocale;
     const loginUrl = new URL(`/${locale}/login`, req.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);

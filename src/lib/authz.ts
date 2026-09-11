@@ -171,6 +171,19 @@ export async function requireModuleAction(
 // --- platform operator -------------------------------------------------------
 
 /**
+ * Whether this session is the platform operator — the question, not the gate.
+ *
+ * requirePlatformAdmin() below is for panel PAGES: it 404s the request and
+ * enters platform scope as a side effect. A caller that only needs to branch
+ * — the uploads route deciding whether to hand over an enquiry photo — wants
+ * neither of those, just the answer.
+ */
+export async function isPlatformAdminSession(): Promise<boolean> {
+  const row = await loadValidatedIdentity();
+  return Boolean(row?.platformAdmin);
+}
+
+/**
  * The operator of the whole platform — Mbarete itself, not a tenant admin.
  *
  * Everything about the hidden panel funnels through here: it is the only

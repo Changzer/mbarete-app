@@ -1,13 +1,18 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { ArrowDownCircle, CloudOff, Check, FileText } from "lucide-react";
+import { ArrowDownCircle, Search, Camera, Factory, ShieldCheck } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { redirect, Link } from "@/i18n/navigation";
-import { routing, type Locale } from "@/i18n/routing";
+import { routing, HREFLANG, type Locale } from "@/i18n/routing";
 import { Brand } from "@/components/brand";
 import { LanguageSwitcher } from "@/components/language-switcher";
-import { WaitlistForm } from "@/components/landing/waitlist-form";
-import { CaptureVisual, StructureVisual, DecideVisual } from "@/components/landing/beat-visuals";
+import { EnquiryForm } from "@/components/landing/enquiry-form";
+import {
+  SourcingVisual,
+  SamplingVisual,
+  ProductionVisual,
+  ExportVisual,
+} from "@/components/landing/service-visuals";
 import { Button } from "@/components/ui/button";
 
 export async function generateMetadata({
@@ -22,28 +27,33 @@ export async function generateMetadata({
     description: t("metaDescription"),
     alternates: {
       canonical: `/${locale}`,
-      languages: Object.fromEntries(routing.locales.map((l) => [l, `/${l}`])),
+      // The path segment and the advertised tag are not always the same: the
+      // Spanish copy is written for Latin America and says so here, while the
+      // URL stays /es.
+      languages: Object.fromEntries(routing.locales.map((l) => [HREFLANG[l], `/${l}`])),
     },
     openGraph: {
       title: t("metaTitle"),
       description: t("metaDescription"),
       type: "website",
-      locale,
+      locale: HREFLANG[locale as Locale] ?? locale,
     },
   };
 }
 
 /**
- * The public landing page: a hero, one scroll story in three beats, and the
- * pilot waiting list. No carousel and no video section — the story carries the
- * product, and a "demo video coming soon" frame advertises an absence.
+ * The public page: what Mbarete does for importers, in four steps, and a form
+ * to start a conversation.
  *
- * The whole page is server-rendered with no client JavaScript except the form.
- * Its motion lives in globals.css and is pure CSS, which is what keeps it
- * working in the WeChat webview where most of this link's traffic will land.
+ * It sells the SERVICE, not the software. The app behind the login is an
+ * internal tool and stays private, so nothing here demonstrates it — the
+ * visuals are drawings of the work itself.
+ *
+ * Server-rendered throughout; the only client components are the form and the
+ * language picker. The motion lives in globals.css and is pure CSS.
  */
 
-function Beat({
+function Step({
   label,
   title,
   body,
@@ -61,7 +71,11 @@ function Beat({
   tone: "bg" | "surface-2";
 }) {
   return (
-    <section className={`lp-beat px-5 py-10 sm:px-8 sm:py-14 md:py-16 ${tone === "bg" ? "bg-bg" : "bg-surface-2"}`}>
+    <section
+      className={`lp-beat px-5 py-10 sm:px-8 sm:py-14 md:py-16 ${
+        tone === "bg" ? "bg-bg" : "bg-surface-2"
+      }`}
+    >
       <div className="mx-auto grid w-full max-w-6xl items-center gap-7 sm:gap-10 md:grid-cols-2 md:gap-14">
         <div className="flex flex-col gap-4">
           <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-sub">{label}</div>
@@ -90,84 +104,92 @@ export default async function RootPage({
   const { locale } = await params;
   setRequestLocale(locale as Locale);
 
-  // Signed-in users have no business on the marketing page — straight to work.
+  // Staff who are already signed in have no business on the marketing page.
   const session = await auth();
   if (session?.user) redirect({ href: "/catalog", locale });
 
   const t = await getTranslations("landing");
 
   return (
-    <div className="lp-scroller bg-bg">
-      {/* Header and hero together own the first screen. The hero used to be
-          sized by its text alone (579px), so on anything taller than a laptop
-          the pinned story stage started hundreds of pixels above the fold and
-          beat 1 sat under the hero at rest. */}
-      <div className="lp-hero-screen">
-        <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
-          <Brand size="nav" />
-          <div className="flex items-center gap-2">
-            <LanguageSwitcher />
-            <Button asChild variant="outline" size="sm">
-              <Link href="/login">{t("signIn")}</Link>
-            </Button>
-            <Button asChild size="sm" className="hidden sm:inline-flex">
-              <a href="#waitlist">{t("ctaPrimary")}</a>
-            </Button>
-          </div>
-        </header>
+    <div className="bg-bg">
+      {/* Wraps on purpose. The language picker has to show four endonyms, so
+          it is wider than the old two-way toggle, and "Ingresar" is longer
+          than "Sign in" — together with the brand that overran a 320px screen
+          and pushed the whole page sideways. Below sm the controls drop to
+          their own line instead. */}
+      <header className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-3 px-5 py-4 sm:flex-nowrap sm:px-8">
+        <Brand size="nav" />
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <LanguageSwitcher />
+          <Button asChild variant="outline" size="sm">
+            <Link href="/login">{t("signIn")}</Link>
+          </Button>
+          <Button asChild size="sm" className="hidden sm:inline-flex">
+            <a href="#contact">{t("ctaPrimary")}</a>
+          </Button>
+        </div>
+      </header>
 
-        <section className="lp-hero mx-auto flex w-full max-w-5xl flex-1 flex-col items-center gap-6 px-5 pb-20 pt-12 text-center sm:px-8 sm:pt-20">
-          <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-action-chrome">
-            {t("eyebrow")}
-          </p>
-          <h1 className="text-balance text-[clamp(2.1rem,8vw,4.6rem)] font-bold leading-[1.03] tracking-tight text-ink">
-            {t("headline")}
-          </h1>
-          <p className="max-w-[58ch] text-[15px] leading-relaxed text-sub sm:text-lg">{t("subline")}</p>
-          <div className="flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row">
-            <Button asChild size="lg" className="w-full sm:w-auto">
-              <a href="#waitlist">{t("ctaPrimary")}</a>
-            </Button>
-            <Button asChild variant="ghost" size="lg" className="w-full sm:w-auto">
-              <a href="#story">
-                <ArrowDownCircle className="h-[18px] w-[18px]" aria-hidden />
-                {t("ctaSecondary")}
-              </a>
-            </Button>
-          </div>
-          <p className="font-mono text-[11.5px] leading-relaxed text-sub">{t("proof")}</p>
-        </section>
-      </div>
+      <section className="mx-auto flex w-full max-w-5xl flex-col items-center gap-6 px-5 pb-20 pt-12 text-center sm:px-8 sm:pt-20">
+        <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-action-chrome">
+          {t("eyebrow")}
+        </p>
+        <h1 className="text-balance text-[clamp(2.1rem,8vw,4.6rem)] font-bold leading-[1.03] tracking-tight text-ink">
+          {t("headline")}
+        </h1>
+        <p className="max-w-[60ch] text-[15px] leading-relaxed text-sub sm:text-lg">{t("subline")}</p>
+        <div className="flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row">
+          <Button asChild size="lg" className="w-full sm:w-auto">
+            <a href="#contact">{t("ctaPrimary")}</a>
+          </Button>
+          <Button asChild variant="ghost" size="lg" className="w-full sm:w-auto">
+            <a href="#how">
+              <ArrowDownCircle className="h-[18px] w-[18px]" aria-hidden />
+              {t("ctaSecondary")}
+            </a>
+          </Button>
+        </div>
+        <p className="font-mono text-[11.5px] leading-relaxed text-sub">{t("proof")}</p>
+      </section>
 
-      <div id="story" className="lp-story">
+      <div id="how" className="lp-story">
         <h2 className="sr-only">{t("storyLabel")}</h2>
         <div className="lp-stack">
-          <Beat
+          <Step
             tone="bg"
-            label={t("beats.captureLabel")}
-            title={t("beats.captureTitle")}
-            body={t("beats.captureBody")}
-            note={t("beats.captureNote")}
-            noteIcon={<CloudOff className="h-4 w-4" />}
-            visual={<CaptureVisual />}
+            label={t("services.sourcingLabel")}
+            title={t("services.sourcingTitle")}
+            body={t("services.sourcingBody")}
+            note={t("services.sourcingNote")}
+            noteIcon={<Search className="h-4 w-4" />}
+            visual={<SourcingVisual />}
           />
-          <Beat
+          <Step
             tone="surface-2"
-            label={t("beats.structureLabel")}
-            title={t("beats.structureTitle")}
-            body={t("beats.structureBody")}
-            note={t("beats.structureNote")}
-            noteIcon={<Check className="h-4 w-4" />}
-            visual={<StructureVisual />}
+            label={t("services.samplingLabel")}
+            title={t("services.samplingTitle")}
+            body={t("services.samplingBody")}
+            note={t("services.samplingNote")}
+            noteIcon={<Camera className="h-4 w-4" />}
+            visual={<SamplingVisual />}
           />
-          <Beat
+          <Step
             tone="bg"
-            label={t("beats.decideLabel")}
-            title={t("beats.decideTitle")}
-            body={t("beats.decideBody")}
-            note={t("beats.decideNote")}
-            noteIcon={<FileText className="h-4 w-4" />}
-            visual={<DecideVisual />}
+            label={t("services.productionLabel")}
+            title={t("services.productionTitle")}
+            body={t("services.productionBody")}
+            note={t("services.productionNote")}
+            noteIcon={<Factory className="h-4 w-4" />}
+            visual={<ProductionVisual />}
+          />
+          <Step
+            tone="surface-2"
+            label={t("services.exportLabel")}
+            title={t("services.exportTitle")}
+            body={t("services.exportBody")}
+            note={t("services.exportNote")}
+            noteIcon={<ShieldCheck className="h-4 w-4" />}
+            visual={<ExportVisual />}
           />
         </div>
         {/* Only ever tall on a desktop that can drive the pinned crossfade;
@@ -175,8 +197,21 @@ export default async function RootPage({
         <div className="lp-spacer" aria-hidden />
       </div>
 
+      {/* The mission, said plainly and once. It is the reason the four steps
+          above are shaped the way they are, so it reads after them. */}
+      <section className="relative z-[1] border-t border-line bg-bg px-5 py-16 text-center sm:px-8 sm:py-24">
+        <div className="mx-auto max-w-3xl">
+          <h2 className="text-balance text-[clamp(1.7rem,6vw,3.1rem)] font-bold leading-[1.06] tracking-tight text-ink">
+            {t("missionTitle")}
+          </h2>
+          <p className="mx-auto mt-5 max-w-[56ch] text-[15px] leading-relaxed text-sub sm:text-lg">
+            {t("missionBody")}
+          </p>
+        </div>
+      </section>
+
       <section
-        id="waitlist"
+        id="contact"
         className="relative z-[1] border-t border-line bg-surface-2 px-5 py-16 sm:px-8 sm:py-24"
       >
         <div className="mx-auto w-full max-w-3xl rounded-sheet border border-line bg-surface p-6 sm:p-10">
@@ -191,22 +226,11 @@ export default async function RootPage({
               {t("form.subtitle")}
             </p>
           </div>
-          <WaitlistForm />
+          <EnquiryForm />
         </div>
-        {/* The public face of the site reaches the policies from here. The
-            filing footer is deliberately absent until there is a filing to
-            print: BeianFooter renders nothing without ICP_BEIAN, and the
-            landing page should not carry a component that can only ever be
-            empty today. Add it here when the numbers exist. */}
-        <footer className="mt-10 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-center text-xs text-sub">
-          <span>© {new Date().getFullYear()} Mbarete</span>
-          <Link href="/terms" className="hover:text-ink hover:underline">
-            {t("form.consentTerms")}
-          </Link>
-          <Link href="/privacy" className="hover:text-ink hover:underline">
-            {t("form.consentPrivacy")}
-          </Link>
-        </footer>
+        <p className="mt-10 text-center text-xs text-sub">
+          © {new Date().getFullYear()} Mbarete
+        </p>
       </section>
     </div>
   );
