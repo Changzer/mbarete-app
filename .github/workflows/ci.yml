@@ -50,6 +50,7 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+      - run: node scripts/e2e/hydration-diagnostic.cjs
       - run: npm run db:migrate
       - run: npm run test:supplier-migration
       - run: npm run check:isolation
@@ -100,20 +101,11 @@ jobs:
         if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
         env:
           UPLOADS_DIR: ${{ runner.temp }}/uploads
-      - name: Diagnose landing hydration in development
+      - name: Repeat public navigation diagnosis
         if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
-        env:
-          UPLOADS_DIR: ${{ runner.temp }}/uploads
         run: |
-          npx next dev -p 3001 > /tmp/landing-dev.log 2>&1 &
-          diagnostic_pid=$!
-          trap 'kill "$diagnostic_pid" || true; tail -100 /tmp/landing-dev.log' EXIT
-          for i in $(seq 1 60); do
-            if curl -sf -o /dev/null http://localhost:3001/en/login; then break; fi
-            sleep 1
-          done
           for diagnostic_attempt in 1 2 3; do
-            BASE_URL=http://localhost:3001 node --test --test-name-pattern='service page' src/ui-tests/landing.spec.mjs
+            node --test --test-name-pattern='service page' src/ui-tests/landing.spec.mjs
           done
       - name: Upload landing review screenshots
         if: always()

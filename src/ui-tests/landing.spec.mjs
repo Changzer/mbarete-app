@@ -28,13 +28,14 @@ test("the service page stays readable in four languages and motion modes", async
         const context = await browser.newContext({ viewport, reducedMotion });
         const page = await context.newPage();
         const errors = [];
+        page.on("console", (message) => { if (message.text().startsWith("[hydration-diagnostic]")) console.log(message.text()); });
         let phase = "landing";
         page.on("pageerror", (error) => errors.push(`${locale}/${mode}/${phase} ${page.url()}: ${error.stack ?? error.message}`));
         await page.goto(`${BASE}/${locale}`);
         await page.locator("h1").waitFor();
         await page.waitForFunction(() => [...document.querySelectorAll("figure img")].some((img) => img.complete && img.naturalWidth > 0));
         await noOverflow(page);
-        await page.screenshot({ path: `artifacts/landing/${locale}-${mode}-hero.png` });
+        await page.screenshot({ caret: "initial", path: `artifacts/landing/${locale}-${mode}-hero.png` });
         if (mode === "desktop") {
           assert.equal(await page.locator("#how article").count(), 3);
           for (const [index, progress] of [[0, 0.3], [1, 0.56], [2, 0.75]]) {
@@ -51,7 +52,7 @@ test("the service page stays readable in four languages and motion modes", async
             const inner = chapter.locator(":scope > div");
             const box = await inner.boundingBox();
             assert.ok(box && box.y >= -1 && box.y + box.height <= viewport.height + 1, `chapter ${index + 1} fits screen`);
-            await page.screenshot({ path: `artifacts/landing/${locale}-chapter-${index + 1}.png` });
+            await page.screenshot({ caret: "initial", path: `artifacts/landing/${locale}-chapter-${index + 1}.png` });
           }
         } else {
           // In normal flow no chapter is covered by the next one.
@@ -63,7 +64,7 @@ test("the service page stays readable in four languages and motion modes", async
         await page.locator('section[aria-labelledby="landing-title"] a[href="#contact"]').click();
         await page.locator("#eq-message").waitFor({ state: "visible" });
         await noOverflow(page);
-        await page.locator("#contact").screenshot({ path: `artifacts/landing/${locale}-${mode}-enquiry.png` });
+        await page.locator("#contact").screenshot({ caret: "initial", path: `artifacts/landing/${locale}-${mode}-enquiry.png` });
         for (const route of ["privacy", "terms"]) {
           phase = route;
           const link = page.locator(`footer a[href="/${locale}/${route}"]`);
@@ -134,7 +135,7 @@ test("enquiries persist photos, keep drafts after failures, and clean up rejecte
     assert.equal(await page.getByRole("img", { name: "too-large.png", exact: true }).count(), 0);
     await submit();
     await page.getByText(copy.thanksTitle, { exact: true }).waitFor({ timeout: 10000 }).catch(async (error) => {
-      await page.screenshot({ path: "artifacts/landing/enquiry-failure.png", fullPage: true });
+      await page.screenshot({ caret: "initial", path: "artifacts/landing/enquiry-failure.png", fullPage: true });
       throw new Error(`${error.message}\nResponses: ${JSON.stringify(posts)}\nForm state: ${await page.locator("form").innerText()}\nFields: ${JSON.stringify(await page.locator("form input, form textarea").evaluateAll((fields) => fields.map((f) => ({ name: f.name, value: f.type === "file" ? "file" : f.value, valid: f.validity.valid }))))}`);
     });
     const { rows } = await sql.query("SELECT * FROM service_enquiries WHERE email=$1", [email]);
@@ -176,7 +177,7 @@ test("enquiries persist photos, keep drafts after failures, and clean up rejecte
     await sql.query("DROP FUNCTION landing_qa_reject()");
     await submit();
     await page.getByText(copy.thanksTitle, { exact: true }).waitFor({ timeout: 10000 }).catch(async (error) => {
-      await page.screenshot({ path: "artifacts/landing/enquiry-failure.png", fullPage: true });
+      await page.screenshot({ caret: "initial", path: "artifacts/landing/enquiry-failure.png", fullPage: true });
       throw new Error(`${error.message}\nResponses: ${JSON.stringify(posts)}\nForm state: ${await page.locator("form").innerText()}\nFields: ${JSON.stringify(await page.locator("form input, form textarea").evaluateAll((fields) => fields.map((f) => ({ name: f.name, value: f.type === "file" ? "file" : f.value, valid: f.validity.valid }))))}`);
     });
     assert.equal((await sql.query("SELECT id FROM service_enquiries WHERE email=$1", [failedEmail])).rowCount, 1);
