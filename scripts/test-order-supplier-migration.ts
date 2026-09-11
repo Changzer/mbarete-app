@@ -29,10 +29,11 @@ async function main() {
     for (const entry of previous) await copyFile(`drizzle/${entry.tag}.sql`, path.join(temporary, `${entry.tag}.sql`));
     await migrate(drizzle(target), { migrationsFolder: temporary });
     const company = (await target.query("INSERT INTO companies (name) VALUES ('Upgrade QA') RETURNING id")).rows[0].id;
+    const user = (await target.query("INSERT INTO users (company_id,email,password_hash,name) VALUES ($1,'upgrade@example.com','unused-test-hash','Upgrade QA') RETURNING id", [company])).rows[0].id;
     const contact = (await target.query("INSERT INTO contacts (company_id,type,company_name) VALUES ($1,'supplier','Current, not historical') RETURNING id", [company])).rows[0].id;
     const category = (await target.query("INSERT INTO categories (company_id,name_en,name_zh) VALUES ($1,'QA','测试') RETURNING id", [company])).rows[0].id;
     const product = (await target.query("INSERT INTO products (company_id,sku,name_en,name_zh,category_id,price,supplier_id) VALUES ($1,'QA-1','QA','测试',$2,20,$3) RETURNING id", [company, category, contact])).rows[0].id;
-    const order = (await target.query("INSERT INTO orders (company_id,order_number,client_id,status) VALUES ($1,'UPGRADE-QA',$2,'shipped') RETURNING id", [company, contact])).rows[0].id;
+    const order = (await target.query("INSERT INTO orders (company_id,order_number,client_id,status,created_by) VALUES ($1,'UPGRADE-QA',$2,'shipped',$3) RETURNING id", [company, contact, user])).rows[0].id;
     await target.query("INSERT INTO order_items (company_id,order_id,product_id,quantity,unit_price_snapshot,currency_snapshot,moq_snapshot,line_total,line_cbm,line_weight_kg) VALUES ($1,$2,$3,10,15,'USD',10,150,0.2,5)", [company, order, product]);
     const before = (await target.query("SELECT * FROM order_items WHERE order_id=$1", [order])).rows[0];
     await migrate(drizzle(target), { migrationsFolder: "drizzle" });

@@ -451,7 +451,8 @@
     "allSuppliers": "All suppliers",
     "orderConflict": "This order changed while you were working — refresh the page to see the latest version, then try again.",
     "refreshSupplier": "Supplier",
-    "supplierNotRecorded": "Supplier not recorded"
+    "supplierNotRecorded": "Supplier not recorded",
+    "refreshStale": "The order or catalog changed. Preview the changes again before applying."
   },
   "settings": {
     "exchangeRates": "Exchange Rates",

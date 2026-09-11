@@ -27,7 +27,7 @@ export function CatalogRefresh({ orderId }: { orderId: number }) {
   const [isPending, startTransition] = useTransition();
   const [fingerprint, setFingerprint] = useState("");
   const [diffs, setDiffs] = useState<LineRefreshDiff[] | null>(null);
-  const [note, setNote] = useState<"none" | "done" | "failed" | null>(null);
+  const [note, setNote] = useState<"none" | "done" | "failed" | "conflict" | null>(null);
 
   function check() {
     setNote(null);
@@ -44,7 +44,7 @@ export function CatalogRefresh({ orderId }: { orderId: number }) {
     startTransition(async () => {
       const result = await applyCatalogRefresh(orderId, fingerprint);
       setDiffs(null);
-      setNote(result.error ? "failed" : "done");
+      setNote(result.error === "conflict" ? "conflict" : result.error ? "failed" : "done");
       if (!result.error) router.refresh();
     });
   }
@@ -64,10 +64,10 @@ export function CatalogRefresh({ orderId }: { orderId: number }) {
       </Button>
       {note ? (
         <p
-          className={`text-[11.5px] ${note === "failed" ? "text-danger" : "text-sub"}`}
+          className={`text-[11.5px] ${(note === "failed" || note === "conflict") ? "text-danger" : "text-sub"}`}
           data-testid="catalog-refresh-note"
         >
-          {note === "none" ? t("refreshNoChanges") : note === "done" ? t("refreshApplied") : t("refreshFailed")}
+          {note === "none" ? t("refreshNoChanges") : note === "done" ? t("refreshApplied") : note === "conflict" ? t("refreshStale") : t("refreshFailed")}
         </p>
       ) : null}
 

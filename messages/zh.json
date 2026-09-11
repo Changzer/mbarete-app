@@ -451,7 +451,8 @@
     "allSuppliers": "全部供应商",
     "orderConflict": "该订单在您操作期间已被修改——请刷新页面查看最新版本后重试。",
     "refreshSupplier": "供应商",
-    "supplierNotRecorded": "未记录供应商"
+    "supplierNotRecorded": "未记录供应商",
+    "refreshStale": "订单或目录已更改，请重新预览后再应用。"
   },
   "settings": {
     "exchangeRates": "汇率",
