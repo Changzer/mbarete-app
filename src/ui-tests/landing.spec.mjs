@@ -28,7 +28,8 @@ test("the service page stays readable in four languages and motion modes", async
         const context = await browser.newContext({ viewport, reducedMotion });
         const page = await context.newPage();
         const errors = [];
-        page.on("pageerror", (error) => errors.push(error.message));
+        let phase = "landing";
+        page.on("pageerror", (error) => errors.push(`${locale}/${mode}/${phase} ${page.url()}: ${error.stack ?? error.message}`));
         await page.goto(`${BASE}/${locale}`);
         await page.locator("h1").waitFor();
         await page.waitForFunction(() => [...document.querySelectorAll("figure img")].some((img) => img.complete && img.naturalWidth > 0));
@@ -64,6 +65,7 @@ test("the service page stays readable in four languages and motion modes", async
         await noOverflow(page);
         await page.locator("#contact").screenshot({ path: `artifacts/landing/${locale}-${mode}-enquiry.png` });
         for (const route of ["privacy", "terms"]) {
+          phase = route;
           const link = page.locator(`footer a[href="/${locale}/${route}"]`);
           assert.equal(await link.count(), 1, `public ${route} link`);
           await link.click();
@@ -75,6 +77,7 @@ test("the service page stays readable in four languages and motion modes", async
           await page.getByRole("link", { name: /Back to Mbarete|Voltar à Mbarete|Volver a Mbarete|返回 Mbarete/ }).click();
           await page.waitForURL(new RegExp(`/${locale}$`));
         }
+        phase = "signup redirect";
         await page.goto(`${BASE}/${locale}/signup?ref=OLDREF`);
         await page.waitForURL(new RegExp(`/${locale}/login$`));
         assert.equal(await page.locator('a[href*="/signup"]').count(), 0);
@@ -101,6 +104,10 @@ test("enquiries persist photos, keep drafts after failures, and clean up rejecte
   await sql.connect();
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const posts = [];
+  page.on("response", async (response) => {
+    if (response.request().method() === "POST") posts.push({ status: response.status(), body: await response.text().then((t) => t.slice(-1500)).catch(() => "unavailable") });
+  });
   const email = `landing-${Date.now()}@example.com`;
   const failedEmail = `failed-${email}`;
   const uploads = async () => (await readdir(process.env.UPLOADS_DIR)).filter((p) => p.startsWith("enq-")).sort();
@@ -120,7 +127,10 @@ test("enquiries persist photos, keep drafts after failures, and clean up rejecte
     assert.equal(await page.getByRole("img", { name: "product.png", exact: true }).count(), 1, "rejected selection preserves accepted photo");
     assert.equal(await page.getByRole("img", { name: "too-large.png", exact: true }).count(), 0);
     await submit();
-    await page.getByText(copy.thanksTitle, { exact: true }).waitFor();
+    await page.getByText(copy.thanksTitle, { exact: true }).waitFor({ timeout: 10000 }).catch(async (error) => {
+      await page.screenshot({ path: "artifacts/landing/enquiry-failure.png", fullPage: true });
+      throw new Error(`${error.message}\nResponses: ${JSON.stringify(posts)}\nForm state: ${await page.locator("form").innerText()}\nFields: ${JSON.stringify(await page.locator("form input, form textarea").evaluateAll((fields) => fields.map((f) => ({ name: f.name, value: f.type === "file" ? "file" : f.value, valid: f.validity.valid }))))}`);
+    });
     const { rows } = await sql.query("SELECT * FROM service_enquiries WHERE email=$1", [email]);
     assert.equal(rows.length, 1);
     assert.equal(rows[0].company_name, "", "company is optional end to end");
@@ -159,7 +169,10 @@ test("enquiries persist photos, keep drafts after failures, and clean up rejecte
     await sql.query("DROP TRIGGER landing_qa_reject ON service_enquiries");
     await sql.query("DROP FUNCTION landing_qa_reject()");
     await submit();
-    await page.getByText(copy.thanksTitle, { exact: true }).waitFor();
+    await page.getByText(copy.thanksTitle, { exact: true }).waitFor({ timeout: 10000 }).catch(async (error) => {
+      await page.screenshot({ path: "artifacts/landing/enquiry-failure.png", fullPage: true });
+      throw new Error(`${error.message}\nResponses: ${JSON.stringify(posts)}\nForm state: ${await page.locator("form").innerText()}\nFields: ${JSON.stringify(await page.locator("form input, form textarea").evaluateAll((fields) => fields.map((f) => ({ name: f.name, value: f.type === "file" ? "file" : f.value, valid: f.validity.valid }))))}`);
+    });
     assert.equal((await sql.query("SELECT id FROM service_enquiries WHERE email=$1", [failedEmail])).rowCount, 1);
     assert.equal((await uploads()).length, beforeFiles.length + 1, "retry creates only accepted attachment");
   } finally {
