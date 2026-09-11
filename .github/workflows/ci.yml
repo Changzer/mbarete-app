@@ -71,6 +71,7 @@ jobs:
           ADMIN_PASSWORD: change-me
       - run: npx playwright install --with-deps chromium
       - name: Start app against the vision stub
+        id: start_app
         env:
           MOONSHOT_API_KEY: stub
           MOONSHOT_BASE_URL: http://localhost:9099
@@ -84,6 +85,7 @@ jobs:
           done
           echo "app never became healthy" && exit 1
       - run: npm run test:e2e
+        if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
 
       # Continuous field capture in the same browser and against the same
       # server: per-photo persistence and reload recovery, booth visits and
@@ -92,7 +94,9 @@ jobs:
       # after delivery, the legacy queue across the store upgrade, and
       # another account's captures staying on the phone.
       - run: npm run test:capture
+        if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
       - run: npm run test:landing
+        if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
         env:
           UPLOADS_DIR: ${{ runner.temp }}/uploads
       - name: Upload landing review screenshots
