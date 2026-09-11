@@ -5,7 +5,7 @@
  * document that wants the same grouping agree.
  */
 export type SupplierGroup<T> = {
-  /** null for the lines whose product has no supplier recorded */
+  /** null for lines without recorded supplier provenance */
   supplierId: number | null;
   supplierName: string | null;
   rows: T[];

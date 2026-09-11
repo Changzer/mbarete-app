@@ -10,7 +10,7 @@ import { AppNav } from "@/components/app-nav";
 import { OutboxProvider } from "@/components/offline/outbox";
 import { SwRegister } from "@/components/offline/sw-register";
 import { ToastProvider } from "@/components/ui/toast";
-import { themeBootScript } from "@/components/theme-toggle";
+import { themeBootScript } from "@/lib/theme-boot";
 import "../globals.css";
 
 export const metadata: Metadata = {

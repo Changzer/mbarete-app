@@ -7,6 +7,7 @@ import {
   saveUploadedEnquiryImage,
   ENQUIRY_IMAGE_MAX,
   ENQUIRY_IMAGE_MAX_BYTES,
+  deleteUpload,
 } from "@/lib/uploads";
 import { makeLimiter, clientIp } from "@/lib/rate-limit";
 import { getLocale } from "next-intl/server";
@@ -46,14 +47,14 @@ export async function submitEnquiry(
   if (photos.length > ENQUIRY_IMAGE_MAX) return { error: "photos" };
   if (photos.some((f) => f.size > ENQUIRY_IMAGE_MAX_BYTES)) return { error: "photos" };
 
-  let paths: string[];
+  const paths: string[] = [];
   try {
     // Sequentially, not in parallel: each one decodes and re-encodes a
     // multi-megapixel image, and four of those at once on a small VPS is a
     // memory spike a stranger gets to trigger at will.
-    paths = [];
     for (const photo of photos) paths.push(await saveUploadedEnquiryImage(photo));
   } catch {
+    await Promise.allSettled(paths.map(deleteUpload));
     return { error: "photos" };
   }
 
@@ -74,6 +75,7 @@ export async function submitEnquiry(
       }
     });
   } catch {
+    await Promise.allSettled(paths.map(deleteUpload));
     return { error: "failed" };
   }
   return { ok: true };

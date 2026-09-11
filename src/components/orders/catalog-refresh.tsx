@@ -25,24 +25,26 @@ export function CatalogRefresh({ orderId }: { orderId: number }) {
   const common = useTranslations("common");
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [fingerprint, setFingerprint] = useState("");
   const [diffs, setDiffs] = useState<LineRefreshDiff[] | null>(null);
-  const [note, setNote] = useState<"none" | "done" | "failed" | null>(null);
+  const [note, setNote] = useState<"none" | "done" | "failed" | "conflict" | null>(null);
 
   function check() {
     setNote(null);
     startTransition(async () => {
       const result = await previewCatalogRefresh(orderId);
-      if (result.error || !result.diffs) return setNote("failed");
+      if (result.error || !result.diffs || !result.fingerprint) return setNote("failed");
       if (result.diffs.length === 0) return setNote("none");
+      setFingerprint(result.fingerprint);
       setDiffs(result.diffs);
     });
   }
 
   function apply() {
     startTransition(async () => {
-      const result = await applyCatalogRefresh(orderId);
+      const result = await applyCatalogRefresh(orderId, fingerprint);
       setDiffs(null);
-      setNote(result.error ? "failed" : "done");
+      setNote(result.error === "conflict" ? "conflict" : result.error ? "failed" : "done");
       if (!result.error) router.refresh();
     });
   }
@@ -62,10 +64,10 @@ export function CatalogRefresh({ orderId }: { orderId: number }) {
       </Button>
       {note ? (
         <p
-          className={`text-[11.5px] ${note === "failed" ? "text-danger" : "text-sub"}`}
+          className={`text-[11.5px] ${(note === "failed" || note === "conflict") ? "text-danger" : "text-sub"}`}
           data-testid="catalog-refresh-note"
         >
-          {note === "none" ? t("refreshNoChanges") : note === "done" ? t("refreshApplied") : t("refreshFailed")}
+          {note === "none" ? t("refreshNoChanges") : note === "done" ? t("refreshApplied") : note === "conflict" ? t("refreshStale") : t("refreshFailed")}
         </p>
       ) : null}
 
@@ -80,6 +82,12 @@ export function CatalogRefresh({ orderId }: { orderId: number }) {
                   {d.name} <span className="font-mono text-[11px] font-normal text-sub">{d.sku}</span>
                 </div>
                 <ul className="mt-1 flex flex-col gap-0.5 font-mono text-[12px] text-sub">
+                  {d.supplier ? (
+                    <li>
+                      {t("refreshSupplier")}: {d.supplier.from ?? t("supplierNotRecorded")} →{" "}
+                      <b className="text-ink">{d.supplier.to ?? t("supplierNotRecorded")}</b>
+                    </li>
+                  ) : null}
                   {d.cost ? (
                     <li>
                       {t("refreshCost")}: {d.cost.from.toFixed(2)} {d.cost.fromCurrency} →{" "}

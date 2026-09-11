@@ -3,10 +3,9 @@
 import { useSyncExternalStore } from "react";
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { THEME_STORAGE_KEY as STORAGE_KEY } from "@/lib/theme-boot";
 
 export type ThemeChoice = "system" | "light" | "dark";
-
-const STORAGE_KEY = "mb-theme";
 
 /**
  * Applied before paint by the inline script in the layout and again here on
@@ -103,11 +102,3 @@ export function ThemeToggle() {
     </div>
   );
 }
-
-/**
- * Runs before first paint so a dark-choosing agent never gets a white flash.
- * Inlined as a string because it has to execute ahead of React hydration.
- */
-export const themeBootScript = `(function(){try{var v=localStorage.getItem(${JSON.stringify(
-  STORAGE_KEY,
-)});if(v==="light"||v==="dark"){document.documentElement.setAttribute("data-theme",v)}}catch(e){}})()`;

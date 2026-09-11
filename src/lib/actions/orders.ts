@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
@@ -64,10 +65,16 @@ async function buildOrderItemRows(
 ) {
   const productIds = items.map((i) => i.productId);
   const productRows = await db
-    .select()
+    .select({ product: products, supplier: contacts })
     .from(products)
+    .leftJoin(contacts, and(eq(contacts.companyId, companyId), eq(contacts.id, products.supplierId)))
     .where(and(eq(products.companyId, companyId), inArray(products.id, productIds)));
-  const productMap = new Map(productRows.map((p) => [p.id, p]));
+  const productMap = new Map(productRows.map(({ product, supplier }) => [product.id, {
+    ...product,
+    supplierIdSnapshot: supplier?.id ?? null,
+    supplierNameEnSnapshot: supplier?.companyName ?? "",
+    supplierNameZhSnapshot: supplier?.companyNameZh ?? "",
+  }]));
 
   const rows = items.map(({ productId, quantity, sellPrice }) => {
     const product = productMap.get(productId);
@@ -90,6 +97,9 @@ async function buildOrderItemRows(
       nameEnSnapshot: product.nameEn,
       nameZhSnapshot: product.nameZh,
       supplierCodeSnapshot: product.supplierCode ?? "",
+      supplierIdSnapshot: product.supplierIdSnapshot,
+      supplierNameEnSnapshot: product.supplierNameEnSnapshot,
+      supplierNameZhSnapshot: product.supplierNameZhSnapshot,
       qtyPerBoxSnapshot: product.qtyPerBox,
       cartonCbmSnapshot: product.cbm,
       cartonWeightSnapshot: product.weightKg,
@@ -154,6 +164,9 @@ async function buildEditedItemRows(
       nameEnSnapshot: prior.nameEnSnapshot,
       nameZhSnapshot: prior.nameZhSnapshot,
       supplierCodeSnapshot: prior.supplierCodeSnapshot,
+      supplierIdSnapshot: prior.supplierIdSnapshot,
+      supplierNameEnSnapshot: prior.supplierNameEnSnapshot,
+      supplierNameZhSnapshot: prior.supplierNameZhSnapshot,
       qtyPerBoxSnapshot: prior.qtyPerBoxSnapshot,
       cartonCbmSnapshot: prior.cartonCbmSnapshot,
       cartonWeightSnapshot: prior.cartonWeightSnapshot,
@@ -578,6 +591,7 @@ export type LineRefreshDiff = {
   cbm?: { from: number; to: number };
   weightKg?: { from: number; to: number };
   cartons?: { from: number; to: number };
+  supplier?: { from: string | null; to: string | null };
 };
 
 const near = (a: number, b: number) => Math.abs(a - b) < 0.0005;
@@ -597,14 +611,20 @@ async function computeCatalogRefresh(companyId: number, orderId: number) {
 
   const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
   const productRows = await db
-    .select()
+    .select({ product: products, supplier: contacts })
     .from(products)
+    .leftJoin(contacts, and(eq(contacts.companyId, companyId), eq(contacts.id, products.supplierId)))
     .where(
       and(eq(products.companyId, companyId), inArray(products.id, items.map((i) => i.productId))),
     );
-  const productMap = new Map(productRows.map((p) => [p.id, p]));
+  const productMap = new Map(productRows.map(({ product, supplier }) => [product.id, {
+    ...product,
+    supplierIdSnapshot: supplier?.id ?? null,
+    supplierNameEnSnapshot: supplier?.companyName ?? "",
+    supplierNameZhSnapshot: supplier?.companyNameZh ?? "",
+  }]));
 
-  const updates: { itemId: number; fresh: Record<string, number | string>; diff: LineRefreshDiff }[] = [];
+  const updates: { itemId: number; fresh: Partial<typeof orderItems.$inferInsert>; diff: LineRefreshDiff }[] = [];
   for (const item of items) {
     const product = productMap.get(item.productId);
     if (!product) continue; // a deleted product has nothing fresh to offer
@@ -624,6 +644,9 @@ async function computeCatalogRefresh(companyId: number, orderId: number) {
       nameEnSnapshot: product.nameEn,
       nameZhSnapshot: product.nameZh,
       supplierCodeSnapshot: product.supplierCode ?? "",
+      supplierIdSnapshot: product.supplierIdSnapshot,
+      supplierNameEnSnapshot: product.supplierNameEnSnapshot,
+      supplierNameZhSnapshot: product.supplierNameZhSnapshot,
       qtyPerBoxSnapshot: product.qtyPerBox,
       cartonCbmSnapshot: product.cbm,
       cartonWeightSnapshot: product.weightKg,
@@ -647,6 +670,18 @@ async function computeCatalogRefresh(companyId: number, orderId: number) {
       diff.cartons = { from: item.cartonsSnapshot, to: fresh.cartonsSnapshot };
     }
 
+    if (fresh.supplierIdSnapshot !== item.supplierIdSnapshot ||
+        fresh.supplierNameEnSnapshot !== item.supplierNameEnSnapshot ||
+        fresh.supplierNameZhSnapshot !== item.supplierNameZhSnapshot) {
+      // Show identity as well as the name: two contacts may share a label.
+      const label = (id: number | null, en: string, zh: string) =>
+        id === null ? null : `${[...new Set([en, zh].filter(Boolean))].join(" / ") || "#" + id} · #${id}`;
+      diff.supplier = {
+        from: label(item.supplierIdSnapshot, item.supplierNameEnSnapshot, item.supplierNameZhSnapshot),
+        to: label(fresh.supplierIdSnapshot, fresh.supplierNameEnSnapshot, fresh.supplierNameZhSnapshot),
+      };
+    }
+
     // A renamed or re-SKU'd product is also the catalog's half: the refresh
     // carries it onto the line (the coded diffs below stay money/logistics —
     // the refresh event itself is the log entry for identity).
@@ -659,34 +694,41 @@ async function computeCatalogRefresh(companyId: number, orderId: number) {
       !near(fresh.cartonCbmSnapshot, item.cartonCbmSnapshot) ||
       !near(fresh.cartonWeightSnapshot, item.cartonWeightSnapshot);
 
-    if (diff.cost || diff.moq || diff.cbm || diff.weightKg || diff.cartons || identityChanged) {
+    if (diff.cost || diff.moq || diff.cbm || diff.weightKg || diff.cartons || diff.supplier || identityChanged) {
       updates.push({ itemId: item.id, fresh, diff });
     }
   }
-  return { order, updates };
+  // Approval is for the exact preview, not whatever the catalog says later.
+  const fingerprint = createHash("sha256").update(JSON.stringify({
+    orderId, version: order.version, updates: [...updates].sort((a, b) => a.itemId - b.itemId),
+  })).digest("hex");
+  return { order, updates, fingerprint };
 }
 
 /** What an update would change, line by line — nothing is written. */
 export async function previewCatalogRefresh(
   orderId: number,
-): Promise<{ error?: string; diffs?: LineRefreshDiff[] }> {
+): Promise<{ error?: string; diffs?: LineRefreshDiff[]; fingerprint?: string }> {
   const user = await requireSession();
   const result = await computeCatalogRefresh(user.companyId, orderId);
   if ("error" in result) return { error: result.error };
-  return { diffs: result.updates.map((u) => u.diff) };
+  return { diffs: result.updates.map((u) => u.diff), fingerprint: result.fingerprint };
 }
 
 /** Applies the refresh. Recomputed here — a stale preview never gets written. */
 export async function applyCatalogRefresh(
   orderId: number,
+  previewFingerprint: string,
 ): Promise<{ error?: string; updated?: number }> {
   const user = await requireSession();
   const result = await computeCatalogRefresh(user.companyId, orderId);
   if ("error" in result) return { error: result.error };
+  if (previewFingerprint !== result.fingerprint) return { error: "conflict" };
   if (result.updates.length === 0) return { updated: 0 };
 
   const changes: OrderChange[] = [];
   for (const { diff } of result.updates) {
+    if (diff.supplier) changes.push({ code: "line_supplier", sku: diff.sku, ...diff.supplier });
     if (diff.cost) {
       changes.push({
         code: "line_cost",

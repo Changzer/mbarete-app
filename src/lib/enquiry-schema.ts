@@ -23,7 +23,9 @@ const optionalText = z
 
 export const enquirySchema = z.object({
   name: z.string().trim().min(1).max(120),
-  companyName: z.string().trim().min(1).max(120),
+  // A buyer may still be setting up their business. The existing text column
+  // accepts an empty string, so this does not require a schema migration.
+  companyName: z.string().trim().max(120).nullish().transform((value) => value ?? ""),
   email: z.string().trim().toLowerCase().email().max(200),
   // An empty field and an absent field are the same intent: no handle given.
   preferredContact: optionalText,

@@ -58,7 +58,7 @@ export default async function OrderDetailPage({
   if (!view) notFound();
   const { order, client, rows, targets, totals, effectiveRates } = view;
   // Lines under the supplier they come from, so a mixed order reads booth
-  // by booth. A supplier that has since been removed reads as unrecorded.
+  // by booth. Recorded supplier names survive later contact edits/deletion.
   const groups = groupBySupplier(rows).map((g) => ({
     ...g,
     label: g.supplierName ?? catalogT("supplierUnknown"),

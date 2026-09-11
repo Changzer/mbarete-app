@@ -51,6 +51,8 @@ function describeChange(change: OrderChange, t: T): string {
         from: change.from.toFixed(2),
         to: change.to.toFixed(2),
       });
+    case "line_supplier":
+      return t("changeLineSupplier", { sku: change.sku, from: change.from ?? t("supplierNotRecorded"), to: change.to ?? t("supplierNotRecorded") });
     case "line_cost":
       return t("changeLineCost", { sku: change.sku, from: change.from, to: change.to });
     case "line_specs": {

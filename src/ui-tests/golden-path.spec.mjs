@@ -41,7 +41,7 @@ const STUB = {
  * the thumbnail crop has pixels to cut, without a binary fixture in git.
  */
 const PHOTO = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAGQAAABkAQMAAABKLAcXAAAABlBMVEX/AAD///9BHTQRAAAAFElEQVR4AWOgOxgFo2AUjIJRMHQAAAZUAAGyx1LGAAAAAElFTkSuQmCC",
+  "iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAIAAAD/gAIDAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABUElEQVR4nO3XwQmAUBDE0Om/6djCv0gILLwCwrAqju3wNsIttfdbubF2Y+2Pd8td1m6s3WXN/XDfY7gba3dZu8dwlV8Iv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4COD54t6yshm4MnAAAAAElFTkSuQmCC",
   "base64",
 );
 
@@ -80,6 +80,8 @@ async function exportedSheet(context, orderId) {
 
 test("a booth capture becomes a product, an order, a quote and an invoice", async () => {
   const browser = await launch();
+  const sql = new pg.Client({ connectionString: process.env.DATABASE_ADMIN_URL });
+  await sql.connect();
   try {
     const { context, page } = await signedIn(browser);
 
@@ -159,6 +161,13 @@ test("a booth capture becomes a product, an order, a quote and an invoice", asyn
       .waitFor({ timeout: 15_000 })
       .catch((cause) => assert.fail(`product row visible in catalog — at ${page.url()}: ${cause}`));
 
+    // Give this captured product a known supplier before the order is made.
+    const account = (await sql.query("SELECT company_id FROM users WHERE email=$1", [EMAIL])).rows[0];
+    const product = (await sql.query("SELECT id FROM products WHERE company_id=$1 AND supplier_code=$2 ORDER BY id DESC LIMIT 1", [account.company_id, STUB.supplierCode])).rows[0];
+    const supplierA = (await sql.query("INSERT INTO contacts (company_id,type,company_name,company_name_zh) VALUES ($1,'supplier','Original Factory','原始工厂') RETURNING id", [account.company_id])).rows[0].id;
+    const supplierB = (await sql.query("INSERT INTO contacts (company_id,type,company_name,company_name_zh) VALUES ($1,'supplier','Replacement Factory','替代工厂') RETURNING id", [account.company_id])).rows[0].id;
+    await sql.query("UPDATE products SET supplier_id=$1 WHERE id=$2", [supplierA, product.id]);
+
     // ── 5. Build an order: new client, pick the product ──────────────────
     await page.goto(`${BASE}/en/orders/new`);
     await page.getByRole("button", { name: "+ New client" }).click();
@@ -209,6 +218,52 @@ test("a booth capture becomes a product, an order, a quote and an invoice", asyn
     assert.match(invoice.text, /Bill to/i, "BILL TO returns on the invoice");
     assert.match(invoice.text, /Golden Path Client/, "billed to the order's client");
 
+    // Supplier provenance survives live reassignment, rename, ordinary edits
+    // and even deletion. Only an exact, approved refresh can change it.
+    const supplierSnapshot = async () => (await sql.query(
+      "SELECT supplier_id_snapshot, supplier_name_en_snapshot, supplier_name_zh_snapshot FROM order_items WHERE order_id=$1", [orderId],
+    )).rows[0];
+    const original = { supplier_id_snapshot: supplierA, supplier_name_en_snapshot: "Original Factory", supplier_name_zh_snapshot: "原始工厂" };
+    assert.deepEqual(await supplierSnapshot(), original, "supplier captured at order creation");
+    await sql.query("UPDATE contacts SET company_name='Renamed Factory', active=false WHERE id=$1", [supplierA]);
+    await sql.query("UPDATE products SET supplier_id=$1 WHERE id=$2", [supplierB, product.id]);
+    await page.reload();
+    assert.match(await page.getByTestId(`supplier-group-${supplierA}`).filter({ visible: true }).innerText(), /Original Factory/i);
+    await page.goto(`${BASE}/en/orders/${orderId}/edit`);
+    await page.getByTestId("save-changes").click();
+    await page.waitForURL(new RegExp(`/en/orders/${orderId}$`));
+    assert.deepEqual(await supplierSnapshot(), original, "ordinary save preserves provenance");
+    await sql.query("DELETE FROM contacts WHERE id=$1", [supplierA]);
+    await page.reload();
+    assert.match(await page.getByTestId(`supplier-group-${supplierA}`).filter({ visible: true }).innerText(), /Original Factory/i);
+    await page.goto(`${BASE}/zh/orders/${orderId}`);
+    assert.match(await page.getByTestId(`supplier-group-${supplierA}`).filter({ visible: true }).innerText(), /原始工厂/);
+    await page.goto(`${BASE}/en/orders/${orderId}`);
+    await page.getByTestId("catalog-refresh").click();
+    const refreshDialog = page.getByTestId("catalog-refresh-dialog");
+    await refreshDialog.waitFor();
+    assert.match(await refreshDialog.innerText(), /Original Factory/i);
+    assert.match(await refreshDialog.innerText(), /Replacement Factory/);
+    await sql.query("UPDATE contacts SET company_name='Updated Replacement' WHERE id=$1", [supplierB]);
+    await page.getByTestId("catalog-refresh-apply").click();
+    await refreshDialog.waitFor({ state: "hidden" });
+    assert.deepEqual(await supplierSnapshot(), original, "a stale preview cannot approve a different supplier");
+    await page.getByTestId("catalog-refresh").click();
+    await refreshDialog.waitFor();
+    assert.match(await refreshDialog.innerText(), /Updated Replacement/);
+    await page.getByTestId("catalog-refresh-apply").click();
+    await refreshDialog.waitFor({ state: "hidden" });
+    await page.getByTestId(`supplier-group-${supplierB}`).filter({ visible: true }).waitFor();
+    assert.equal((await supplierSnapshot()).supplier_name_en_snapshot, "Updated Replacement");
+    const events = (await sql.query("SELECT payload FROM order_events WHERE order_id=$1 AND kind='refreshed' ORDER BY id DESC LIMIT 1", [orderId])).rows;
+    assert.equal(JSON.parse(events[0].payload).changes.find((c) => c.code === "line_supplier").to, `Updated Replacement / 替代工厂 · #${supplierB}`);
+
+    // Pre-migration rows have no reliable supplier evidence. Never backfill
+    // from a live catalog relationship at read time.
+    await sql.query("UPDATE order_items SET supplier_id_snapshot=NULL, supplier_name_en_snapshot='', supplier_name_zh_snapshot='' WHERE order_id=$1", [orderId]);
+    await page.reload();
+    await page.getByTestId("supplier-group-none").filter({ visible: true }).waitFor();
+
     // The accountant pack for the current month: structure, not contents —
     // a 200, a ZIP magic number, and a period-stamped filename prove the
     // route, auth chain and archive assembly end to end.
@@ -225,6 +280,7 @@ test("a booth capture becomes a product, an order, a quote and an invoice", asyn
 
     await context.close();
   } finally {
+    await sql.end();
     await browser.close();
   }
 });

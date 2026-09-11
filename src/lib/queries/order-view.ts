@@ -1,8 +1,5 @@
 import { getOrderById, getExchangeRates } from "@/lib/queries/orders";
 import { getProducts } from "@/lib/queries/catalog";
-import { db } from "@/db";
-import { contacts } from "@/db/schema";
-import { and, eq, inArray } from "drizzle-orm";
 import { localizeField } from "@/lib/localize";
 import type { Locale } from "@/i18n/routing";
 import { computeSnapshotTotals, type OrderTotals } from "@/lib/calculations";
@@ -13,7 +10,7 @@ export type OrderViewRow = {
   sku: string;
   /** the factory's own style/model number; "" when none recorded */
   supplierCode: string;
-  /** The product's supplier today (a live link, not a snapshot); null when none is recorded. */
+  /** Supplier saved with this line; null when historical provenance is unknown. */
   supplierId: number | null;
   supplierName: string | null;
   name: string;
@@ -59,21 +56,6 @@ export async function getOrderView(companyId: number, orderId: number, locale: L
   const { order, items, client } = data;
   const productMap = new Map(products.map((p) => [p.id, p]));
 
-  // Who each line's product comes from. Deactivated suppliers still name
-  // their lines, which is why this is not the picker's active-only list.
-  const supplierIds = [
-    ...new Set(items.map((i) => productMap.get(i.productId)?.supplierId).filter((id): id is number => !!id)),
-  ];
-  const supplierRows = supplierIds.length
-    ? await db
-        .select({ id: contacts.id, companyName: contacts.companyName, companyNameZh: contacts.companyNameZh })
-        .from(contacts)
-        .where(and(eq(contacts.companyId, companyId), inArray(contacts.id, supplierIds)))
-    : [];
-  const supplierNames = new Map(
-    supplierRows.map((c) => [c.id, localizeField(locale, c.companyName, c.companyNameZh)]),
-  );
-
   let snapshot: Record<string, number> = {};
   try {
     snapshot = JSON.parse(order.ratesSnapshot || "{}");
@@ -101,8 +83,8 @@ export async function getOrderView(companyId: number, orderId: number, locale: L
       productId: item.productId,
       sku: item.skuSnapshot || (product?.sku ?? `#${item.productId}`),
       supplierCode: item.supplierCodeSnapshot || (product?.supplierCode ?? ""),
-      supplierId: product?.supplierId ?? null,
-      supplierName: product?.supplierId ? (supplierNames.get(product.supplierId) ?? null) : null,
+      supplierId: item.supplierIdSnapshot,
+      supplierName: localizeField(locale, item.supplierNameEnSnapshot, item.supplierNameZhSnapshot) || null,
       name:
         snapName ||
         (product ? localizeField(locale, product.nameEn, product.nameZh) : `#${item.productId}`),
