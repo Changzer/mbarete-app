@@ -90,9 +90,23 @@ export function uploadCompanyId(name: string): number | null {
  */
 const RECEIPT_PREFIX = "slip-";
 const DOCUMENT_PREFIX = "doc-";
+/**
+ * Photos attached to a public enquiry. These arrive from strangers with no
+ * account, so they carry their own prefix for one reason: without it a flat
+ * image name takes the OPEN path in the serving route and is handed to anyone
+ * who asks, cached immutably. That would make the domain a free image host for
+ * whatever the internet uploads. The prefix puts them behind the platform
+ * admin instead — see the /uploads route.
+ */
+const ENQUIRY_PREFIX = "enq-";
 export function isReceiptUploadName(name: string) {
   // The prefix marks slips in either era: flat or inside a company folder.
   return name.replace(/^c\d+\//, "").startsWith(RECEIPT_PREFIX);
+}
+
+/** A photo attached to a public enquiry: operator-only, never on the open path. */
+export function isEnquiryUploadName(name: string) {
+  return name.replace(/^c\d+\//, "").startsWith(ENQUIRY_PREFIX);
 }
 
 /** Order documents (supplier invoices, packing lists) — gated like slips. */
@@ -102,7 +116,7 @@ export function isDocumentUploadName(name: string) {
 
 /** Anything the serving route must never hand out without a session + owner check. */
 export function isGatedUploadName(name: string) {
-  return isReceiptUploadName(name) || isDocumentUploadName(name);
+  return isReceiptUploadName(name) || isDocumentUploadName(name) || isEnquiryUploadName(name);
 }
 
 /** Whether reading a stored path requires an authenticated owner check. */
@@ -206,6 +220,56 @@ async function saveUpload(
   await fs.writeFile(/* turbopackIgnore: true */ target, buffer);
 
   return `/uploads/c${companyId}/${filename}`;
+}
+
+/** How many photos one enquiry may carry, and how big each may arrive. */
+export const ENQUIRY_IMAGE_MAX = 4;
+export const ENQUIRY_IMAGE_MAX_BYTES = 8 * 1024 * 1024;
+
+/**
+ * A photo attached to a public enquiry — a buyer showing us the thing they
+ * want made.
+ *
+ * Unlike every other saver here there is no company and no plan behind it, so
+ * there is no storage entitlement to check and no per-company folder to write
+ * into. That also means nothing about the sender is trusted, and the bytes get
+ * treated accordingly: instead of believing `file.type` and writing the buffer
+ * through, the image is DECODED AND RE-ENCODED through sharp. That single step
+ * does four jobs at once —
+ *
+ *   - it proves the bytes really are an image, which a declared MIME type
+ *     never does and a polyglot file exploits,
+ *   - it drops EXIF, so a buyer's phone does not hand us their home GPS
+ *     coordinates along with a photo of a backpack,
+ *   - it bounds the pixels, so a decompression-bomb PNG cannot be stored and
+ *     re-decoded later by the operator panel,
+ *   - it normalises everything to one format, so the serving route has one
+ *     content type to reason about.
+ */
+export async function saveUploadedEnquiryImage(file: File): Promise<string> {
+  if (file.size > ENQUIRY_IMAGE_MAX_BYTES) {
+    throw new FileTooLargeError(String(file.size));
+  }
+  const { default: sharp } = await import("sharp");
+  const source = Buffer.from(await file.arrayBuffer());
+
+  let output: Buffer;
+  try {
+    output = await sharp(source, { limitInputPixels: 50_000_000 })
+      .rotate()
+      .resize({ width: 2000, height: 2000, fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 80 })
+      .toBuffer();
+  } catch {
+    // sharp could not decode it, so it is not an image whatever it claimed.
+    throw new UnsupportedFileTypeError(file.type || file.name);
+  }
+
+  const dir = uploadsDir();
+  await fs.mkdir(/* turbopackIgnore: true */ dir, { recursive: true });
+  const filename = `${ENQUIRY_PREFIX}${crypto.randomUUID()}.webp`;
+  await fs.writeFile(/* turbopackIgnore: true */ path.join(dir, filename), output);
+  return `/uploads/${filename}`;
 }
 
 /**

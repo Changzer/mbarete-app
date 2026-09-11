@@ -112,9 +112,14 @@ export default async function RootPage({
 
   return (
     <div className="bg-bg">
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
+      {/* Wraps on purpose. The language picker has to show four endonyms, so
+          it is wider than the old two-way toggle, and "Ingresar" is longer
+          than "Sign in" — together with the brand that overran a 320px screen
+          and pushed the whole page sideways. Below sm the controls drop to
+          their own line instead. */}
+      <header className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-3 px-5 py-4 sm:flex-nowrap sm:px-8">
         <Brand size="nav" />
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <LanguageSwitcher />
           <Button asChild variant="outline" size="sm">
             <Link href="/login">{t("signIn")}</Link>

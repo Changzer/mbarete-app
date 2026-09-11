@@ -1,6 +1,6 @@
 import { count, countDistinct, desc, eq, gte, max, sql, sum, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { companies, users, products, orders, contacts, userActivityDays, invites, aiUsage, waitlistSignups, serviceEnquiries } from "@/db/schema";
+import { companies, users, products, orders, contacts, userActivityDays, invites, aiUsage, waitlistSignups, serviceEnquiries, serviceEnquiryImages } from "@/db/schema";
 import { companyStorageBytes } from "@/lib/uploads";
 import { utcDayStart } from "@/lib/ai-budget";
 
@@ -247,13 +247,38 @@ export async function loadWaitlist(): Promise<WaitlistEntry[]> {
   return db.select().from(waitlistSignups).orderBy(desc(waitlistSignups.id));
 }
 
-export type EnquiryEntry = WaitlistEntry & { message: string };
+export type EnquiryEntry = WaitlistEntry & {
+  message: string;
+  quantity: string | null;
+  destination: string | null;
+  targetPrice: string | null;
+  photos: string[];
+};
 
 /**
  * Enquiries from the public services page, newest first — what the landing
- * page produces now. Platform data with no company_id and no RLS, so a plain
- * select is the whole story.
+ * page produces now, with the photos the buyer attached. Platform data with no
+ * company_id and no RLS, so plain selects are the whole story.
+ *
+ * Two queries and a join in memory rather than a LEFT JOIN: the panel shows
+ * every enquiry ever received on one page, and a join would multiply each row
+ * by its photo count for the caller to collapse again.
  */
 export async function loadEnquiries(): Promise<EnquiryEntry[]> {
-  return db.select().from(serviceEnquiries).orderBy(desc(serviceEnquiries.id));
+  const rows = await db.select().from(serviceEnquiries).orderBy(desc(serviceEnquiries.id));
+  if (!rows.length) return [];
+
+  const images = await db
+    .select()
+    .from(serviceEnquiryImages)
+    .where(inArray(serviceEnquiryImages.enquiryId, rows.map((r) => r.id)))
+    .orderBy(serviceEnquiryImages.id);
+
+  const byEnquiry = new Map<number, string[]>();
+  for (const image of images) {
+    const list = byEnquiry.get(image.enquiryId);
+    if (list) list.push(image.path);
+    else byEnquiry.set(image.enquiryId, [image.path]);
+  }
+  return rows.map((row) => ({ ...row, photos: byEnquiry.get(row.id) ?? [] }));
 }

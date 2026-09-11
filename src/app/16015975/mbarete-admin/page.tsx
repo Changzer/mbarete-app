@@ -255,6 +255,32 @@ export default async function PlatformAdminPage() {
                 <p className="mt-1 whitespace-pre-wrap text-[13px] leading-relaxed text-sub">
                   {e.message}
                 </p>
+                {e.quantity || e.destination || e.targetPrice ? (
+                  <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11.5px] text-sub">
+                    {e.quantity ? <span>QTY {e.quantity}</span> : null}
+                    {e.destination ? <span>DEST {e.destination}</span> : null}
+                    {e.targetPrice ? <span>TARGET {e.targetPrice}</span> : null}
+                  </div>
+                ) : null}
+                {/* Plain <img>: these are operator-only paths the /uploads
+                    route releases to nobody else, and next/image would proxy
+                    them through the optimizer for a thumbnail strip. */}
+                {e.photos.length > 0 ? (
+                  <ul className="mt-2 flex flex-wrap gap-2">
+                    {e.photos.map((src) => (
+                      <li key={src}>
+                        <a href={src} target="_blank" rel="noreferrer">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={`${src}?w=128`}
+                            alt=""
+                            className="h-16 w-16 rounded-[8px] border border-line object-cover"
+                          />
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </li>
             ))}
           </ul>

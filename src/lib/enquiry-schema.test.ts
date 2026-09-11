@@ -60,6 +60,35 @@ test("the message is required and survives a long brief", () => {
   );
 });
 
+test("quantity, destination and target price are optional free text", () => {
+  const r = enquirySchema.safeParse(base);
+  assert.equal(r.success, true);
+  assert.equal(r.data?.quantity, null);
+  assert.equal(r.data?.destination, null);
+  assert.equal(r.data?.targetPrice, null);
+
+  // Whatever unit the trade uses, in whatever language.
+  for (const quantity of ["500 pcs", "1x40HQ", "um contêiner", "2 000 unidades"]) {
+    const q = enquirySchema.safeParse({ ...base, quantity });
+    assert.equal(q.success, true, `rejected ${quantity}`);
+    assert.equal(q.data?.quantity, quantity);
+  }
+  const full = enquirySchema.safeParse({
+    ...base,
+    quantity: "  1x40HQ  ",
+    destination: "Santos, BR",
+    targetPrice: "USD 3.50/pc",
+  });
+  assert.equal(full.data?.quantity, "1x40HQ");
+  assert.equal(full.data?.destination, "Santos, BR");
+  assert.equal(full.data?.targetPrice, "USD 3.50/pc");
+
+  // Blank means not given, not empty string.
+  assert.equal(enquirySchema.safeParse({ ...base, destination: "   " }).data?.destination, null);
+  // And they are bounded.
+  assert.equal(enquirySchema.safeParse({ ...base, quantity: "x".repeat(201) }).success, false);
+});
+
 test("name, company and a well-formed email are still required", () => {
   for (const bad of [
     { ...base, name: "" },

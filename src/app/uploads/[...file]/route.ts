@@ -6,10 +6,11 @@ import {
   isSafeUploadName,
   requiresUploadAuth,
   isGatedUploadName,
+  isEnquiryUploadName,
   uploadCompanyId,
   CONTENT_TYPES,
 } from "@/lib/uploads";
-import { sessionUser } from "@/lib/authz";
+import { sessionUser, isPlatformAdminSession } from "@/lib/authz";
 
 const IMAGE_EXTENSIONS = new Set(["jpg", "png", "webp", "gif"]);
 // A finite set prevents arbitrary query strings from filling the derivative
@@ -73,6 +74,13 @@ export async function GET(
     const user = await sessionUser();
     if (!user) {
       return new NextResponse("unauthorized", { status: 401 });
+    }
+    // Enquiry photos come from strangers and belong to no company, so the
+    // company-owner check below cannot speak for them: to any tenant session
+    // they would look like an ownerless legacy file and be served. They are
+    // the operator's to read and nobody else's.
+    if (isEnquiryUploadName(filename) && !(await isPlatformAdminSession())) {
+      return new NextResponse("not found", { status: 404 });
     }
     // A gated file inside a company folder is only that company's to read.
     // Pre-tenancy flat files carry no owner; a signed-in session suffices,
