@@ -102,6 +102,13 @@ function describe(kind: string, payload: any, t: T, finT: FinT): string {
       return t("documentAdded", { name: payload.name });
     case "document_removed":
       return t("documentRemoved", { name: payload.name });
+    case "dossier": {
+      const changes: { field: string; from: string | null; to: string | null }[] = payload.changes ?? [];
+      const details = changes
+        .map((c) => `${t(`dossier_${c.field}` as "dossier_taxRegime")}: ${c.from ?? "—"} → ${c.to ?? "—"}`)
+        .join(" · ");
+      return t("dossierUpdated", { details });
+    }
     default:
       return kind;
   }
@@ -119,6 +126,7 @@ const ICONS: Record<string, typeof History> = {
   expense_removed: Receipt,
   document_added: FileUp,
   document_removed: FileX,
+  dossier: Pencil,
 };
 
 /** SQLite's current_timestamp is UTC without a zone marker; pin it before formatting. */

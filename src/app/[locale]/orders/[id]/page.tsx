@@ -7,6 +7,9 @@ import { getBankAccounts, getCompanyProfile } from "@/lib/queries/settings";
 import type { Locale } from "@/i18n/routing";
 import { computeOrderFinanceView, formatCbm } from "@/lib/calculations";
 import { groupBySupplier } from "@/lib/order-groups";
+import { computeDossierStatus, DOSSIER_KINDS, type TaxRegime } from "@/lib/dossier";
+import { DossierCard } from "@/components/orders/dossier-card";
+import { DOSSIER_VIDEO_MAX_MB } from "@/lib/uploads";
 import { pickReportCurrency, resolveFunctionalCurrency } from "@/lib/functional-currency";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,7 +22,7 @@ import { OrderResult } from "@/components/orders/order-result";
 import { OrderChangelog } from "@/components/orders/order-changelog";
 import { ProformaBankSelect } from "@/components/orders/proforma-bank-select";
 import { OrderExportButtons } from "@/components/orders/order-export-buttons";
-import { requireUser, requireModulePage } from "@/lib/authz";
+import { requireUser, requireModulePage, getCompanyModules } from "@/lib/authz";
 
 const STATUS_VARIANT = {
   draft: "secondary",
@@ -60,6 +63,23 @@ export default async function OrderDetailPage({
     ...g,
     label: g.supplierName ?? catalogT("supplierUnknown"),
   }));
+
+  // The rebate dossier: the accountant's checklist judged on this order's
+  // documents. The zip itself is admin + finance, like the accountant pack.
+  const dossierStatus = computeDossierStatus(
+    { taxRegime: order.taxRegime as TaxRegime, exportDate: order.exportDate ?? null, hasLines: rows.length > 0 },
+    finance.documents
+      .filter((d) => DOSSIER_KINDS.includes(d.kind))
+      .map((d) => ({
+        id: d.id,
+        kind: d.kind,
+        fapiaoType: d.fapiaoType,
+        originalName: d.originalName,
+        path: d.path,
+        sizeBytes: d.sizeBytes,
+      })),
+  );
+  const modules = await getCompanyModules(companyId);
 
   // The money position: what the client is billed against what the supplier
   // charges, then every recorded movement on top. Each side reads in its own
@@ -336,6 +356,24 @@ export default async function OrderDetailPage({
       {totals.hasMoqViolation && order.status === "draft" ? (
         <p className="mt-4 text-xs text-warn">{t("moqBlocksConfirm")}</p>
       ) : null}
+
+      <div className="mt-4">
+        <DossierCard
+          orderId={order.id}
+          meta={{
+            version: order.version,
+            taxRegime: order.taxRegime as TaxRegime,
+            customsDeclarationNo: order.customsDeclarationNo ?? "",
+            exportContractDate: order.exportContractDate ?? "",
+            purchaseContractDate: order.purchaseContractDate ?? "",
+            warehouseInDate: order.warehouseInDate ?? "",
+            exportDate: order.exportDate ?? "",
+          }}
+          status={dossierStatus}
+          financeOn={!!modules.finance}
+          videoMaxMb={DOSSIER_VIDEO_MAX_MB}
+        />
+      </div>
 
       {/* --- the trade file: documents, money in and out, expenses --- */}
       <div className="mt-8">

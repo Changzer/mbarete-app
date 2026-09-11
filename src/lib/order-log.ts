@@ -21,7 +21,9 @@ export type OrderEventKind =
   | "expense_added"
   | "expense_removed"
   | "document_added"
-  | "document_removed";
+  | "document_removed"
+  /** The rebate dossier's header changed: regime, declaration number or dates. */
+  | "dossier";
 
 /** One field-level difference inside an "edited" event. */
 export type OrderChange =
