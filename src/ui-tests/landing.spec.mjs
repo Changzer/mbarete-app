@@ -28,7 +28,6 @@ test("the service page stays readable in four languages and motion modes", async
         const context = await browser.newContext({ viewport, reducedMotion });
         const page = await context.newPage();
         const errors = [];
-        page.on("console", (message) => { if (message.text().startsWith("[hydration-diagnostic]")) console.log(message.text()); });
         let phase = "landing";
         page.on("pageerror", (error) => errors.push(`${locale}/${mode}/${phase} ${page.url()}: ${error.stack ?? error.message}`));
         await page.goto(`${BASE}/${locale}`);

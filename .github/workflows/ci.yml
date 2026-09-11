@@ -50,7 +50,6 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
-      - run: node scripts/e2e/hydration-diagnostic.mjs
       - run: npm run db:migrate
       - run: npm run test:supplier-migration
       - run: npm run check:isolation
@@ -97,14 +96,15 @@ jobs:
       - run: npm run test:capture
         if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
       - run: npm run test:landing
-        id: landing
         if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
         env:
           UPLOADS_DIR: ${{ runner.temp }}/uploads
-      - name: Repeat public navigation diagnosis
+      # Several fresh browser passes catch the production-only head hydration
+      # race that a single happy-path visit previously missed.
+      - name: Check public navigation stability
         if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
         run: |
-          for diagnostic_attempt in 1 2 3; do
+          for navigation_pass in 1 2 3; do
             node --test --test-name-pattern='service page' src/ui-tests/landing.spec.mjs
           done
       - name: Upload landing review screenshots

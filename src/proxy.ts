@@ -38,8 +38,7 @@ function isPublicPath(pathname: string) {
 export default auth((req) => {
   const { pathname } = req.nextUrl;
 
-  // Retired signup URLs redirect before any layout HTML is streamed. A page-
-  // level redirect can race hydration and briefly mix signup/login markup.
+  // Resolve retired signup URLs at the request boundary, before HTML streams.
   const withoutLocale = pathname.replace(LOCALE_PREFIX, "") || "/";
   if (withoutLocale === "/signup" || withoutLocale === "/signup/") {
     const locale = LOCALE_PREFIX.exec(pathname)?.[1] ?? routing.defaultLocale;
