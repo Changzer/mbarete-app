@@ -1,0 +1,161 @@
+.page { background: var(--mb-bg); color: var(--mb-ink); overflow-wrap: break-word; }
+.page :is(h1,h2,h3,p,figure) { margin: 0; }
+.page :is(a,button,input,textarea,select):focus-visible { outline: 2px solid var(--mb-action); outline-offset: 5px; }
+.page :is(:global(#how),:global(#contact)) { scroll-margin-top: 2rem; }
+.heroCopy,.chapterCopy,.sampleVisual,.sourcingVisual { min-width: 0; }
+.skip { position: absolute; left: 1rem; top: -8rem; z-index: 10; padding: 1rem; background: var(--mb-surface); }
+.skip:focus { top: 1rem; }
+.header,.hero,.processIntro,.chapterInner,.contact,.footer { width: min(100% - 6rem, 1280px); margin-inline: auto; }
+.header { min-height: 100px; display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--mb-line); }
+.brand { display: inline-flex; flex-shrink: 0; }
+.headerActions { display: flex; align-items: center; gap: 1.25rem; }
+.headerActions select { min-height: 44px; border: 0; background: transparent; font-size: 14px; }
+.headerCta { font-size: 14px; }
+.hero { display: grid; grid-template-columns: 1.1fr 1fr; align-items: center; gap: 2rem 4rem; padding-top: clamp(3rem,6vw,6rem); }
+.eyebrow { display: flex; align-items: center; gap: .5rem; color: var(--mb-action-chrome); font-size: 13px; letter-spacing: .12em; text-transform: uppercase; font-weight: 600; line-height: 1.6; }
+.hero h1 { margin-top: 1.5rem; font-size: clamp(2.8rem,4.7vw,4.8rem); line-height: 1.06; font-weight: 600; letter-spacing: -.055em; text-wrap: balance; }
+.hero h1 span { display: block; color: var(--mb-action); }
+.hero .subline { max-width: 43ch; margin-top: 1.75rem; font-size: 18px; line-height: 1.65; color: var(--mb-sub); }
+.heroActions { display: flex; flex-wrap: wrap; align-items: center; gap: 1.3rem 1.8rem; margin-top: 2rem; }
+.primary { height: 54px; border-radius: 6px; font-size: 16px; }
+.textLink { display: inline-flex; gap: .6rem; align-items: center; min-height: 44px; font-size: 14px; text-underline-offset: 5px; }
+.textLink:hover { text-decoration: underline; }
+.hero .languages { margin-top: 2rem; font-size: 13px; color: var(--mb-sub); line-height: 1.7; }
+.heroVisual { min-width: 0; }
+.heroImage { position: relative; aspect-ratio: 1 / 1.08; overflow: hidden; border-radius: 3px; background: #ede2d6; }
+.productImage { object-fit: cover; }
+.imageTopline,.imageCaption { position: absolute; inset-inline: 1.5rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; color: #493727; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+.imageTopline { top: 1.5rem; }
+.imageCaption { bottom: 1.5rem; border-top: 1px solid #8a756847; padding-top: .9rem; }
+.heroVisual > figcaption { padding-top: .6rem; font-size: 12px; color: var(--mb-sub); }
+.heroFoot { grid-column: 1 / -1; border-top: 1px solid var(--mb-line); padding-block: 1.2rem; margin-top: 1.5rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; font-size: 14px; color: var(--mb-sub); }
+.heroFoot a { display: grid; place-items: center; min-width: 44px; min-height: 44px; color: var(--mb-action-chrome); }
+.process { padding-top: clamp(4rem,8vw,7rem); }
+.processIntro { padding-bottom: 3.5rem; }
+.processIntro h2 { max-width: 24ch; margin-top: 1rem; font-size: clamp(2rem,3.4vw,3.3rem); line-height: 1.12; letter-spacing: -.035em; font-weight: 500; text-wrap: balance; }
+.processIntro > p:last-child { margin-top: 1rem; max-width: 61ch; color: var(--mb-sub); line-height: 1.7; font-size: 16px; }
+.story { position: relative; }
+.chapter { padding-block: 5rem; background: var(--mb-surface-2); border-top: 1px solid var(--mb-line); }
+.sourcing { background: var(--mb-surface-2); }
+.sampling { background: var(--mb-bg); }
+.export { background: #292821; color: #f8f4ec; }
+.chapterInner { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 5rem; }
+.chapterLabel { display: flex; align-items: center; gap: 1rem; text-transform: uppercase; letter-spacing: .1em; font-size: 13px; font-weight: 500; }
+.chapterLabel > span { font-family: var(--font-mono); font-size: 14px; color: var(--mb-action-chrome); }
+.chapterCopy h3 { margin-top: 1.6rem; max-width: 18ch; font-size: clamp(2.2rem,3.6vw,3.5rem); font-weight: 500; line-height: 1.12; letter-spacing: -.04em; text-wrap: balance; }
+.chapterCopy > p:not(.chapterLabel) { max-width: 45ch; margin-top: 1.5rem; color: var(--mb-sub); font-size: 17px; line-height: 1.7; }
+.deliverable { border-top: 1px solid var(--mb-line-strong); margin-top: 2rem; padding-top: 1rem; max-width: 44ch; }
+.deliverable > span { text-transform: uppercase; letter-spacing: .09em; color: var(--mb-sub); font-size: 12px; }
+.deliverable > p { margin-top: .6rem; font-size: 15px; line-height: 1.65; }
+.chapterProgress { display: flex; gap: .4rem; margin-top: 2.3rem; }
+.chapterProgress span { width: 2.5rem; height: 2px; background: var(--mb-line-strong); }
+.chapterProgress .current { background: var(--mb-action); }
+.export .chapterLabel > span { color: #ef9c83; }
+.export .chapterCopy > p:not(.chapterLabel),.export .deliverable > span { color: #c5beb0; }
+.export .deliverable { border-color: #ffffff30; }
+.export .chapterProgress span { background: #ffffff30; }
+.export .chapterProgress .current { background: #ef9c83; }
+.productPair { display: grid; grid-template-columns: 1.2fr 1fr; gap: 1rem; align-items: end; }
+.productPair > div { position: relative; aspect-ratio: 4 / 5; overflow: hidden; border-radius: 3px; }
+.productPair > div:last-child { margin-bottom: 2rem; aspect-ratio: 1; }
+.briefCard { position: relative; margin: -1.1rem 1.5rem 0 !important; padding: 1.4rem 1.7rem; border: 1px solid var(--mb-line); background: var(--mb-surface); box-shadow: 0 16px 30px #26201a09; }
+.documentLabel { display: flex; align-items: center; gap: .6rem; font-size: 14px; font-weight: 600; }
+.briefCard ul { margin-top: 1rem; display: flex; flex-direction: column; gap: .65rem; }
+.briefCard li { padding-bottom: .6rem; border-bottom: 1px solid var(--mb-line); font-size: 14px; color: var(--mb-sub); }
+.briefCard li:last-child { border: 0; padding: 0; }
+.sampleImage { position: relative; aspect-ratio: 6 / 5; overflow: hidden; }
+.sampleImage .productImage { object-position: center 58%; }
+.sampleNote { position: relative; background: var(--mb-surface); border-left: 3px solid var(--mb-action); margin: -2rem 0 0 2rem !important; padding: 1.3rem 1.5rem; box-shadow: 0 12px 30px #26201a08; }
+.sampleNote > p { margin-top: .6rem; color: var(--mb-sub); font-size: 14px; line-height: 1.6; }
+.sampleNote > div { margin-top: .9rem; border-top: 1px solid var(--mb-line); padding-top: .9rem; font-size: 14px; line-height: 1.6; }
+.exportVisual { border: 1px solid #ffffff26; padding: 2.2rem; background: #ffffff04; }
+.exportHeading { display: flex; align-items: center; gap: 1rem; font-size: 17px; }
+.exportHeading svg { color: #ef9c83; flex-shrink: 0; }
+.shipmentList { margin-top: 1.8rem; }
+.shipmentList li { display: flex; align-items: center; gap: 1.2rem; padding-block: 1rem; border-top: 1px solid #ffffff21; font-size: 15px; }
+.shipmentList li span { color: #b7aa98; font-family: var(--font-mono); font-size: 12px; }
+.route { margin-top: 1rem; padding-top: 1.8rem; border-top: 1px solid #ffffff21; display: flex; flex-wrap: wrap; align-items: center; gap: .8rem; justify-content: space-between; font-size: 17px; }
+.route svg { color: #ef9c83; }
+.exportVisual > p { margin-top: 1rem; color: #c5beb0; font-size: 13px; line-height: 1.65; }
+.scrollRoom { display: none; }
+.contact { display: grid; grid-template-columns: .9fr 1.1fr; gap: 5rem; padding-block: 7rem; }
+.contactIntro h2 { margin-top: 1.1rem; font-size: clamp(2.4rem,4vw,4rem); font-weight: 500; line-height: 1.1; letter-spacing: -.045em; text-wrap: balance; }
+.contactIntro > p:not(.eyebrow) { margin-top: 1.5rem; color: var(--mb-sub); font-size: 17px; line-height: 1.7; max-width: 39ch; }
+.nextSteps { margin-top: 2.5rem; border-top: 1px solid var(--mb-line); padding-top: 1.5rem; }
+.nextSteps h3 { font-size: 15px; font-weight: 600; }
+.nextSteps ol { list-style: decimal-leading-zero; padding-left: 1.5rem; margin-top: 1rem; }
+.nextSteps li { padding-left: .5rem; margin-block: .8rem; font-size: 15px; line-height: 1.6; color: var(--mb-sub); }
+.nextSteps li::marker { color: var(--mb-action-chrome); font-size: 12px; }
+.contactIntro .contactNote { font-size: 14px !important; }
+.formPanel { padding: 2rem; border: 1px solid var(--mb-line); background: var(--mb-surface); border-radius: 4px; min-width: 0; }
+.formPanel :is(input,textarea) { font-size: 16px; }
+.footer { border-top: 1px solid var(--mb-line); padding-block: 2rem 2.5rem; display: flex; justify-content: space-between; align-items: end; gap: 2rem; }
+.footerBrand { font-size: 19px; letter-spacing: .08em; font-weight: 700; color: var(--mb-action-chrome); }
+.footer p { margin-top: .5rem; color: var(--mb-sub); font-size: 14px; }
+.footerMeta { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem 2rem; font-size: 13px; color: var(--mb-sub); }
+.footerMeta a { display: inline-flex; align-items: center; gap: .3rem; min-height: 44px; }
+/* Normal document flow is the baseline. The desktop enhancement uses a grid
+   sized by its tallest chapter, so long translations stay scrollable. No
+   wheel handlers, inner scroll areas, or links in invisible layers. */
+@supports (animation-timeline: view()) and (animation-range: 0% 100%) {
+  @media (min-width: 1100px) and (min-height: 800px) and (prefers-reduced-motion: no-preference) {
+    .story { view-timeline-name: --service-story; view-timeline-axis: block; }
+    .stage { position: sticky; top: 0; display: grid; }
+    .chapter { grid-area: 1 / 1; min-height: 100svh; display: flex; align-items: center; border: 0; padding-block: 2rem; }
+    .sampling,.export { animation: arrive linear both; animation-timeline: --service-story; }
+    .sampling { animation-range: 38% 46%; }
+    .export { animation-range: 62% 70%; }
+    .sampling .chapterInner,.export .chapterInner { animation: rise linear both; animation-timeline: --service-story; }
+    .sampling .chapterInner { animation-range: 40% 48%; }
+    .export .chapterInner { animation-range: 64% 72%; }
+    .scrollRoom { display: block; height: 200svh; }
+  }
+}
+@keyframes arrive { from { opacity: 0; pointer-events: none; } to { opacity: 1; pointer-events: auto; } }
+@keyframes rise { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 1099px) {
+  .header,.hero,.processIntro,.chapterInner,.contact,.footer { width: min(100% - 3rem,1280px); }
+  .hero,.chapterInner,.contact { gap: 2.5rem; }
+  .hero h1 { font-size: clamp(2.5rem,5.3vw,4.3rem); }
+  .chapter { padding-block: 4rem; }
+  .contact { padding-block: 5rem; }
+}
+@media (max-width: 767px) {
+  .header { min-height: 80px; }
+  .brand img { max-width: 145px; height: auto; max-height: 36px; }
+  .headerActions { gap: 0; }
+  .headerCta { display: none; }
+  .hero { grid-template-columns: 1fr; padding-top: 2.8rem; gap: 2rem; }
+  .hero h1 { font-size: clamp(2.7rem,9.5vw,4rem); max-width: 15ch; }
+  .hero .subline { font-size: 17px; margin-top: 1.3rem; }
+  .heroActions { gap: .6rem 1.5rem; margin-top: 1.5rem; }
+  .hero .languages { margin-top: 1.2rem; }
+  .heroImage { aspect-ratio: 6 / 5; }
+  .heroImage .productImage { object-fit: contain; }
+  .imageTopline,.imageCaption { inset-inline: 1rem; font-size: 12px; }
+  .heroFoot { margin-top: 0; font-size: 13px; }
+  .process { padding-top: 3.5rem; }
+  .processIntro { padding-bottom: 2rem; }
+  .chapterInner,.contact { grid-template-columns: 1fr; }
+  .chapterCopy h3 { max-width: 23ch; }
+  .chapterCopy > p:not(.chapterLabel) { font-size: 16px; }
+  .chapterProgress { display: none; }
+  .chapter { padding-block: 3rem; }
+  .chapterInner { gap: 2rem; }
+  .productPair > div { max-height: 260px; }
+  .sampleImage { aspect-ratio: 6 / 5; max-height: 340px; }
+  .sampleNote { margin-left: 1rem !important; }
+  .exportVisual { padding: 1.5rem; }
+  .contact { padding-block: 4rem; gap: 2rem; }
+  .contactIntro h2 { max-width: 17ch; }
+  .nextSteps { margin-top: 1.5rem; }
+  .formPanel { padding: 1.25rem; }
+  .footer { flex-direction: column; align-items: start; gap: 1rem; }
+}
+@media (max-width: 359px) {
+  .header,.hero,.processIntro,.chapterInner,.contact,.footer { width: calc(100% - 2rem); }
+  .brand img { max-width: 125px; }
+  .headerActions select { padding-left: .4rem; }
+  .primary { width: 100%; padding-inline: 1rem; }
+  .formPanel { padding: 1rem; }
+}

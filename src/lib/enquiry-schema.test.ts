@@ -89,10 +89,18 @@ test("quantity, destination and target price are optional free text", () => {
   assert.equal(enquirySchema.safeParse({ ...base, quantity: "x".repeat(201) }).success, false);
 });
 
-test("name, company and a well-formed email are still required", () => {
+test("a buyer without a company can enquire; supplied company names remain bounded", () => {
+  for (const companyName of ["", "  ", null, undefined]) {
+    const result = enquirySchema.safeParse({ ...base, companyName });
+    assert.equal(result.success, true);
+    assert.equal(result.data?.companyName, "");
+  }
+  assert.equal(enquirySchema.safeParse({ ...base, companyName: "x".repeat(121) }).success, false);
+});
+
+test("name and a well-formed email are still required", () => {
   for (const bad of [
     { ...base, name: "" },
-    { ...base, companyName: "  " },
     { ...base, email: "not-an-email" },
   ]) {
     assert.equal(enquirySchema.safeParse(bad).success, false, JSON.stringify(bad));

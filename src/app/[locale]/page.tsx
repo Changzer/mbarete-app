@@ -1,237 +1,138 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { ArrowDownCircle, Search, Camera, Factory, ShieldCheck } from "lucide-react";
+import { ArrowDown, ArrowUpRight, MapPin } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { redirect, Link } from "@/i18n/navigation";
 import { routing, HREFLANG, type Locale } from "@/i18n/routing";
 import { Brand } from "@/components/brand";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { EnquiryForm } from "@/components/landing/enquiry-form";
-import {
-  SourcingVisual,
-  SamplingVisual,
-  ProductionVisual,
-  ExportVisual,
-} from "@/components/landing/service-visuals";
+import { HeroVisual, ServiceVisual } from "@/components/landing/service-visuals";
 import { Button } from "@/components/ui/button";
+import styles from "@/components/landing/landing.module.css";
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "landing" });
+  // Omit canonical URLs on unconfigured local installs; never publish localhost
+  // or trust a visitor-controlled Host header as the public website address.
+  let origin: URL | undefined;
+  try {
+    const configured = new URL(process.env.APP_ORIGIN ?? "");
+    if (["https:", "http:"].includes(configured.protocol)) origin = new URL(configured.origin);
+  } catch { /* A local install need not have a public domain. */ }
   return {
-    title: t("metaTitle"),
-    description: t("metaDescription"),
-    alternates: {
-      canonical: `/${locale}`,
-      // The path segment and the advertised tag are not always the same: the
-      // Spanish copy is written for Latin America and says so here, while the
-      // URL stays /es.
-      languages: Object.fromEntries(routing.locales.map((l) => [HREFLANG[l], `/${l}`])),
-    },
+    title: t("metaTitle"), description: t("metaDescription"),
+    ...(origin ? {
+      metadataBase: origin,
+      alternates: {
+        canonical: `/${locale}`,
+        languages: Object.fromEntries([
+          ...routing.locales.map((l) => [HREFLANG[l], `/${l}`]),
+          ["x-default", `/${routing.defaultLocale}`],
+        ]),
+      },
+    } : {}),
     openGraph: {
-      title: t("metaTitle"),
-      description: t("metaDescription"),
-      type: "website",
-      locale: HREFLANG[locale as Locale] ?? locale,
+      title: t("metaTitle"), description: t("metaDescription"), type: "website",
+      locale: ({ en: "en_US", "pt-BR": "pt_BR", es: "es_419", zh: "zh_CN" } as const)[locale as Locale],
+      ...(origin ? { url: new URL(`/${locale}`, origin) } : {}),
     },
   };
 }
 
-/**
- * The public page: what Mbarete does for importers, in four steps, and a form
- * to start a conversation.
- *
- * It sells the SERVICE, not the software. The app behind the login is an
- * internal tool and stays private, so nothing here demonstrates it — the
- * visuals are drawings of the work itself.
- *
- * Server-rendered throughout; the only client components are the form and the
- * language picker. The motion lives in globals.css and is pure CSS.
- */
+const chapters = ["sourcing", "sampling", "export"] as const;
 
-function Step({
-  label,
-  title,
-  body,
-  note,
-  noteIcon,
-  visual,
-  tone,
-}: {
-  label: string;
-  title: string;
-  body: string;
-  note: string;
-  noteIcon: React.ReactNode;
-  visual: React.ReactNode;
-  tone: "bg" | "surface-2";
-}) {
-  return (
-    <section
-      className={`lp-beat px-5 py-10 sm:px-8 sm:py-14 md:py-16 ${
-        tone === "bg" ? "bg-bg" : "bg-surface-2"
-      }`}
-    >
-      <div className="mx-auto grid w-full max-w-6xl items-center gap-7 sm:gap-10 md:grid-cols-2 md:gap-14">
-        <div className="flex flex-col gap-4">
-          <div className="font-mono text-[11px] uppercase tracking-[0.12em] text-sub">{label}</div>
-          <h2 className="text-balance text-[clamp(1.6rem,5.5vw,2.9rem)] font-bold leading-[1.08] tracking-tight text-ink">
-            {title}
-          </h2>
-          <p className="max-w-[46ch] text-[15px] leading-relaxed text-sub sm:text-base">{body}</p>
-          <p className="flex items-start gap-2 text-[13px] font-semibold text-action-chrome">
-            <span className="mt-0.5 shrink-0" aria-hidden>
-              {noteIcon}
-            </span>
-            {note}
-          </p>
-        </div>
-        <div className="min-w-0">{visual}</div>
-      </div>
-    </section>
-  );
-}
-
-export default async function RootPage({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}) {
+export default async function RootPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale as Locale);
-
-  // Staff who are already signed in have no business on the marketing page.
   const session = await auth();
   if (session?.user) redirect({ href: "/catalog", locale });
-
   const t = await getTranslations("landing");
 
   return (
-    <div className="bg-bg">
-      {/* Wraps on purpose. The language picker has to show four endonyms, so
-          it is wider than the old two-way toggle, and "Ingresar" is longer
-          than "Sign in" — together with the brand that overran a 320px screen
-          and pushed the whole page sideways. Below sm the controls drop to
-          their own line instead. */}
-      <header className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-3 px-5 py-4 sm:flex-nowrap sm:px-8">
-        <Brand size="nav" />
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
+    <div className={`${styles.page} light-paper`}>
+      <a href="#contact" className={styles.skip}>{t("ctaPrimary")}</a>
+      <header className={styles.header}>
+        <Link href="/" aria-label="Mbarete" className={styles.brand}><Brand size="nav" /></Link>
+        <div className={styles.headerActions}>
           <LanguageSwitcher />
-          <Button asChild variant="outline" size="sm">
-            <Link href="/login">{t("signIn")}</Link>
-          </Button>
-          <Button asChild size="sm" className="hidden sm:inline-flex">
-            <a href="#contact">{t("ctaPrimary")}</a>
+          <Button asChild className={styles.headerCta}>
+            <a href="#contact">{t("ctaPrimary")}<ArrowUpRight aria-hidden /></a>
           </Button>
         </div>
       </header>
 
-      <section className="mx-auto flex w-full max-w-5xl flex-col items-center gap-6 px-5 pb-20 pt-12 text-center sm:px-8 sm:pt-20">
-        <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-action-chrome">
-          {t("eyebrow")}
-        </p>
-        <h1 className="text-balance text-[clamp(2.1rem,8vw,4.6rem)] font-bold leading-[1.03] tracking-tight text-ink">
-          {t("headline")}
-        </h1>
-        <p className="max-w-[60ch] text-[15px] leading-relaxed text-sub sm:text-lg">{t("subline")}</p>
-        <div className="flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row">
-          <Button asChild size="lg" className="w-full sm:w-auto">
-            <a href="#contact">{t("ctaPrimary")}</a>
-          </Button>
-          <Button asChild variant="ghost" size="lg" className="w-full sm:w-auto">
-            <a href="#how">
-              <ArrowDownCircle className="h-[18px] w-[18px]" aria-hidden />
-              {t("ctaSecondary")}
-            </a>
-          </Button>
-        </div>
-        <p className="font-mono text-[11.5px] leading-relaxed text-sub">{t("proof")}</p>
-      </section>
-
-      <div id="how" className="lp-story">
-        <h2 className="sr-only">{t("storyLabel")}</h2>
-        <div className="lp-stack">
-          <Step
-            tone="bg"
-            label={t("services.sourcingLabel")}
-            title={t("services.sourcingTitle")}
-            body={t("services.sourcingBody")}
-            note={t("services.sourcingNote")}
-            noteIcon={<Search className="h-4 w-4" />}
-            visual={<SourcingVisual />}
-          />
-          <Step
-            tone="surface-2"
-            label={t("services.samplingLabel")}
-            title={t("services.samplingTitle")}
-            body={t("services.samplingBody")}
-            note={t("services.samplingNote")}
-            noteIcon={<Camera className="h-4 w-4" />}
-            visual={<SamplingVisual />}
-          />
-          <Step
-            tone="bg"
-            label={t("services.productionLabel")}
-            title={t("services.productionTitle")}
-            body={t("services.productionBody")}
-            note={t("services.productionNote")}
-            noteIcon={<Factory className="h-4 w-4" />}
-            visual={<ProductionVisual />}
-          />
-          <Step
-            tone="surface-2"
-            label={t("services.exportLabel")}
-            title={t("services.exportTitle")}
-            body={t("services.exportBody")}
-            note={t("services.exportNote")}
-            noteIcon={<ShieldCheck className="h-4 w-4" />}
-            visual={<ExportVisual />}
-          />
-        </div>
-        {/* Only ever tall on a desktop that can drive the pinned crossfade;
-            elsewhere it collapses to nothing. */}
-        <div className="lp-spacer" aria-hidden />
-      </div>
-
-      {/* The mission, said plainly and once. It is the reason the four steps
-          above are shaped the way they are, so it reads after them. */}
-      <section className="relative z-[1] border-t border-line bg-bg px-5 py-16 text-center sm:px-8 sm:py-24">
-        <div className="mx-auto max-w-3xl">
-          <h2 className="text-balance text-[clamp(1.7rem,6vw,3.1rem)] font-bold leading-[1.06] tracking-tight text-ink">
-            {t("missionTitle")}
-          </h2>
-          <p className="mx-auto mt-5 max-w-[56ch] text-[15px] leading-relaxed text-sub sm:text-lg">
-            {t("missionBody")}
-          </p>
-        </div>
-      </section>
-
-      <section
-        id="contact"
-        className="relative z-[1] border-t border-line bg-surface-2 px-5 py-16 sm:px-8 sm:py-24"
-      >
-        <div className="mx-auto w-full max-w-3xl rounded-sheet border border-line bg-surface p-6 sm:p-10">
-          <div className="mb-8 text-center">
-            <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-action-chrome">
-              {t("form.eyebrow")}
-            </p>
-            <h2 className="mt-3 text-balance text-[clamp(1.5rem,5vw,2.3rem)] font-bold leading-tight tracking-tight text-ink">
-              {t("form.title")}
-            </h2>
-            <p className="mx-auto mt-3 max-w-[52ch] text-[15px] leading-relaxed text-sub">
-              {t("form.subtitle")}
-            </p>
+      <section className={styles.hero} aria-labelledby="landing-title">
+        <div className={styles.heroCopy}>
+          <p className={styles.eyebrow}><MapPin size={15} aria-hidden />{t("eyebrow")}</p>
+          <h1 id="landing-title">{t("headline")}<span>{t("headlineAccent")}</span></h1>
+          <p className={styles.subline}>{t("subline")}</p>
+          <div className={styles.heroActions}>
+            <Button asChild size="lg" className={styles.primary}>
+              <a href="#contact">{t("ctaPrimary")}<ArrowUpRight aria-hidden /></a>
+            </Button>
+            <a href="#how" className={styles.textLink}>{t("ctaSecondary")}<ArrowDown size={17} aria-hidden /></a>
           </div>
-          <EnquiryForm />
+          <p className={styles.languages}>{t("proof")}</p>
         </div>
-        <p className="mt-10 text-center text-xs text-sub">
-          © {new Date().getFullYear()} Mbarete
-        </p>
+        <HeroVisual />
+        <div className={styles.heroFoot}>
+          <span>{t("heroFoot")}</span>
+          <a href="#how" aria-label={t("ctaSecondary")}><ArrowDown size={20} aria-hidden /></a>
+        </div>
       </section>
+
+      <section id="how" className={styles.process} aria-labelledby="process-title">
+        <div className={styles.processIntro}>
+          <p className={styles.eyebrow}>{t("storyLabel")}</p>
+          <h2 id="process-title">{t("processTitle")}</h2>
+          <p>{t("processBody")}</p>
+        </div>
+        <div className={styles.story}>
+          <div className={styles.stage}>
+            {chapters.map((chapter, index) => (
+              <article key={chapter} className={`${styles.chapter} ${styles[chapter]}`}>
+                <div className={styles.chapterInner}>
+                  <div className={styles.chapterCopy}>
+                    <p className={styles.chapterLabel}><span>{String(index + 1).padStart(2, "0")}</span>{t(`services.${chapter}Label`)}</p>
+                    <h3>{t(`services.${chapter}Title`)}</h3>
+                    <p>{t(`services.${chapter}Body`)}</p>
+                    <div className={styles.deliverable}><span>{t("deliverableLabel")}</span><p>{t(`services.${chapter}Note`)}</p></div>
+                    <div className={styles.chapterProgress} aria-hidden>
+                      {chapters.map((key) => <span key={key} className={key === chapter ? styles.current : undefined} />)}
+                    </div>
+                  </div>
+                  <ServiceVisual chapter={chapter} />
+                </div>
+              </article>
+            ))}
+          </div>
+          <div className={styles.scrollRoom} aria-hidden />
+        </div>
+      </section>
+
+      <section id="contact" className={styles.contact} aria-labelledby="contact-title">
+        <div className={styles.contactIntro}>
+          <p className={styles.eyebrow}>{t("form.eyebrow")}</p>
+          <h2 id="contact-title">{t("form.title")}</h2>
+          <p>{t("form.subtitle")}</p>
+          <div className={styles.nextSteps}>
+            <h3>{t("form.nextTitle")}</h3>
+            <ol>{["nextOne", "nextTwo", "nextThree"].map((key) => <li key={key}>{t(`form.${key}`)}</li>)}</ol>
+          </div>
+          <p className={styles.contactNote}>{t("form.noAccount")}</p>
+        </div>
+        <div className={styles.formPanel}><EnquiryForm /></div>
+      </section>
+
+      <footer className={styles.footer}>
+        <div><span className={styles.footerBrand}>MBARETE</span><p>{t("footerDescription")}</p></div>
+        <div className={styles.footerMeta}>
+          <span>© {new Date().getFullYear()} Mbarete</span>
+          <Link href="/login">{t("signIn")}<ArrowUpRight size={14} aria-hidden /></Link>
+        </div>
+      </footer>
     </div>
   );
 }
