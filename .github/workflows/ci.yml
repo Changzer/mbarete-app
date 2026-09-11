@@ -101,7 +101,7 @@ jobs:
         env:
           UPLOADS_DIR: ${{ runner.temp }}/uploads
       - name: Diagnose landing hydration in development
-        if: ${{ failure() && steps.landing.outcome == 'failure' }}
+        if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
         env:
           UPLOADS_DIR: ${{ runner.temp }}/uploads
         run: |
@@ -112,7 +112,9 @@ jobs:
             if curl -sf -o /dev/null http://localhost:3001/en/login; then break; fi
             sleep 1
           done
-          BASE_URL=http://localhost:3001 node --test --test-name-pattern='service page' src/ui-tests/landing.spec.mjs
+          for diagnostic_attempt in 1 2 3; do
+            BASE_URL=http://localhost:3001 node --test --test-name-pattern='service page' src/ui-tests/landing.spec.mjs
+          done
       - name: Upload landing review screenshots
         if: always()
         uses: actions/upload-artifact@v4
