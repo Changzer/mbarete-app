@@ -449,7 +449,9 @@
     "removedLine": "Removed {name}",
     "undo": "Undo",
     "allSuppliers": "All suppliers",
-    "orderConflict": "This order changed while you were working — refresh the page to see the latest version, then try again."
+    "orderConflict": "This order changed while you were working — refresh the page to see the latest version, then try again.",
+    "refreshSupplier": "Supplier",
+    "supplierNotRecorded": "Supplier not recorded"
   },
   "settings": {
     "exchangeRates": "Exchange Rates",
@@ -757,7 +759,9 @@
     "dossier_exportContractDate": "Export contract date",
     "dossier_purchaseContractDate": "Factory contract date",
     "dossier_warehouseInDate": "Warehouse-in date",
-    "dossier_exportDate": "Export date"
+    "dossier_exportDate": "Export date",
+    "changeLineSupplier": "{sku}: supplier {from} → {to}",
+    "supplierNotRecorded": "Supplier not recorded"
   },
   "activity": {
     "title": "Activity",
@@ -1008,7 +1012,8 @@
       "detailsToggle": "Quantity, destination & target price",
       "detailsHelp": "Add what you know. Estimates are welcome.",
       "errorFailed": "We could not confirm your submission. Your details are still here. Please try again.",
-      "requiredHint": "Your name, email, and product brief are required."
+      "requiredHint": "Your name, email, and product brief are required.",
+      "privacyLink": "Privacy notice"
     },
     "metaTitle": "Mbarete — Your sourcing team in China",
     "metaDescription": "A team in Yiwu for supplier sourcing, samples, production follow-up, inspection and export coordination. Tell us what you want to import.",
@@ -1040,7 +1045,9 @@
     "processTitle": "Closer to the source. Clearer at every step.",
     "processBody": "You know your market. We help you work with the people making your product, with the details in place before you commit.",
     "deliverableLabel": "What you receive",
-    "footerDescription": "Sourcing & export · Yiwu, China"
+    "footerDescription": "Sourcing & export · Yiwu, China",
+    "privacyLink": "Privacy notice",
+    "termsLink": "Service terms"
   },
   "dossier": {
     "title": "Rebate dossier",

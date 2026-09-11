@@ -449,7 +449,9 @@
     "removedLine": "已移除 {name}",
     "undo": "撤销",
     "allSuppliers": "全部供应商",
-    "orderConflict": "该订单在您操作期间已被修改——请刷新页面查看最新版本后重试。"
+    "orderConflict": "该订单在您操作期间已被修改——请刷新页面查看最新版本后重试。",
+    "refreshSupplier": "供应商",
+    "supplierNotRecorded": "未记录供应商"
   },
   "settings": {
     "exchangeRates": "汇率",
@@ -757,7 +759,9 @@
     "dossier_exportContractDate": "外销合同日期",
     "dossier_purchaseContractDate": "工厂合同日期",
     "dossier_warehouseInDate": "入库日期",
-    "dossier_exportDate": "出口日期"
+    "dossier_exportDate": "出口日期",
+    "changeLineSupplier": "{sku}：供应商 {from} → {to}",
+    "supplierNotRecorded": "未记录供应商"
   },
   "activity": {
     "title": "操作记录",
@@ -1081,7 +1085,8 @@
       "optional": "选填",
       "detailsToggle": "数量、目的地及目标价格",
       "detailsHelp": "填写已知信息即可，估算也可以。",
-      "requiredHint": "姓名、邮箱和产品需求为必填项。"
+      "requiredHint": "姓名、邮箱和产品需求为必填项。",
+      "privacyLink": "隐私说明"
     },
     "visual": {
       "bottleAlt": "橙色保温杯示意图",
@@ -1105,6 +1110,8 @@
       "origin": "中国义乌",
       "destination": "您的目的地",
       "shipmentNote": "运输条款和责任按订单确认。"
-    }
+    },
+    "privacyLink": "隐私说明",
+    "termsLink": "服务条款"
   }
 }

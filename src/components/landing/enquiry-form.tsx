@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { ArrowUpRight, CheckCircle2, ChevronDown } from "lucide-react";
 import { submitEnquiry, type EnquiryResult } from "@/lib/actions/enquiry";
@@ -94,7 +95,7 @@ export function EnquiryForm() {
         <Button type="submit" disabled={isPending} size="lg" className="min-h-13 h-auto whitespace-normal rounded-md py-3 text-base">
           {isPending ? t("submitting") : t("submit")}<ArrowUpRight aria-hidden />
         </Button>
-        <p className="text-sm leading-relaxed text-sub">{t("privacy")}</p>
+        <p className="text-sm leading-relaxed text-sub">{t("privacy")} <Link href="/privacy" className="underline underline-offset-4">{t("privacyLink")}</Link></p>
       </div>
     </form>
   );

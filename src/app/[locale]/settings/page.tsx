@@ -9,9 +9,6 @@ import { ExchangeRateManager } from "@/components/settings/exchange-rate-manager
 import { CompanyProfileForm } from "@/components/settings/company-profile-form";
 import { CompanyLogoCard } from "@/components/settings/company-logo-card";
 import { BankAccountsManager } from "@/components/settings/bank-accounts-manager";
-import { ReferralCard } from "@/components/settings/referral-card";
-import { isSaas } from "@/lib/deploy";
-import { ensureReferralCode, referralCount } from "@/lib/referrals";
 
 export default async function SettingsPage() {
   const user = await sessionUser();
@@ -21,15 +18,6 @@ export default async function SettingsPage() {
 
   const t = await getTranslations("settings");
   const companyT = await getTranslations("company");
-
-  // The referral loop only exists where signup does. The code is minted the
-  // first time an admin opens this page — nothing to configure.
-  const referral = isSaas()
-    ? {
-        code: await ensureReferralCode(user!.companyId),
-        joined: await referralCount(user!.companyId),
-      }
-    : null;
 
   const [rates, profile, banks] = await Promise.all([
     db
@@ -67,14 +55,6 @@ export default async function SettingsPage() {
         <ExchangeRateManager rates={rates} />
       </section>
 
-      {referral ? (
-        <section>
-          <h2 className="mb-6 text-[23px] font-extrabold tracking-tight text-ink">
-            {companyT("referralTitle")}
-          </h2>
-          <ReferralCard code={referral.code} joined={referral.joined} />
-        </section>
-      ) : null}
 
       <section>
         <h2 className="mb-2 text-[23px] font-extrabold tracking-tight text-ink">

@@ -4,8 +4,8 @@
  * - "self-hosted" (default): one company, created by the boot seed from
  *   ADMIN_EMAIL / COMPANY_NAME. No public signup — this is the NAS install,
  *   and it must keep behaving exactly as it always has.
- * - "saas": companies are created by the public /signup flow instead; the boot
- *   seed creates nothing. Signup is gated by SIGNUP_CODE.
+ * - "saas": retained for existing installations; the boot seed creates nothing.
+ *   Public company signup is retired in BOTH modes; staff invitations remain.
  *
  * `||` not `??`: docker-compose passes unset vars through as empty strings.
  */
@@ -17,14 +17,4 @@ export function deployMode(): DeployMode {
 
 export function isSaas(): boolean {
   return deployMode() === "saas";
-}
-
-/**
- * The code a person must present to create a company on a public deployment.
- * Empty means "no code set" — and in SaaS mode that deliberately closes signup
- * rather than opening it, so a misconfigured public server can't be farmed for
- * free companies. Self-hosted never reaches this check.
- */
-export function signupCode(): string {
-  return process.env.SIGNUP_CODE || "";
 }

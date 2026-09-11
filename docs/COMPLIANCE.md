@@ -5,10 +5,12 @@ by analogy), where the boundaries are enforced, and what is deliberately
 deferred. Written for the operator and for whoever audits us; kept honest —
 if it is not listed here, it is not built.
 
-**Counsel caveat: the privacy policy and terms of service shipped at
-`/privacy` and `/terms` are v1 templates drafted against the code, not
-against statute by a lawyer. Before public signup or any regulatory filing,
-have qualified PRC counsel review both.**
+**Current public flow (11 September 2026):** the website offers Mbarete's
+sourcing/export service. Public company signup is permanently closed, including
+on legacy SaaS deployments. `/privacy` and `/terms` now contain v2 service notices
+in EN/PT/ES/ZH; their source is `src/lib/public-policies.ts`. They describe the
+implemented enquiry flow and do not establish a software subscription contract.
+They are not a jurisdiction-specific legal compliance certification.
 
 ## Data classification
 
@@ -19,15 +21,24 @@ have qualified PRC counsel review both.**
 | Business records | products, orders, payments, expenses, documents | tenant-isolated; **accounting records of completed transactions are retained for the statutory archive period and are NOT deleted on individual request** (会计档案管理办法; PIPL legal-obligation basis) |
 | Operational telemetry | activity timestamps, AI usage counts, error log | counts and timings only — the platform panel never shows tenant amounts or content |
 
-## Consent
+## Public enquiries and internal access
 
-- Signup requires an explicit checkbox agreeing to `/terms` and `/privacy`.
-  The checkbox is **server-enforced** (`consent: z.literal("on")` in the
-  signup action): no account can exist without it. An account's creation
-  date therefore evidences consent to the policy version current that day.
-- Policy versions are dated on the pages themselves (v1 · 2026-08-28). A
-  future material change bumps the version and should re-prompt — not yet
-  built; tracked for the public-signup batch.
+- Enquiry collection is described beside the submit button, with a direct
+  privacy link and service terms in the footer. Submission requests follow-up;
+  it does not accept a project quotation or create an account.
+- The required name/email/project brief and optional details/photos are stored
+  for operator follow-up. Submission does not call an AI provider. Enquiry
+  images are re-encoded, stripped of embedded metadata and served only to the
+  authenticated operator. Failed image/DB writes clean up prepared files.
+- There is currently no automatic enquiry deletion schedule; v2 states this
+  explicitly. `LEGAL_CONTACT_EMAIL`, when configured, supplies a direct contact;
+  the enquiry form provides a fallback channel for information requests.
+- Staff access is issued by an administrator. Legacy signup codes/referral
+  links cannot create companies. Old account creation dates are not evidence
+  of acceptance of today's public service notice.
+- Hosting location, actual provider arrangements and operational retention
+  practices must be assessed for the real deployment; code alone cannot prove
+  those details. v2 removes the previous unsupported security guarantees.
 
 ## AI processing
 

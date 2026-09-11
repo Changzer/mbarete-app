@@ -4,7 +4,6 @@ import { Brand } from "@/components/brand";
 import { BeianFooter } from "@/components/legal/beian-footer";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Link } from "@/i18n/navigation";
-import { isSaas } from "@/lib/deploy";
 import { isMailConfigured } from "@/lib/mail";
 
 export default async function LoginPage({
@@ -37,14 +36,6 @@ export default async function LoginPage({
             <p className="text-center text-sm text-sub">
               <Link href="/forgot" className="font-medium text-brand-600 hover:underline">
                 {t("forgotPassword")}
-              </Link>
-            </p>
-          ) : null}
-          {isSaas() ? (
-            <p className="text-center text-sm text-sub">
-              {t("noAccount")}{" "}
-              <Link href="/signup" className="font-medium text-brand-600 hover:underline">
-                {t("createCompany")}
               </Link>
             </p>
           ) : null}

@@ -38,6 +38,7 @@ export type OrderChange =
   | { code: "line_price"; sku: string; from: number; to: number }
   // Update-from-catalog: which catalog facts moved under a line. Cost keeps
   // its currency in the string so a currency change is visible as itself.
+  | { code: "line_supplier"; sku: string; from: string | null; to: string | null }
   | { code: "line_cost"; sku: string; from: string; to: string }
   | {
       code: "line_specs";

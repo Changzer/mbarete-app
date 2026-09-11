@@ -51,6 +51,7 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm run db:migrate
+      - run: npm run test:supplier-migration
       - run: npm run check:isolation
 
       # Entitlements only bind in SaaS mode; everything else in this job runs
@@ -91,6 +92,17 @@ jobs:
       # after delivery, the legacy queue across the store upgrade, and
       # another account's captures staying on the phone.
       - run: npm run test:capture
+      - run: npm run test:landing
+        env:
+          UPLOADS_DIR: ${{ runner.temp }}/uploads
+      - name: Upload landing review screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: landing-review
+          path: artifacts/landing
+          if-no-files-found: ignore
+          retention-days: 7
 
       # The disaster drill on the data the golden path just created: back it
       # up, damage rows and files, prove a corrupted backup is refused before

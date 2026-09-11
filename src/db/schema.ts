@@ -662,6 +662,11 @@ export const orderItems = pgTable(
     nameEnSnapshot: text("name_en_snapshot").notNull().default(""),
     nameZhSnapshot: text("name_zh_snapshot").notNull().default(""),
     supplierCodeSnapshot: text("supplier_code_snapshot").notNull().default(""),
+    // Historical identity, intentionally without a live contact FK. Legacy
+    // rows stay unknown until an explicit, previewed catalog refresh.
+    supplierIdSnapshot: integer("supplier_id_snapshot"),
+    supplierNameEnSnapshot: text("supplier_name_en_snapshot").notNull().default(""),
+    supplierNameZhSnapshot: text("supplier_name_zh_snapshot").notNull().default(""),
     qtyPerBoxSnapshot: integer("qty_per_box_snapshot").notNull().default(0),
     cartonCbmSnapshot: doublePrecision("carton_cbm_snapshot").notNull().default(0),
     cartonWeightSnapshot: doublePrecision("carton_weight_snapshot").notNull().default(0),

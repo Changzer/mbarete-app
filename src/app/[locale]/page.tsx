@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUpRight, MapPin } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { redirect, Link } from "@/i18n/navigation";
 import { routing, HREFLANG, type Locale } from "@/i18n/routing";
+import { BeianFooter } from "@/components/legal/beian-footer";
 import { Brand } from "@/components/brand";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { EnquiryForm } from "@/components/landing/enquiry-form";
@@ -130,9 +131,12 @@ export default async function RootPage({ params }: { params: Promise<{ locale: s
         <div><span className={styles.footerBrand}>MBARETE</span><p>{t("footerDescription")}</p></div>
         <div className={styles.footerMeta}>
           <span>© {new Date().getFullYear()} Mbarete</span>
+          <Link href="/privacy">{t("privacyLink")}</Link>
+          <Link href="/terms">{t("termsLink")}</Link>
           <Link href="/login">{t("signIn")}<ArrowUpRight size={14} aria-hidden /></Link>
         </div>
       </footer>
+      <BeianFooter />
     </div>
   );
 }

@@ -72,7 +72,8 @@
       "detailsToggle": "Quantidade, destino e preço alvo",
       "detailsHelp": "Preencha o que souber. Pode ser uma estimativa.",
       "errorFailed": "Não conseguimos confirmar o envio. Seus dados continuam aqui. Tente novamente.",
-      "requiredHint": "Nome, e-mail e descrição do produto são obrigatórios."
+      "requiredHint": "Nome, e-mail e descrição do produto são obrigatórios.",
+      "privacyLink": "Privacidade"
     },
     "metaTitle": "Mbarete — Sua equipe de sourcing na China",
     "metaDescription": "Equipe em Yiwu para buscar fornecedores, organizar amostras, acompanhar a produção e coordenar inspeção e exportação. Conte o que você quer importar.",
@@ -104,6 +105,8 @@
     "processTitle": "Perto de quem produz. Clareza em cada etapa.",
     "processBody": "Você conhece seu mercado. Nós ajudamos a trabalhar com quem fabrica seu produto, com os detalhes definidos antes de fechar o pedido.",
     "deliverableLabel": "O que você recebe",
-    "footerDescription": "Sourcing e exportação · Yiwu, China"
+    "footerDescription": "Sourcing e exportação · Yiwu, China",
+    "privacyLink": "Privacidade",
+    "termsLink": "Termos do serviço"
   }
 }
