@@ -116,6 +116,9 @@ test("enquiries persist photos, keep drafts after failures, and clean up rejecte
   const uploads = async () => (await readdir(process.env.UPLOADS_DIR)).filter((p) => p.startsWith("enq-")).sort();
   const fill = async (email) => {
     await page.goto(`${BASE}/en#contact`);
+    // Navigating to the same hash keeps the successful form's React state.
+    // A fresh buyer visit needs a new document, not another fragment jump.
+    await page.reload();
     await page.locator("#eq-message").fill("Please source an insulated bottle for our store.");
     await page.locator("#eq-name").fill("Landing QA");
     await page.locator("#eq-email").fill(email);

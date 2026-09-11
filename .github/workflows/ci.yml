@@ -96,9 +96,23 @@ jobs:
       - run: npm run test:capture
         if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
       - run: npm run test:landing
+        id: landing
         if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
         env:
           UPLOADS_DIR: ${{ runner.temp }}/uploads
+      - name: Diagnose landing hydration in development
+        if: ${{ failure() && steps.landing.outcome == 'failure' }}
+        env:
+          UPLOADS_DIR: ${{ runner.temp }}/uploads
+        run: |
+          npx next dev -p 3001 > /tmp/landing-dev.log 2>&1 &
+          diagnostic_pid=$!
+          trap 'kill "$diagnostic_pid" || true; tail -100 /tmp/landing-dev.log' EXIT
+          for i in $(seq 1 60); do
+            if curl -sf -o /dev/null http://localhost:3001/en/login; then break; fi
+            sleep 1
+          done
+          BASE_URL=http://localhost:3001 node --test --test-name-pattern='service page' src/ui-tests/landing.spec.mjs
       - name: Upload landing review screenshots
         if: always()
         uses: actions/upload-artifact@v4
