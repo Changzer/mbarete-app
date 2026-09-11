@@ -1,5 +1,10 @@
 import { requirePlatformAdmin } from "@/lib/authz";
-import { loadPlatformOverview, loadWaitlist, type CompanyMetrics } from "@/lib/platform/metrics";
+import {
+  loadPlatformOverview,
+  loadWaitlist,
+  loadEnquiries,
+  type CompanyMetrics,
+} from "@/lib/platform/metrics";
 import { ModuleToggle } from "./module-toggle";
 import { PlanSelect } from "./plan-select";
 import { BackupNow } from "./backup-now";
@@ -164,6 +169,7 @@ export default async function PlatformAdminPage() {
   const operator = await requirePlatformAdmin();
   const { companies, totals } = await loadPlatformOverview();
   const waitlist = await loadWaitlist();
+  const enquiries = await loadEnquiries();
   const events = await recentPlatformEvents(20);
   const backups = await backupStatus();
   const errors = recentErrors();
@@ -222,10 +228,44 @@ export default async function PlatformAdminPage() {
         </div>
       ) : null}
 
+      {/* Enquiries from the public services page — the live lead list. The
+          message is the reason anyone opens this table, so it gets its own
+          row under each contact rather than a truncated column. */}
+      {enquiries.length > 0 ? (
+        <div className="mb-6 rounded-[12px] border border-line bg-surface p-4" data-testid="enquiries">
+          <div className="mb-2 text-sm font-bold text-ink">
+            Enquiries <span className="text-sub">({enquiries.length})</span>
+          </div>
+          <ul className="divide-y divide-line">
+            {enquiries.map((e) => (
+              <li key={e.id} className="py-2.5">
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[13px]">
+                  <span className="font-semibold text-ink">{e.name}</span>
+                  <span className="text-ink">{e.companyName}</span>
+                  <a className="text-action-chrome underline" href={`mailto:${e.email}`}>
+                    {e.email}
+                  </a>
+                  {e.preferredContact ? (
+                    <span className="text-sub">{e.preferredContact}</span>
+                  ) : null}
+                  <span className="ml-auto font-mono text-[11px] text-sub">
+                    {e.locale} · {e.createdAt.slice(0, 16)}
+                  </span>
+                </div>
+                <p className="mt-1 whitespace-pre-wrap text-[13px] leading-relaxed text-sub">
+                  {e.message}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       {waitlist.length > 0 ? (
         <div className="mb-6 rounded-[12px] border border-line bg-surface p-4" data-testid="waitlist">
           <div className="mb-2 text-sm font-bold text-ink">
             Waiting list <span className="text-sub">({waitlist.length})</span>
+            <span className="ml-2 font-normal text-faint">pre-launch signups · closed</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-left text-[13px]">

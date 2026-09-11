@@ -1268,6 +1268,26 @@ export const authTokens = pgTable(
 );
 
 /**
+ * Enquiries from the public services page — someone describing what they want
+ * to import. Platform data like "companies": a row exists before any company
+ * does, so no company_id and no RLS.
+ *
+ * No unique index on email, unlike waitlistSignups: a returning importer
+ * asking about a different product has sent a second enquiry, not a duplicate
+ * of the first, and dropping it would lose a live sale.
+ */
+export const serviceEnquiries = pgTable("service_enquiries", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  companyName: text("company_name").notNull(),
+  email: text("email").notNull(),
+  preferredContact: text("preferred_contact"),
+  message: text("message").notNull(),
+  locale: text("locale").notNull(),
+  createdAt: text("created_at").notNull().default(utcNow),
+});
+
+/**
  * Pre-launch waiting list, filled from the public landing page. Platform
  * data like "companies", not tenant data — rows exist before any company
  * does, so no company_id and no RLS. Uniqueness on lower(email) lives in

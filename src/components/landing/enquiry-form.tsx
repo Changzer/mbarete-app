@@ -3,20 +3,20 @@
 import { useActionState } from "react";
 import { useTranslations } from "next-intl";
 import { CheckCircle2 } from "lucide-react";
-import { joinWaitlist, type WaitlistResult } from "@/lib/actions/waitlist";
+import { submitEnquiry, type EnquiryResult } from "@/lib/actions/enquiry";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Link } from "@/i18n/navigation";
+import { Textarea } from "@/components/ui/textarea";
 
-function errorText(t: ReturnType<typeof useTranslations>, result: WaitlistResult | undefined) {
+function errorText(t: ReturnType<typeof useTranslations>, result: EnquiryResult | undefined) {
   if (!result?.error) return null;
   return result.error === "rate-limited" ? t("errorRateLimited") : t("errorInvalid");
 }
 
-export function WaitlistForm() {
+export function EnquiryForm() {
   const t = useTranslations("landing.form");
-  const [result, formAction, isPending] = useActionState(joinWaitlist, undefined);
+  const [result, formAction, isPending] = useActionState(submitEnquiry, undefined);
   const message = errorText(t, result);
 
   if (result?.ok) {
@@ -38,13 +38,13 @@ export function WaitlistForm() {
       <h3 className="sr-only">{t("formTitle")}</h3>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="wl-name">{t("name")}</Label>
-          <Input id="wl-name" name="name" autoComplete="name" required maxLength={120} />
+          <Label htmlFor="eq-name">{t("name")}</Label>
+          <Input id="eq-name" name="name" autoComplete="name" required maxLength={120} />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="wl-company">{t("companyName")}</Label>
+          <Label htmlFor="eq-company">{t("companyName")}</Label>
           <Input
-            id="wl-company"
+            id="eq-company"
             name="companyName"
             autoComplete="organization"
             required
@@ -52,24 +52,37 @@ export function WaitlistForm() {
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="wl-email">{t("email")}</Label>
-          <Input id="wl-email" name="email" type="email" autoComplete="email" required maxLength={200} />
+          <Label htmlFor="eq-email">{t("email")}</Label>
+          <Input id="eq-email" name="email" type="email" autoComplete="email" required maxLength={200} />
         </div>
-        {/* Optional, and free text: a WeChat ID is not a phone number, and the
-            import teams this page is written for are not all in China. */}
+        {/* Optional and free text: the buyers are across Latin America and the
+            team answers from China, so this is a WhatsApp number in any
+            country, a WeChat ID, or nothing. */}
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="wl-contact">
+          <Label htmlFor="eq-contact">
             {t("preferredContact")}{" "}
             <span className="font-normal text-sub">— {t("preferredContactOptional")}</span>
           </Label>
           <Input
-            id="wl-contact"
+            id="eq-contact"
             name="preferredContact"
             autoComplete="tel"
             placeholder={t("preferredContactPlaceholder")}
             maxLength={200}
           />
         </div>
+      </div>
+      {/* The one field the enquiry cannot do without. */}
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="eq-message">{t("message")}</Label>
+        <Textarea
+          id="eq-message"
+          name="message"
+          required
+          rows={4}
+          maxLength={4000}
+          placeholder={t("messagePlaceholder")}
+        />
       </div>
       {message ? (
         <p className="text-sm text-danger" role="alert">
@@ -79,23 +92,7 @@ export function WaitlistForm() {
       <Button type="submit" disabled={isPending} size="lg" className="mt-1">
         {isPending ? t("submitting") : t("submit")}
       </Button>
-      {/* Notice at the point of collection. The promise above it is ours; the
-          links are what a visitor needs to check it — the form takes a name, a
-          company, an email and a contact handle before this line, and a
-          promise nobody can read the terms of is not notice. No checkbox: an
-          account is a durable relationship and earns the friction of one,
-          a waiting list is not, and the same links do the work here. */}
-      <p className="text-center text-xs leading-relaxed text-sub">
-        {t("privacy")}{" "}
-        {t("consentAgree")}{" "}
-        <Link href="/terms" target="_blank" className="font-medium text-brand-600 hover:underline">
-          {t("consentTerms")}
-        </Link>{" "}
-        {t("consentAnd")}{" "}
-        <Link href="/privacy" target="_blank" className="font-medium text-brand-600 hover:underline">
-          {t("consentPrivacy")}
-        </Link>
-      </p>
+      <p className="text-center text-xs text-sub">{t("privacy")}</p>
     </form>
   );
 }

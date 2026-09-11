@@ -1,6 +1,6 @@
 import { count, countDistinct, desc, eq, gte, max, sql, sum, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { companies, users, products, orders, contacts, userActivityDays, invites, aiUsage, waitlistSignups } from "@/db/schema";
+import { companies, users, products, orders, contacts, userActivityDays, invites, aiUsage, waitlistSignups, serviceEnquiries } from "@/db/schema";
 import { companyStorageBytes } from "@/lib/uploads";
 import { utcDayStart } from "@/lib/ai-budget";
 
@@ -239,10 +239,21 @@ export type WaitlistEntry = {
 };
 
 /**
- * The pre-launch waiting list, newest first — the landing page's output.
- * Platform data with no company_id and no RLS, so a plain select is the
- * whole story.
+ * The pre-launch waiting list, newest first. Kept for the rows it already
+ * holds: the SaaS it signed people up for is not happening, so nothing writes
+ * here any more and the public page no longer shows the form.
  */
 export async function loadWaitlist(): Promise<WaitlistEntry[]> {
   return db.select().from(waitlistSignups).orderBy(desc(waitlistSignups.id));
+}
+
+export type EnquiryEntry = WaitlistEntry & { message: string };
+
+/**
+ * Enquiries from the public services page, newest first — what the landing
+ * page produces now. Platform data with no company_id and no RLS, so a plain
+ * select is the whole story.
+ */
+export async function loadEnquiries(): Promise<EnquiryEntry[]> {
+  return db.select().from(serviceEnquiries).orderBy(desc(serviceEnquiries.id));
 }
