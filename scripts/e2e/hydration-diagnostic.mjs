@@ -1,5 +1,5 @@
 // Temporary diagnostic of the CI build; removed before this PR is ready.
-const { readdirSync, readFileSync, writeFileSync } = require("node:fs");
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 const root = ".next/static/chunks";
 const pattern = /var (\w+)=null,(\w+)=null,(\w+)=!1,(\w+)=null,(\w+)=!1,(\w+)=Error\((\w+)\(519\)\);function (\w+)\((\w+)\)\{/;
 let matched = 0;

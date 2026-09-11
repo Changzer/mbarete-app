@@ -50,7 +50,7 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
-      - run: node scripts/e2e/hydration-diagnostic.cjs
+      - run: node scripts/e2e/hydration-diagnostic.mjs
       - run: npm run db:migrate
       - run: npm run test:supplier-migration
       - run: npm run check:isolation
