@@ -1,12 +1,16 @@
-.page { background: var(--mb-bg); color: var(--mb-ink); overflow-wrap: break-word; }
+.page { --header-h: 100px; background: var(--mb-bg); color: var(--mb-ink); overflow-wrap: break-word; }
 .page :is(h1,h2,h3,p,figure) { margin: 0; }
 .page :is(a,button,input,textarea,select):focus-visible { outline: 2px solid var(--mb-action); outline-offset: 5px; }
-.page :is(:global(#how),:global(#contact)) { scroll-margin-top: 2rem; }
+/* Anchor jumps land below the sticky bar, not under it. */
+.page :is(:global(#how),:global(#contact)) { scroll-margin-top: calc(var(--header-h) + 1rem); }
 .heroCopy,.chapterCopy,.sampleVisual,.sourcingVisual { min-width: 0; }
 .skip { position: absolute; left: 1rem; top: -8rem; z-index: 10; padding: 1rem; background: var(--mb-surface); }
 .skip:focus { top: 1rem; }
-.header,.hero,.processIntro,.chapterInner,.contact,.footer { width: min(100% - 6rem, 1280px); margin-inline: auto; }
-.header { min-height: 100px; display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--mb-line); }
+.hero,.processIntro,.chapterInner,.contact,.footer { width: min(100% - 6rem, 1280px); margin-inline: auto; }
+.header { --gutter: 3rem; position: sticky; top: 0; z-index: 5; min-height: var(--header-h); box-sizing: border-box;
+  padding-inline: max(var(--gutter), calc((100% - 1280px) / 2));
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  background: var(--mb-bg); border-bottom: 1px solid var(--mb-line); }
 .brand { display: inline-flex; flex-shrink: 0; }
 .headerActions { display: flex; align-items: center; gap: 1.25rem; }
 .headerActions select { min-height: 44px; border: 0; background: transparent; font-size: 14px; }
@@ -100,8 +104,8 @@
 @supports (animation-timeline: view()) and (animation-range: 0% 100%) {
   @media (min-width: 1100px) and (min-height: 800px) and (prefers-reduced-motion: no-preference) {
     .story { view-timeline-name: --service-story; view-timeline-axis: block; }
-    .stage { position: sticky; top: 0; display: grid; }
-    .chapter { grid-area: 1 / 1; min-height: 100svh; display: flex; align-items: center; border: 0; padding-block: 2rem; }
+    .stage { position: sticky; top: var(--header-h); display: grid; }
+    .chapter { grid-area: 1 / 1; min-height: calc(100svh - var(--header-h)); display: flex; align-items: center; border: 0; padding-block: 2rem; }
     .sampling,.export { animation: arrive linear both; animation-timeline: --service-story; }
     .sampling { animation-range: 38% 46%; }
     .export { animation-range: 62% 70%; }
@@ -114,14 +118,15 @@
 @keyframes arrive { from { opacity: 0; pointer-events: none; } to { opacity: 1; pointer-events: auto; } }
 @keyframes rise { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width: 1099px) {
-  .header,.hero,.processIntro,.chapterInner,.contact,.footer { width: min(100% - 3rem,1280px); }
+  .hero,.processIntro,.chapterInner,.contact,.footer { width: min(100% - 3rem,1280px); }
+  .header { --gutter: 1.5rem; }
   .hero,.chapterInner,.contact { gap: 2.5rem; }
   .hero h1 { font-size: clamp(2.5rem,5.3vw,4.3rem); }
   .chapter { padding-block: 4rem; }
   .contact { padding-block: 5rem; }
 }
 @media (max-width: 767px) {
-  .header { min-height: 80px; }
+  .page { --header-h: 80px; }
   .brand img { max-width: 145px; height: auto; max-height: 36px; }
   .headerActions { gap: 0; }
   .headerCta { display: none; }
@@ -153,7 +158,8 @@
   .footer { flex-direction: column; align-items: start; gap: 1rem; }
 }
 @media (max-width: 359px) {
-  .header,.hero,.processIntro,.chapterInner,.contact,.footer { width: calc(100% - 2rem); }
+  .hero,.processIntro,.chapterInner,.contact,.footer { width: calc(100% - 2rem); }
+  .header { --gutter: 1rem; }
   .brand img { max-width: 125px; }
   .headerActions select { padding-left: .4rem; }
   .primary { width: 100%; padding-inline: 1rem; }
