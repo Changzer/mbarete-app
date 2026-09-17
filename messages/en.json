@@ -282,8 +282,8 @@
     "destination_BR": "Brazil",
     "destination_PY": "Paraguay",
     "importDuty": "Import duty · {destination}",
-    "importDutyHelp": "Enter a checked rate, or explicitly use an AI estimate below. Leave blank if unknown; 0 means zero duty. Other import taxes are excluded.",
-    "landedCost": "Product + freight + duty · per piece",
+    "importDutyHelp": "Leave blank if unknown; 0 means zero duty. Enter a checked rate or choose an AI estimate below.",
+    "landedCost": "Product + freight + duty",
     "landedUnitCost": "Supplier cost",
     "landedShipping": "Shipping",
     "landedDuty": "Import duty",
@@ -308,9 +308,10 @@
     "useDutySuggestion": "Use this estimate",
     "errorHsCode": "Enter a 6-digit HS or 8-digit NCM code, or leave it blank.",
     "errorDuty": "Enter a duty between 0 and 200%, or leave it blank.",
-    "landedScope": "Planning subtotal, not the full landed cost. Excludes insurance, port/broker fees, local delivery and other import taxes. LCL minimum charges are not included.",
-    "landedFclAssumption": "FCL assumes the booked container uses all {cbm} m³. This is a share per piece, not the price of shipping a small order by FCL.",
-    "landedEstimatedCarton": "Freight uses a carton estimate from piece dimensions and packing allowance."
+    "landedScope": "Planning subtotal. Excludes insurance, port/broker fees, local delivery, other import taxes and LCL minimum charges.",
+    "landedFclAssumption": "FCL share assumes a full {cbm} m³ container. Booking it for a smaller shipment costs more per piece.",
+    "landedEstimatedCarton": "Freight uses a carton estimate from piece dimensions and packing allowance.",
+    "landedPerPiece": "Per piece · {currency}"
   },
   "contacts": {
     "title": "Contacts",
@@ -864,7 +865,11 @@
     "field_dimensions": "Carton size",
     "field_weight": "Carton weight",
     "field_supplier": "Supplier",
-    "field_description": "Description"
+    "field_description": "Description",
+    "field_hsCode": "HS / NCM code",
+    "field_exportDestination": "Export destination",
+    "field_importDutyPctBr": "Duty · Brazil",
+    "field_importDutyPctPy": "Duty · Paraguay"
   },
   "offline": {
     "offline": "Offline — the server can't be reached",

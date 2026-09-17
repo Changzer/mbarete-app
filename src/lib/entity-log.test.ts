@@ -82,6 +82,16 @@ const categoryNameOf = (id: number) => (id === 1 ? "Candles" : "Decor");
 const supplierNameOf = (id: number | null) => (id === 7 ? "Artemis" : id === 9 ? "YaoYao" : "—");
 
 describe("diffProductEdit", () => {
+  it("records customs edits, distinguishing unknown duty from explicit zero", () => {
+    const before = { ...product, hsCode: "420222", exportDestination: "BR", importDutyPctBr: 20, importDutyPctPy: null };
+    const after = { ...before, hsCode: "42022200", exportDestination: "PY", importDutyPctBr: null, importDutyPctPy: 0 };
+    assert.deepEqual(diffProductEdit(before, after, categoryNameOf, supplierNameOf), [
+      { field: "hsCode", from: "420222", to: "42022200" },
+      { field: "exportDestination", from: "BR", to: "PY" },
+      { field: "importDutyPctBr", from: "20%", to: "" },
+      { field: "importDutyPctPy", from: "", to: "0%" },
+    ]);
+  });
   it("returns nothing when nothing changed", () => {
     assert.deepEqual(diffProductEdit(product, { ...product }, categoryNameOf, supplierNameOf), []);
   });

@@ -60,7 +60,8 @@ dimensions and packing allowance as product saving, and is labelled estimated.
 Migration `0030` adds the four product columns and tenant-isolated
 `shipping_rates` table. This review does not rewrite that migration or add
 another one. The company CSV export includes shipping history; full database
-backups discover the table automatically.
+backups discover the table automatically. Classification, destination and
+duty edits are recorded in the existing product activity log.
 
 If an earlier draft build was used with real data, previously saved zero duties
 cannot be distinguished from blanks affected by its coercion bug. Review those

@@ -73,17 +73,18 @@ test("freight estimates stay honest and optional through capture, saving and rev
     assert.equal(await page.getByTestId("landed-total-lcl").textContent(), "—", "no total with unknown duty");
     assert.equal(await page.getByTestId("landed-cheaper").count(), 0);
     await page.getByTestId("import-duty").fill("0");
-    assert.equal(await page.getByTestId("landed-total-lcl").textContent(), "10.06 USD");
-    assert.equal(await page.getByTestId("landed-total-fcl").textContent(), "10.05 USD");
+    assert.equal(await page.getByTestId("landed-total-lcl").textContent(), "10.06");
+    assert.equal(await page.getByTestId("landed-total-fcl").textContent(), "10.05");
     assert.match(await page.getByTestId("landed-fcl-assumption").textContent(), /68 m³/);
-    assert.match(await page.getByTestId("landed-scope").textContent(), /not the full landed cost/);
+    assert.match(await page.getByTestId("landed-currency").textContent(), /Per piece · USD/);
+    assert.match(await page.getByTestId("landed-scope").textContent(), /Excludes insurance/);
 
     // The live freight share must use the same piece estimate that saving uses.
     await page.getByTestId("dimensions-disclosure").click();
     await page.getByRole("button", { name: "I only have the product size", exact: true }).click();
     for (const dimension of ["pieceLengthCm", "pieceWidthCm", "pieceHeightCm"]) await page.locator(`#${dimension}`).fill("10");
     await page.locator("#packingAllowancePct").fill("15");
-    assert.equal(await page.getByTestId("landed-shipping-lcl").textContent(), "0.138 USD");
+    assert.equal(await page.getByTestId("landed-shipping-lcl").textContent(), "0.138");
     await page.getByTestId("dimensions-disclosure").click();
 
     await mkdir("artifacts/landed-cost", { recursive: true });
@@ -107,7 +108,7 @@ test("freight estimates stay honest and optional through capture, saving and rev
     assert.equal(Number(saved.import_duty_pct_br), 0);
     assert.equal(saved.import_duty_pct_py, null);
     assert.equal(saved.export_destination, "PY");
-    assert.equal(Number(saved.cbm), 0.115);
+    assert.ok(Math.abs(Number(saved.cbm) - 0.115) < 1e-12, "stored carton matches the piece estimate");
 
     // Offline-form captures keep a zero rate and the chosen destination on review.
     const delivery = await context.request.post(`${BASE}/api/drafts`, { multipart: {

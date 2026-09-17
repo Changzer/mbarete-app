@@ -1137,7 +1137,7 @@ export function ProductForm({
               id="hsCode"
               name="hsCode"
               inputMode="numeric"
-              placeholder="96032100"
+              placeholder={t("optionalPlaceholder")}
               defaultValue={defaultValues?.hsCode}
               className="font-mono"
               onChange={() => setSuggestedDuties({})}

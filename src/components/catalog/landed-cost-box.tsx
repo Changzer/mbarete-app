@@ -46,9 +46,9 @@ export function LandedCostBox({
     },
     byMode,
   );
-  const money = (n: number | null) => n === null ? "—" : `${n.toLocaleString("en-US", {
+  const money = (n: number | null) => n === null ? "—" : n.toLocaleString("en-US", {
     minimumFractionDigits: 2, maximumFractionDigits: 4,
-  })} ${target}`;
+  });
   // What is missing for both modes alike is said once; a missing rate is said per mode.
   const shared = result.lcl.missing.filter((x) => x !== "rate" && result.fcl.missing.includes(x));
   const withRate = SHIPPING_MODES.filter((m) => byMode[m]);
@@ -60,7 +60,10 @@ export function LandedCostBox({
       className="flex min-w-0 flex-col gap-3 rounded-[10px] border border-line bg-surface-2 p-3 sm:col-span-2"
       data-testid="landed-cost"
     >
-      <span className="text-[13px] font-semibold text-ink">{t("landedCost")}</span>
+      <div>
+        <p className="text-[13px] font-semibold text-ink">{t("landedCost")}</p>
+        <p className="text-[11px] text-sub" data-testid="landed-currency">{t("landedPerPiece", { currency: target })}</p>
+      </div>
       <table className="w-full table-fixed text-[12px] text-sub">
         <thead>
           <tr>
