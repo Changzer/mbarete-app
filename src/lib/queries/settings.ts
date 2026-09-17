@@ -1,5 +1,6 @@
 import { db, one } from "@/db";
-import { companyProfile, bankAccounts } from "@/db/schema";
+import { companyProfile, bankAccounts, shippingRates } from "@/db/schema";
+import { DESTINATIONS, latestPerDestination, type Destination, type ShippingRate } from "@/lib/landed-cost";
 import { eq, desc, asc } from "drizzle-orm";
 
 export type CompanyProfile = typeof companyProfile.$inferSelect;
@@ -48,3 +49,33 @@ export async function getBankAccounts(companyId: number): Promise<BankAccount[]>
 }
 
 export { resolveProformaBank, type ProformaBank } from "@/lib/proforma-bank";
+
+/** Every shipping estimate ever recorded, newest first: the log the settings page shows. */
+export async function getShippingRates(companyId: number) {
+  return db
+    .select()
+    .from(shippingRates)
+    .where(eq(shippingRates.companyId, companyId))
+    .orderBy(desc(shippingRates.effectiveFrom), desc(shippingRates.id));
+}
+
+/** The estimate in force per destination, for the landed-cost figure. */
+export async function getLatestShippingRates(companyId: number): Promise<Partial<Record<Destination, ShippingRate>>> {
+  const rows = await getShippingRates(companyId);
+  const latest = latestPerDestination(rows);
+  const out: Partial<Record<Destination, ShippingRate>> = {};
+  for (const d of DESTINATIONS) {
+    const row = latest.get(d);
+    if (row) {
+      out[d] = {
+        destination: d,
+        basis: row.basis,
+        amount: row.amount,
+        currency: row.currency,
+        usableCbm: row.usableCbm,
+        effectiveFrom: row.effectiveFrom,
+      };
+    }
+  }
+  return out;
+}

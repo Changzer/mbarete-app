@@ -29,6 +29,9 @@ import {
 import { ContactForm } from "@/components/contacts/contact-form";
 import { createContact, type ContactActionResult } from "@/lib/actions/contacts";
 import type { TranscribeResult, TranscribedFields } from "@/lib/transcribe-product";
+import { DESTINATIONS, landedCost, type Destination, type ShippingRate } from "@/lib/landed-cost";
+import type { CurrencyRates } from "@/lib/calculations";
+import { formatMoney } from "@/lib/money";
 import type { CardTranscribeResult } from "@/lib/transcribe-card";
 import type { MatchCandidate } from "@/lib/contact-match";
 import {
@@ -61,6 +64,10 @@ type ProductFormValues = {
   descriptionZh: string;
   boardText: string;
   aiNotes: string;
+  hsCode: string;
+  exportDestination: "" | Destination;
+  importDutyPctBr: number | null;
+  importDutyPctPy: number | null;
   price: number;
   sellPrice: number;
   currency: string;
@@ -97,6 +104,9 @@ export function ProductForm({
   lockCategory = false,
   draftId,
   draftImages = [],
+  shippingRates = {},
+  rates = {},
+  functionalCurrency = "USD",
 }: {
   categories: Category[];
   action: (prevState: string | undefined, formData: FormData) => Promise<string | undefined>;
@@ -123,6 +133,11 @@ export function ProductForm({
   draftId?: number;
   /** The draft's photos, already on the server — shown, not re-uploaded. */
   draftImages?: { id: number; path: string }[];
+  /** For the landed-cost estimate: the shipping rate in force per destination. */
+  shippingRates?: Partial<Record<Destination, ShippingRate>>;
+  /** Exchange rates and the currency the estimate is shown in. */
+  rates?: CurrencyRates;
+  functionalCurrency?: string;
 }) {
   const t = useTranslations("catalog");
   const common = useTranslations("common");
@@ -233,6 +248,12 @@ export function ProductForm({
   // A segmented control rather than a text field, so it is state, not a DOM
   // value the AI pass can poke at — see applyTranscription.
   const [currency, setCurrency] = useState(defaultValues?.currency ?? "USD");
+  // The landed-cost estimate follows the price as it is typed; the input
+  // itself stays uncontrolled so the AI can still write into it.
+  const [priceText, setPriceText] = useState(defaultValues?.price ? String(defaultValues.price) : "");
+  const [destination, setDestination] = useState<Destination>(defaultValues?.exportDestination || "BR");
+  const [dutyBr, setDutyBr] = useState(defaultValues?.importDutyPctBr != null ? String(defaultValues.importDutyPctBr) : "");
+  const [dutyPy, setDutyPy] = useState(defaultValues?.importDutyPctPy != null ? String(defaultValues.importDutyPctPy) : "");
   // The carton figure the form would save right now (vendor override, else
   // from the dimensions) — only to warn when it cannot be a carton.
   const [cartonCbm, setCartonCbm] = useState<number>(() => {
@@ -286,6 +307,10 @@ export function ProductForm({
     };
 
     setIfUntouched("supplierCode", fields.supplierCode);
+    setIfUntouched("hsCode", fields.hsCode);
+    if (fields.importDutyBrPct !== undefined) setDutyBr((prev) => (overwrite || prev === "" ? String(fields.importDutyBrPct) : prev));
+    if (fields.importDutyPyPct !== undefined) setDutyPy((prev) => (overwrite || prev === "" ? String(fields.importDutyPyPct) : prev));
+    if (fields.price !== undefined) setPriceText((prev) => (overwrite || prev === "" ? String(fields.price) : prev));
     setIfUntouched("nameEn", fields.nameEn);
     setIfUntouched("nameZh", fields.nameZh);
     setIfUntouched("descriptionEn", fields.descriptionEn);
@@ -761,6 +786,7 @@ export function ProductForm({
               inputMode="decimal"
               placeholder="0.00"
               defaultValue={defaultValues?.price}
+              onInput={(e) => setPriceText(e.currentTarget.value)}
             />
           </Field>
           <CurrencyField
@@ -832,6 +858,65 @@ export function ProductForm({
             className={missing.has("nameZh") ? "border-danger" : undefined}
           />
         </Field>
+      </FormSection>
+
+      {/* Where it is going and what it will cost once there: classification,
+          the destination's duty, and the estimate built from price, freight
+          and duty. The AI proposes the code and rates; a person keeps them. */}
+      <FormSection kicker={t("exportGroup")} className="lg:col-span-2">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={t("hsCode")} htmlFor="hsCode" hint={t("hsCodeHelp")}>
+            <Input
+              id="hsCode"
+              name="hsCode"
+              inputMode="numeric"
+              placeholder="96032100"
+              defaultValue={defaultValues?.hsCode}
+              className="font-mono"
+              data-testid="hs-code"
+            />
+          </Field>
+          <Field label={t("destination")} htmlFor="exportDestination">
+            <input type="hidden" name="exportDestination" value={destination} />
+            <Select value={destination} onValueChange={(v) => setDestination(v as Destination)}>
+              <SelectTrigger id="exportDestination" data-testid="export-destination">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DESTINATIONS.map((d) => (
+                  <SelectItem key={d} value={d}>
+                    {t(`destination_${d}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label={t("importDuty", { destination: t(`destination_${destination}`) })} htmlFor="importDuty" hint={t("importDutyHelp")}>
+            <input type="hidden" name="importDutyPctBr" value={dutyBr} />
+            <input type="hidden" name="importDutyPctPy" value={dutyPy} />
+            <Input
+              id="importDuty"
+              type="text"
+              numeric
+              inputMode="decimal"
+              suffix="%"
+              placeholder="18"
+              value={destination === "BR" ? dutyBr : dutyPy}
+              onChange={(e) => (destination === "BR" ? setDutyBr(e.target.value) : setDutyPy(e.target.value))}
+              data-testid="import-duty"
+            />
+          </Field>
+          <LandedCostBox
+            priceText={priceText}
+            currency={currency}
+            cartonCbm={cartonCbm}
+            qtyPerBox={Number(qtyPerBox) || 0}
+            dutyText={destination === "BR" ? dutyBr : dutyPy}
+            rate={shippingRates[destination] ?? null}
+            rates={rates}
+            target={functionalCurrency}
+          />
+        </div>
       </FormSection>
 
       <FormSection kicker={t("identityGroup")} className="lg:col-span-2">
@@ -1168,5 +1253,70 @@ export function ProductForm({
         </DialogContent>
       </Dialog>
     </form>
+  );
+}
+
+/**
+ * The arriving cost per piece, as the four inputs stand right now, with
+ * what it is made of and what it could not include.
+ */
+function LandedCostBox({
+  priceText,
+  currency,
+  cartonCbm,
+  qtyPerBox,
+  dutyText,
+  rate,
+  rates,
+  target,
+}: {
+  priceText: string;
+  currency: string;
+  cartonCbm: number;
+  qtyPerBox: number;
+  dutyText: string;
+  rate: ShippingRate | null;
+  rates: CurrencyRates;
+  target: string;
+}) {
+  const t = useTranslations("catalog");
+  const unitCost = Number(normalizeDecimalInput(priceText)) || 0;
+  const dutyNum = dutyText.trim() === "" ? null : Number(normalizeDecimalInput(dutyText));
+  const result = landedCost({
+    unitCost,
+    costCurrency: currency,
+    cartonCbm,
+    qtyPerBox,
+    dutyPct: dutyNum !== null && Number.isFinite(dutyNum) ? dutyNum : null,
+    rate,
+    target,
+    rates,
+  });
+  const money = (n: number) => formatMoney(n, target);
+  return (
+    <div className="flex flex-col gap-1 rounded-[10px] border border-line bg-surface-2 px-3 py-2" data-testid="landed-cost">
+      <span className="text-[11px] font-semibold text-sub">{t("landedCost")}</span>
+      <span className="font-mono text-[18px] font-extrabold tabular-nums text-ink" data-testid="landed-total">
+        {money(result.total)}
+      </span>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 font-mono text-[11px] text-sub">
+        <dt>{t("landedUnitCost")}</dt>
+        <dd className="text-right tabular-nums">{money(result.unitCost)}</dd>
+        <dt>{t("landedShipping")}</dt>
+        <dd className="text-right tabular-nums">{money(result.shipping)}</dd>
+        <dt>{t("landedDuty")}</dt>
+        <dd className="text-right tabular-nums">{money(result.duty)}</dd>
+      </dl>
+      {result.missing.length > 0 ? (
+        <p className="text-[11px] leading-snug text-warn" data-testid="landed-missing">
+          {result.missing.map((m) => t(`landedMissing_${m}`)).join(" · ")}
+        </p>
+      ) : null}
+      {rate ? (
+        <p className="text-[10.5px] text-faint">
+          {t("landedRateNote", { amount: formatMoney(rate.amount, rate.currency), basis: t(`basis_${rate.basis}`), date: rate.effectiveFrom })}
+        </p>
+      ) : null}
+    </div>
   );
 }

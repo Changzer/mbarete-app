@@ -1,0 +1,203 @@
+"use client";
+
+import { useActionState, useState } from "react";
+import { useTranslations } from "next-intl";
+import { addShippingRate } from "@/lib/actions/settings";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DESTINATIONS, ratePerCbm, type Destination } from "@/lib/landed-cost";
+import { formatMoney } from "@/lib/money";
+
+export type ShippingRateRow = {
+  id: number;
+  destination: Destination;
+  basis: "per_cbm" | "per_40hq";
+  amount: number;
+  currency: string;
+  usableCbm: number;
+  note: string;
+  effectiveFrom: string;
+  createdAt: string;
+  createdByName: string | null;
+};
+
+/**
+ * Freight estimates as a log: a form that only ever appends, the estimate
+ * in force per destination on top, and every past row below it so the
+ * change over time reads at a glance.
+ */
+export function ShippingRatesManager({
+  rows,
+  latestIds,
+  currencies,
+}: {
+  rows: ShippingRateRow[];
+  latestIds: number[];
+  currencies: string[];
+}) {
+  const t = useTranslations("settings");
+  const common = useTranslations("common");
+  const [error, formAction, pending] = useActionState(addShippingRate, undefined);
+  const [destination, setDestination] = useState<Destination>("BR");
+  const [basis, setBasis] = useState<"per_cbm" | "per_40hq">("per_cbm");
+  const [currency, setCurrency] = useState(currencies.includes("USD") ? "USD" : (currencies[0] ?? "USD"));
+  const today = new Date().toISOString().slice(0, 10);
+  const current = rows.filter((r) => latestIds.includes(r.id));
+
+  return (
+    <div className="flex flex-col gap-6" data-testid="shipping-rates">
+      <p className="text-sm text-sub">{t("shippingHelp")}</p>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2" data-testid="shipping-current">
+        {DESTINATIONS.map((d) => {
+          const row = current.find((r) => r.destination === d);
+          return (
+            <div key={d} className="rounded-[12px] border border-line bg-surface p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-sub">{t(`destination_${d}`)}</p>
+              {row ? (
+                <>
+                  <p className="mt-1 font-mono text-[20px] font-extrabold tabular-nums text-ink">
+                    {formatMoney(ratePerCbm(row), row.currency)}
+                    <span className="ml-1 text-[12px] font-medium text-sub">/ m³</span>
+                  </p>
+                  <p className="font-mono text-[11px] text-sub">
+                    {formatMoney(row.amount, row.currency)} {t(`basis_${row.basis}`)}
+                    {row.basis === "per_40hq" ? ` · ${row.usableCbm} m³` : ""} · {t("since")} {row.effectiveFrom}
+                  </p>
+                </>
+              ) : (
+                <p className="mt-1 text-[12px] text-warn">{t("noRateYet")}</p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <Card>
+        <CardContent className="p-4">
+          <form action={formAction} className="grid grid-cols-2 gap-3 md:grid-cols-4" data-testid="shipping-form">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="ship-destination">{t("destination")}</Label>
+              <input type="hidden" name="destination" value={destination} />
+              <Select value={destination} onValueChange={(v) => setDestination(v as Destination)}>
+                <SelectTrigger id="ship-destination" data-testid="ship-destination">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DESTINATIONS.map((d) => (
+                    <SelectItem key={d} value={d}>
+                      {t(`destination_${d}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="ship-basis">{t("basis")}</Label>
+              <input type="hidden" name="basis" value={basis} />
+              <Select value={basis} onValueChange={(v) => setBasis(v as "per_cbm" | "per_40hq")}>
+                <SelectTrigger id="ship-basis" data-testid="ship-basis">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="per_cbm">{t("basis_per_cbm")}</SelectItem>
+                  <SelectItem value="per_40hq">{t("basis_per_40hq")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="ship-amount">{t("amount")}</Label>
+              <Input id="ship-amount" name="amount" type="number" inputMode="decimal" step="0.01" min="0" required placeholder="120" data-testid="ship-amount" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="ship-currency">{t("currencyCode")}</Label>
+              <input type="hidden" name="currency" value={currency} />
+              <Select value={currency} onValueChange={setCurrency}>
+                <SelectTrigger id="ship-currency">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(currencies.length ? currencies : ["USD"]).map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {basis === "per_40hq" ? (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="ship-usable">{t("usableCbm")}</Label>
+                <Input id="ship-usable" name="usableCbm" type="number" inputMode="decimal" step="0.1" min="1" defaultValue={68} />
+              </div>
+            ) : null}
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="ship-from">{t("effectiveFrom")}</Label>
+              <Input id="ship-from" name="effectiveFrom" type="date" defaultValue={today} required data-testid="ship-from" />
+            </div>
+            <div className="col-span-2 flex flex-col gap-1.5">
+              <Label htmlFor="ship-note">{t("note")}</Label>
+              <Input id="ship-note" name="note" placeholder={t("notePlaceholder")} maxLength={200} />
+            </div>
+            <div className="col-span-2 flex items-end md:col-span-4">
+              <Button type="submit" disabled={pending} data-testid="ship-save">
+                {t("addRate")}
+              </Button>
+              {error ? <span className="ml-3 text-sm text-danger">{common("required")}</span> : null}
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      <div className="overflow-x-auto rounded-lg border border-line bg-surface">
+        <table className="w-full text-sm" data-testid="shipping-history">
+          <thead className="border-b border-line bg-surface-2 text-left text-sub">
+            <tr>
+              <th className="px-4 py-2 font-medium">{t("effectiveFrom")}</th>
+              <th className="px-4 py-2 font-medium">{t("destination")}</th>
+              <th className="px-4 py-2 font-medium">{t("amount")}</th>
+              <th className="px-4 py-2 font-medium">/ m³</th>
+              <th className="px-4 py-2 font-medium">{t("note")}</th>
+              <th className="px-4 py-2 font-medium">{t("recordedBy")}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line">
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-3 text-sub">
+                  {t("noRates")}
+                </td>
+              </tr>
+            ) : (
+              rows.map((r) => (
+                <tr key={r.id} data-testid={`shipping-row-${r.id}`}>
+                  <td className="px-4 py-2 font-mono text-ink">{r.effectiveFrom}</td>
+                  <td className="px-4 py-2 text-ink">
+                    {t(`destination_${r.destination}`)}
+                    {latestIds.includes(r.id) ? (
+                      <Badge variant="success" className="ml-2">
+                        {t("inForce")}
+                      </Badge>
+                    ) : null}
+                  </td>
+                  <td className="px-4 py-2 font-mono tabular-nums text-ink">
+                    {formatMoney(r.amount, r.currency)} <span className="text-sub">{t(`basis_${r.basis}`)}</span>
+                  </td>
+                  <td className="px-4 py-2 font-mono tabular-nums text-ink">{formatMoney(ratePerCbm(r), r.currency)}</td>
+                  <td className="px-4 py-2 text-sub">{r.note}</td>
+                  <td className="px-4 py-2 text-sub">
+                    {r.createdByName ?? "—"} · {r.createdAt.slice(0, 10)}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

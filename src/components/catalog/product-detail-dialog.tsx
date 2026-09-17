@@ -188,6 +188,21 @@ export function ProductDetailDialog({
                 : t("sellsAtCost")}
             </Figure>
             <Figure label={t("qtyPerBox")}>{product.qtyPerBox}</Figure>
+            {product.hsCode ? (
+              <Figure label={t("hsCodeShort")} testId="card-hs-code">
+                {product.hsCode}
+                {product.importDutyPctBr != null ? (
+                  <span className="ml-2 font-sans text-[11px] font-medium text-sub">
+                    {t("landedDutyShort", { destination: t("destination_BR"), pct: product.importDutyPctBr })}
+                  </span>
+                ) : null}
+                {product.importDutyPctPy != null ? (
+                  <span className="ml-2 font-sans text-[11px] font-medium text-sub">
+                    {t("landedDutyShort", { destination: t("destination_PY"), pct: product.importDutyPctPy })}
+                  </span>
+                ) : null}
+              </Figure>
+            ) : null}
             <Figure label={estimated ? t("pieceSize") : t("size")}>
               {estimated
                 ? `${product.pieceLengthCm}×${product.pieceWidthCm}×${product.pieceHeightCm}`

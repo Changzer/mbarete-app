@@ -19,6 +19,9 @@ const PORT = Number(process.env.VISION_STUB_PORT ?? 9099);
 export const STUB_READING = {
   boardText: "Quilted PU Leather Handbag\n$13.08\nMOQ 24\n24/ctn",
   supplierCode: "AA012604240",
+  hsCode: "42022200",
+  importDutyBrPct: 20,
+  importDutyPyPct: 16,
   thumbImage: 1,
   thumbBox: { left: 250, top: 400, right: 750, bottom: 900 },
   nameEn: "Quilted PU Leather Handbag 24cm",

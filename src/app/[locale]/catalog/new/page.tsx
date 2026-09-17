@@ -9,6 +9,9 @@ import { ProductForm } from "@/components/catalog/product-form";
 import { SavedToast } from "@/components/ui/saved-toast";
 import { normalizeDecimalInput } from "@/lib/decimal-input";
 import { requireUser } from "@/lib/authz";
+import { getExchangeRates } from "@/lib/queries/orders";
+import { getCompanyProfile, getLatestShippingRates } from "@/lib/queries/settings";
+import { resolveFunctionalCurrency } from "@/lib/functional-currency";
 
 export default async function NewProductPage({
   searchParams,
@@ -19,9 +22,12 @@ export default async function NewProductPage({
   const { category, from, supplier, draft } = await searchParams;
   const t = await getTranslations("catalog");
   const common = await getTranslations("common");
-  const [categories, suppliers, nextSku] = await Promise.all([
+  const [categories, suppliers, exchangeRates, profile, shippingRates, nextSku] = await Promise.all([
     getCategories(companyId),
     getSuppliersForPicker(companyId),
+    getExchangeRates(companyId),
+    getCompanyProfile(companyId),
+    getLatestShippingRates(companyId),
     suggestNextSku(companyId),
   ]);
 
@@ -104,6 +110,9 @@ export default async function NewProductPage({
           descriptionZh: f.descriptionZh || tr.descriptionZh,
           boardText: tr.boardText,
           aiNotes: reviewable.transcriptNotes || undefined,
+          hsCode: f.hsCode || tr.hsCode,
+          importDutyPctBr: num(f.importDutyPctBr) ?? tr.importDutyBrPct ?? null,
+          importDutyPctPy: num(f.importDutyPctPy) ?? tr.importDutyPyPct ?? null,
           price: num(f.price) ?? tr.price,
           sellPrice: num(f.sellPrice),
           currency: f.currency || tr.currency,
@@ -146,6 +155,9 @@ export default async function NewProductPage({
       <ProductForm
         categories={categories}
         suppliers={suppliers}
+        shippingRates={shippingRates}
+        rates={exchangeRates}
+        functionalCurrency={resolveFunctionalCurrency(profile.functionalCurrency, exchangeRates)}
         action={createProduct}
         submitLabel={common("save")}
         showAddAnother

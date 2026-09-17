@@ -32,6 +32,7 @@ const PASSWORD = process.env.UI_TEST_PASSWORD ?? "change-me";
 const STUB = {
   name: "Quilted PU Leather Handbag 24cm",
   supplierCode: "AA012604240",
+  hsCode: "42022200",
   price: 13.08,
   moq: 24,
 };
@@ -140,6 +141,9 @@ test("a booth capture becomes a product, an order, a quote and an invoice", asyn
       STUB.supplierCode,
       "factory style number read off the photo",
     );
+    // The classification and the destination duty come from the same read.
+    assert.equal(await page.locator("#hsCode").inputValue(), STUB.hsCode, "HS code proposed from the photo");
+    assert.equal(await page.locator("#importDuty").inputValue(), "20", "Brazil duty proposed from the code");
     const thumbPath = await page.locator('input[name="thumbPath"]').inputValue();
     assert.match(thumbPath, /thumb-/, "the crop produced a thumbnail file");
 

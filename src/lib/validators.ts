@@ -8,6 +8,12 @@ import { z } from "zod";
  * to save without them turns a two-minute job into a return visit, so they are
  * optional and flagged wherever a missing figure would distort a quote.
  */
+/** An ad valorem duty in percent, or blank for "not known yet" (stored as null). */
+const dutyPct = z.preprocess(
+  (v) => (v === undefined || v === null ? "" : v),
+  z.union([z.coerce.number().nonnegative().max(200), z.literal("")]).transform((v) => (v === "" ? null : v)),
+);
+
 export const productSchema = z
   .object({
     // Blank is allowed; the next free number is assigned on save.
@@ -22,6 +28,17 @@ export const productSchema = z
     descriptionZh: z.string().default(""),
     // The AI's reading of the price board and its remarks, carried through
     // the form unchanged so they land on the product.
+    // Customs classification and the destination's ad valorem duty, both
+    // AI-proposed and person-checked; blank duty means "not known yet".
+    hsCode: z
+      .string()
+      .trim()
+      .transform((v) => v.replace(/[^0-9]/g, ""))
+      .refine((v) => v === "" || (v.length >= 6 && v.length <= 10), "hsCode")
+      .default(""),
+    exportDestination: z.enum(["", "BR", "PY"]).default(""),
+    importDutyPctBr: dutyPct,
+    importDutyPctPy: dutyPct,
     boardText: z
       .string()
       .trim()

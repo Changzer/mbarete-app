@@ -165,6 +165,16 @@ export const products = pgTable(
      */
     boardText: text("board_text").notNull().default(""),
     aiNotes: text("ai_notes").notNull().default(""),
+    /**
+     * Customs classification and the destination's import duty, for the
+     * landed-cost estimate. The AI proposes an HS code (6 digits, or the
+     * 8-digit Mercosur NCM) and an ad valorem duty rate per destination;
+     * a person keeps or corrects them. Null duty means "not known yet".
+     */
+    hsCode: text("hs_code").notNull().default(""),
+    exportDestination: text("export_destination", { enum: ["", "BR", "PY"] }).notNull().default(""),
+    importDutyPctBr: numeric("import_duty_pct_br", { precision: 7, scale: 3, mode: "number" }),
+    importDutyPctPy: numeric("import_duty_pct_py", { precision: 7, scale: 3, mode: "number" }),
     price: numeric("price", { precision: 14, scale: 4, mode: "number" }).notNull(),
     // Default selling price for order lines. 0 means none set: the product
     // sells at the supplier price until a price is typed on the order.
@@ -282,6 +292,40 @@ export const productImages = pgTable(
       columns: [table.companyId, table.productId],
       foreignColumns: [products.companyId, products.id],
     }).onDelete("cascade"),
+  ],
+);
+
+/**
+ * Shipping cost estimates per destination, append-only: each row is what
+ * freight cost on a date, so the history reads as a log and the newest row
+ * per destination is the estimate in force. Feeds the landed-cost figure on
+ * the product form; never an invoice.
+ */
+export const shippingRates = pgTable(
+  "shipping_rates",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    destination: text("destination", { enum: ["BR", "PY"] }).notNull(),
+    /** "per_cbm" is an LCL rate; "per_40hq" a whole container, spread over usable_cbm. */
+    basis: text("basis", { enum: ["per_cbm", "per_40hq"] }).notNull().default("per_cbm"),
+    amount: numeric("amount", { precision: 14, scale: 4, mode: "number" }).notNull(),
+    currency: text("currency").notNull().default("USD"),
+    usableCbm: numeric("usable_cbm", { precision: 8, scale: 2, mode: "number" }).notNull().default(68),
+    note: text("note").notNull().default(""),
+    effectiveFrom: date("effective_from", { mode: "string" }).notNull(),
+    createdBy: integer("created_by"),
+    createdAt: text("created_at").notNull().default(utcNow),
+  },
+  (table) => [
+    index("shipping_rates_company_dest_idx").on(table.companyId, table.destination, table.effectiveFrom),
+    foreignKey({
+      name: "shipping_rates_company_created_by_fk",
+      columns: [table.companyId, table.createdBy],
+      foreignColumns: [users.companyId, users.id],
+    }),
   ],
 );
 
