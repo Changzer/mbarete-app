@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { landedCost, latestPerDestination, ratePerCbm, shippingPerUnit, type ShippingRate } from "./landed-cost";
+import { landedCost, landedCostByMode, latestRates, rateKey, ratePerCbm, shippingPerUnit, type ShippingRate } from "./landed-cost";
 
 const rates = { USD: 1, CNY: 0.14, BRL: 0.2 };
-const lcl: ShippingRate = { destination: "BR", basis: "per_cbm", amount: 120, currency: "USD", usableCbm: 68, effectiveFrom: "2026-09-01" };
-const fcl: ShippingRate = { destination: "PY", basis: "per_40hq", amount: 6800, currency: "USD", usableCbm: 68, effectiveFrom: "2026-09-01" };
+const lcl: ShippingRate = { destination: "BR", mode: "lcl", basis: "per_cbm", amount: 120, currency: "USD", usableCbm: 68, effectiveFrom: "2026-09-01" };
+const fcl: ShippingRate = { destination: "PY", mode: "fcl", basis: "per_40hq", amount: 6800, currency: "USD", usableCbm: 68, effectiveFrom: "2026-09-01" };
 
 test("a container rate spreads over its usable volume", () => {
   assert.equal(ratePerCbm(lcl), 120);
@@ -40,15 +40,32 @@ test("missing pieces are named and contribute nothing, never an exception", () =
   assert.deepEqual(badCurrency.missing, ["currency"]);
 });
 
-test("the newest row per destination wins, by date then by id", () => {
+test("the newest row per destination and mode wins, by date then by id", () => {
   const rows = [
-    { id: 1, destination: "BR", effectiveFrom: "2026-08-01" },
-    { id: 2, destination: "BR", effectiveFrom: "2026-09-01" },
-    { id: 3, destination: "BR", effectiveFrom: "2026-09-01" },
-    { id: 4, destination: "PY", effectiveFrom: "2026-07-01" },
+    { id: 1, destination: "BR", mode: "lcl", effectiveFrom: "2026-08-01" },
+    { id: 2, destination: "BR", mode: "lcl", effectiveFrom: "2026-09-01" },
+    { id: 3, destination: "BR", mode: "lcl", effectiveFrom: "2026-09-01" },
+    { id: 4, destination: "BR", mode: "fcl", effectiveFrom: "2026-07-01" },
+    { id: 5, destination: "PY", mode: "lcl", effectiveFrom: "2026-07-01" },
   ];
-  const latest = latestPerDestination(rows);
-  assert.equal(latest.get("BR")!.id, 3);
-  assert.equal(latest.get("PY")!.id, 4);
-  assert.equal(latest.size, 2);
+  const latest = latestRates(rows);
+  assert.equal(latest.get(rateKey("BR", "lcl"))!.id, 3);
+  assert.equal(latest.get(rateKey("BR", "fcl"))!.id, 4);
+  assert.equal(latest.get(rateKey("PY", "lcl"))!.id, 5);
+  assert.equal(latest.get(rateKey("PY", "fcl")), undefined);
+  assert.equal(latest.size, 3);
+});
+
+test("both modes are estimated side by side; a mode without a rate says so", () => {
+  const input = { unitCost: 10, costCurrency: "USD", cartonCbm: 0.05, qtyPerBox: 100, dutyPct: 10, target: "USD", rates };
+  const both = landedCostByMode(input, { lcl, fcl: { ...fcl, destination: "BR" } });
+  // LCL 120/m³ → 0.06 per piece; FCL 6800/68 = 100/m³ → 0.05 per piece
+  assert.equal(both.lcl.shipping, 0.06);
+  assert.equal(both.fcl.shipping, 0.05);
+  assert.equal(both.lcl.total, 11.066);
+  assert.equal(both.fcl.total, 11.055);
+  const onlyLcl = landedCostByMode(input, { lcl });
+  assert.deepEqual(onlyLcl.lcl.missing, []);
+  assert.deepEqual(onlyLcl.fcl.missing, ["rate"]);
+  assert.equal(onlyLcl.fcl.total, 11);
 });

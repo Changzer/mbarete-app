@@ -339,6 +339,7 @@ export async function refreshRatesNow(): Promise<
 
 const shippingRateSchema = z.object({
   destination: z.enum(["BR", "PY"]),
+  mode: z.enum(["lcl", "fcl"]).default("lcl"),
   basis: z.enum(["per_cbm", "per_40hq"]).default("per_cbm"),
   amount: z.coerce.number().positive(),
   currency: z.string().trim().min(3).max(8).transform((s) => s.toUpperCase()),
@@ -359,6 +360,7 @@ export async function addShippingRate(
   const admin = await requireSession();
   const parsed = shippingRateSchema.safeParse({
     destination: formData.get("destination"),
+    mode: formData.get("mode") || "lcl",
     basis: formData.get("basis") || "per_cbm",
     amount: formData.get("amount"),
     currency: formData.get("currency"),

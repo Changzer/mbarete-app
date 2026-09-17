@@ -12,8 +12,13 @@ import { convert, type CurrencyRates, UnknownCurrencyError } from "@/lib/calcula
 export type Destination = "BR" | "PY";
 export const DESTINATIONS: readonly Destination[] = ["BR", "PY"];
 
+/** LCL shares a container with other shippers; FCL books a whole one. */
+export type ShippingMode = "lcl" | "fcl";
+export const SHIPPING_MODES: readonly ShippingMode[] = ["lcl", "fcl"];
+
 export type ShippingRate = {
   destination: Destination;
+  mode: ShippingMode;
   basis: "per_cbm" | "per_40hq";
   amount: number;
   currency: string;
@@ -38,21 +43,30 @@ export function shippingPerUnit(
   return (ratePerCbm(rate) * cartonCbm) / qtyPerBox;
 }
 
-/** The newest row per destination is the estimate in force. */
-export function latestPerDestination<T extends { destination: string; effectiveFrom: string; id?: number }>(
+/** The key an estimate is in force under: one per destination and mode. */
+export function rateKey(destination: string, mode: string): string {
+  return `${destination}:${mode}`;
+}
+
+/** The newest row per destination and mode is the estimate in force. */
+export function latestRates<T extends { destination: string; mode: string; effectiveFrom: string; id?: number }>(
   rows: T[],
 ): Map<string, T> {
   const best = new Map<string, T>();
   for (const row of rows) {
-    const cur = best.get(row.destination);
+    const key = rateKey(row.destination, row.mode);
+    const cur = best.get(key);
     const newer =
       !cur ||
       row.effectiveFrom > cur.effectiveFrom ||
       (row.effectiveFrom === cur.effectiveFrom && (row.id ?? 0) > (cur.id ?? 0));
-    if (newer) best.set(row.destination, row);
+    if (newer) best.set(key, row);
   }
   return best;
 }
+
+/** The estimates in force for one destination, by mode. */
+export type RatesByMode = Partial<Record<ShippingMode, ShippingRate>>;
 
 export type LandedCostInput = {
   unitCost: number;
@@ -116,5 +130,17 @@ export function landedCost(input: LandedCostInput): LandedCost {
     duty: round(duty),
     total: round(cif + duty),
     missing,
+  };
+}
+
+/**
+ * The same estimate under both shipping modes, so LCL and FCL can be read
+ * side by side. A mode with no rate in force still yields a figure, with
+ * "rate" among its missing pieces.
+ */
+export function landedCostByMode(input: Omit<LandedCostInput, "rate">, rates: RatesByMode): Record<ShippingMode, LandedCost> {
+  return {
+    lcl: landedCost({ ...input, rate: rates.lcl ?? null }),
+    fcl: landedCost({ ...input, rate: rates.fcl ?? null }),
   };
 }

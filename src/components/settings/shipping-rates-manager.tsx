@@ -9,13 +9,16 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DESTINATIONS, ratePerCbm, type Destination } from "@/lib/landed-cost";
+import { DESTINATIONS, SHIPPING_MODES, ratePerCbm, type Destination, type ShippingMode } from "@/lib/landed-cost";
 import { formatMoney } from "@/lib/money";
+
+type Basis = "per_cbm" | "per_40hq";
 
 export type ShippingRateRow = {
   id: number;
   destination: Destination;
-  basis: "per_cbm" | "per_40hq";
+  mode: ShippingMode;
+  basis: Basis;
   amount: number;
   currency: string;
   usableCbm: number;
@@ -25,10 +28,13 @@ export type ShippingRateRow = {
   createdByName: string | null;
 };
 
+/** How a quote is usually written for each mode; the form pre-selects it and lets the user override. */
+const DEFAULT_BASIS: Record<ShippingMode, Basis> = { lcl: "per_cbm", fcl: "per_40hq" };
+
 /**
  * Freight estimates as a log: a form that only ever appends, the estimate
- * in force per destination on top, and every past row below it so the
- * change over time reads at a glance.
+ * in force per destination and mode on top, and every past row below it so
+ * the change over time reads at a glance.
  */
 export function ShippingRatesManager({
   rows,
@@ -43,7 +49,8 @@ export function ShippingRatesManager({
   const common = useTranslations("common");
   const [error, formAction, pending] = useActionState(addShippingRate, undefined);
   const [destination, setDestination] = useState<Destination>("BR");
-  const [basis, setBasis] = useState<"per_cbm" | "per_40hq">("per_cbm");
+  const [mode, setMode] = useState<ShippingMode>("lcl");
+  const [basis, setBasis] = useState<Basis>("per_cbm");
   const [currency, setCurrency] = useState(currencies.includes("USD") ? "USD" : (currencies[0] ?? "USD"));
   const today = new Date().toISOString().slice(0, 10);
   const current = rows.filter((r) => latestIds.includes(r.id));
@@ -53,28 +60,35 @@ export function ShippingRatesManager({
       <p className="text-sm text-sub">{t("shippingHelp")}</p>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2" data-testid="shipping-current">
-        {DESTINATIONS.map((d) => {
-          const row = current.find((r) => r.destination === d);
-          return (
-            <div key={d} className="rounded-[12px] border border-line bg-surface p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-sub">{t(`destination_${d}`)}</p>
-              {row ? (
-                <>
-                  <p className="mt-1 font-mono text-[20px] font-extrabold tabular-nums text-ink">
-                    {formatMoney(ratePerCbm(row), row.currency)}
-                    <span className="ml-1 text-[12px] font-medium text-sub">/ m³</span>
-                  </p>
-                  <p className="font-mono text-[11px] text-sub">
-                    {formatMoney(row.amount, row.currency)} {t(`basis_${row.basis}`)}
-                    {row.basis === "per_40hq" ? ` · ${row.usableCbm} m³` : ""} · {t("since")} {row.effectiveFrom}
-                  </p>
-                </>
-              ) : (
-                <p className="mt-1 text-[12px] text-warn">{t("noRateYet")}</p>
-              )}
-            </div>
-          );
-        })}
+        {DESTINATIONS.map((d) => (
+          <div key={d} className="rounded-[12px] border border-line bg-surface p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-sub">{t(`destination_${d}`)}</p>
+            <dl className="mt-1.5 grid grid-cols-[auto_1fr] items-baseline gap-x-3 gap-y-1.5">
+              {SHIPPING_MODES.map((m) => {
+                const row = current.find((r) => r.destination === d && r.mode === m);
+                return (
+                  <div key={m} className="contents" data-testid={`shipping-current-${d}-${m}`}>
+                    <dt className="font-mono text-[11px] font-semibold uppercase text-sub">{t(`mode_${m}`)}</dt>
+                    {row ? (
+                      <dd className="min-w-0">
+                        <p className="font-mono text-[18px] font-extrabold leading-tight tabular-nums text-ink">
+                          {formatMoney(ratePerCbm(row), row.currency)}
+                          <span className="ml-1 text-[12px] font-medium text-sub">/ m³</span>
+                        </p>
+                        <p className="font-mono text-[11px] text-sub">
+                          {formatMoney(row.amount, row.currency)} {t(`basis_${row.basis}`)}
+                          {row.basis === "per_40hq" ? ` · ${row.usableCbm} m³` : ""} · {t("since")} {row.effectiveFrom}
+                        </p>
+                      </dd>
+                    ) : (
+                      <dd className="text-[12px] text-warn">{t("noRateYet")}</dd>
+                    )}
+                  </div>
+                );
+              })}
+            </dl>
+          </div>
+        ))}
       </div>
 
       <Card>
@@ -97,9 +111,32 @@ export function ShippingRatesManager({
               </Select>
             </div>
             <div className="flex flex-col gap-1.5">
+              <Label htmlFor="ship-mode">{t("mode")}</Label>
+              <input type="hidden" name="mode" value={mode} />
+              <Select
+                value={mode}
+                onValueChange={(v) => {
+                  const next = v as ShippingMode;
+                  setMode(next);
+                  setBasis(DEFAULT_BASIS[next]);
+                }}
+              >
+                <SelectTrigger id="ship-mode" data-testid="ship-mode">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SHIPPING_MODES.map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {t(`mode_${m}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
               <Label htmlFor="ship-basis">{t("basis")}</Label>
               <input type="hidden" name="basis" value={basis} />
-              <Select value={basis} onValueChange={(v) => setBasis(v as "per_cbm" | "per_40hq")}>
+              <Select value={basis} onValueChange={(v) => setBasis(v as Basis)}>
                 <SelectTrigger id="ship-basis" data-testid="ship-basis">
                   <SelectValue />
                 </SelectTrigger>
@@ -111,7 +148,7 @@ export function ShippingRatesManager({
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="ship-amount">{t("amount")}</Label>
-              <Input id="ship-amount" name="amount" type="number" inputMode="decimal" step="0.01" min="0" required placeholder="120" data-testid="ship-amount" />
+              <Input id="ship-amount" name="amount" type="number" inputMode="decimal" step="0.01" min="0" required placeholder={basis === "per_40hq" ? "6800" : "120"} data-testid="ship-amount" />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="ship-currency">{t("currencyCode")}</Label>
@@ -139,6 +176,7 @@ export function ShippingRatesManager({
               <Label htmlFor="ship-from">{t("effectiveFrom")}</Label>
               <Input id="ship-from" name="effectiveFrom" type="date" defaultValue={today} required data-testid="ship-from" />
             </div>
+            <p className="col-span-2 -mt-1 text-[11px] leading-snug text-sub md:col-span-4">{t("modeHelp")}</p>
             <div className="col-span-2 flex flex-col gap-1.5">
               <Label htmlFor="ship-note">{t("note")}</Label>
               <Input id="ship-note" name="note" placeholder={t("notePlaceholder")} maxLength={200} />
@@ -159,6 +197,7 @@ export function ShippingRatesManager({
             <tr>
               <th className="px-4 py-2 font-medium">{t("effectiveFrom")}</th>
               <th className="px-4 py-2 font-medium">{t("destination")}</th>
+              <th className="px-4 py-2 font-medium">{t("mode")}</th>
               <th className="px-4 py-2 font-medium">{t("amount")}</th>
               <th className="px-4 py-2 font-medium">/ m³</th>
               <th className="px-4 py-2 font-medium">{t("note")}</th>
@@ -168,7 +207,7 @@ export function ShippingRatesManager({
           <tbody className="divide-y divide-line">
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-3 text-sub">
+                <td colSpan={7} className="px-4 py-3 text-sub">
                   {t("noRates")}
                 </td>
               </tr>
@@ -176,8 +215,9 @@ export function ShippingRatesManager({
               rows.map((r) => (
                 <tr key={r.id} data-testid={`shipping-row-${r.id}`}>
                   <td className="px-4 py-2 font-mono text-ink">{r.effectiveFrom}</td>
+                  <td className="px-4 py-2 text-ink">{t(`destination_${r.destination}`)}</td>
                   <td className="px-4 py-2 text-ink">
-                    {t(`destination_${r.destination}`)}
+                    <span className="font-mono text-[12px] font-semibold uppercase">{t(`mode_${r.mode}`)}</span>
                     {latestIds.includes(r.id) ? (
                       <Badge variant="success" className="ml-2">
                         {t("inForce")}
@@ -186,6 +226,7 @@ export function ShippingRatesManager({
                   </td>
                   <td className="px-4 py-2 font-mono tabular-nums text-ink">
                     {formatMoney(r.amount, r.currency)} <span className="text-sub">{t(`basis_${r.basis}`)}</span>
+                    {r.basis === "per_40hq" ? <span className="text-sub"> · {r.usableCbm} m³</span> : null}
                   </td>
                   <td className="px-4 py-2 font-mono tabular-nums text-ink">{formatMoney(ratePerCbm(r), r.currency)}</td>
                   <td className="px-4 py-2 text-sub">{r.note}</td>

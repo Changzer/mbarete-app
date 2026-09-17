@@ -1,6 +1,6 @@
 import { db, one } from "@/db";
 import { companyProfile, bankAccounts, shippingRates } from "@/db/schema";
-import { DESTINATIONS, latestPerDestination, type Destination, type ShippingRate } from "@/lib/landed-cost";
+import { DESTINATIONS, SHIPPING_MODES, latestRates, rateKey, type Destination, type RatesByMode } from "@/lib/landed-cost";
 import { eq, desc, asc } from "drizzle-orm";
 
 export type CompanyProfile = typeof companyProfile.$inferSelect;
@@ -59,16 +59,18 @@ export async function getShippingRates(companyId: number) {
     .orderBy(desc(shippingRates.effectiveFrom), desc(shippingRates.id));
 }
 
-/** The estimate in force per destination, for the landed-cost figure. */
-export async function getLatestShippingRates(companyId: number): Promise<Partial<Record<Destination, ShippingRate>>> {
+/** The estimates in force per destination and mode, for the landed-cost comparison. */
+export async function getLatestShippingRates(companyId: number): Promise<Partial<Record<Destination, RatesByMode>>> {
   const rows = await getShippingRates(companyId);
-  const latest = latestPerDestination(rows);
-  const out: Partial<Record<Destination, ShippingRate>> = {};
+  const latest = latestRates(rows);
+  const out: Partial<Record<Destination, RatesByMode>> = {};
   for (const d of DESTINATIONS) {
-    const row = latest.get(d);
-    if (row) {
-      out[d] = {
+    for (const m of SHIPPING_MODES) {
+      const row = latest.get(rateKey(d, m));
+      if (!row) continue;
+      (out[d] ??= {})[m] = {
         destination: d,
+        mode: m,
         basis: row.basis,
         amount: row.amount,
         currency: row.currency,

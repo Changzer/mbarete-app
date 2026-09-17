@@ -29,7 +29,7 @@ import {
 import { ContactForm } from "@/components/contacts/contact-form";
 import { createContact, type ContactActionResult } from "@/lib/actions/contacts";
 import type { TranscribeResult, TranscribedFields } from "@/lib/transcribe-product";
-import { DESTINATIONS, landedCost, type Destination, type ShippingRate } from "@/lib/landed-cost";
+import { DESTINATIONS, SHIPPING_MODES, landedCostByMode, type Destination, type RatesByMode, type ShippingMode } from "@/lib/landed-cost";
 import type { CurrencyRates } from "@/lib/calculations";
 import { formatMoney } from "@/lib/money";
 import type { CardTranscribeResult } from "@/lib/transcribe-card";
@@ -134,7 +134,7 @@ export function ProductForm({
   /** The draft's photos, already on the server — shown, not re-uploaded. */
   draftImages?: { id: number; path: string }[];
   /** For the landed-cost estimate: the shipping rate in force per destination. */
-  shippingRates?: Partial<Record<Destination, ShippingRate>>;
+  shippingRates?: Partial<Record<Destination, RatesByMode>>;
   /** Exchange rates and the currency the estimate is shown in. */
   rates?: CurrencyRates;
   functionalCurrency?: string;
@@ -912,7 +912,7 @@ export function ProductForm({
             cartonCbm={cartonCbm}
             qtyPerBox={Number(qtyPerBox) || 0}
             dutyText={destination === "BR" ? dutyBr : dutyPy}
-            rate={shippingRates[destination] ?? null}
+            shipping={shippingRates[destination] ?? {}}
             rates={rates}
             target={functionalCurrency}
           />
@@ -1266,7 +1266,7 @@ function LandedCostBox({
   cartonCbm,
   qtyPerBox,
   dutyText,
-  rate,
+  shipping: byMode,
   rates,
   target,
 }: {
@@ -1275,46 +1275,124 @@ function LandedCostBox({
   cartonCbm: number;
   qtyPerBox: number;
   dutyText: string;
-  rate: ShippingRate | null;
+  shipping: RatesByMode;
   rates: CurrencyRates;
   target: string;
 }) {
   const t = useTranslations("catalog");
   const unitCost = Number(normalizeDecimalInput(priceText)) || 0;
   const dutyNum = dutyText.trim() === "" ? null : Number(normalizeDecimalInput(dutyText));
-  const result = landedCost({
-    unitCost,
-    costCurrency: currency,
-    cartonCbm,
-    qtyPerBox,
-    dutyPct: dutyNum !== null && Number.isFinite(dutyNum) ? dutyNum : null,
-    rate,
-    target,
-    rates,
-  });
+  const result = landedCostByMode(
+    {
+      unitCost,
+      costCurrency: currency,
+      cartonCbm,
+      qtyPerBox,
+      dutyPct: dutyNum !== null && Number.isFinite(dutyNum) ? dutyNum : null,
+      target,
+      rates,
+    },
+    byMode,
+  );
   const money = (n: number) => formatMoney(n, target);
+  // What is missing for both modes alike is said once; a missing rate is said per mode.
+  const shared = [...new Set(SHIPPING_MODES.flatMap((m) => result[m].missing.filter((x) => x !== "rate")))];
+  const withRate = SHIPPING_MODES.filter((m) => byMode[m]);
+  const cheaper: ShippingMode | null =
+    withRate.length === 2 && result.lcl.total !== result.fcl.total ? (result.lcl.total < result.fcl.total ? "lcl" : "fcl") : null;
   return (
-    <div className="flex flex-col gap-1 rounded-[10px] border border-line bg-surface-2 px-3 py-2" data-testid="landed-cost">
+    <div
+      className="col-span-2 flex flex-col gap-1.5 rounded-[10px] border border-line bg-surface-2 px-3 py-2 sm:col-span-1"
+      data-testid="landed-cost"
+    >
       <span className="text-[11px] font-semibold text-sub">{t("landedCost")}</span>
-      <span className="font-mono text-[18px] font-extrabold tabular-nums text-ink" data-testid="landed-total">
-        {money(result.total)}
-      </span>
-      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 font-mono text-[11px] text-sub">
-        <dt>{t("landedUnitCost")}</dt>
-        <dd className="text-right tabular-nums">{money(result.unitCost)}</dd>
-        <dt>{t("landedShipping")}</dt>
-        <dd className="text-right tabular-nums">{money(result.shipping)}</dd>
-        <dt>{t("landedDuty")}</dt>
-        <dd className="text-right tabular-nums">{money(result.duty)}</dd>
-      </dl>
-      {result.missing.length > 0 ? (
+      <table className="w-full font-mono text-[11px] text-sub">
+        <thead>
+          <tr>
+            <th scope="col" className="sr-only">
+              {t("landedLine")}
+            </th>
+            {SHIPPING_MODES.map((m) => (
+              <th key={m} scope="col" className="pb-0.5 text-right text-[11px] font-semibold uppercase tracking-[0.08em] text-ink">
+                {t(`mode_${m}`)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row" className="text-left font-normal">
+              {t("landedUnitCost")}
+            </th>
+            {SHIPPING_MODES.map((m) => (
+              <td key={m} className="text-right tabular-nums">
+                {money(result[m].unitCost)}
+              </td>
+            ))}
+          </tr>
+          <tr>
+            <th scope="row" className="text-left font-normal">
+              {t("landedShipping")}
+            </th>
+            {SHIPPING_MODES.map((m) => (
+              <td key={m} className="text-right tabular-nums" data-testid={`landed-shipping-${m}`}>
+                {byMode[m] ? money(result[m].shipping) : "—"}
+              </td>
+            ))}
+          </tr>
+          <tr>
+            <th scope="row" className="text-left font-normal">
+              {t("landedDuty")}
+            </th>
+            {SHIPPING_MODES.map((m) => (
+              <td key={m} className="text-right tabular-nums">
+                {money(result[m].duty)}
+              </td>
+            ))}
+          </tr>
+          <tr className="border-t border-line">
+            <th scope="row" className="pt-1 text-left font-semibold text-ink">
+              {t("landedTotal")}
+            </th>
+            {SHIPPING_MODES.map((m) => (
+              <td key={m} className="pt-1 text-right">
+                <span
+                  className={`text-[17px] font-extrabold tabular-nums ${byMode[m] ? "text-ink" : "text-faint"}`}
+                  data-testid={`landed-total-${m}`}
+                >
+                  {money(result[m].total)}
+                </span>
+                {cheaper === m ? (
+                  <span className="ml-1 rounded-full bg-ok-soft px-1.5 py-px text-[10px] font-semibold text-ok" data-testid="landed-cheaper">
+                    {t("landedCheaper")}
+                  </span>
+                ) : null}
+              </td>
+            ))}
+          </tr>
+        </tbody>
+      </table>
+      {shared.length > 0 || withRate.length < SHIPPING_MODES.length ? (
         <p className="text-[11px] leading-snug text-warn" data-testid="landed-missing">
-          {result.missing.map((m) => t(`landedMissing_${m}`)).join(" · ")}
+          {[
+            ...shared.map((m) => t(`landedMissing_${m}`)),
+            ...SHIPPING_MODES.filter((m) => !byMode[m]).map((m) => t("landedMissing_rate", { mode: t(`mode_${m}`) })),
+          ].join(" · ")}
         </p>
       ) : null}
-      {rate ? (
-        <p className="text-[10.5px] text-faint">
-          {t("landedRateNote", { amount: formatMoney(rate.amount, rate.currency), basis: t(`basis_${rate.basis}`), date: rate.effectiveFrom })}
+      {withRate.length > 0 ? (
+        <p className="text-[10.5px] leading-snug text-faint">
+          {withRate
+            .map((m) => {
+              const rate = byMode[m]!;
+              return t("landedRateNote", {
+                mode: t(`mode_${m}`),
+                amount: formatMoney(rate.amount, rate.currency),
+                basis: t(`basis_${rate.basis}`),
+                date: rate.effectiveFrom,
+              });
+            })
+            .join(" · ")}
         </p>
       ) : null}
     </div>

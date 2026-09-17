@@ -151,6 +151,7 @@ async function makeCompany(name: string) {
   await db.insert(shippingRates).values({
     companyId: company.id,
     destination: "BR",
+    mode: "lcl",
     basis: "per_cbm",
     amount: 100,
     currency: "USD",

@@ -6,7 +6,7 @@ import { exchangeRates } from "@/db/schema";
 import { asc, eq } from "drizzle-orm";
 import { getCompanyProfile, getBankAccounts, getShippingRates } from "@/lib/queries/settings";
 import { getUserNames } from "@/lib/queries/users";
-import { latestPerDestination, type Destination } from "@/lib/landed-cost";
+import { latestRates, type Destination } from "@/lib/landed-cost";
 import { ShippingRatesManager } from "@/components/settings/shipping-rates-manager";
 import { ExchangeRateManager } from "@/components/settings/exchange-rate-manager";
 import { CompanyProfileForm } from "@/components/settings/company-profile-form";
@@ -33,7 +33,7 @@ export default async function SettingsPage() {
     getShippingRates(user!.companyId),
     getUserNames(user!.companyId),
   ]);
-  const latestShipping = [...latestPerDestination(shipping).values()].map((r) => r.id);
+  const latestShipping = [...latestRates(shipping).values()].map((r) => r.id);
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-10 px-4 py-6">
@@ -69,6 +69,7 @@ export default async function SettingsPage() {
           rows={shipping.map((r) => ({
             id: r.id,
             destination: r.destination as Destination,
+            mode: r.mode,
             basis: r.basis,
             amount: r.amount,
             currency: r.currency,

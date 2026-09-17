@@ -309,7 +309,9 @@ export const shippingRates = pgTable(
       .notNull()
       .references(() => companies.id),
     destination: text("destination", { enum: ["BR", "PY"] }).notNull(),
-    /** "per_cbm" is an LCL rate; "per_40hq" a whole container, spread over usable_cbm. */
+    /** LCL shares a container; FCL books a whole one. Each mode has its own estimate in force. */
+    mode: text("mode", { enum: ["lcl", "fcl"] }).notNull().default("lcl"),
+    /** How the quote is written: per m³, or a whole container spread over usable_cbm. */
     basis: text("basis", { enum: ["per_cbm", "per_40hq"] }).notNull().default("per_cbm"),
     amount: numeric("amount", { precision: 14, scale: 4, mode: "number" }).notNull(),
     currency: text("currency").notNull().default("USD"),
@@ -320,7 +322,7 @@ export const shippingRates = pgTable(
     createdAt: text("created_at").notNull().default(utcNow),
   },
   (table) => [
-    index("shipping_rates_company_dest_idx").on(table.companyId, table.destination, table.effectiveFrom),
+    index("shipping_rates_company_dest_idx").on(table.companyId, table.destination, table.mode, table.effectiveFrom),
     foreignKey({
       name: "shipping_rates_company_created_by_fk",
       columns: [table.companyId, table.createdBy],

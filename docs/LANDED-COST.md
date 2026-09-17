@@ -6,15 +6,22 @@ against what it becomes at the destination.
 
 ## The estimate
 
-Per piece, in the company's functional currency:
+Per piece, in the company's functional currency, once for each shipping
+mode so LCL and FCL can be compared side by side:
 
 ```
 supplier cost  (the product's price, converted)
-+ shipping     (the destination's freight rate per m³ × the carton's CBM ÷ pieces per carton)
++ shipping     (the destination's freight rate per m³ for that mode × the carton's CBM ÷ pieces per carton)
 = CIF          (the duty base; insurance is left out)
 + import duty  (CIF × the destination's ad valorem duty for the HS/NCM code)
 = arriving cost
 ```
+
+**LCL** (less than container load) shares a container with other shippers
+and is usually quoted per m³. **FCL** (full container load) books a whole
+container, usually quoted per 40HQ and spread here over its usable volume,
+so the FCL figure is the per-piece share *if the container is filled*. The
+lower of the two totals is marked when both rates are in force.
 
 It is an estimate for comparing products, never an invoice. It leaves out
 insurance, port and broker charges, and the destination's other import
@@ -35,13 +42,17 @@ no duty rate, or a currency with no exchange rate.
   verified with the broker. Both destinations' rates are stored on the
   product; the dropdown chooses which one the estimate uses.
 - **Shipping** — Settings → Shipping cost estimates. Each entry is a log
-  line (destination, per m³ or per 40HQ container, amount, currency,
-  effective date, note, who recorded it); the newest per destination is the
-  one in force. A container rate is spread over its usable volume (68 m³ by
-  default). The history stays visible so the change over time can be read.
+  line (destination, mode LCL or FCL, per m³ or per 40HQ container, amount,
+  currency, effective date, note, who recorded it); the newest per
+  destination *and mode* is the one in force, so Brazil can carry an LCL
+  rate and an FCL rate at once. A container rate is spread over its usable
+  volume (68 m³ by default). The history stays visible so the change over
+  time can be read. Per-shipment minimums and fixed charges (LCL minimum
+  CBM, document and handling fees) are not modelled.
 
 ## Data
 
 - `products.hs_code`, `products.export_destination` ('' | BR | PY),
   `products.import_duty_pct_br`, `products.import_duty_pct_py`.
-- `shipping_rates` — append-only, tenant-isolated like every business table.
+- `shipping_rates` — append-only, one log per (destination, mode),
+  tenant-isolated like every business table.
