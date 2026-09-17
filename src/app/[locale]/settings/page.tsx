@@ -4,7 +4,10 @@ import { sessionUser } from "@/lib/authz";
 import { db } from "@/db";
 import { exchangeRates } from "@/db/schema";
 import { asc, eq } from "drizzle-orm";
-import { getCompanyProfile, getBankAccounts } from "@/lib/queries/settings";
+import { getCompanyProfile, getBankAccounts, getShippingRates } from "@/lib/queries/settings";
+import { getUserNames } from "@/lib/queries/users";
+import { latestRates, type Destination } from "@/lib/landed-cost";
+import { ShippingRatesManager } from "@/components/settings/shipping-rates-manager";
 import { ExchangeRateManager } from "@/components/settings/exchange-rate-manager";
 import { CompanyProfileForm } from "@/components/settings/company-profile-form";
 import { CompanyLogoCard } from "@/components/settings/company-logo-card";
@@ -19,7 +22,7 @@ export default async function SettingsPage() {
   const t = await getTranslations("settings");
   const companyT = await getTranslations("company");
 
-  const [rates, profile, banks] = await Promise.all([
+  const [rates, profile, banks, shipping, userNames] = await Promise.all([
     db
       .select()
       .from(exchangeRates)
@@ -27,7 +30,11 @@ export default async function SettingsPage() {
       .orderBy(asc(exchangeRates.currencyCode)),
     getCompanyProfile(user!.companyId),
     getBankAccounts(user!.companyId),
+    getShippingRates(user!.companyId),
+    getUserNames(user!.companyId),
   ]);
+  const asOf = new Date().toISOString().slice(0, 10);
+  const latestShipping = [...latestRates(shipping, asOf).values()].map((r) => r.id);
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-10 px-4 py-6">
@@ -53,6 +60,30 @@ export default async function SettingsPage() {
           {t("exchangeRates")}
         </h2>
         <ExchangeRateManager rates={rates} />
+      </section>
+
+      <section>
+        <h2 className="mb-6 text-[23px] font-extrabold tracking-tight text-ink">
+          {t("shippingRates")}
+        </h2>
+        <ShippingRatesManager
+          rows={shipping.map((r) => ({
+            id: r.id,
+            destination: r.destination as Destination,
+            mode: r.mode,
+            basis: r.basis,
+            amount: r.amount,
+            currency: r.currency,
+            usableCbm: r.usableCbm,
+            note: r.note,
+            effectiveFrom: r.effectiveFrom,
+            createdAt: r.createdAt,
+            createdByName: r.createdBy ? (userNames.get(r.createdBy) ?? null) : null,
+          }))}
+          latestIds={latestShipping}
+          asOf={asOf}
+          currencies={rates.map((r) => r.currencyCode)}
+        />
       </section>
 
 

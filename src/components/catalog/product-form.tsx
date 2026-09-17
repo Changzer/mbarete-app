@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
-import { Check, Loader2, Sparkles } from "lucide-react";
+import { Check, ChevronDown, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Disclosure, Field, FormSection } from "@/components/ui/disclosure";
@@ -29,6 +29,10 @@ import {
 import { ContactForm } from "@/components/contacts/contact-form";
 import { createContact, type ContactActionResult } from "@/lib/actions/contacts";
 import type { TranscribeResult, TranscribedFields } from "@/lib/transcribe-product";
+import { DESTINATIONS, type Destination, type RatesByMode } from "@/lib/landed-cost";
+import type { CurrencyRates } from "@/lib/calculations";
+import { LandedCostBox } from "@/components/catalog/landed-cost-box";
+import { isHsCode, normalizeHsCode, readDuty } from "@/lib/customs";
 import type { CardTranscribeResult } from "@/lib/transcribe-card";
 import type { MatchCandidate } from "@/lib/contact-match";
 import {
@@ -61,6 +65,10 @@ type ProductFormValues = {
   descriptionZh: string;
   boardText: string;
   aiNotes: string;
+  hsCode: string;
+  exportDestination: "" | Destination;
+  importDutyPctBr: number | null;
+  importDutyPctPy: number | null;
   price: number;
   sellPrice: number;
   currency: string;
@@ -97,6 +105,10 @@ export function ProductForm({
   lockCategory = false,
   draftId,
   draftImages = [],
+  shippingRates = {},
+  rates = {},
+  functionalCurrency = "USD",
+  dutySuggestions = {},
 }: {
   categories: Category[];
   action: (prevState: string | undefined, formData: FormData) => Promise<string | undefined>;
@@ -123,6 +135,12 @@ export function ProductForm({
   draftId?: number;
   /** The draft's photos, already on the server — shown, not re-uploaded. */
   draftImages?: { id: number; path: string }[];
+  /** For the landed-cost estimate: the shipping rate in force per destination. */
+  shippingRates?: Partial<Record<Destination, RatesByMode>>;
+  /** Exchange rates and the currency the estimate is shown in. */
+  rates?: CurrencyRates;
+  functionalCurrency?: string;
+  dutySuggestions?: Partial<Record<Destination, number>>;
 }) {
   const t = useTranslations("catalog");
   const common = useTranslations("common");
@@ -233,6 +251,14 @@ export function ProductForm({
   // A segmented control rather than a text field, so it is state, not a DOM
   // value the AI pass can poke at — see applyTranscription.
   const [currency, setCurrency] = useState(defaultValues?.currency ?? "USD");
+  // The landed-cost estimate follows the price as it is typed; the input
+  // itself stays uncontrolled so the AI can still write into it.
+  const [priceText, setPriceText] = useState(defaultValues?.price ? String(defaultValues.price) : "");
+  const [destination, setDestination] = useState<"" | Destination>(defaultValues?.exportDestination ?? "");
+  const exportDetailsRef = useRef<HTMLDetailsElement>(null);
+  const [suggestedDuties, setSuggestedDuties] = useState(dutySuggestions);
+  const [dutyBr, setDutyBr] = useState(defaultValues?.importDutyPctBr != null ? String(defaultValues.importDutyPctBr) : "");
+  const [dutyPy, setDutyPy] = useState(defaultValues?.importDutyPctPy != null ? String(defaultValues.importDutyPctPy) : "");
   // The carton figure the form would save right now (vendor override, else
   // from the dimensions) — only to warn when it cannot be a carton.
   const [cartonCbm, setCartonCbm] = useState<number>(() => {
@@ -280,25 +306,33 @@ export function ProductForm({
     ) => {
       if (value === undefined) return;
       const el = form.elements.namedItem(name);
-      if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return;
+      if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) || el.matches(":disabled")) return;
       if (!overwrite && el.value.trim() !== "" && !pristine.includes(el.value.trim())) return;
       el.value = String(value);
     };
 
     setIfUntouched("supplierCode", fields.supplierCode);
+    setIfUntouched("hsCode", fields.hsCode);
+    const hsInput = form.elements.namedItem("hsCode") as HTMLInputElement;
+    // A model proposal is not a current tariff lookup, nor permission to
+    // replace a manually entered rate. It stays separate until chosen.
+    if (fields.hsCode && normalizeHsCode(hsInput.value) === fields.hsCode) {
+      setSuggestedDuties({ BR: fields.importDutyBrPct, PY: fields.importDutyPyPct });
+    }
     setIfUntouched("nameEn", fields.nameEn);
     setIfUntouched("nameZh", fields.nameZh);
     setIfUntouched("descriptionEn", fields.descriptionEn);
     setIfUntouched("descriptionZh", fields.descriptionZh);
     setIfUntouched("price", fields.price);
+    setPriceText((form.elements.namedItem("price") as HTMLInputElement).value);
     // Currency is state, so it takes the same "only if untouched" rule by
     // hand: USD is the pristine default nobody chose.
     if (fields.currency) {
       setCurrency((prev) => (overwrite || prev === "USD" ? String(fields.currency) : prev));
     }
     setIfUntouched("moq", fields.moq, ["1"]);
-    // Carton figures off the board. These inputs only exist in carton mode;
-    // in piece mode namedItem() finds nothing and the values are skipped.
+    // Carton figures off the board. Inactive measurement fields stay mounted
+    // to preserve edits, but are disabled and ignored by the fill helper.
     setIfUntouched("lengthCm", fields.lengthCm);
     setIfUntouched("widthCm", fields.widthCm);
     setIfUntouched("heightCm", fields.heightCm);
@@ -364,6 +398,15 @@ export function ProductForm({
     // carries in its querystring; everything else returns to its defaults.
     formRef.current?.reset();
     setCaptureEpoch((epoch) => epoch + 1);
+    setPriceText(defaultValues?.price ? String(defaultValues.price) : "");
+    setDestination(defaultValues?.exportDestination ?? "");
+    setDutyBr("");
+    setDutyPy("");
+    setSuggestedDuties({});
+    setCartonCbm(defaultValues?.cbmOverride || computeCbm(
+      defaultValues?.lengthCm ?? 0, defaultValues?.widthCm ?? 0, defaultValues?.heightCm ?? 0,
+    ));
+    if (exportDetailsRef.current) exportDetailsRef.current.open = false;
     setSource(defaultValues?.dimensionSource ?? "carton");
     setQtyPerBox(String(defaultValues?.qtyPerBox ?? 1));
     setPiece({
@@ -448,6 +491,15 @@ export function ProductForm({
       !formData.has(submitter.name)
     ) {
       formData.append(submitter.name, submitter.value);
+    }
+    const hsCode = String(formData.get("hsCode") ?? "");
+    const badCode = hsCode.trim() !== "" && !isHsCode(hsCode);
+    const badDuty = [dutyBr, dutyPy].some((value) => value.trim() !== "" && readDuty(value) === null);
+    if (badCode || badDuty) {
+      setErrorMessage(badCode ? "invalid-hs-code" : "invalid-duty");
+      if (exportDetailsRef.current) exportDetailsRef.current.open = true;
+      document.getElementById(badCode ? "hsCode" : "importDuty")?.focus();
+      return;
     }
     startTransition(async () => {
       const error = await submitAction(formData);
@@ -761,6 +813,7 @@ export function ProductForm({
               inputMode="decimal"
               placeholder="0.00"
               defaultValue={defaultValues?.price}
+              onInput={(e) => setPriceText(e.currentTarget.value)}
             />
           </Field>
           <CurrencyField
@@ -915,6 +968,7 @@ export function ProductForm({
           hint={t("dimensionsHint")}
           data-testid="dimensions-disclosure"
           defaultOpen={hasDimensions}
+          keepMounted
         >
           <div className="flex flex-col gap-3">
             <Field label={t("dimensionSource")}>
@@ -938,8 +992,7 @@ export function ProductForm({
               </div>
             </Field>
 
-            {source === "carton" ? (
-              <>
+            <fieldset disabled={source !== "carton"} hidden={source !== "carton"} className="min-w-0 space-y-3">
                 <p className="rounded-[10px] bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-sub">
                   {t("cartonHelp")} {t("measurementsOptional")}
                 </p>
@@ -991,9 +1044,8 @@ export function ProductForm({
                     {t("cbmImplausible", { cbm: formatCbm(cartonCbm) })}
                   </p>
                 ) : null}
-              </>
-            ) : (
-              <>
+            </fieldset>
+            <fieldset disabled={source !== "piece"} hidden={source !== "piece"} className="min-w-0 space-y-3">
                 <p className="rounded-[10px] bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-sub">
                   {t("pieceHelp")}
                 </p>
@@ -1063,11 +1115,89 @@ export function ProductForm({
                     })}
                   </p>
                 </div>
-              </>
-            )}
+            </fieldset>
           </div>
         </Disclosure>
       </div>
+
+      {/* Optional office work: mounted fields keep their values while folded. */}
+      <details ref={exportDetailsRef} className="group rounded-[12px] border border-line bg-surface lg:col-span-2" data-testid="export-details">
+        <summary className="focus-ring flex min-h-14 cursor-pointer list-none items-center gap-3 px-3.5 [&::-webkit-details-marker]:hidden" data-testid="export-disclosure">
+          <span className="min-w-0 flex-1 py-2">
+            <span className="block text-[13.5px] font-bold text-ink">{t("exportGroup")}</span>
+            <span className="block text-[11px] text-sub">{t("exportHint")}</span>
+          </span>
+          <ChevronDown className="h-4 w-4 shrink-0 text-faint group-open:rotate-180" />
+        </summary>
+        <div className="grid grid-cols-1 gap-4 border-t border-line p-3.5 sm:grid-cols-2">
+          <Field label={t("hsCode")} htmlFor="hsCode" hint={t("hsCodeHelp")}>
+            <Input
+              id="hsCode"
+              name="hsCode"
+              inputMode="numeric"
+              placeholder={t("optionalPlaceholder")}
+              defaultValue={defaultValues?.hsCode}
+              className="font-mono"
+              onChange={() => setSuggestedDuties({})}
+              data-testid="hs-code"
+            />
+          </Field>
+          <Field label={t("destination")} htmlFor="exportDestination">
+            <input type="hidden" name="exportDestination" value={destination} />
+            <Select value={destination || "none"} onValueChange={(v) => setDestination(v === "BR" || v === "PY" ? v : "")}>
+              <SelectTrigger id="exportDestination" data-testid="export-destination">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">{t("chooseDestination")}</SelectItem>
+                {DESTINATIONS.map((d) => (
+                  <SelectItem key={d} value={d}>
+                    {t(`destination_${d}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <input type="hidden" name="importDutyPctBr" value={dutyBr} />
+          <input type="hidden" name="importDutyPctPy" value={dutyPy} />
+          {destination ? <Field label={t("importDuty", { destination: t(`destination_${destination}`) })} htmlFor="importDuty" hint={t("importDutyHelp")}>
+            <Input
+              id="importDuty"
+              type="text"
+              numeric
+              inputMode="decimal"
+              suffix="%"
+              placeholder="18"
+              value={destination === "BR" ? dutyBr : dutyPy}
+              onChange={(e) => (destination === "BR" ? setDutyBr(e.target.value) : setDutyPy(e.target.value))}
+              data-testid="import-duty"
+            />
+            {suggestedDuties[destination] !== undefined ? (
+              <div className="rounded-lg bg-surface-2 p-2.5 text-[12px] text-sub" data-testid="duty-suggestion">
+                <p>{t("dutySuggestion", { pct: suggestedDuties[destination]! })}</p>
+                <Button type="button" variant="outline" className="mt-2 min-h-11" data-testid="use-duty-suggestion"
+                  onClick={() => {
+                    (destination === "BR" ? setDutyBr : setDutyPy)(String(suggestedDuties[destination]));
+                    setSuggestedDuties((previous) => ({ ...previous, [destination]: undefined }));
+                  }}>
+                  {t("useDutySuggestion")}
+                </Button>
+              </div>
+            ) : null}
+          </Field> : null}
+          {destination ? <LandedCostBox
+            priceText={priceText}
+            currency={currency}
+            cartonCbm={source === "piece" ? estimatedCbm : cartonCbm}
+            estimatedCarton={source === "piece"}
+            qtyPerBox={Number(qtyPerBox) || 0}
+            dutyText={destination === "BR" ? dutyBr : dutyPy}
+            shipping={shippingRates[destination] ?? {}}
+            rates={rates}
+            target={functionalCurrency}
+          /> : null}
+        </div>
+      </details>
 
       <label className="flex min-h-11 items-center gap-2.5 text-[13px] font-semibold text-ink lg:col-span-2">
         <input
@@ -1082,7 +1212,9 @@ export function ProductForm({
 
       {errorMessage ? (
         <p className="text-[13px] font-semibold text-danger lg:col-span-2" data-testid="form-error">
-          {errorMessage === "duplicate-sku"
+          {errorMessage === "invalid-hs-code" ? t("errorHsCode")
+            : errorMessage === "invalid-duty" ? t("errorDuty")
+            : errorMessage === "duplicate-sku"
             ? t("errorDuplicateSku")
             : errorMessage === "image-error"
               ? t("errorImage")

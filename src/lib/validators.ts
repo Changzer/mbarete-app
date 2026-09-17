@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { isHsCode, normalizeHsCode } from "@/lib/customs";
+import { normalizeDecimalInput } from "@/lib/decimal-input";
 
 /**
  * What a product actually needs to exist.
@@ -8,6 +10,13 @@ import { z } from "zod";
  * to save without them turns a two-minute job into a return visit, so they are
  * optional and flagged wherever a missing figure would distort a quote.
  */
+/** An ad valorem duty in percent, or blank for "not known yet" (stored as null). */
+const dutyPct = z.preprocess(
+  (v) => v === undefined || v === null || (typeof v === "string" && v.trim() === "")
+    ? null : typeof v === "string" ? normalizeDecimalInput(v) : v,
+  z.coerce.number().nonnegative().max(200).nullable(),
+);
+
 export const productSchema = z
   .object({
     // Blank is allowed; the next free number is assigned on save.
@@ -20,8 +29,17 @@ export const productSchema = z
     categoryId: z.coerce.number().int().positive(),
     descriptionEn: z.string().default(""),
     descriptionZh: z.string().default(""),
-    // The AI's reading of the price board and its remarks, carried through
-    // the form unchanged so they land on the product.
+    // Classification and user-selected duty; blank duty means "not known yet".
+    hsCode: z
+      .string()
+      .trim()
+      .transform(normalizeHsCode)
+      .refine((v) => v === "" || isHsCode(v), "hsCode")
+      .default(""),
+    exportDestination: z.enum(["", "BR", "PY"]).default(""),
+    importDutyPctBr: dutyPct,
+    importDutyPctPy: dutyPct,
+    // The AI's board reading and remarks, carried through with the product.
     boardText: z
       .string()
       .trim()

@@ -1,3 +1,4 @@
+import { isHsCode, normalizeHsCode } from "@/lib/customs";
 import { z } from "zod";
 import { isPlausibleCartonCbm } from "@/lib/calculations";
 import { extractJson, type VisionImage, type VisionUsage } from "@/lib/vision";
@@ -62,12 +63,16 @@ const transcriptionSchema = z.object({
   cbm: z.number().nullable(),
   uncertain: z.array(z.string()).nullable().optional(),
   notes: z.string().nullable(),
+  /** Customs classification and the destination duty rates, best knowledge; optional for older stubs. */
+  hsCode: z.string().nullable().optional(),
+  importDutyBrPct: z.number().nullable().optional(),
+  importDutyPyPct: z.number().nullable().optional(),
 });
 
 // Keep in sync with transcriptionSchema — this is what the JSON-mode backend
 // is told to return.
 const JSON_SPEC =
-  '{"boardText": string|null, "supplierCode": string|null, "thumbImage": number|null, "thumbBox": {"left": number, "top": number, "right": number, "bottom": number}|null, "nameEn": string|null, "nameZh": string|null, "descriptionEn": string|null, "descriptionZh": string|null, "price": number|null, "currency": string|null, "moq": number|null, "qtyPerBox": number|null, "categoryId": number|null, "newCategoryEn": string|null, "newCategoryZh": string|null, "lengthCm": number|null, "widthCm": number|null, "heightCm": number|null, "weightKg": number|null, "cbm": number|null, "uncertain": string[]|null, "notes": string|null}';
+  '{"boardText": string|null, "supplierCode": string|null, "thumbImage": number|null, "thumbBox": {"left": number, "top": number, "right": number, "bottom": number}|null, "nameEn": string|null, "nameZh": string|null, "descriptionEn": string|null, "descriptionZh": string|null, "price": number|null, "currency": string|null, "moq": number|null, "qtyPerBox": number|null, "categoryId": number|null, "newCategoryEn": string|null, "newCategoryZh": string|null, "lengthCm": number|null, "widthCm": number|null, "heightCm": number|null, "weightKg": number|null, "cbm": number|null, "uncertain": string[]|null, "notes": string|null, "hsCode": string|null, "importDutyBrPct": number|null, "importDutyPyPct": number|null}';
 
 export type RawTranscription = z.infer<typeof transcriptionSchema>;
 
@@ -94,6 +99,11 @@ export type TranscribedFields = {
   uncertain?: string[];
   /** The board verbatim, kept on a draft's transcript so promotion stores it. */
   boardText?: string;
+  /** Proposed customs classification: 6-digit HS, or the 8-digit Mercosur NCM. */
+  hsCode?: string;
+  /** Proposed ad valorem import duty at the destination, percent. Estimates to verify. */
+  importDutyBrPct?: number;
+  importDutyPyPct?: number;
 };
 
 export type TranscribeResult =
@@ -140,7 +150,9 @@ Rules:
 - Use null for anything not clearly readable — never guess a number.
 - A bare quantity with no MOQ/min/起订 marking (e.g. "1500 pc" on its own) is NOT the MOQ: leave moq null, copy it into notes, and list "moq" in uncertain.
 - uncertain: the names of the fields above whose reading you are not confident of (e.g. ["price", "moq"]) — a smudged digit, a comma that could be either separator, a quantity of unclear meaning. Empty or null when every field is clear.
-- notes: at most 15 words, in English, only for uncertain readings or board info that has no field. Null when there is nothing to flag.`;
+- notes: at most 15 words, in English, only for uncertain readings or board info that has no field. Null when there is nothing to flag.
+- hsCode: the customs classification that best fits the product as shown — the 8-digit Mercosur NCM when you are confident of it (digits only, e.g. "96032100"), otherwise the 6-digit HS subheading. This is a judgement from the photos, not a reading: give your best classification, and list "hsCode" in uncertain when two headings are plausible. Null only when the photos do not show what the product is.
+- importDutyBrPct and importDutyPyPct: the ad valorem import duty rate, as a percent number, that Brazil (Imposto de Importação under the Mercosur TEC) and Paraguay (DAI) apply to that classification, to the best of your knowledge (e.g. 18, 16, 2). These are estimates for a landed-cost comparison and will be checked by a person; Return null when you are unsure; do not invent a rate to fill the field. Always list "importDuty" in uncertain when proposing a rate: there is no live tariff lookup here and the proposal is not used until a person explicitly chooses it. Do not include VAT, IPI, PIS/COFINS or ICMS.`;
 
 export async function transcribeProductPhotos(
   images: VisionImage[],
@@ -251,6 +263,14 @@ export function sanitizeTranscription(
     ? raw.uncertain.filter((f): f is string => typeof f === "string" && f.length <= 40).slice(0, 8)
     : [];
 
+  // This workflow supports HS subheadings (6) and Mercosur NCM (8), not arbitrary lengths.
+  const hsDigits = normalizeHsCode(raw.hsCode ?? "");
+  const hsCode = isHsCode(hsDigits) ? hsDigits : undefined;
+  const pct = (v: number | null | undefined) =>
+    v !== null && v !== undefined && Number.isFinite(v) && v >= 0 && v <= 100
+      ? Math.round(v * 100) / 100
+      : undefined;
+
   const price =
     raw.price !== null && Number.isFinite(raw.price) && raw.price >= 0
       ? Math.round(raw.price * 100) / 100
@@ -290,6 +310,9 @@ export function sanitizeTranscription(
       weightKg: measure(raw.weightKg),
       cbm,
       ...(uncertain.length > 0 ? { uncertain } : {}),
+      ...(hsCode ? { hsCode } : {}),
+      ...(pct(raw.importDutyBrPct) !== undefined ? { importDutyBrPct: pct(raw.importDutyBrPct) } : {}),
+      ...(pct(raw.importDutyPyPct) !== undefined ? { importDutyPyPct: pct(raw.importDutyPyPct) } : {}),
     },
     notes: text(raw.notes) ?? null,
     boardText: text(raw.boardText) ?? null,

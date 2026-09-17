@@ -17,6 +17,7 @@ export function Disclosure({
   hint,
   summary,
   defaultOpen = false,
+  keepMounted = false,
   children,
   "data-testid": testId,
 }: {
@@ -25,6 +26,8 @@ export function Disclosure({
   /** Shown beside the title while closed — what would be filled in there. */
   summary?: React.ReactNode;
   defaultOpen?: boolean;
+  /** Form inputs must survive folding and still be submitted while hidden. */
+  keepMounted?: boolean;
   children: React.ReactNode;
   "data-testid"?: string;
 }) {
@@ -56,8 +59,8 @@ export function Disclosure({
           strokeWidth={1.5}
         />
       </button>
-      {open ? (
-        <div id={contentId} className="border-t border-line p-3.5">
+      {open || keepMounted ? (
+        <div id={contentId} hidden={!open} className="border-t border-line p-3.5">
           {children}
         </div>
       ) : null}

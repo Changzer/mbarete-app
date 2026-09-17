@@ -10,6 +10,9 @@ import { computeCbm } from "@/lib/calculations";
 import { OfferManager } from "@/components/catalog/offer-manager";
 import { getAllOffersForProduct } from "@/lib/queries/offers";
 import { requireUser } from "@/lib/authz";
+import { getExchangeRates } from "@/lib/queries/orders";
+import { getCompanyProfile, getLatestShippingRates } from "@/lib/queries/settings";
+import { resolveFunctionalCurrency } from "@/lib/functional-currency";
 
 export default async function EditProductPage({
   params,
@@ -22,9 +25,12 @@ export default async function EditProductPage({
   const t = await getTranslations("catalog");
   const common = await getTranslations("common");
 
-  const [categories, suppliers, product, images, offers] = await Promise.all([
+  const [categories, suppliers, exchangeRates, profile, shippingRates, product, images, offers] = await Promise.all([
     getCategories(companyId),
     getSuppliersForPicker(companyId),
+    getExchangeRates(companyId),
+    getCompanyProfile(companyId),
+    getLatestShippingRates(companyId),
     getProductById(companyId, productId),
     getProductImages(productId),
     getAllOffersForProduct(companyId, productId),
@@ -43,6 +49,9 @@ export default async function EditProductPage({
       <ProductForm
         categories={categories}
         suppliers={suppliers}
+        shippingRates={shippingRates}
+        rates={exchangeRates}
+        functionalCurrency={resolveFunctionalCurrency(profile.functionalCurrency, exchangeRates)}
         action={boundUpdate}
         defaultValues={{
           ...product,

@@ -441,7 +441,9 @@ export function estimateCartonCbm(
 ) {
   if (qtyPerBox <= 0) return 0;
   const pieceCbm = computeCbm(piece.lengthCm, piece.widthCm, piece.heightCm);
-  return pieceCbm * qtyPerBox * (1 + allowancePct / 100);
+  // Rounded to the cubic centimetre: the allowance factor turns a clean
+  // 0.115 into 0.11499999999999999, and that noise would otherwise be stored.
+  return Math.round(pieceCbm * qtyPerBox * (1 + allowancePct / 100) * 1_000_000) / 1_000_000;
 }
 
 /**
@@ -457,7 +459,8 @@ export function estimateCartonWeightKg(
   allowancePct: number = DEFAULT_PACKING_ALLOWANCE_PCT,
 ) {
   if (qtyPerBox <= 0) return 0;
-  return pieceWeightKg * qtyPerBox * (1 + allowancePct / 100);
+  // Rounded to the gram, for the same reason the volume estimate is rounded.
+  return Math.round(pieceWeightKg * qtyPerBox * (1 + allowancePct / 100) * 1000) / 1000;
 }
 
 /**

@@ -20,7 +20,8 @@
     "test:backup": "tsx scripts/test-backup-roundtrip.ts",
     "test:capture": "node --test src/ui-tests/capture.spec.mjs",
     "test:landing": "node --test src/ui-tests/landing.spec.mjs",
-    "test:supplier-migration": "tsx scripts/test-order-supplier-migration.ts"
+    "test:supplier-migration": "tsx scripts/test-order-supplier-migration.ts",
+    "test:landed-cost": "node --test src/ui-tests/landed-cost.spec.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",

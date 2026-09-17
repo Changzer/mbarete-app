@@ -3,10 +3,11 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db, one } from "@/db";
-import { exchangeRates, companyProfile, bankAccounts, orders } from "@/db/schema";
+import { exchangeRates, companyProfile, bankAccounts, orders, shippingRates } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/authz";
 import { saveUploadedImage, deleteUpload } from "@/lib/uploads";
+import { shippingRateSchema } from "@/lib/shipping-rate-schema";
 
 // Company profile, banks and exchange rates feed the proforma and every
 // price calculation — admin ground, in full.
@@ -333,4 +334,41 @@ export async function refreshRatesNow(): Promise<
     return { ok: true, source: result.source };
   }
   return { ok: false, error: result.error };
+}
+
+// --- shipping cost estimates -------------------------------------------------
+
+/**
+ * A new shipping estimate is a new row, never an edit: the table is the log
+ * of what freight cost when, and the newest row per destination is the one
+ * the landed-cost figure uses.
+ */
+export async function addShippingRate(
+  _prevState: string | undefined,
+  formData: FormData,
+): Promise<string | undefined> {
+  const admin = await requireSession();
+  const parsed = shippingRateSchema.safeParse({
+    destination: formData.get("destination"),
+    mode: formData.get("mode") || "lcl",
+    basis: formData.get("basis") || "per_cbm",
+    amount: formData.get("amount"),
+    currency: formData.get("currency"),
+    usableCbm: formData.get("usableCbm") || 68,
+    effectiveFrom: formData.get("effectiveFrom"),
+    note: formData.get("note") ?? "",
+  });
+  if (!parsed.success) return "invalid";
+  try {
+    await db.insert(shippingRates).values({
+      companyId: admin.companyId,
+      ...parsed.data,
+      createdBy: admin.id,
+    });
+  } catch {
+    return "save-failed";
+  }
+  revalidatePath("/settings");
+  revalidatePath("/catalog");
+  return undefined;
 }

@@ -105,6 +105,10 @@ type ProductShape = {
   weightKg: number;
   supplierId: number | null;
   active: boolean;
+  hsCode?: string;
+  exportDestination?: string;
+  importDutyPctBr?: number | null;
+  importDutyPctPy?: number | null;
 };
 
 /**
@@ -120,6 +124,7 @@ export function diffProductEdit(
 ): FieldChange[] {
   const money = (value: number, currency: string) => `${value} ${currency}`;
   const dims = (p: ProductShape) => `${p.lengthCm}×${p.widthCm}×${p.heightCm} cm`;
+  const duty = (value: number | null | undefined) => value == null ? "" : `${value}%`;
 
   const changes = [
     changed("sku", before.sku, after.sku),
@@ -139,6 +144,10 @@ export function diffProductEdit(
     changed("qtyPerBox", String(before.qtyPerBox), String(after.qtyPerBox)),
     changed("dimensions", dims(before), dims(after)),
     changed("weight", `${before.weightKg} kg`, `${after.weightKg} kg`),
+    changed("hsCode", before.hsCode ?? "", after.hsCode ?? ""),
+    changed("exportDestination", before.exportDestination ?? "", after.exportDestination ?? ""),
+    changed("importDutyPctBr", duty(before.importDutyPctBr), duty(after.importDutyPctBr)),
+    changed("importDutyPctPy", duty(before.importDutyPctPy), duty(after.importDutyPctPy)),
     before.supplierId !== after.supplierId
       ? changed("supplier", supplierNameOf(before.supplierId), supplierNameOf(after.supplierId))
       : null,

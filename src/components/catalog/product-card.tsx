@@ -21,6 +21,11 @@ export type CatalogProduct = {
   /** The price board as the AI read it at capture, and what it flagged. */
   boardText: string;
   aiNotes: string;
+  /** Customs classification and the destination duty rates, when recorded. */
+  hsCode: string;
+  exportDestination: "" | "BR" | "PY";
+  importDutyPctBr: number | null;
+  importDutyPctPy: number | null;
   categoryName: string;
   price: number;
   sellPrice: number;

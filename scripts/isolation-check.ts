@@ -18,7 +18,7 @@ import {
 } from "../src/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { runWithTenant } from "../src/db/tenant-context";
-import { periodCloses, adminEvents, captureVisits } from "../src/db/schema";
+import { periodCloses, adminEvents, captureVisits, shippingRates } from "../src/db/schema";
 import { listPeriodCloses } from "../src/lib/queries/accountant";
 import { getProducts, getProductById, getCategories } from "../src/lib/queries/catalog";
 import { getContactsByType, getContactById } from "../src/lib/queries/contacts";
@@ -148,6 +148,17 @@ async function makeCompany(name: string) {
     targetUserId: user.id,
     detail: name,
   });
+  await db.insert(shippingRates).values({
+    companyId: company.id,
+    destination: "BR",
+    mode: "lcl",
+    basis: "per_cbm",
+    amount: 100,
+    currency: "USD",
+    effectiveFrom: "2026-01-01",
+    note: `rate-${name}`,
+    createdBy: user.id,
+  });
   await db.insert(captureVisits).values({
     companyId: company.id,
     clientVisitId: `vis-${name}`,
@@ -165,6 +176,7 @@ async function destroyCompany(companyId: number) {
   // are behind RLS, so clean up as their own tenant; users and companies are
   // exempt and go last.
   await runWithTenant(companyId, async () => {
+    await db.delete(shippingRates).where(eq(shippingRates.companyId, companyId));
     await db.delete(captureVisits).where(eq(captureVisits.companyId, companyId));
     await db.delete(adminEvents).where(eq(adminEvents.companyId, companyId));
     await db.delete(periodCloses).where(eq(periodCloses.companyId, companyId));
@@ -226,6 +238,11 @@ async function main() {
     check(
       "admin_events RLS hides A's admin trail from B's scope",
       adminRowsB.length === 1 && adminRowsB[0].detail === "AttackerB",
+    );
+    const shippingRowsB = await db.select().from(shippingRates);
+    check(
+      "shipping_rates RLS hides A's freight estimates from B's scope",
+      shippingRowsB.length === 1 && shippingRowsB[0].note === "rate-AttackerB",
     );
     const visitRowsB = await db.select().from(captureVisits);
     check(
