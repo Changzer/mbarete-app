@@ -363,6 +363,15 @@ test("carton weight estimated from a piece includes the allowance", () => {
   closeTo(estimateCartonWeightKg(0.3, 10, 0), 3);
 });
 
+test("carton estimates land on clean figures, not float noise", () => {
+  // 0.001 × 100 × 1.15 is 0.11499999999999999 in floating point; the
+  // stored carton must be the 0.115 a person would write down.
+  const piece = { lengthCm: 10, widthCm: 10, heightCm: 10 };
+  assert.equal(estimateCartonCbm(piece, 100, 15), 0.115);
+  // 0.48 × 10 × 1.15 is 5.5200000000000005; the weight rounds to the gram.
+  assert.equal(estimateCartonWeightKg(0.48, 10, 15), 5.52);
+});
+
 test("an estimated carton feeds order totals like a measured one", () => {
   // A product registered from piece dimensions only: 10x10x10 cm, 24/carton.
   const piece = { lengthCm: 10, widthCm: 10, heightCm: 10 };

@@ -1144,7 +1144,7 @@ export function ProductForm({
           </Field>
           <Field label={t("destination")} htmlFor="exportDestination">
             <input type="hidden" name="exportDestination" value={destination} />
-            <Select value={destination || "none"} onValueChange={(v) => setDestination(v === "none" ? "" : v as Destination)}>
+            <Select value={destination || "none"} onValueChange={(v) => setDestination(v === "BR" || v === "PY" ? v : "")}>
               <SelectTrigger id="exportDestination" data-testid="export-destination">
                 <SelectValue />
               </SelectTrigger>

@@ -31,7 +31,9 @@ dependent amounts and total. Known components still appear; missing ones show
 a dash and a reason. Unknown duty stays `null` through save/review; an explicit
 0% stays zero. Per-piece figures show up to four decimals so a small difference
 is not hidden by cent rounding. Piece-derived carton volume uses the same
-dimensions and packing allowance as product saving, and is labelled estimated.
+dimensions and packing allowance as product saving, and is labelled estimated;
+the estimate is rounded to the cm³ (weight to the gram) so the stored carton is
+the figure a person would write down, not float noise.
 
 ## Inputs and review
 
