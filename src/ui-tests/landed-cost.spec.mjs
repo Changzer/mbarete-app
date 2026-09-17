@@ -85,6 +85,11 @@ test("freight estimates stay honest and optional through capture, saving and rev
     for (const dimension of ["pieceLengthCm", "pieceWidthCm", "pieceHeightCm"]) await page.locator(`#${dimension}`).fill("10");
     await page.locator("#packingAllowancePct").fill("15");
     assert.equal(await page.getByTestId("landed-shipping-lcl").textContent(), "0.138");
+    await page.getByRole("button", { name: "I have the carton size", exact: true }).click();
+    assert.equal(await page.locator("#cbmOverride").inputValue(), "0.05", "mode switch preserves the measured carton");
+    assert.equal(await page.getByTestId("landed-shipping-lcl").textContent(), "0.06", "estimate follows the submitted mode");
+    await page.getByRole("button", { name: "I only have the product size", exact: true }).click();
+    assert.equal(await page.getByTestId("landed-shipping-lcl").textContent(), "0.138");
     await page.getByTestId("dimensions-disclosure").click();
 
     await mkdir("artifacts/landed-cost", { recursive: true });
@@ -134,7 +139,9 @@ test("freight estimates stay honest and optional through capture, saving and rev
     await page.getByTestId("saved-offline").waitFor();
     assert.equal(await page.locator('input[name="importDutyPctBr"]').inputValue(), "");
     assert.equal(await page.getByTestId("export-details").getAttribute("open"), null);
+    assert.equal(await page.locator('input[name="exportDestination"]').inputValue(), "", "next product has no assumed destination");
     await page.getByTestId("export-disclosure").click();
+    await select(page, "export-destination", "Brazil");
     assert.equal(await page.getByTestId("landed-total-lcl").textContent(), "—");
     await context.setOffline(false);
 

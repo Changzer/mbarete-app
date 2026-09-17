@@ -306,7 +306,7 @@ export function ProductForm({
     ) => {
       if (value === undefined) return;
       const el = form.elements.namedItem(name);
-      if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return;
+      if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) || el.matches(":disabled")) return;
       if (!overwrite && el.value.trim() !== "" && !pristine.includes(el.value.trim())) return;
       el.value = String(value);
     };
@@ -331,8 +331,8 @@ export function ProductForm({
       setCurrency((prev) => (overwrite || prev === "USD" ? String(fields.currency) : prev));
     }
     setIfUntouched("moq", fields.moq, ["1"]);
-    // Carton figures off the board. These inputs only exist in carton mode;
-    // in piece mode namedItem() finds nothing and the values are skipped.
+    // Carton figures off the board. Inactive measurement fields stay mounted
+    // to preserve edits, but are disabled and ignored by the fill helper.
     setIfUntouched("lengthCm", fields.lengthCm);
     setIfUntouched("widthCm", fields.widthCm);
     setIfUntouched("heightCm", fields.heightCm);
@@ -399,6 +399,7 @@ export function ProductForm({
     formRef.current?.reset();
     setCaptureEpoch((epoch) => epoch + 1);
     setPriceText(defaultValues?.price ? String(defaultValues.price) : "");
+    setDestination(defaultValues?.exportDestination ?? "");
     setDutyBr("");
     setDutyPy("");
     setSuggestedDuties({});
@@ -991,8 +992,7 @@ export function ProductForm({
               </div>
             </Field>
 
-            {source === "carton" ? (
-              <>
+            <fieldset disabled={source !== "carton"} hidden={source !== "carton"} className="min-w-0 space-y-3">
                 <p className="rounded-[10px] bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-sub">
                   {t("cartonHelp")} {t("measurementsOptional")}
                 </p>
@@ -1044,9 +1044,8 @@ export function ProductForm({
                     {t("cbmImplausible", { cbm: formatCbm(cartonCbm) })}
                   </p>
                 ) : null}
-              </>
-            ) : (
-              <>
+            </fieldset>
+            <fieldset disabled={source !== "piece"} hidden={source !== "piece"} className="min-w-0 space-y-3">
                 <p className="rounded-[10px] bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-sub">
                   {t("pieceHelp")}
                 </p>
@@ -1116,8 +1115,7 @@ export function ProductForm({
                     })}
                   </p>
                 </div>
-              </>
-            )}
+            </fieldset>
           </div>
         </Disclosure>
       </div>
