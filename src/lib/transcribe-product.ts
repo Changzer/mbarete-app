@@ -1,3 +1,4 @@
+import { isHsCode, normalizeHsCode } from "@/lib/customs";
 import { z } from "zod";
 import { isPlausibleCartonCbm } from "@/lib/calculations";
 import { extractJson, type VisionImage, type VisionUsage } from "@/lib/vision";
@@ -151,7 +152,7 @@ Rules:
 - uncertain: the names of the fields above whose reading you are not confident of (e.g. ["price", "moq"]) — a smudged digit, a comma that could be either separator, a quantity of unclear meaning. Empty or null when every field is clear.
 - notes: at most 15 words, in English, only for uncertain readings or board info that has no field. Null when there is nothing to flag.
 - hsCode: the customs classification that best fits the product as shown — the 8-digit Mercosur NCM when you are confident of it (digits only, e.g. "96032100"), otherwise the 6-digit HS subheading. This is a judgement from the photos, not a reading: give your best classification, and list "hsCode" in uncertain when two headings are plausible. Null only when the photos do not show what the product is.
-- importDutyBrPct and importDutyPyPct: the ad valorem import duty rate, as a percent number, that Brazil (Imposto de Importação under the Mercosur TEC) and Paraguay (DAI) apply to that classification, to the best of your knowledge (e.g. 18, 16, 2). These are estimates for a landed-cost comparison and will be checked by a person; give your best figure rather than null, and list "importDuty" in uncertain when unsure. Do not include VAT, IPI, PIS/COFINS or ICMS.`;
+- importDutyBrPct and importDutyPyPct: the ad valorem import duty rate, as a percent number, that Brazil (Imposto de Importação under the Mercosur TEC) and Paraguay (DAI) apply to that classification, to the best of your knowledge (e.g. 18, 16, 2). These are estimates for a landed-cost comparison and will be checked by a person; Return null when you are unsure; do not invent a rate to fill the field. Always list "importDuty" in uncertain when proposing a rate: there is no live tariff lookup here and the proposal is not used until a person explicitly chooses it. Do not include VAT, IPI, PIS/COFINS or ICMS.`;
 
 export async function transcribeProductPhotos(
   images: VisionImage[],
@@ -262,9 +263,9 @@ export function sanitizeTranscription(
     ? raw.uncertain.filter((f): f is string => typeof f === "string" && f.length <= 40).slice(0, 8)
     : [];
 
-  // Classification: digits only, HS (6) to NCM (8) or a national line (10).
-  const hsDigits = (raw.hsCode ?? "").replace(/\D/g, "");
-  const hsCode = hsDigits.length >= 6 && hsDigits.length <= 10 ? hsDigits : undefined;
+  // This workflow supports HS subheadings (6) and Mercosur NCM (8), not arbitrary lengths.
+  const hsDigits = normalizeHsCode(raw.hsCode ?? "");
+  const hsCode = isHsCode(hsDigits) ? hsDigits : undefined;
   const pct = (v: number | null | undefined) =>
     v !== null && v !== undefined && Number.isFinite(v) && v >= 0 && v <= 100
       ? Math.round(v * 100) / 100

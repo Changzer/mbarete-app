@@ -49,6 +49,7 @@ const TABLES: { name: string; scope: "company_id" | "id"; omit?: string[] }[] = 
   { name: "capture_draft_images", scope: "company_id" },
   { name: "exchange_rates", scope: "company_id" },
   { name: "exchange_rate_history", scope: "company_id" },
+  { name: "shipping_rates", scope: "company_id" },
   { name: "orders", scope: "company_id" },
   { name: "order_items", scope: "company_id" },
   { name: "order_documents", scope: "company_id" },

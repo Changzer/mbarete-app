@@ -7,6 +7,7 @@ import { exchangeRates, companyProfile, bankAccounts, orders, shippingRates } fr
 import { and, eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/authz";
 import { saveUploadedImage, deleteUpload } from "@/lib/uploads";
+import { shippingRateSchema } from "@/lib/shipping-rate-schema";
 
 // Company profile, banks and exchange rates feed the proforma and every
 // price calculation — admin ground, in full.
@@ -337,17 +338,6 @@ export async function refreshRatesNow(): Promise<
 
 // --- shipping cost estimates -------------------------------------------------
 
-const shippingRateSchema = z.object({
-  destination: z.enum(["BR", "PY"]),
-  mode: z.enum(["lcl", "fcl"]).default("lcl"),
-  basis: z.enum(["per_cbm", "per_40hq"]).default("per_cbm"),
-  amount: z.coerce.number().positive(),
-  currency: z.string().trim().min(3).max(8).transform((s) => s.toUpperCase()),
-  usableCbm: z.coerce.number().positive().max(200).default(68),
-  effectiveFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  note: z.string().trim().max(200).default(""),
-});
-
 /**
  * A new shipping estimate is a new row, never an edit: the table is the log
  * of what freight cost when, and the newest row per destination is the one
@@ -369,11 +359,15 @@ export async function addShippingRate(
     note: formData.get("note") ?? "",
   });
   if (!parsed.success) return "invalid";
-  await db.insert(shippingRates).values({
-    companyId: admin.companyId,
-    ...parsed.data,
-    createdBy: admin.id,
-  });
+  try {
+    await db.insert(shippingRates).values({
+      companyId: admin.companyId,
+      ...parsed.data,
+      createdBy: admin.id,
+    });
+  } catch {
+    return "save-failed";
+  }
   revalidatePath("/settings");
   revalidatePath("/catalog");
   return undefined;

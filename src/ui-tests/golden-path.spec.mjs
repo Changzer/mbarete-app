@@ -141,9 +141,19 @@ test("a booth capture becomes a product, an order, a quote and an invoice", asyn
       STUB.supplierCode,
       "factory style number read off the photo",
     );
-    // The classification and the destination duty come from the same read.
+    // Classification can prefill while export work stays folded. A guessed
+    // tariff must not silently become a saved 0% or a confirmed duty rate.
     assert.equal(await page.locator("#hsCode").inputValue(), STUB.hsCode, "HS code proposed from the photo");
-    assert.equal(await page.locator("#importDuty").inputValue(), "20", "Brazil duty proposed from the code");
+    assert.equal(await page.locator('[data-testid="export-details"]').getAttribute("open"), null);
+    assert.equal(await page.locator('input[name="importDutyPctBr"]').inputValue(), "");
+    await page.click('[data-testid="export-disclosure"]');
+    await page.click('[data-testid="export-destination"]');
+    await page.getByRole("option", { name: "Brazil", exact: true }).click();
+    assert.equal(await page.locator("#importDuty").inputValue(), "", "AI duty waits for an explicit choice");
+    assert.match(await page.getByTestId("duty-suggestion").textContent(), /20%/);
+    await page.getByTestId("use-duty-suggestion").click();
+    assert.equal(await page.locator("#importDuty").inputValue(), "20");
+    await page.click('[data-testid="export-disclosure"]');
     const thumbPath = await page.locator('input[name="thumbPath"]').inputValue();
     assert.match(thumbPath, /thumb-/, "the crop produced a thumbnail file");
 
@@ -168,6 +178,9 @@ test("a booth capture becomes a product, an order, a quote and an invoice", asyn
     // Give this captured product a known supplier before the order is made.
     const account = (await sql.query("SELECT company_id FROM users WHERE email=$1", [EMAIL])).rows[0];
     const product = (await sql.query("SELECT id FROM products WHERE company_id=$1 AND supplier_code=$2 ORDER BY id DESC LIMIT 1", [account.company_id, STUB.supplierCode])).rows[0];
+    const duty = (await sql.query("SELECT import_duty_pct_br, import_duty_pct_py FROM products WHERE id=$1", [product.id])).rows[0];
+    assert.equal(Number(duty.import_duty_pct_br), 20, "chosen estimate persisted");
+    assert.equal(duty.import_duty_pct_py, null, "unchosen estimate stayed unknown");
     const supplierA = (await sql.query("INSERT INTO contacts (company_id,type,company_name,company_name_zh) VALUES ($1,'supplier','Original Factory','原始工厂') RETURNING id", [account.company_id])).rows[0].id;
     const supplierB = (await sql.query("INSERT INTO contacts (company_id,type,company_name,company_name_zh) VALUES ($1,'supplier','Replacement Factory','替代工厂') RETURNING id", [account.company_id])).rows[0].id;
     await sql.query("UPDATE products SET supplier_id=$1 WHERE id=$2", [supplierA, product.id]);

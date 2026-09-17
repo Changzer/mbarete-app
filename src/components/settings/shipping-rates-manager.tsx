@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { addShippingRate } from "@/lib/actions/settings";
 import { Button } from "@/components/ui/button";
@@ -40,19 +40,46 @@ export function ShippingRatesManager({
   rows,
   latestIds,
   currencies,
+  asOf,
 }: {
   rows: ShippingRateRow[];
   latestIds: number[];
   currencies: string[];
+  asOf: string;
 }) {
   const t = useTranslations("settings");
-  const common = useTranslations("common");
-  const [error, formAction, pending] = useActionState(addShippingRate, undefined);
+  const [error, setError] = useState<string>();
+  const [saved, setSaved] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const submitting = useRef(false);
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (submitting.current) return;
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    submitting.current = true;
+    setError(undefined);
+    setSaved(false);
+    startTransition(async () => {
+      try {
+        const result = await addShippingRate(undefined, data);
+        setError(result);
+        if (!result) {
+          form.reset();
+          setSaved(true);
+        }
+      } catch {
+        setError("save-failed");
+      } finally {
+        submitting.current = false;
+      }
+    });
+  }
   const [destination, setDestination] = useState<Destination>("BR");
   const [mode, setMode] = useState<ShippingMode>("lcl");
   const [basis, setBasis] = useState<Basis>("per_cbm");
   const [currency, setCurrency] = useState(currencies.includes("USD") ? "USD" : (currencies[0] ?? "USD"));
-  const today = new Date().toISOString().slice(0, 10);
+  const today = asOf;
   const current = rows.filter((r) => latestIds.includes(r.id));
 
   return (
@@ -93,7 +120,7 @@ export function ShippingRatesManager({
 
       <Card>
         <CardContent className="p-4">
-          <form action={formAction} className="grid grid-cols-2 gap-3 md:grid-cols-4" data-testid="shipping-form">
+          <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-3 md:grid-cols-4" data-testid="shipping-form">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="ship-destination">{t("destination")}</Label>
               <input type="hidden" name="destination" value={destination} />
@@ -148,7 +175,7 @@ export function ShippingRatesManager({
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="ship-amount">{t("amount")}</Label>
-              <Input id="ship-amount" name="amount" type="number" inputMode="decimal" step="0.01" min="0" required placeholder={basis === "per_40hq" ? "6800" : "120"} data-testid="ship-amount" />
+              <Input id="ship-amount" name="amount" type="text" numeric inputMode="decimal" required placeholder={basis === "per_40hq" ? "6800" : "120"} data-testid="ship-amount" />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="ship-currency">{t("currencyCode")}</Label>
@@ -169,7 +196,7 @@ export function ShippingRatesManager({
             {basis === "per_40hq" ? (
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="ship-usable">{t("usableCbm")}</Label>
-                <Input id="ship-usable" name="usableCbm" type="number" inputMode="decimal" step="0.1" min="1" defaultValue={68} />
+                <Input id="ship-usable" name="usableCbm" type="text" numeric inputMode="decimal" defaultValue={68} required />
               </div>
             ) : null}
             <div className="flex flex-col gap-1.5">
@@ -185,7 +212,8 @@ export function ShippingRatesManager({
               <Button type="submit" disabled={pending} data-testid="ship-save">
                 {t("addRate")}
               </Button>
-              {error ? <span className="ml-3 text-sm text-danger">{common("required")}</span> : null}
+              {error ? <span role="alert" className="ml-3 text-sm text-danger">{t(error === "invalid" ? "shippingInvalid" : "shippingSaveFailed")}</span> : null}
+              {saved ? <span role="status" className="ml-3 text-sm text-ok">{t("shippingSaved")}</span> : null}
             </div>
           </form>
         </CardContent>
@@ -222,6 +250,8 @@ export function ShippingRatesManager({
                       <Badge variant="success" className="ml-2">
                         {t("inForce")}
                       </Badge>
+                    ) : r.effectiveFrom > asOf ? (
+                      <Badge variant="secondary" className="ml-2">{t("scheduled")}</Badge>
                     ) : null}
                   </td>
                   <td className="px-4 py-2 font-mono tabular-nums text-ink">

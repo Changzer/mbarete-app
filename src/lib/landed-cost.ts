@@ -1,9 +1,9 @@
 import { convert, type CurrencyRates, UnknownCurrencyError } from "@/lib/calculations";
 
 /**
- * What a product costs once it has arrived: the supplier's price, the sea
- * freight for its share of a carton, and the destination's import duty on
- * the two together. An estimate for choosing products, never an invoice:
+ * Product + freight + estimated duty, not the full landed cost. Freight
+ * is the carton's volume share; duty uses cost plus freight as an incomplete
+ * planning base. An estimate for choosing products, never an invoice:
  * it leaves out insurance, port charges and the destination's other import
  * taxes (Brazil's IPI/PIS/COFINS/ICMS, Paraguay's IVA), which the reader
  * adds on their own numbers.
@@ -48,12 +48,14 @@ export function rateKey(destination: string, mode: string): string {
   return `${destination}:${mode}`;
 }
 
-/** The newest row per destination and mode is the estimate in force. */
+/** Newest effective row as of the UTC day; later quotes stay scheduled. */
 export function latestRates<T extends { destination: string; mode: string; effectiveFrom: string; id?: number }>(
   rows: T[],
+  asOf = new Date().toISOString().slice(0, 10),
 ): Map<string, T> {
   const best = new Map<string, T>();
   for (const row of rows) {
+    if (row.effectiveFrom > asOf) continue;
     const key = rateKey(row.destination, row.mode);
     const cur = best.get(key);
     const newer =
@@ -73,7 +75,7 @@ export type LandedCostInput = {
   costCurrency: string;
   cartonCbm: number;
   qtyPerBox: number;
-  /** Ad valorem import duty on the CIF value, in percent; null when unknown. */
+  /** User-selected duty percentage; null when unknown. */
   dutyPct: number | null;
   rate: ShippingRate | null;
   /** The currency the figure is shown in. */
@@ -83,60 +85,71 @@ export type LandedCostInput = {
 
 export type LandedCost = {
   currency: string;
-  unitCost: number;
-  shipping: number;
-  /** Cost plus freight — the duty base (insurance left out). */
-  cif: number;
-  duty: number;
-  total: number;
+  unitCost: number | null;
+  shipping: number | null;
+  /** Cost plus freight only, not CIF: insurance is not modelled. */
+  costAndFreight: number | null;
+  duty: number | null;
+  total: number | null;
   /** What could not be included, so the figure is read for what it is. */
   missing: ("price" | "rate" | "carton" | "duty" | "currency")[];
 };
 
 /**
  * Landed cost per unit in the target currency. Never throws: a missing
- * piece shows up in `missing` and contributes zero, so the reader sees a
- * partial figure labelled as partial rather than nothing.
+ * piece shows up in `missing`. Dependent amounts stay unknown instead of
+ * turning an incomplete estimate into a deceptively low total.
  */
 export function landedCost(input: LandedCostInput): LandedCost {
   const missing: LandedCost["missing"] = [];
   const conv = (amount: number, from: string) => {
     try {
+      if (from !== input.target) {
+        for (const code of [from, input.target]) {
+          if (!Number.isFinite(input.rates[code]) || !(input.rates[code] > 0)) {
+            throw new UnknownCurrencyError(code);
+          }
+        }
+      }
       return convert(amount, from, input.target, input.rates);
     } catch (err) {
       if (err instanceof UnknownCurrencyError) {
         if (!missing.includes("currency")) missing.push("currency");
-        return 0;
+        return null;
       }
       throw err;
     }
   };
-  const unitCost = input.unitCost > 0 ? conv(input.unitCost, input.costCurrency) : 0;
-  if (!(input.unitCost > 0)) missing.push("price");
-  let shipping = 0;
-  if (!input.rate) missing.push("rate");
-  else if (!(input.cartonCbm > 0) || !(input.qtyPerBox > 0)) missing.push("carton");
-  else shipping = conv(shippingPerUnit(input.rate, input.cartonCbm, input.qtyPerBox), input.rate.currency);
-  const cif = unitCost + shipping;
-  let duty = 0;
-  if (input.dutyPct === null || !Number.isFinite(input.dutyPct)) missing.push("duty");
-  else duty = (cif * input.dutyPct) / 100;
-  const round = (n: number) => Math.round(n * 10000) / 10000;
+  const hasPrice = Number.isFinite(input.unitCost) && input.unitCost > 0;
+  const unitCost = hasPrice ? conv(input.unitCost, input.costCurrency) : null;
+  if (!hasPrice) missing.push("price");
+  const hasCarton = Number.isFinite(input.cartonCbm) && input.cartonCbm > 0
+    && Number.isFinite(input.qtyPerBox) && input.qtyPerBox > 0;
+  const hasRate = input.rate && Number.isFinite(input.rate.amount) && input.rate.amount > 0
+    && (input.rate.basis !== "per_40hq" || (Number.isFinite(input.rate.usableCbm) && input.rate.usableCbm > 0));
+  let shipping: number | null = null;
+  if (!hasRate) missing.push("rate");
+  if (!hasCarton) missing.push("carton");
+  if (hasRate && hasCarton && input.rate) shipping = conv(shippingPerUnit(input.rate, input.cartonCbm, input.qtyPerBox), input.rate.currency);
+  const costAndFreight = unitCost !== null && shipping !== null ? unitCost + shipping : null;
+  let duty: number | null = null;
+  if (input.dutyPct === null || !Number.isFinite(input.dutyPct) || input.dutyPct < 0 || input.dutyPct > 200) missing.push("duty");
+  else if (costAndFreight !== null) duty = (costAndFreight * input.dutyPct) / 100;
+  const round = (n: number | null) => n === null ? null : Math.round(n * 10000) / 10000;
   return {
     currency: input.target,
     unitCost: round(unitCost),
     shipping: round(shipping),
-    cif: round(cif),
+    costAndFreight: round(costAndFreight),
     duty: round(duty),
-    total: round(cif + duty),
+    total: round(costAndFreight !== null && duty !== null ? costAndFreight + duty : null),
     missing,
   };
 }
 
 /**
  * The same estimate under both shipping modes, so LCL and FCL can be read
- * side by side. A mode with no rate in force still yields a figure, with
- * "rate" among its missing pieces.
+ * side by side. A mode with no rate retains known components but no total.
  */
 export function landedCostByMode(input: Omit<LandedCostInput, "rate">, rates: RatesByMode): Record<ShippingMode, LandedCost> {
   return {

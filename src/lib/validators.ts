@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { isHsCode, normalizeHsCode } from "@/lib/customs";
+import { normalizeDecimalInput } from "@/lib/decimal-input";
 
 /**
  * What a product actually needs to exist.
@@ -10,8 +12,9 @@ import { z } from "zod";
  */
 /** An ad valorem duty in percent, or blank for "not known yet" (stored as null). */
 const dutyPct = z.preprocess(
-  (v) => (v === undefined || v === null ? "" : v),
-  z.union([z.coerce.number().nonnegative().max(200), z.literal("")]).transform((v) => (v === "" ? null : v)),
+  (v) => v === undefined || v === null || (typeof v === "string" && v.trim() === "")
+    ? null : typeof v === "string" ? normalizeDecimalInput(v) : v,
+  z.coerce.number().nonnegative().max(200).nullable(),
 );
 
 export const productSchema = z
@@ -26,19 +29,17 @@ export const productSchema = z
     categoryId: z.coerce.number().int().positive(),
     descriptionEn: z.string().default(""),
     descriptionZh: z.string().default(""),
-    // The AI's reading of the price board and its remarks, carried through
-    // the form unchanged so they land on the product.
-    // Customs classification and the destination's ad valorem duty, both
-    // AI-proposed and person-checked; blank duty means "not known yet".
+    // Classification and user-selected duty; blank duty means "not known yet".
     hsCode: z
       .string()
       .trim()
-      .transform((v) => v.replace(/[^0-9]/g, ""))
-      .refine((v) => v === "" || (v.length >= 6 && v.length <= 10), "hsCode")
+      .transform(normalizeHsCode)
+      .refine((v) => v === "" || isHsCode(v), "hsCode")
       .default(""),
     exportDestination: z.enum(["", "BR", "PY"]).default(""),
     importDutyPctBr: dutyPct,
     importDutyPctPy: dutyPct,
+    // The AI's board reading and remarks, carried through with the product.
     boardText: z
       .string()
       .trim()

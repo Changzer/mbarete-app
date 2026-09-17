@@ -12,6 +12,7 @@ import { requireUser } from "@/lib/authz";
 import { getExchangeRates } from "@/lib/queries/orders";
 import { getCompanyProfile, getLatestShippingRates } from "@/lib/queries/settings";
 import { resolveFunctionalCurrency } from "@/lib/functional-currency";
+import { draftExportFields, normalizeHsCode } from "@/lib/customs";
 
 export default async function NewProductPage({
   searchParams,
@@ -110,9 +111,7 @@ export default async function NewProductPage({
           descriptionZh: f.descriptionZh || tr.descriptionZh,
           boardText: tr.boardText,
           aiNotes: reviewable.transcriptNotes || undefined,
-          hsCode: f.hsCode || tr.hsCode,
-          importDutyPctBr: num(f.importDutyPctBr) ?? tr.importDutyBrPct ?? null,
-          importDutyPctPy: num(f.importDutyPctPy) ?? tr.importDutyPyPct ?? null,
+          ...draftExportFields(f, tr.hsCode),
           price: num(f.price) ?? tr.price,
           sellPrice: num(f.sellPrice),
           currency: f.currency || tr.currency,
@@ -158,6 +157,10 @@ export default async function NewProductPage({
         shippingRates={shippingRates}
         rates={exchangeRates}
         functionalCurrency={resolveFunctionalCurrency(profile.functionalCurrency, exchangeRates)}
+        dutySuggestions={reviewable && draftDefaults?.hsCode && normalizeHsCode(draftDefaults.hsCode) === reviewable.transcript.hsCode ? {
+          BR: reviewable.transcript.importDutyBrPct,
+          PY: reviewable.transcript.importDutyPyPct,
+        } : {}}
         action={createProduct}
         submitLabel={common("save")}
         showAddAnother

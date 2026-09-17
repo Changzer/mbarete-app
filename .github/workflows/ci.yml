@@ -95,6 +95,16 @@ jobs:
       # another account's captures staying on the phone.
       - run: npm run test:capture
         if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
+      - run: npm run test:landed-cost
+        if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
+      - name: Upload export estimate review screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: landed-cost-review
+          path: artifacts/landed-cost
+          if-no-files-found: ignore
+          retention-days: 7
       - run: npm run test:landing
         if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
         env:

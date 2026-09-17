@@ -33,7 +33,8 @@ export default async function SettingsPage() {
     getShippingRates(user!.companyId),
     getUserNames(user!.companyId),
   ]);
-  const latestShipping = [...latestRates(shipping).values()].map((r) => r.id);
+  const asOf = new Date().toISOString().slice(0, 10);
+  const latestShipping = [...latestRates(shipping, asOf).values()].map((r) => r.id);
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-10 px-4 py-6">
@@ -80,6 +81,7 @@ export default async function SettingsPage() {
             createdByName: r.createdBy ? (userNames.get(r.createdBy) ?? null) : null,
           }))}
           latestIds={latestShipping}
+          asOf={asOf}
           currencies={rates.map((r) => r.currencyCode)}
         />
       </section>

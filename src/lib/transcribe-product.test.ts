@@ -26,6 +26,13 @@ const raw = (overrides: Partial<RawTranscription>): RawTranscription => ({
   ...overrides,
 });
 
+test("AI classification keeps only supported HS/NCM codes", () => {
+  assert.equal(sanitizeTranscription(raw({ hsCode: "4202.22.00" }), CATEGORY_IDS).fields.hsCode, "42022200");
+  for (const hsCode of ["4202220", "420222000", "HS42022200", "not a code"]) {
+    assert.equal(sanitizeTranscription(raw({ hsCode }), CATEGORY_IDS).fields.hsCode, undefined);
+  }
+});
+
 test("a full reading passes through", () => {
   const { fields, notes } = sanitizeTranscription(
     raw({

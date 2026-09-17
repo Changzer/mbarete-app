@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
-import { Check, Loader2, Sparkles } from "lucide-react";
+import { Check, ChevronDown, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Disclosure, Field, FormSection } from "@/components/ui/disclosure";
@@ -29,9 +29,10 @@ import {
 import { ContactForm } from "@/components/contacts/contact-form";
 import { createContact, type ContactActionResult } from "@/lib/actions/contacts";
 import type { TranscribeResult, TranscribedFields } from "@/lib/transcribe-product";
-import { DESTINATIONS, SHIPPING_MODES, landedCostByMode, type Destination, type RatesByMode, type ShippingMode } from "@/lib/landed-cost";
+import { DESTINATIONS, type Destination, type RatesByMode } from "@/lib/landed-cost";
 import type { CurrencyRates } from "@/lib/calculations";
-import { formatMoney } from "@/lib/money";
+import { LandedCostBox } from "@/components/catalog/landed-cost-box";
+import { isHsCode, normalizeHsCode, readDuty } from "@/lib/customs";
 import type { CardTranscribeResult } from "@/lib/transcribe-card";
 import type { MatchCandidate } from "@/lib/contact-match";
 import {
@@ -107,6 +108,7 @@ export function ProductForm({
   shippingRates = {},
   rates = {},
   functionalCurrency = "USD",
+  dutySuggestions = {},
 }: {
   categories: Category[];
   action: (prevState: string | undefined, formData: FormData) => Promise<string | undefined>;
@@ -138,6 +140,7 @@ export function ProductForm({
   /** Exchange rates and the currency the estimate is shown in. */
   rates?: CurrencyRates;
   functionalCurrency?: string;
+  dutySuggestions?: Partial<Record<Destination, number>>;
 }) {
   const t = useTranslations("catalog");
   const common = useTranslations("common");
@@ -251,7 +254,9 @@ export function ProductForm({
   // The landed-cost estimate follows the price as it is typed; the input
   // itself stays uncontrolled so the AI can still write into it.
   const [priceText, setPriceText] = useState(defaultValues?.price ? String(defaultValues.price) : "");
-  const [destination, setDestination] = useState<Destination>(defaultValues?.exportDestination || "BR");
+  const [destination, setDestination] = useState<"" | Destination>(defaultValues?.exportDestination ?? "");
+  const exportDetailsRef = useRef<HTMLDetailsElement>(null);
+  const [suggestedDuties, setSuggestedDuties] = useState(dutySuggestions);
   const [dutyBr, setDutyBr] = useState(defaultValues?.importDutyPctBr != null ? String(defaultValues.importDutyPctBr) : "");
   const [dutyPy, setDutyPy] = useState(defaultValues?.importDutyPctPy != null ? String(defaultValues.importDutyPctPy) : "");
   // The carton figure the form would save right now (vendor override, else
@@ -308,14 +313,18 @@ export function ProductForm({
 
     setIfUntouched("supplierCode", fields.supplierCode);
     setIfUntouched("hsCode", fields.hsCode);
-    if (fields.importDutyBrPct !== undefined) setDutyBr((prev) => (overwrite || prev === "" ? String(fields.importDutyBrPct) : prev));
-    if (fields.importDutyPyPct !== undefined) setDutyPy((prev) => (overwrite || prev === "" ? String(fields.importDutyPyPct) : prev));
-    if (fields.price !== undefined) setPriceText((prev) => (overwrite || prev === "" ? String(fields.price) : prev));
+    const hsInput = form.elements.namedItem("hsCode") as HTMLInputElement;
+    // A model proposal is not a current tariff lookup, nor permission to
+    // replace a manually entered rate. It stays separate until chosen.
+    if (fields.hsCode && normalizeHsCode(hsInput.value) === fields.hsCode) {
+      setSuggestedDuties({ BR: fields.importDutyBrPct, PY: fields.importDutyPyPct });
+    }
     setIfUntouched("nameEn", fields.nameEn);
     setIfUntouched("nameZh", fields.nameZh);
     setIfUntouched("descriptionEn", fields.descriptionEn);
     setIfUntouched("descriptionZh", fields.descriptionZh);
     setIfUntouched("price", fields.price);
+    setPriceText((form.elements.namedItem("price") as HTMLInputElement).value);
     // Currency is state, so it takes the same "only if untouched" rule by
     // hand: USD is the pristine default nobody chose.
     if (fields.currency) {
@@ -389,6 +398,14 @@ export function ProductForm({
     // carries in its querystring; everything else returns to its defaults.
     formRef.current?.reset();
     setCaptureEpoch((epoch) => epoch + 1);
+    setPriceText(defaultValues?.price ? String(defaultValues.price) : "");
+    setDutyBr("");
+    setDutyPy("");
+    setSuggestedDuties({});
+    setCartonCbm(defaultValues?.cbmOverride || computeCbm(
+      defaultValues?.lengthCm ?? 0, defaultValues?.widthCm ?? 0, defaultValues?.heightCm ?? 0,
+    ));
+    if (exportDetailsRef.current) exportDetailsRef.current.open = false;
     setSource(defaultValues?.dimensionSource ?? "carton");
     setQtyPerBox(String(defaultValues?.qtyPerBox ?? 1));
     setPiece({
@@ -473,6 +490,15 @@ export function ProductForm({
       !formData.has(submitter.name)
     ) {
       formData.append(submitter.name, submitter.value);
+    }
+    const hsCode = String(formData.get("hsCode") ?? "");
+    const badCode = hsCode.trim() !== "" && !isHsCode(hsCode);
+    const badDuty = [dutyBr, dutyPy].some((value) => value.trim() !== "" && readDuty(value) === null);
+    if (badCode || badDuty) {
+      setErrorMessage(badCode ? "invalid-hs-code" : "invalid-duty");
+      if (exportDetailsRef.current) exportDetailsRef.current.open = true;
+      document.getElementById(badCode ? "hsCode" : "importDuty")?.focus();
+      return;
     }
     startTransition(async () => {
       const error = await submitAction(formData);
@@ -860,65 +886,6 @@ export function ProductForm({
         </Field>
       </FormSection>
 
-      {/* Where it is going and what it will cost once there: classification,
-          the destination's duty, and the estimate built from price, freight
-          and duty. The AI proposes the code and rates; a person keeps them. */}
-      <FormSection kicker={t("exportGroup")} className="lg:col-span-2">
-        <div className="grid grid-cols-2 gap-3">
-          <Field label={t("hsCode")} htmlFor="hsCode" hint={t("hsCodeHelp")}>
-            <Input
-              id="hsCode"
-              name="hsCode"
-              inputMode="numeric"
-              placeholder="96032100"
-              defaultValue={defaultValues?.hsCode}
-              className="font-mono"
-              data-testid="hs-code"
-            />
-          </Field>
-          <Field label={t("destination")} htmlFor="exportDestination">
-            <input type="hidden" name="exportDestination" value={destination} />
-            <Select value={destination} onValueChange={(v) => setDestination(v as Destination)}>
-              <SelectTrigger id="exportDestination" data-testid="export-destination">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DESTINATIONS.map((d) => (
-                  <SelectItem key={d} value={d}>
-                    {t(`destination_${d}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label={t("importDuty", { destination: t(`destination_${destination}`) })} htmlFor="importDuty" hint={t("importDutyHelp")}>
-            <input type="hidden" name="importDutyPctBr" value={dutyBr} />
-            <input type="hidden" name="importDutyPctPy" value={dutyPy} />
-            <Input
-              id="importDuty"
-              type="text"
-              numeric
-              inputMode="decimal"
-              suffix="%"
-              placeholder="18"
-              value={destination === "BR" ? dutyBr : dutyPy}
-              onChange={(e) => (destination === "BR" ? setDutyBr(e.target.value) : setDutyPy(e.target.value))}
-              data-testid="import-duty"
-            />
-          </Field>
-          <LandedCostBox
-            priceText={priceText}
-            currency={currency}
-            cartonCbm={cartonCbm}
-            qtyPerBox={Number(qtyPerBox) || 0}
-            dutyText={destination === "BR" ? dutyBr : dutyPy}
-            shipping={shippingRates[destination] ?? {}}
-            rates={rates}
-            target={functionalCurrency}
-          />
-        </div>
-      </FormSection>
-
       <FormSection kicker={t("identityGroup")} className="lg:col-span-2">
         <input type="hidden" name="thumbPath" value={thumbPath} />
         <input type="hidden" name="boardText" value={aiBoardText ?? ""} />
@@ -1000,6 +967,7 @@ export function ProductForm({
           hint={t("dimensionsHint")}
           data-testid="dimensions-disclosure"
           defaultOpen={hasDimensions}
+          keepMounted
         >
           <div className="flex flex-col gap-3">
             <Field label={t("dimensionSource")}>
@@ -1154,6 +1122,85 @@ export function ProductForm({
         </Disclosure>
       </div>
 
+      {/* Optional office work: mounted fields keep their values while folded. */}
+      <details ref={exportDetailsRef} className="group rounded-[12px] border border-line bg-surface lg:col-span-2" data-testid="export-details">
+        <summary className="focus-ring flex min-h-14 cursor-pointer list-none items-center gap-3 px-3.5 [&::-webkit-details-marker]:hidden" data-testid="export-disclosure">
+          <span className="min-w-0 flex-1 py-2">
+            <span className="block text-[13.5px] font-bold text-ink">{t("exportGroup")}</span>
+            <span className="block text-[11px] text-sub">{t("exportHint")}</span>
+          </span>
+          <ChevronDown className="h-4 w-4 shrink-0 text-faint group-open:rotate-180" />
+        </summary>
+        <div className="grid grid-cols-1 gap-4 border-t border-line p-3.5 sm:grid-cols-2">
+          <Field label={t("hsCode")} htmlFor="hsCode" hint={t("hsCodeHelp")}>
+            <Input
+              id="hsCode"
+              name="hsCode"
+              inputMode="numeric"
+              placeholder="96032100"
+              defaultValue={defaultValues?.hsCode}
+              className="font-mono"
+              onChange={() => setSuggestedDuties({})}
+              data-testid="hs-code"
+            />
+          </Field>
+          <Field label={t("destination")} htmlFor="exportDestination">
+            <input type="hidden" name="exportDestination" value={destination} />
+            <Select value={destination || "none"} onValueChange={(v) => setDestination(v === "none" ? "" : v as Destination)}>
+              <SelectTrigger id="exportDestination" data-testid="export-destination">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">{t("chooseDestination")}</SelectItem>
+                {DESTINATIONS.map((d) => (
+                  <SelectItem key={d} value={d}>
+                    {t(`destination_${d}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <input type="hidden" name="importDutyPctBr" value={dutyBr} />
+          <input type="hidden" name="importDutyPctPy" value={dutyPy} />
+          {destination ? <Field label={t("importDuty", { destination: t(`destination_${destination}`) })} htmlFor="importDuty" hint={t("importDutyHelp")}>
+            <Input
+              id="importDuty"
+              type="text"
+              numeric
+              inputMode="decimal"
+              suffix="%"
+              placeholder="18"
+              value={destination === "BR" ? dutyBr : dutyPy}
+              onChange={(e) => (destination === "BR" ? setDutyBr(e.target.value) : setDutyPy(e.target.value))}
+              data-testid="import-duty"
+            />
+            {suggestedDuties[destination] !== undefined ? (
+              <div className="rounded-lg bg-surface-2 p-2.5 text-[12px] text-sub" data-testid="duty-suggestion">
+                <p>{t("dutySuggestion", { pct: suggestedDuties[destination]! })}</p>
+                <Button type="button" variant="outline" className="mt-2 min-h-11" data-testid="use-duty-suggestion"
+                  onClick={() => {
+                    (destination === "BR" ? setDutyBr : setDutyPy)(String(suggestedDuties[destination]));
+                    setSuggestedDuties((previous) => ({ ...previous, [destination]: undefined }));
+                  }}>
+                  {t("useDutySuggestion")}
+                </Button>
+              </div>
+            ) : null}
+          </Field> : null}
+          {destination ? <LandedCostBox
+            priceText={priceText}
+            currency={currency}
+            cartonCbm={source === "piece" ? estimatedCbm : cartonCbm}
+            estimatedCarton={source === "piece"}
+            qtyPerBox={Number(qtyPerBox) || 0}
+            dutyText={destination === "BR" ? dutyBr : dutyPy}
+            shipping={shippingRates[destination] ?? {}}
+            rates={rates}
+            target={functionalCurrency}
+          /> : null}
+        </div>
+      </details>
+
       <label className="flex min-h-11 items-center gap-2.5 text-[13px] font-semibold text-ink lg:col-span-2">
         <input
           id="active"
@@ -1167,7 +1214,9 @@ export function ProductForm({
 
       {errorMessage ? (
         <p className="text-[13px] font-semibold text-danger lg:col-span-2" data-testid="form-error">
-          {errorMessage === "duplicate-sku"
+          {errorMessage === "invalid-hs-code" ? t("errorHsCode")
+            : errorMessage === "invalid-duty" ? t("errorDuty")
+            : errorMessage === "duplicate-sku"
             ? t("errorDuplicateSku")
             : errorMessage === "image-error"
               ? t("errorImage")
@@ -1253,148 +1302,5 @@ export function ProductForm({
         </DialogContent>
       </Dialog>
     </form>
-  );
-}
-
-/**
- * The arriving cost per piece, as the four inputs stand right now, with
- * what it is made of and what it could not include.
- */
-function LandedCostBox({
-  priceText,
-  currency,
-  cartonCbm,
-  qtyPerBox,
-  dutyText,
-  shipping: byMode,
-  rates,
-  target,
-}: {
-  priceText: string;
-  currency: string;
-  cartonCbm: number;
-  qtyPerBox: number;
-  dutyText: string;
-  shipping: RatesByMode;
-  rates: CurrencyRates;
-  target: string;
-}) {
-  const t = useTranslations("catalog");
-  const unitCost = Number(normalizeDecimalInput(priceText)) || 0;
-  const dutyNum = dutyText.trim() === "" ? null : Number(normalizeDecimalInput(dutyText));
-  const result = landedCostByMode(
-    {
-      unitCost,
-      costCurrency: currency,
-      cartonCbm,
-      qtyPerBox,
-      dutyPct: dutyNum !== null && Number.isFinite(dutyNum) ? dutyNum : null,
-      target,
-      rates,
-    },
-    byMode,
-  );
-  const money = (n: number) => formatMoney(n, target);
-  // What is missing for both modes alike is said once; a missing rate is said per mode.
-  const shared = [...new Set(SHIPPING_MODES.flatMap((m) => result[m].missing.filter((x) => x !== "rate")))];
-  const withRate = SHIPPING_MODES.filter((m) => byMode[m]);
-  const cheaper: ShippingMode | null =
-    withRate.length === 2 && result.lcl.total !== result.fcl.total ? (result.lcl.total < result.fcl.total ? "lcl" : "fcl") : null;
-  return (
-    <div
-      className="col-span-2 flex flex-col gap-1.5 rounded-[10px] border border-line bg-surface-2 px-3 py-2 sm:col-span-1"
-      data-testid="landed-cost"
-    >
-      <span className="text-[11px] font-semibold text-sub">{t("landedCost")}</span>
-      <table className="w-full font-mono text-[11px] text-sub">
-        <thead>
-          <tr>
-            <th scope="col" className="sr-only">
-              {t("landedLine")}
-            </th>
-            {SHIPPING_MODES.map((m) => (
-              <th key={m} scope="col" className="pb-0.5 text-right text-[11px] font-semibold uppercase tracking-[0.08em] text-ink">
-                {t(`mode_${m}`)}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <th scope="row" className="text-left font-normal">
-              {t("landedUnitCost")}
-            </th>
-            {SHIPPING_MODES.map((m) => (
-              <td key={m} className="text-right tabular-nums">
-                {money(result[m].unitCost)}
-              </td>
-            ))}
-          </tr>
-          <tr>
-            <th scope="row" className="text-left font-normal">
-              {t("landedShipping")}
-            </th>
-            {SHIPPING_MODES.map((m) => (
-              <td key={m} className="text-right tabular-nums" data-testid={`landed-shipping-${m}`}>
-                {byMode[m] ? money(result[m].shipping) : "—"}
-              </td>
-            ))}
-          </tr>
-          <tr>
-            <th scope="row" className="text-left font-normal">
-              {t("landedDuty")}
-            </th>
-            {SHIPPING_MODES.map((m) => (
-              <td key={m} className="text-right tabular-nums">
-                {money(result[m].duty)}
-              </td>
-            ))}
-          </tr>
-          <tr className="border-t border-line">
-            <th scope="row" className="pt-1 text-left font-semibold text-ink">
-              {t("landedTotal")}
-            </th>
-            {SHIPPING_MODES.map((m) => (
-              <td key={m} className="pt-1 text-right">
-                <span
-                  className={`text-[17px] font-extrabold tabular-nums ${byMode[m] ? "text-ink" : "text-faint"}`}
-                  data-testid={`landed-total-${m}`}
-                >
-                  {money(result[m].total)}
-                </span>
-                {cheaper === m ? (
-                  <span className="ml-1 rounded-full bg-ok-soft px-1.5 py-px text-[10px] font-semibold text-ok" data-testid="landed-cheaper">
-                    {t("landedCheaper")}
-                  </span>
-                ) : null}
-              </td>
-            ))}
-          </tr>
-        </tbody>
-      </table>
-      {shared.length > 0 || withRate.length < SHIPPING_MODES.length ? (
-        <p className="text-[11px] leading-snug text-warn" data-testid="landed-missing">
-          {[
-            ...shared.map((m) => t(`landedMissing_${m}`)),
-            ...SHIPPING_MODES.filter((m) => !byMode[m]).map((m) => t("landedMissing_rate", { mode: t(`mode_${m}`) })),
-          ].join(" · ")}
-        </p>
-      ) : null}
-      {withRate.length > 0 ? (
-        <p className="text-[10.5px] leading-snug text-faint">
-          {withRate
-            .map((m) => {
-              const rate = byMode[m]!;
-              return t("landedRateNote", {
-                mode: t(`mode_${m}`),
-                amount: formatMoney(rate.amount, rate.currency),
-                basis: t(`basis_${rate.basis}`),
-                date: rate.effectiveFrom,
-              });
-            })
-            .join(" · ")}
-        </p>
-      ) : null}
-    </div>
   );
 }
