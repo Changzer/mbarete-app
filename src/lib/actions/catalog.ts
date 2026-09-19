@@ -95,6 +95,7 @@ function formToProductInput(formData: FormData) {
     // stored as 0 and visibly missing, never a reason to block the save.
     price: dec(formData.get("price")) || 0,
     sellPrice: dec(formData.get("sellPrice")) || 0,
+    sellCurrency: formData.get("sellCurrency") ?? "",
     currency: formData.get("currency"),
     moq: formData.get("moq") || 1,
     qtyPerBox: formData.get("qtyPerBox") || 1,
@@ -339,6 +340,7 @@ export async function createProduct(
           importDutyPctPy: data.importDutyPctPy,
           price: data.price,
           sellPrice: data.sellPrice,
+          sellCurrency: data.sellCurrency,
           currency: data.currency,
           moq: data.moq,
           qtyPerBox: data.qtyPerBox,
@@ -580,6 +582,7 @@ export async function updateProduct(
       importDutyPctPy: data.importDutyPctPy,
       price: data.price,
       sellPrice: data.sellPrice,
+      sellCurrency: data.sellCurrency,
       currency: data.currency,
       moq: data.moq,
       qtyPerBox: data.qtyPerBox,

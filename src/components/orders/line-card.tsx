@@ -10,7 +10,6 @@ import {
   fullCartons,
   isBelowMoq,
   isPartialCarton,
-  sellUnitPrice,
   suggestedQuantity,
 } from "@/lib/calculations";
 import type { BuilderProduct } from "@/components/orders/order-builder";
@@ -32,6 +31,8 @@ export function LineCard({
   product,
   qty,
   sellPrice,
+  listPrice,
+  currency,
   onStep,
   onOpenKeypad,
   onFix,
@@ -42,6 +43,10 @@ export function LineCard({
   qty: number;
   /** the price the client is billed, already resolved to a number */
   sellPrice: number;
+  /** the catalog's default for this line, in the quote currency */
+  listPrice: number;
+  /** the order's quote currency — every figure on the card is in it */
+  currency: string;
   onStep: (productId: number, dir: 1 | -1) => void;
   onOpenKeypad: (productId: number, tab: "qty" | "price") => void;
   onFix: (productId: number, qty: number) => void;
@@ -53,7 +58,6 @@ export function LineCard({
   // A thumbnail whose file is gone shows the placeholder, not a broken icon.
   const [thumbBroken, setThumbBroken] = useState(false);
   const hasCarton = product.qtyPerBox > 1;
-  const listPrice = sellUnitPrice(product);
   const edited = Math.abs(sellPrice - listPrice) > 0.004;
   const below = isBelowMoq(qty, product.moq);
   const partial = isPartialCarton(product, qty);
@@ -177,12 +181,12 @@ export function LineCard({
           >
             <span className="flex items-center justify-center gap-1">
               <span className="font-mono text-[13.5px] font-semibold text-ink">
-                {formatMoney(sellPrice, product.currency)}
+                {formatMoney(sellPrice, currency)}
               </span>
               <Pencil size={12} className="text-sub" />
             </span>
             <span className="mt-0.5 block font-mono text-[10.5px] text-sub">
-              {edited ? <s>{formatMoney(listPrice, product.currency)}</s> : t("perPiece")}
+              {edited ? <s>{formatMoney(listPrice, currency)}</s> : t("perPiece")}
             </span>
           </button>
         </div>
@@ -193,7 +197,7 @@ export function LineCard({
             {t("keypadSubtotal").toUpperCase()}
           </span>
           <span className="font-mono text-[14.5px] font-semibold tabular-nums text-ink">
-            {formatMoney(subtotal, product.currency)}
+            {formatMoney(subtotal, currency)}
           </span>
         </div>
       </div>

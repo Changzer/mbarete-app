@@ -29,6 +29,8 @@ export type CatalogProduct = {
   categoryName: string;
   price: number;
   sellPrice: number;
+  /** The currency the selling price is in; the cost currency when none was set. */
+  sellCurrency: string;
   currency: string;
   moq: number;
   qtyPerBox: number;
@@ -272,7 +274,7 @@ export function ProductCard({
           </span>
 
           {/* ④ Who is quoting what — best first, with the gap to the others. */}
-          <SupplierPrices offers={product.offers} sellPrice={product.sellPrice} compact />
+          <SupplierPrices offers={product.offers} sellPrice={product.sellPrice} sellCurrency={product.sellCurrency} compact />
 
           {/* ⑤ Warnings only. A well-measured, active product says nothing. */}
           {unmeasured || estimated || !product.active ? (

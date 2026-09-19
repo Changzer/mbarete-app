@@ -50,6 +50,8 @@ export const productSchema = z
     aiNotes: z.string().trim().max(1000).default(""),
     price: z.coerce.number().nonnegative(),
     sellPrice: z.coerce.number().nonnegative().default(0),
+    // "" keeps the cost currency; a code sets the selling side apart.
+    sellCurrency: z.string().trim().max(8).transform((s) => s.toUpperCase()).default(""),
     currency: z.string().min(1),
     moq: z.coerce.number().int().positive(),
     qtyPerBox: z.coerce.number().int().positive(),

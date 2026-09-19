@@ -58,6 +58,7 @@ export async function toCatalogProducts(
       categoryName: cat ? localizeField(locale, cat.nameEn, cat.nameZh) : "",
       price: p.price,
       sellPrice: p.sellPrice,
+      sellCurrency: p.sellCurrency || p.currency,
       currency: p.currency,
       moq: p.moq,
       qtyPerBox: p.qtyPerBox,

@@ -179,12 +179,12 @@ export function ProductDetailDialog({
             <div className="col-span-2">
               <dt className="text-[11px] font-semibold text-sub">{t("costPrice")}</dt>
               <dd className="mt-1">
-                <SupplierPrices offers={product.offers} sellPrice={product.sellPrice} />
+                <SupplierPrices offers={product.offers} sellPrice={product.sellPrice} sellCurrency={product.sellCurrency} />
               </dd>
             </div>
             <Figure label={t("sellPrice")} testId="card-sell-price">
               {product.sellPrice > 0
-                ? formatMoney(product.sellPrice, product.currency)
+                ? formatMoney(product.sellPrice, product.sellCurrency)
                 : t("sellsAtCost")}
             </Figure>
             <Figure label={t("qtyPerBox")}>{product.qtyPerBox}</Figure>

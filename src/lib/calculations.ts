@@ -8,7 +8,14 @@ export type ProductForCalc = {
    * before selling prices existed already behaved.
    */
   sellPrice?: number;
+  /** The cost currency — what the supplier quotes in. */
   currency: string;
+  /**
+   * The currency the selling price is in. Absent (or "") means the cost
+   * currency, which is what every product had before selling currencies
+   * existed; a company that buys in RMB and sells in USD sets it apart.
+   */
+  sellCurrency?: string;
   moq: number;
   qtyPerBox: number;
   weightKg: number;
@@ -18,6 +25,31 @@ export type ProductForCalc = {
 /** The per-unit price the client pays for this product. */
 export function sellUnitPrice(product: Pick<ProductForCalc, "price" | "sellPrice">) {
   return product.sellPrice && product.sellPrice > 0 ? product.sellPrice : product.price;
+}
+
+/**
+ * The currency the client pays in for this product: its own selling
+ * currency when one is set, else the cost currency, which is what a line
+ * sold at cost is denominated in anyway.
+ */
+export function sellCurrencyOf(product: Pick<ProductForCalc, "currency" | "sellCurrency">) {
+  return product.sellCurrency || product.currency;
+}
+
+/**
+ * A selling price re-expressed in the order's quote currency, to the cent.
+ * The catalog's default may be in RMB while the client is quoted in USD;
+ * this is the number the builder starts from. With no rate for either
+ * side the figure comes back unchanged and the totals name the gap — a
+ * silent 1:1 would be a 7× pricing error on a quote.
+ */
+export function quoteSellPrice(amount: number, from: string, to: string, rates: CurrencyRates) {
+  try {
+    return roundMoney(convert(amount, from, to, rates));
+  } catch (err) {
+    if (err instanceof UnknownCurrencyError) return amount;
+    throw err;
+  }
 }
 
 /** Volume of one carton in m^3, from its outer dimensions in cm. */
@@ -227,9 +259,12 @@ export function computeOrderTotals(
 
     const rawSell = lineSellTotal(product, quantity);
     const rawCost = lineTotal(product, quantity);
+    // The sell side converts from the currency it was quoted in, which is
+    // the order's quote currency in the builder and may differ from cost.
+    const sellCurrency = sellCurrencyOf(product);
     for (const target of targetCurrencies) {
       try {
-        goods[target] += convert(rawSell, product.currency, target, rates);
+        goods[target] += convert(rawSell, sellCurrency, target, rates);
         cost[target] += convert(rawCost, product.currency, target, rates);
       } catch (err) {
         if (err instanceof UnknownCurrencyError) {
