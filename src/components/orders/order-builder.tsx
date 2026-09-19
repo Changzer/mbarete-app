@@ -28,6 +28,7 @@ import {
 } from "@/lib/calculations";
 import { createOrder, updateOrder, type OrderActionResult } from "@/lib/actions/orders";
 import { LineCard } from "@/components/orders/line-card";
+import { CurrencyField, SALE_CHOICES } from "@/components/catalog/currency-field";
 import { OrderKeypad } from "@/components/orders/order-keypad";
 import { ProductPicker } from "@/components/orders/product-picker";
 import { ProductDetailDialog } from "@/components/catalog/product-detail-dialog";
@@ -493,22 +494,18 @@ export function OrderBuilder({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="displayCurrency">{t("quoteCurrency")}</Label>
-              <Select value={displayCurrency} onValueChange={changeQuoteCurrency}>
-                <SelectTrigger id="displayCurrency" data-testid="quote-currency">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.keys(rates).map((code) => (
-                    <SelectItem key={code} value={code}>
-                      {code}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-[11px] leading-snug text-sub">{t("quoteCurrencyHelp", { currency: displayCurrency })}</p>
-            </div>
+            <CurrencyField
+              value={displayCurrency}
+              onChange={changeQuoteCurrency}
+              name=""
+              label={t("quoteCurrency")}
+              otherLabel={t("currencyOther")}
+              choices={SALE_CHOICES}
+              others={Object.keys(rates)}
+              testId="quote-currency"
+              className="col-span-2"
+            />
+            <p className="col-span-2 -mt-1 text-[11px] leading-snug text-sub">{t("quoteCurrencyHelp", { currency: displayCurrency })}</p>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="secondaryCurrency">{t("secondaryCurrency")}</Label>
               <Select value={secondaryCurrency} onValueChange={setSecondaryCurrency}>

@@ -417,6 +417,7 @@
     "grandTotal": "Total",
     "quoteCurrency": "Quote currency",
     "quoteCurrencyHelp": "Unit prices below are in {currency}; catalog prices in another currency are converted at today's rate when a line is added.",
+    "currencyOther": "Other",
     "secondaryCurrency": "Also show in",
     "missingRate": "No exchange rate set for {codes}. Add it in Settings — these lines are excluded from the totals.",
     "openSettings": "Open Settings",
