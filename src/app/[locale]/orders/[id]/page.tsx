@@ -20,6 +20,7 @@ import { OrderActionsSheet } from "@/components/orders/order-actions-sheet";
 import { OrderFinance, OrderDocumentsCard } from "@/components/orders/order-finance";
 import { OrderResult } from "@/components/orders/order-result";
 import { OrderChangelog } from "@/components/orders/order-changelog";
+import { OrderNotesCard } from "@/components/orders/order-notes-card";
 import { ProformaBankSelect } from "@/components/orders/proforma-bank-select";
 import { OrderExportButtons } from "@/components/orders/order-export-buttons";
 import { requireUser, requireModulePage, getCompanyModules } from "@/lib/authz";
@@ -346,12 +347,9 @@ export default async function OrderDetailPage({
       </div>
       </div>
 
-      {order.notes ? (
-        <div className="mt-4">
-          <p className="text-sm text-sub">{t("notes")}</p>
-          <p className="whitespace-pre-wrap text-sm text-ink">{order.notes}</p>
-        </div>
-      ) : null}
+      {/* What the proforma says under the totals; editable here on any
+          status, since a confirmed order freezes its terms, not its wording. */}
+      <OrderNotesCard orderId={order.id} notes={order.notes} />
 
       {totals.hasMoqViolation && order.status === "draft" ? (
         <p className="mt-4 text-xs text-warn">{t("moqBlocksConfirm")}</p>

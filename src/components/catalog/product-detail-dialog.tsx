@@ -1,5 +1,7 @@
 "use client";
 
+import { usePathname, useSearchParams } from "next/navigation";
+
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { authenticatedUploadLoader } from "@/lib/client/upload-image-loader";
@@ -45,6 +47,11 @@ export function ProductDetailDialog({
   const isAdmin = useIsAdmin();
   const [zoom, setZoom] = useState(false);
   const [index, setIndex] = useState(0);
+  // Only the catalog has a view worth returning to; from an order being
+  // built, the edit page falls back to the plain catalog.
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const backQuery = pathname.endsWith("/catalog") ? searchParams.toString() : "";
   const setOpen = onOpenChange;
 
   // Back to the first photo each time it opens, adjusted during render so
@@ -315,7 +322,11 @@ export function ProductDetailDialog({
               <Link href={`/catalog/new?from=${product.id}`}>{t("duplicate")}</Link>
             </Button>
             <Button asChild variant="outline" size="sm">
-              <Link href={`/catalog/${product.id}/edit`}>{common("edit")}</Link>
+              {/* The catalog's search, filters and this open product ride
+                  along so the save lands back on the same view. */}
+              <Link href={backQuery ? `/catalog/${product.id}/edit?back=${encodeURIComponent(backQuery)}` : `/catalog/${product.id}/edit`}>
+                {common("edit")}
+              </Link>
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useSearchParams } from "next/navigation";
 import { LayoutGrid, List, PackageSearch, SearchX } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
@@ -62,7 +63,30 @@ export function CatalogList({
   filters?: React.ReactNode;
 }) {
   const t = useTranslations("catalog");
-  const [query, setQuery] = useState("");
+  // The search text is part of the view, so it lives in the URL like the
+  // filters: an edit that returns here finds the same list. It is written
+  // through history.replaceState, not the router, so typing costs no server
+  // round trip and keeps working offline. The state argument stays null:
+  // Next.js merges its own history state in and syncs useSearchParams, but
+  // skips both when handed its internal state object back.
+  const searchParams = useSearchParams();
+  const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
+  const writeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (writeTimer.current) clearTimeout(writeTimer.current);
+    writeTimer.current = setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      const trimmed = query.trim();
+      if ((params.get("q") ?? "") === trimmed) return;
+      if (trimmed) params.set("q", trimmed);
+      else params.delete("q");
+      const qs = params.toString();
+      window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+    }, 250);
+    return () => {
+      if (writeTimer.current) clearTimeout(writeTimer.current);
+    };
+  }, [query]);
 
   // Desktop rendering: the table for finding, the tile gallery for browsing.
   // A per-browser convenience persisted in localStorage; read through

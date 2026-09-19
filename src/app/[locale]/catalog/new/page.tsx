@@ -37,11 +37,14 @@ export default async function NewProductPage({
   const categoryId = Number(category);
   const supplierId = Number(supplier);
 
-  // Duplicating for comparison shopping: everything descriptive is copied,
-  // but the SKU is fresh, the buy price is blank (this booth's price is the
-  // datum being collected — and blank is what lets "Fill from photos" write
-  // it), and photos and supplier stay empty because they belong to the other
-  // vendor. The source id rides along as lineage for later comparison.
+  // Duplicating: everything descriptive and commercial is copied — the cost
+  // price too, since a duplicate is most often a variant of the same item
+  // (the H4 after the H1) and retyping the price was the first thing every
+  // duplicate needed. The SKU is fresh, and photos and supplier stay empty
+  // because they belong to the source product. An automatic photo read
+  // leaves a filled price alone; the explicit "Fill from photos" still
+  // overwrites it when a new booth's board is read. The source id rides
+  // along as lineage for later comparison.
   const fromId = Number(from);
   const source = Number.isFinite(fromId) && fromId > 0 ? await getProductById(companyId, fromId) : undefined;
   const duplicateDefaults = source
@@ -51,8 +54,14 @@ export default async function NewProductPage({
         categoryId: source.categoryId,
         descriptionEn: source.descriptionEn,
         descriptionZh: source.descriptionZh,
-        sellPrice: source.sellPrice,
+        price: source.price,
         currency: source.currency,
+        sellPrice: source.sellPrice,
+        sellCurrency: source.sellCurrency,
+        hsCode: source.hsCode,
+        exportDestination: source.exportDestination,
+        importDutyPctBr: source.importDutyPctBr,
+        importDutyPctPy: source.importDutyPctPy,
         moq: source.moq,
         qtyPerBox: source.qtyPerBox,
         lengthCm: source.lengthCm,

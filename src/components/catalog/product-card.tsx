@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { authenticatedUploadLoader } from "@/lib/client/upload-image-loader";
 import { ImageOff } from "lucide-react";
@@ -75,12 +76,38 @@ export function ProductCard({
   const t = useTranslations("catalog");
   const common = useTranslations("common");
   const [open, setOpen] = useState(false);
+  // The open product is part of the catalog's view (?open=id): coming back
+  // from an edit reopens it where it was. Only the rendering that is
+  // actually on screen reacts — a phone row and a desktop table cell are
+  // both mounted for the same product, and one dialog is enough.
+  const rootRef = useRef<HTMLElement | null>(null);
+  const searchParams = useSearchParams();
+  const wanted = searchParams.get("open") === String(product.id);
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!wanted || !el || el.getClientRects().length === 0) return;
+    setOpen(true);
+    el.scrollIntoView({ block: "center" });
+    // Once: later URL edits (typing a search) must not reopen it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const estimated = product.dimensionSource === "piece";
   // Registered without measurements — shown as unknown, never as zero.
   const unmeasured = missingCartonFigures(product);
   const count = product.images.length;
-  const openDialog = useCallback((next: boolean) => setOpen(next), []);
+  const openDialog = useCallback(
+    (next: boolean) => {
+      setOpen(next);
+      // Written straight to history: no server round trip for a dialog.
+      const params = new URLSearchParams(window.location.search);
+      if (next) params.set("open", String(product.id));
+      else if (params.get("open") === String(product.id)) params.delete("open");
+      const qs = params.toString();
+      window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+    },
+    [product.id],
+  );
 
   // The quote to lead with; the query layer already ranked them.
   const best = product.offers[0];
@@ -109,6 +136,7 @@ export function ProductCard({
     return (
       <>
         <tr
+          ref={(el) => { rootRef.current = el; }}
           onClick={() => openDialog(true)}
           data-testid="product-table-row"
           className="cursor-pointer border-b border-line last:border-0 hover:bg-surface-2"
@@ -170,6 +198,7 @@ export function ProductCard({
             for finding. Same registers, same dialog. */}
         <button
           type="button"
+          ref={(el) => { rootRef.current = el; }}
           onClick={() => openDialog(true)}
           data-testid="product-tile"
           className="press focus-ring flex w-full flex-col overflow-hidden rounded-[12px] border border-line bg-surface text-left hover:border-line-strong"
@@ -231,6 +260,7 @@ export function ProductCard({
     <>
       <button
         type="button"
+        ref={(el) => { rootRef.current = el; }}
         onClick={() => openDialog(true)}
         data-testid="product-row"
         className="press focus-ring flex w-full items-center gap-3 rounded-[12px] border border-line bg-surface p-2.5 text-left hover:border-line-strong"

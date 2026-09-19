@@ -7,6 +7,7 @@ import { transcribeProduct, transcribeCard } from "@/lib/actions/transcribe";
 import { isTranscriptionEnabled } from "@/lib/transcribe-product";
 import { ProductForm } from "@/components/catalog/product-form";
 import { computeCbm } from "@/lib/calculations";
+import { catalogReturnQuery } from "@/lib/catalog-return";
 import { OfferManager } from "@/components/catalog/offer-manager";
 import { getAllOffersForProduct } from "@/lib/queries/offers";
 import { requireUser } from "@/lib/authz";
@@ -16,11 +17,15 @@ import { resolveFunctionalCurrency } from "@/lib/functional-currency";
 
 export default async function EditProductPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ back?: string }>;
 }) {
   const { companyId } = await requireUser();
   const { id } = await params;
+  // The catalog view this edit was opened from; the save lands back on it.
+  const { back } = await searchParams;
   const productId = Number(id);
   const t = await getTranslations("catalog");
   const common = await getTranslations("common");
@@ -69,6 +74,7 @@ export default async function EditProductPage({
         }}
         existingImages={images.map((i) => ({ id: i.id, path: i.path }))}
         submitLabel={common("save")}
+        returnQuery={catalogReturnQuery(back)}
         lockCategory
         transcribe={aiEnabled ? transcribeProduct : undefined}
         transcribeCard={aiEnabled ? transcribeCard : undefined}

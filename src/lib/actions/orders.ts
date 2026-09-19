@@ -461,6 +461,52 @@ export async function setOrderStatus(
   return {};
 }
 
+const orderNotesInput = z
+  .string()
+  .max(2000)
+  // Form submission turns line breaks into CRLF; store them plain.
+  .transform((v) => v.replace(/\r\n?/g, "\n").trim());
+
+/**
+ * The notes printed on the proforma: terms, what the price includes, how
+ * the goods are inspected. They are document text, not commercial terms,
+ * so they stay editable on any status — a confirmed order's lines and
+ * prices are frozen, its wording is not — and every change is logged.
+ */
+export async function updateOrderNotes(orderId: number, input: unknown): Promise<{ error?: string }> {
+  const user = await requireSession();
+  const parsed = orderNotesInput.safeParse(input);
+  if (!parsed.success) return { error: "invalid" };
+  const notes = parsed.data;
+
+  const current = await db
+    .select()
+    .from(orders)
+    .where(and(eq(orders.companyId, user.companyId), eq(orders.id, orderId)))
+    .limit(1)
+    .then(one);
+  if (!current) return { error: "not-found" };
+  if (current.notes === notes) return {};
+
+  const won = await db.update(orders)
+    .set({ notes, version: current.version + 1, updatedAt: new Date().toISOString() })
+    .where(
+      and(
+        eq(orders.companyId, user.companyId),
+        eq(orders.id, orderId),
+        // Optimistic concurrency, as everywhere on the order row.
+        eq(orders.version, current.version),
+      ),
+    )
+    .returning({ id: orders.id });
+  if (won.length === 0) return { error: "conflict" };
+
+  await logOrderEvent(orderId, user.id, "edited", { changes: [{ code: "notes" }] });
+  revalidatePath("/[locale]/orders/[id]", "page");
+  revalidatePath("/[locale]/orders/[id]/proforma", "page");
+  return {};
+}
+
 /**
  * Which bank account the order's proforma prints. Logged like any other
  * edit: the client is told where to pay, so switching accounts is a change
