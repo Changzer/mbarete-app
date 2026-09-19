@@ -3,6 +3,7 @@ import { companyLifecycleBlock, sessionUser, getCompanyModules } from "@/lib/aut
 import { getOrderExportData } from "@/lib/export/order-export";
 import { buildOrderXlsx } from "@/lib/export/order-xlsx";
 import { buildOrderPdf } from "@/lib/export/order-pdf";
+import { buildPackingListPdf } from "@/lib/export/packing-list-pdf";
 import { routing, type Locale } from "@/i18n/routing";
 import { makeLimiter } from "@/lib/rate-limit";
 
@@ -11,7 +12,11 @@ import { makeLimiter } from "@/lib/rate-limit";
 const exportLimiter = makeLimiter({ max: 60, windowMs: 5 * 60 * 1000 });
 
 /**
- * GET /api/orders/:id/export?format=xlsx|pdf&locale=en|zh
+ * GET /api/orders/:id/export?format=xlsx|pdf&doc=proforma|packing&locale=en|zh
+ *
+ * Two documents: the proforma (a price quote while the order is a draft)
+ * and the packing list. The spreadsheet is always the packing list; the
+ * PDF is the proforma unless `doc=packing` asks for the list.
  *
  * A generated file, not a page — so agents get something they can attach to
  * WeChat/WhatsApp in one tap. Lives under /api (outside the middleware), so
@@ -54,12 +59,16 @@ export async function GET(
   const data = await getOrderExportData(user.companyId, orderId, locale);
   if (!data) return new NextResponse("Not found", { status: 404 });
 
-  const body = format === "xlsx" ? await buildOrderXlsx(data) : await buildOrderPdf(data);
+  const packing = format === "xlsx" || url.searchParams.get("doc") === "packing";
+  const body =
+    format === "xlsx" ? await buildOrderXlsx(data) : packing ? await buildPackingListPdf(data) : await buildOrderPdf(data);
 
   // Order numbers are free text; the ASCII fallback keeps the header valid
   // and filename* carries the real name for modern clients.
-  const base = `${(data.doc.number || `order-${orderId}`).trim()}${format === "xlsx" ? ` ${data.labels.packingListTitle}` : ""}`;
-  const ascii = base.replace(/[^A-Za-z0-9._-]+/g, "_") || `order-${orderId}`;
+  const number = (data.doc.number || `order-${orderId}`).trim();
+  const base = `${number}${packing ? ` ${data.labels.packingListTitle}` : ""}`;
+  // The ASCII name keeps a readable suffix even when the title is Chinese.
+  const ascii = `${number.replace(/[^A-Za-z0-9._-]+/g, "_") || `order-${orderId}`}${packing ? "_packing-list" : ""}`;
   const filename = `${ascii}.${format}`;
   const utf8 = encodeURIComponent(`${base}.${format}`);
 

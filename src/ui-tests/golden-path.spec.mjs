@@ -233,6 +233,11 @@ test("a booth capture becomes a product, an order, a quote and an invoice", asyn
     const confirmedList = await exportedSheet(context, orderId);
     assert.match(confirmedList.text, /Packing list/, "confirmed export is still a packing list");
     assert.match(confirmedList.text, /Golden Path Client/, "the consignee appears once the client is fixed");
+    // The same list as a PDF, for the forwarder who prints.
+    const packingPdf = await context.request.get(`${BASE}/api/orders/${orderId}/export?format=pdf&doc=packing&locale=en`);
+    assert.equal(packingPdf.status(), 200, "packing list PDF answered");
+    assert.equal(packingPdf.headers()["content-type"], "application/pdf");
+    assert.match(packingPdf.headers()["content-disposition"] ?? "", /Packing/, "named as the packing list");
 
     // Supplier provenance survives live reassignment, rename, ordinary edits
     // and even deletion. Only an exact, approved refresh can change it.
