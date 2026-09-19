@@ -1,104 +1,34 @@
-import path from "path";
-import PDFDocument from "pdfkit";
 import type { OrderExportData } from "./order-export";
+import { BRAND, INK, LINE, MARGIN, SUB, drawLetterhead, hrule, openPdf, pageFor } from "./pdf-common";
 
 /**
- * The order as a downloadable A4 PDF — same content rules as the XLSX:
- * company header, sell prices only, validity footer.
- *
- * Noto Sans SC is embedded because agents work in Chinese: product names,
- * addresses and bank details are CJK, and the standard PDF fonts render them
- * as boxes. The fonts are traced into the standalone build via next.config.
+ * The order as a downloadable A4 PDF — the proforma (or the price quote
+ * while the order is a draft): company header, sell prices only, bank
+ * details, notes and the validity footer. Fonts, palette and letterhead
+ * are shared with the packing list in pdf-common.ts.
  */
-const FONT_DIR = path.join(process.cwd(), "src", "assets", "fonts");
-const REGULAR = path.join(FONT_DIR, "NotoSansSC-Regular.otf");
-const BOLD = path.join(FONT_DIR, "NotoSansSC-Bold.otf");
-
-const BRAND = "#C2410C";
-// Documents print black: body text is true black, secondary a dark gray
-// that still reads black on paper — never a light theme gray.
-const SUB = "#3D3D3D";
-const INK = "#000000";
-const LINE = "#E5E7EB";
-
-const A4 = { width: 595.28, height: 841.89 };
-const MARGIN = 40;
-const INNER = A4.width - MARGIN * 2;
+const A4 = pageFor("portrait");
+const INNER = A4.inner;
 
 export async function buildOrderPdf(data: OrderExportData): Promise<Buffer> {
-  const doc = new PDFDocument({ size: "A4", margin: MARGIN, font: REGULAR });
-  const chunks: Buffer[] = [];
-  doc.on("data", (c: Buffer) => chunks.push(c));
-  const done = new Promise<Buffer>((resolve, reject) => {
-    doc.on("end", () => resolve(Buffer.concat(chunks)));
-    doc.on("error", reject);
-  });
-
-  doc.registerFont("regular", REGULAR);
-  doc.registerFont("bold", BOLD);
+  const { doc, done } = openPdf("portrait");
 
   const money = (n: number) =>
     n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  const hr = (y: number, color = LINE, width = 0.7) => {
-    doc.moveTo(MARGIN, y).lineTo(A4.width - MARGIN, y).lineWidth(width).strokeColor(color).stroke();
-  };
+  const hr = (y: number, color = LINE, width = 0.7) => hrule(doc, A4, y, color, width);
 
   /** Start a new page when fewer than `need` points remain above the margin. */
   const ensure = (need: number) => {
     if (doc.y + need > A4.height - MARGIN) doc.addPage();
   };
 
-  // Brand bar
-  doc.rect(MARGIN, MARGIN, INNER, 4).fill(BRAND);
-  doc.y = MARGIN + 16;
-
-  // Company block (left) and document meta (right)
-  const headerTop = doc.y;
-  // The tenant's letterhead logo, aspect-true within a letterhead-sized box;
-  // the document title stays anchored to the top right beside it.
-  let nameTop = headerTop;
-  if (data.company.logo) {
-    const logo = data.company.logo;
-    const scale = Math.min(140 / logo.width, 44 / logo.height, 1);
-    try {
-      doc.image(logo.data, MARGIN, headerTop, {
-        width: logo.width * scale,
-        height: logo.height * scale,
-      });
-      nameTop = headerTop + logo.height * scale + 8;
-    } catch {
-      // a corrupt logo never blocks the document
-    }
-  }
-  doc.font("bold").fontSize(16).fillColor(INK).text(data.company.name, MARGIN, nameTop, { width: INNER * 0.6 });
-  doc.font("regular").fontSize(8.5).fillColor(SUB);
-  for (const line of data.company.addressLines) doc.text(line, { width: INNER * 0.6 });
-  const contactBits = [
-    data.company.phone && `${data.labels.phone}: ${data.company.phone}`,
-    data.company.email && `${data.labels.email}: ${data.company.email}`,
-    data.company.website && data.company.website,
-    data.company.taxId && `${data.labels.taxId}: ${data.company.taxId}`,
-  ].filter(Boolean) as string[];
-  for (const bit of contactBits) doc.text(bit, { width: INNER * 0.6 });
-  const leftBottom = doc.y;
-
-  doc.font("bold").fontSize(15).fillColor(INK);
-  doc.text(data.labels.title.toUpperCase(), MARGIN + INNER * 0.55, headerTop, {
-    width: INNER * 0.45,
-    align: "right",
-  });
-  doc.font("regular").fontSize(8.5).fillColor(SUB);
   const meta: string[] = [
     `${data.labels.number}: ${data.doc.number}`,
     `${data.labels.date}: ${data.doc.issuedOn}`,
   ];
   if (data.doc.validUntil) meta.push(`${data.labels.validUntil}: ${data.doc.validUntil}`);
-  for (const m of meta) doc.text(m, { width: INNER * 0.45, align: "right" });
-
-  doc.y = Math.max(leftBottom, doc.y) + 10;
-  hr(doc.y);
-  doc.y += 12;
+  drawLetterhead(doc, A4, data, data.labels.title, meta);
 
   // Bill-to (left) and terms (right). A quote exports with client=null and
   // prints neither: nothing is billed or agreed while the client is deciding.

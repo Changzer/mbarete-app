@@ -21,10 +21,10 @@ export function OrderExportButtons({
   const t = useTranslations("orders");
   const locale = useLocale();
 
-  const download = (format: "xlsx" | "pdf") => {
+  const download = (doc: "proforma" | "packing", format: "xlsx" | "pdf") => {
     // Only the proforma carries prices; the packing list never quotes a cost.
     if (
-      format === "pdf" &&
+      doc === "proforma" &&
       sellMissingCount > 0 &&
       !confirm(t("exportSellMissingWarning", { count: sellMissingCount }))
     ) {
@@ -32,16 +32,19 @@ export function OrderExportButtons({
     }
     // A Content-Disposition download from a route handler; the page never unloads.
     // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-    window.location.href = `/api/orders/${orderId}/export?format=${format}&locale=${locale}`;
+    window.location.href = `/api/orders/${orderId}/export?format=${format}&doc=${doc}&locale=${locale}`;
   };
 
   return (
     <>
-      <Button variant="outline" size="sm" onClick={() => download("xlsx")} data-testid="export-xlsx">
+      <Button variant="outline" size="sm" onClick={() => download("proforma", "pdf")} data-testid="export-pdf">
+        {t("exportPdf")}
+      </Button>
+      <Button variant="outline" size="sm" onClick={() => download("packing", "xlsx")} data-testid="export-xlsx">
         {t("exportXlsx")}
       </Button>
-      <Button variant="outline" size="sm" onClick={() => download("pdf")} data-testid="export-pdf">
-        {t("exportPdf")}
+      <Button variant="outline" size="sm" onClick={() => download("packing", "pdf")} data-testid="export-packing-pdf">
+        {t("exportPackingPdf")}
       </Button>
     </>
   );
