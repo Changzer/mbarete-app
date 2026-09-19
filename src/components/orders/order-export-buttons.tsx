@@ -22,7 +22,9 @@ export function OrderExportButtons({
   const locale = useLocale();
 
   const download = (format: "xlsx" | "pdf") => {
+    // Only the proforma carries prices; the packing list never quotes a cost.
     if (
+      format === "pdf" &&
       sellMissingCount > 0 &&
       !confirm(t("exportSellMissingWarning", { count: sellMissingCount }))
     ) {

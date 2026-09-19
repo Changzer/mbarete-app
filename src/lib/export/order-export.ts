@@ -32,6 +32,11 @@ export type OrderExportLine = {
   unitPrice: number;
   amount: number;
   currency: string;
+  /** Logistics for the packing list: one carton, and the whole line. */
+  cartonCbm: number;
+  cartonWeightKg: number;
+  lineCbm: number;
+  lineWeightKg: number;
 };
 
 export type OrderExportData = {
@@ -220,6 +225,10 @@ export async function getOrderExportData(
       unitPrice: r.sellPrice,
       amount: r.sellTotal,
       currency: r.sellCurrency,
+      cartonCbm: r.cartonCbm,
+      cartonWeightKg: r.cartonWeightKg,
+      lineCbm: r.lineCbm,
+      lineWeightKg: r.lineWeightKg,
     })),
     totals: {
       goods: totals.goods[quote] ?? 0,
@@ -244,6 +253,12 @@ export async function getOrderExportData(
     sellMissingCount: rows.filter((r) => r.sellMissing).length,
     labels: {
       title: isQuote ? t("quoteTitle") : t("title"),
+      packingListTitle: t("packingListTitle"),
+      consignee: t("consignee"),
+      cbmPerCarton: t("cbmPerCarton"),
+      kgPerCarton: t("kgPerCarton"),
+      lineCbm: t("lineCbm"),
+      lineKg: t("lineKg"),
       photo: t("photo"),
       number: t("number"),
       date: t("date"),

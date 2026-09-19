@@ -213,27 +213,26 @@ test("a booth capture becomes a product, an order, a quote and an invoice", asyn
     await page.waitForURL(/\/en\/orders\/\d+/, { timeout: 30_000 });
     const orderId = Number(page.url().match(/orders\/(\d+)/)[1]);
 
-    // ── 6. A draft exports as a price quote ──────────────────────────────
-    const quote = await exportedSheet(context, orderId);
-    assert.match(quote.text, /Price quote/, "draft export is titled as a quote");
-    assert.doesNotMatch(quote.text, /Proforma invoice/i);
-    assert.doesNotMatch(quote.text, /Bill to/i, "no BILL TO while negotiating");
-    assert.doesNotMatch(quote.text, /\bTerms\b/i, "no TERMS while negotiating");
-    assert.match(quote.text, new RegExp(STUB.supplierCode), "factory code on the line");
-    assert.ok(quote.sheet.getImages().length >= 1, "line thumbnail embedded");
-    // 24 pcs × $13.08 — the booth price arrived on the sheet untouched.
+    // ── 6. The spreadsheet is a packing list: boxes, never money ─────────
+    const packing = await exportedSheet(context, orderId);
+    assert.match(packing.text, /Packing list/, "sheet is titled as a packing list");
+    assert.doesNotMatch(packing.text, /Price quote|Proforma invoice/i);
+    assert.doesNotMatch(packing.text, /Bill to/i, "no consignee while negotiating");
+    assert.doesNotMatch(packing.text, /Bank details/i, "no bank details on a packing list");
+    assert.match(packing.text, new RegExp(STUB.supplierCode), "factory code on the line");
+    assert.match(packing.text, /CBM\/ctn/, "volume per carton column");
+    assert.ok(packing.sheet.getImages().length >= 1, "line thumbnail embedded");
+    // 24 pcs × $13.08 = 313.92 — the money stays off this file.
     const subtotal = (STUB.moq * STUB.price).toFixed(2);
-    assert.match(quote.text.replace(/[,\s]/g, ""), new RegExp(subtotal.replace(".", "\\.")));
+    assert.doesNotMatch(packing.text.replace(/[,\s]/g, ""), new RegExp(subtotal.replace(".", "\\.")));
 
     // ── 7. Confirming turns the same order into a proforma invoice ───────
     await page.getByRole("button", { name: "Confirm Order" }).click();
     await page.getByText("Confirmed").first().waitFor({ timeout: 15_000 });
 
-    const invoice = await exportedSheet(context, orderId);
-    assert.match(invoice.text, /Proforma invoice/, "confirmed export is an invoice");
-    assert.doesNotMatch(invoice.text, /Price quote/i);
-    assert.match(invoice.text, /Bill to/i, "BILL TO returns on the invoice");
-    assert.match(invoice.text, /Golden Path Client/, "billed to the order's client");
+    const confirmedList = await exportedSheet(context, orderId);
+    assert.match(confirmedList.text, /Packing list/, "confirmed export is still a packing list");
+    assert.match(confirmedList.text, /Golden Path Client/, "the consignee appears once the client is fixed");
 
     // Supplier provenance survives live reassignment, rename, ordinary edits
     // and even deletion. Only an exact, approved refresh can change it.
