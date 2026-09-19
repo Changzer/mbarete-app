@@ -31,6 +31,9 @@ export type OrderViewRow = {
   /** Cartons shipped, from the snapshot; recovered from the product for old rows. */
   cartons: number | null;
   perCarton: number;
+  /** One full carton's volume and weight, from the snapshot (the product for old rows). */
+  cartonCbm: number;
+  cartonWeightKg: number;
   below: boolean;
 };
 
@@ -104,6 +107,8 @@ export async function getOrderView(companyId: number, orderId: number, locale: L
       lineWeightKg: item.lineWeightKg,
       cartons,
       perCarton,
+      cartonCbm: item.cartonCbmSnapshot > 0 ? item.cartonCbmSnapshot : (product?.cbm ?? 0),
+      cartonWeightKg: item.cartonWeightSnapshot > 0 ? item.cartonWeightSnapshot : (product?.weightKg ?? 0),
       below: item.quantity < item.moqSnapshot,
     };
   });

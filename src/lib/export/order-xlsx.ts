@@ -6,26 +6,30 @@ const BRAND = "FFC2410C"; // brand-600, ARGB
 const SUB = "FF3D3D3D";
 
 /**
- * The order as a shareable spreadsheet — the same document as the proforma,
- * shaped for WeChat/WhatsApp: company header, bill-to, sell-price lines,
- * totals, bank details, and the validity footer. Sell prices only; the cost
- * never enters this file (see order-export.ts).
+ * The order as a packing list — the spreadsheet the forwarder and the
+ * warehouse work from: company header, one line per product with its
+ * photo, SKU, quantity, cartons, and the volume and weight per carton and
+ * for the line, then the shipment totals. No prices and no bank details:
+ * money lives on the proforma (the PDF); this file is about the boxes.
  */
 export async function buildOrderXlsx(data: OrderExportData): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
   wb.creator = data.company.name;
-  const ws = wb.addWorksheet(data.labels.title, {
-    pageSetup: { paperSize: 9 /* A4 */, orientation: "portrait", fitToPage: true, fitToWidth: 1 },
+  const ws = wb.addWorksheet(data.labels.packingListTitle, {
+    pageSetup: { paperSize: 9 /* A4 */, orientation: "landscape", fitToPage: true, fitToWidth: 1 },
   });
   ws.columns = [
     { width: 7 }, // line photo
-    { width: 36 },
-    { width: 14 },
+    { width: 40 },
+    { width: 12 },
+    { width: 9 },
+    { width: 9 },
+    { width: 11 },
+    { width: 12 },
     { width: 10 },
-    { width: 10 },
-    { width: 14 },
-    { width: 16 },
+    { width: 11 },
   ];
+  const LAST = 9;
 
   let r = 1;
   const set = (
@@ -49,8 +53,8 @@ export async function buildOrderXlsx(data: OrderExportData): Promise<Buffer> {
   // Company header — the document title anchors the top right; the tenant's
   // logo (when uploaded) takes the first row and the name follows beneath it,
   // exactly like the on-screen letterhead. No logo = the original layout.
-  set(r, 6, data.labels.title, { bold: true, size: 14, align: "right" });
-  ws.mergeCells(r, 6, r, 7);
+  set(r, LAST - 1, data.labels.packingListTitle, { bold: true, size: 14, align: "right" });
+  ws.mergeCells(r, LAST - 1, r, LAST);
   if (data.company.logo) {
     const logo = data.company.logo;
     const scale = Math.min(150 / logo.width, 42 / logo.height, 1);
@@ -77,46 +81,26 @@ export async function buildOrderXlsx(data: OrderExportData): Promise<Buffer> {
   ].filter(Boolean) as string[];
   for (const bit of contactBits) set(r++, 1, bit, { color: SUB });
 
-  // Document meta on the right, aligned with the top of the header block
+  // Document meta on the right: the order's number and date. No validity —
+  // a packing list describes the goods, it does not expire.
   let metaRow = 2;
-  set(metaRow, 6, data.labels.number, { color: SUB, align: "right" });
-  set(metaRow++, 7, data.doc.number, { align: "right" });
-  set(metaRow, 6, data.labels.date, { color: SUB, align: "right" });
-  set(metaRow++, 7, data.doc.issuedOn, { align: "right" });
-  if (data.doc.validUntil) {
-    set(metaRow, 6, data.labels.validUntil, { color: SUB, align: "right" });
-    set(metaRow++, 7, data.doc.validUntil, { align: "right" });
-  }
+  set(metaRow, LAST - 1, data.labels.number, { color: SUB, align: "right" });
+  set(metaRow++, LAST, data.doc.number, { align: "right" });
+  set(metaRow, LAST - 1, data.labels.date, { color: SUB, align: "right" });
+  set(metaRow++, LAST, data.doc.issuedOn, { align: "right" });
   r = Math.max(r, metaRow) + 1;
 
-  // Bill-to and terms. A quote exports with client=null, so neither block
-  // prints — nothing is billed or agreed while the client is still deciding.
+  // Consignee: on a confirmed order the client is known; a draft names none.
   if (data.client) {
-    set(r, 1, data.labels.billTo.toUpperCase(), { bold: true, size: 9, color: SUB });
-    set(r, 5, data.labels.terms.toUpperCase(), { bold: true, size: 9, color: SUB });
-    r += 1;
-    const left: string[] = [
+    set(r++, 1, data.labels.consignee.toUpperCase(), { bold: true, size: 9, color: SUB });
+    const left = [
       data.client.name,
       data.client.address,
-      data.client.taxId && `${data.labels.taxId}: ${data.client.taxId}`,
       data.client.contactPerson && `${data.labels.attn}: ${data.client.contactPerson}`,
       data.client.phone && `${data.labels.phone}: ${data.client.phone}`,
-      data.client.whatsapp && `WhatsApp: ${data.client.whatsapp}`,
-      data.client.wechat && `WeChat: ${data.client.wechat}`,
     ].filter(Boolean) as string[];
-    const right: string[] = [
-      data.terms.incoterms && `${data.labels.incoterms}: ${data.terms.incoterms}`,
-      `${data.labels.currency}: ${data.doc.currency}`,
-      `${data.labels.totalCartons}: ${data.terms.totalCartons}`,
-      `${data.labels.totalCbm}: ${data.terms.totalCbm} m³`,
-      `${data.labels.totalWeight}: ${data.terms.totalWeightKg} kg`,
-      ...data.terms.paymentTerms,
-    ].filter(Boolean) as string[];
-    for (let i = 0; i < Math.max(left.length, right.length); i++) {
-      if (left[i]) set(r + i, 1, left[i], { bold: i === 0 });
-      if (right[i]) set(r + i, 5, right[i]);
-    }
-    r += Math.max(left.length, right.length) + 1;
+    left.forEach((line, i) => set(r + i, 1, line, { bold: i === 0 }));
+    r += left.length + 1;
   }
 
   // Line items
@@ -126,14 +110,22 @@ export async function buildOrderXlsx(data: OrderExportData): Promise<Buffer> {
     data.labels.sku,
     data.labels.quantity,
     data.labels.cartons,
-    data.labels.unitPrice,
-    data.labels.amount,
+    data.labels.cbmPerCarton,
+    data.labels.lineCbm,
+    data.labels.kgPerCarton,
+    data.labels.lineKg,
   ];
   header.forEach((h, i) => {
     const cell = set(r, i + 1, h, { bold: true, size: 9, color: "FFFFFFFF", align: i >= 3 ? "right" : "left" });
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND } };
   });
   r += 1;
+  // Volume to the litre, weight to the gram: what the figures are recorded in.
+  const cbm = "0.000";
+  const kg = "0.000";
+  let totalCartons = 0;
+  let totalCbm = 0;
+  let totalKg = 0;
   for (const line of data.lines) {
     // The name cell carries the supplier's own style number on a second line,
     // so the factory can match the row to their catalog at a glance.
@@ -146,8 +138,14 @@ export async function buildOrderXlsx(data: OrderExportData): Promise<Buffer> {
     set(r, 3, line.sku, { color: SUB });
     set(r, 4, line.quantity, { align: "right" });
     set(r, 5, line.cartons ?? "—", { align: "right" });
-    set(r, 6, line.unitPrice, { align: "right", numFmt: "#,##0.00" });
-    set(r, 7, line.amount, { align: "right", numFmt: "#,##0.00" });
+    // An unmeasured carton shows as a dash, never as a zero that sums quietly.
+    set(r, 6, line.cartonCbm > 0 ? line.cartonCbm : "—", { align: "right", numFmt: cbm });
+    set(r, 7, line.lineCbm > 0 ? line.lineCbm : "—", { align: "right", numFmt: cbm });
+    set(r, 8, line.cartonWeightKg > 0 ? line.cartonWeightKg : "—", { align: "right", numFmt: kg });
+    set(r, 9, line.lineWeightKg > 0 ? line.lineWeightKg : "—", { align: "right", numFmt: kg });
+    totalCartons += line.cartons ?? 0;
+    totalCbm += line.lineCbm;
+    totalKg += line.lineWeightKg;
     if (line.thumb) {
       // Photo rows are taller so a 42px image fits; ext is in pixels.
       ws.getRow(r).height = 36;
@@ -160,46 +158,16 @@ export async function buildOrderXlsx(data: OrderExportData): Promise<Buffer> {
     }
     r += 1;
   }
-  r += 1;
 
-  // Totals
-  const money = "#,##0.00";
-  set(r, 6, data.labels.goodsSubtotal, { color: SUB, align: "right" });
-  set(r++, 7, data.totals.goods, { align: "right", numFmt: money });
-  if (data.totals.commissionPct > 0) {
-    set(r, 6, `${data.labels.commissionAmount} (${data.totals.commissionPct}%)`, { color: SUB, align: "right" });
-    set(r++, 7, data.totals.commission, { align: "right", numFmt: money });
-  }
-  set(r, 6, `${data.labels.grandTotal} (${data.doc.currency})`, { bold: true, align: "right" });
-  set(r++, 7, data.totals.grandTotal, { bold: true, align: "right", numFmt: money });
-  for (const eq of data.totals.equivalents) {
-    set(r, 6, `${data.labels.equivalent} (${eq.currency})`, { color: SUB, align: "right" });
-    set(r++, 7, eq.amount, { color: SUB, align: "right", numFmt: money });
-  }
-  r += 1;
+  // Shipment totals under their own columns, so the sheet foots by eye.
+  set(r, 2, data.labels.totalCartons, { bold: true, align: "right" });
+  set(r, 5, totalCartons, { bold: true, align: "right" });
+  // A shipment nobody has measured yet totals to a dash, not a false zero.
+  set(r, 7, totalCbm > 0 ? Math.round(totalCbm * 1000) / 1000 : "—", { bold: true, align: "right", numFmt: cbm });
+  set(r, 9, totalKg > 0 ? Math.round(totalKg * 1000) / 1000 : "—", { bold: true, align: "right", numFmt: kg });
+  ws.getRow(r).border = { top: { style: "thin" } };
+  r += 2;
 
-  // Bank details
-  if (data.bank) {
-    set(r++, 1, data.labels.bankDetails.toUpperCase(), { bold: true, size: 9, color: SUB });
-    const bankLines = [
-      data.bank.accountName && `${data.labels.bankAccountName}: ${data.bank.accountName}`,
-      data.bank.bankName && `${data.labels.bankName}: ${data.bank.bankName}`,
-      data.bank.accountNumber && `${data.labels.bankAccountNumber}: ${data.bank.accountNumber}`,
-      data.bank.swift && `${data.labels.bankSwift}: ${data.bank.swift}`,
-      ...data.bank.addressLines,
-    ].filter(Boolean) as string[];
-    for (const line of bankLines) set(r++, 1, line);
-    r += 1;
-  }
-
-  if (data.notes) {
-    set(r++, 1, data.labels.notes.toUpperCase(), { bold: true, size: 9, color: SUB });
-    for (const line of data.notes.split("\n")) set(r++, 1, line);
-    r += 1;
-  }
-
-  // Validity footer — the quote expires; the file says so.
-  if (data.doc.validityDays > 0) set(r++, 1, data.labels.validityNote, { color: SUB, size: 9 });
   for (const line of data.footerNote) set(r++, 1, line, { color: SUB, size: 9 });
 
   const out = await wb.xlsx.writeBuffer();

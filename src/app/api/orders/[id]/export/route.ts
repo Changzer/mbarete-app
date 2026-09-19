@@ -58,7 +58,7 @@ export async function GET(
 
   // Order numbers are free text; the ASCII fallback keeps the header valid
   // and filename* carries the real name for modern clients.
-  const base = (data.doc.number || `order-${orderId}`).trim();
+  const base = `${(data.doc.number || `order-${orderId}`).trim()}${format === "xlsx" ? ` ${data.labels.packingListTitle}` : ""}`;
   const ascii = base.replace(/[^A-Za-z0-9._-]+/g, "_") || `order-${orderId}`;
   const filename = `${ascii}.${format}`;
   const utf8 = encodeURIComponent(`${base}.${format}`);
