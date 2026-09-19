@@ -6,7 +6,7 @@ import { Check, ChevronDown, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Disclosure, Field, FormSection } from "@/components/ui/disclosure";
-import { CurrencyField } from "@/components/catalog/currency-field";
+import { CurrencyField, SALE_CHOICES } from "@/components/catalog/currency-field";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -259,7 +259,6 @@ export function ProductForm({
   const [sellCurrency, setSellCurrency] = useState(
     defaultValues?.sellCurrency || (rates.USD !== undefined ? "USD" : (defaultValues?.currency ?? "USD")),
   );
-  const sellCurrencyOptions = [...new Set([sellCurrency, currency, ...Object.keys(rates)])];
   // The landed-cost estimate follows the price as it is typed; the input
   // itself stays uncontrolled so the AI can still write into it.
   const [priceText, setPriceText] = useState(defaultValues?.price ? String(defaultValues.price) : "");
@@ -864,31 +863,27 @@ export function ProductForm({
             hint={t("sellPriceHelp")}
             className="col-span-2"
           >
-            <div className="grid grid-cols-[1fr_auto] gap-2">
-              <Input
-                id="sellPrice"
-                name="sellPrice"
-                type="text"
-                numeric
-                inputMode="decimal"
-                placeholder={t("optionalPlaceholder")}
-                defaultValue={defaultValues?.sellPrice ? defaultValues.sellPrice : ""}
-              />
-              <input type="hidden" name="sellCurrency" value={sellCurrency} />
-              <Select value={sellCurrency} onValueChange={setSellCurrency}>
-                <SelectTrigger id="sellCurrency" aria-label={t("sellCurrency")} className="min-w-[6.5rem]" data-testid="sell-currency">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {sellCurrencyOptions.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {c}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <Input
+              id="sellPrice"
+              name="sellPrice"
+              type="text"
+              numeric
+              inputMode="decimal"
+              placeholder={t("optionalPlaceholder")}
+              defaultValue={defaultValues?.sellPrice ? defaultValues.sellPrice : ""}
+            />
           </Field>
+          {/* The market the price is for is a switch, like the cost currency:
+              USD, RMB or BRL at a tap, anything else one tap further. */}
+          <CurrencyField
+            value={sellCurrency}
+            onChange={setSellCurrency}
+            name="sellCurrency"
+            label={t("sellCurrency")}
+            otherLabel={t("currencyOther")}
+            choices={SALE_CHOICES}
+            testId="sell-currency"
+          />
         </div>
 
         {/* Both names, stacked: the supplier reads the Chinese one off the box

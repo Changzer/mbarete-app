@@ -417,6 +417,7 @@
     "grandTotal": "总计",
     "quoteCurrency": "报价货币",
     "quoteCurrencyHelp": "下方单价均以 {currency} 计；其他货币的目录价在加入时按当日汇率换算。",
+    "currencyOther": "其他",
     "secondaryCurrency": "同时显示",
     "missingRate": "未设置 {codes} 的汇率。请在设置中添加——这些明细未计入合计。",
     "openSettings": "打开设置",
