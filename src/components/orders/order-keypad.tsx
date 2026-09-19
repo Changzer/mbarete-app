@@ -4,7 +4,6 @@ import { useState } from "react";
 import { X, Delete } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { formatMoney } from "@/lib/money";
-import { sellUnitPrice } from "@/lib/calculations";
 import type { BuilderProduct } from "@/components/orders/order-builder";
 
 /**
@@ -18,6 +17,8 @@ export function OrderKeypad({
   product,
   qty,
   sellPrice,
+  listPrice,
+  currency,
   initialTab,
   onSetQty,
   onSetSellPrice,
@@ -26,6 +27,10 @@ export function OrderKeypad({
   product: BuilderProduct;
   qty: number;
   sellPrice: number;
+  /** the catalog's default, already in the quote currency */
+  listPrice: number;
+  /** the order's quote currency, which every price on the keypad is in */
+  currency: string;
   initialTab: "qty" | "price";
   onSetQty: (productId: number, qty: number) => void;
   onSetSellPrice: (productId: number, price: number) => void;
@@ -41,7 +46,6 @@ export function OrderKeypad({
   const untouched = typed === "";
   const effQty = untouched ? qty : parseInt(typed || "0", 10) * mult;
   const effPrice = untouched ? sellPrice : parseInt(typed || "0", 10) / 100;
-  const listPrice = sellUnitPrice(product);
 
   const cartonText = (pcs: number) =>
     hasCarton ? `${Math.round((pcs / product.qtyPerBox) * 10) / 10}` : "";
@@ -130,15 +134,15 @@ export function OrderKeypad({
                   ? cartonText(qty)
                   : String(qty)
                 : typed
-              : formatMoney(effPrice, product.currency)}
+              : formatMoney(effPrice, currency)}
             <span className="ml-1.5 text-[16px] font-semibold text-sub">
               {tab === "qty" ? (unit === "ctn" ? t("ctnShort") : t("pcsShort")) : t("perPiece")}
             </span>
           </div>
           <div className="mt-2 font-mono text-[12.5px] text-sub">
             {tab === "qty"
-              ? `= ${effQty} ${t("pcsShort")}${hasCarton ? ` · ${cartonText(effQty)} ${t("ctnShort")}` : ""} · ${formatMoney(effQty * sellPrice, product.currency)}`
-              : `${t("keypadSubtotal")} ${formatMoney(effPrice * qty, product.currency)} · ${t("keypadList")} ${formatMoney(listPrice, product.currency)}`}
+              ? `= ${effQty} ${t("pcsShort")}${hasCarton ? ` · ${cartonText(effQty)} ${t("ctnShort")}` : ""} · ${formatMoney(effQty * sellPrice, currency)}`
+              : `${t("keypadSubtotal")} ${formatMoney(effPrice * qty, currency)} · ${t("keypadList")} ${formatMoney(listPrice, currency)}`}
           </div>
         </div>
 
@@ -168,7 +172,7 @@ export function OrderKeypad({
               }}
               className={chip}
             >
-              {t("keypadList")} {formatMoney(listPrice, product.currency)}
+              {t("keypadList")} {formatMoney(listPrice, currency)}
             </button>
             {[5, 10].map((pct) => (
               <button
@@ -208,7 +212,7 @@ export function OrderKeypad({
         >
           {tab === "qty"
             ? t("keypadSetQty", { qty: effQty })
-            : t("keypadSetPrice", { price: formatMoney(effPrice, product.currency) })}
+            : t("keypadSetPrice", { price: formatMoney(effPrice, currency) })}
         </button>
       </div>
     </div>

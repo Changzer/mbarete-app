@@ -218,6 +218,13 @@
       "when": 1789640000000,
       "tag": "0030_landed-cost",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1789641000000,
+      "tag": "0031_sell-currency",
+      "breakpoints": true
     }
   ]
 }

@@ -181,6 +181,10 @@ export const products = pgTable(
     sellPrice: numeric("sell_price", { precision: 14, scale: 4, mode: "number" })
       .notNull()
       .default(0),
+    // The currency the selling price is set in. A trading company buys in
+    // RMB and sells in USD, so this is independent of the cost currency;
+    // "" (rows from before the column) means the cost currency.
+    sellCurrency: text("sell_currency").notNull().default(""),
     currency: text("currency").notNull().default("USD"),
     moq: integer("moq").notNull().default(1),
     qtyPerBox: integer("qty_per_box").notNull().default(1),

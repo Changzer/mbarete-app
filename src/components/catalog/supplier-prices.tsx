@@ -38,10 +38,17 @@ const pct = (best: number, other: number) =>
 export function SupplierPrices({
   offers,
   sellPrice,
+  sellCurrency,
   compact = false,
 }: {
   offers: CardOffer[];
   sellPrice: number;
+  /**
+   * The currency the selling price is in. A margin is only arithmetic
+   * when cost and sell share a currency; across currencies the cell shows
+   * the selling price itself rather than a subtraction that means nothing.
+   */
+  sellCurrency: string;
   /**
    * The card tile: prices only, no controls. The whole tile is already a
    * button that opens the product, and the full comparison lives in there.
@@ -203,7 +210,9 @@ export function SupplierPrices({
                     {/* Margin is the real comparison: cost is only half of it. */}
                     {sellPrice > 0 ? (
                       <td className="py-2 pr-3 text-right font-mono font-semibold tabular-nums whitespace-nowrap">
-                        {(sellPrice - o.price).toFixed(2)}
+                        {o.currency === sellCurrency
+                          ? (sellPrice - o.price).toFixed(2)
+                          : `${formatMoney(sellPrice, sellCurrency)} − ${formatMoney(o.price, o.currency)}`}
                       </td>
                     ) : null}
                     <td className="py-2 pr-3 text-right font-mono tabular-nums">{o.moq}</td>

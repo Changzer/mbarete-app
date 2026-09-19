@@ -71,6 +71,8 @@ type ProductFormValues = {
   importDutyPctPy: number | null;
   price: number;
   sellPrice: number;
+  /** "" means the cost currency (products from before selling currencies). */
+  sellCurrency: string;
   currency: string;
   moq: number;
   qtyPerBox: number;
@@ -251,6 +253,13 @@ export function ProductForm({
   // A segmented control rather than a text field, so it is state, not a DOM
   // value the AI pass can poke at — see applyTranscription.
   const [currency, setCurrency] = useState(defaultValues?.currency ?? "USD");
+  // The selling side has its own currency: a trading company buys in RMB
+  // and quotes in USD. A new product starts in USD when the company has a
+  // rate for it, else in whatever the cost is in.
+  const [sellCurrency, setSellCurrency] = useState(
+    defaultValues?.sellCurrency || (rates.USD !== undefined ? "USD" : (defaultValues?.currency ?? "USD")),
+  );
+  const sellCurrencyOptions = [...new Set([sellCurrency, currency, ...Object.keys(rates)])];
   // The landed-cost estimate follows the price as it is typed; the input
   // itself stays uncontrolled so the AI can still write into it.
   const [priceText, setPriceText] = useState(defaultValues?.price ? String(defaultValues.price) : "");
@@ -855,15 +864,30 @@ export function ProductForm({
             hint={t("sellPriceHelp")}
             className="col-span-2"
           >
-            <Input
-              id="sellPrice"
-              name="sellPrice"
-              type="text"
-              numeric
-              inputMode="decimal"
-              placeholder={t("optionalPlaceholder")}
-              defaultValue={defaultValues?.sellPrice ? defaultValues.sellPrice : ""}
-            />
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <Input
+                id="sellPrice"
+                name="sellPrice"
+                type="text"
+                numeric
+                inputMode="decimal"
+                placeholder={t("optionalPlaceholder")}
+                defaultValue={defaultValues?.sellPrice ? defaultValues.sellPrice : ""}
+              />
+              <input type="hidden" name="sellCurrency" value={sellCurrency} />
+              <Select value={sellCurrency} onValueChange={setSellCurrency}>
+                <SelectTrigger id="sellCurrency" aria-label={t("sellCurrency")} className="min-w-[6.5rem]" data-testid="sell-currency">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {sellCurrencyOptions.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </Field>
         </div>
 

@@ -41,6 +41,7 @@ export default async function NewOrderPage({
       supplierId: p.supplierId,
       price: p.price,
       sellPrice: p.sellPrice,
+      sellCurrency: p.sellCurrency || p.currency,
       currency: p.currency,
       moq: p.moq,
       qtyPerBox: p.qtyPerBox,

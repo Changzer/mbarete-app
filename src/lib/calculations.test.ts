@@ -25,6 +25,8 @@ import {
   computeOrderFinanceView,
   sellUnitPrice,
   deriveLineFigures,
+  quoteSellPrice,
+  sellCurrencyOf,
 } from "./calculations";
 import type { SnapshotLine } from "./calculations";
 
@@ -750,4 +752,31 @@ test("finance view: an unknown result currency is flagged, not a crash", () => {
   assert.deepEqual(fin.missingRates, ["GBP"]);
   closeTo(fin.client.received, 400);
   closeTo(fin.supplier.paid, 400);
+});
+
+// --- selling in one currency, buying in another ------------------------------
+
+test("a product sells in its own currency, falling back to the cost currency", () => {
+  assert.equal(sellCurrencyOf({ currency: "CNY", sellCurrency: "USD" }), "USD");
+  assert.equal(sellCurrencyOf({ currency: "CNY", sellCurrency: "" }), "CNY");
+  assert.equal(sellCurrencyOf({ currency: "CNY" }), "CNY");
+});
+
+test("a selling price is re-expressed in the quote currency to the cent", () => {
+  const rates = { USD: 1, CNY: 0.14 };
+  // 643.20 CNY × 0.14 = 90.048 → 90.05 USD
+  assert.equal(quoteSellPrice(643.2, "CNY", "USD", rates), 90.05);
+  assert.equal(quoteSellPrice(90.05, "USD", "USD", rates), 90.05);
+  // No rate for the source: the figure is left alone rather than guessed.
+  assert.equal(quoteSellPrice(12.5, "XXX", "USD", rates), 12.5);
+});
+
+test("order totals convert the sell side from the quote currency and the cost side from the supplier's", () => {
+  const rates = { USD: 1, CNY: 0.14 };
+  const product = { price: 590, currency: "CNY", sellPrice: 95, sellCurrency: "USD", moq: 1, qtyPerBox: 1, weightKg: 1, cbm: 0.1 };
+  const totals = computeOrderTotals([{ product, quantity: 10 }], ["USD", "CNY"], rates, 0);
+  assert.equal(totals.goods.USD, 950);
+  assert.equal(totals.cost.USD, 826); // 5900 CNY × 0.14
+  assert.equal(totals.goods.CNY, 6785.71); // 950 ÷ 0.14
+  assert.equal(totals.cost.CNY, 5900);
 });

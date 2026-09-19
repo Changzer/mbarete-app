@@ -62,6 +62,8 @@ async function requireSession() {
 async function buildOrderItemRows(
   companyId: number,
   items: { productId: number; quantity: number; sellPrice: number }[],
+  /** The order's quote currency: every sell price on it is entered in this. */
+  sellCurrency: string,
 ) {
   const productIds = items.map((i) => i.productId);
   const productRows = await db
@@ -92,7 +94,8 @@ async function buildOrderItemRows(
       cartonsSnapshot: fullCartons(product, quantity),
       // The line's own copy of everything it will ever need — identity for
       // the documents, carton inputs for quantity edits, and the currency
-      // this sell price was quoted in (the cost currency at add time).
+      // this sell price was quoted in: the order's quote currency, which
+      // the builder converts the catalog default into before it is typed.
       skuSnapshot: product.sku,
       nameEnSnapshot: product.nameEn,
       nameZhSnapshot: product.nameZh,
@@ -103,7 +106,7 @@ async function buildOrderItemRows(
       qtyPerBoxSnapshot: product.qtyPerBox,
       cartonCbmSnapshot: product.cbm,
       cartonWeightSnapshot: product.weightKg,
-      sellCurrencySnapshot: product.currency,
+      sellCurrencySnapshot: sellCurrency,
     };
   });
 
@@ -125,12 +128,13 @@ async function buildEditedItemRows(
   companyId: number,
   before: StoredItem[],
   items: { productId: number; quantity: number; sellPrice: number }[],
+  sellCurrency: string,
 ): Promise<{ rows: OrderItemRow[]; hasMoqViolation: boolean }> {
   const beforeByProduct = new Map(before.map((i) => [i.productId, i]));
   const added = items.filter((i) => !beforeByProduct.has(i.productId));
   const freshByProduct = new Map<number, OrderItemRow>();
   if (added.length > 0) {
-    const { rows } = await buildOrderItemRows(companyId, added);
+    const { rows } = await buildOrderItemRows(companyId, added, sellCurrency);
     for (const row of rows) freshByProduct.set(row.productId, row);
   }
 
@@ -170,7 +174,9 @@ async function buildEditedItemRows(
       qtyPerBoxSnapshot: prior.qtyPerBoxSnapshot,
       cartonCbmSnapshot: prior.cartonCbmSnapshot,
       cartonWeightSnapshot: prior.cartonWeightSnapshot,
-      sellCurrencySnapshot: prior.sellCurrencySnapshot || prior.currencySnapshot,
+      // The edit re-enters every sell price in the order's quote currency
+      // (the builder converted older quotes on load), so it is the line's.
+      sellCurrencySnapshot: sellCurrency,
     };
   });
 
@@ -196,7 +202,7 @@ export async function createOrder(input: unknown): Promise<OrderActionResult> {
     .then(one);
   if (!client) return { error: "invalid" };
 
-  const { rows, hasMoqViolation } = await buildOrderItemRows(user.companyId, data.items);
+  const { rows, hasMoqViolation } = await buildOrderItemRows(user.companyId, data.items, data.displayCurrency);
   if (data.status === "confirmed" && hasMoqViolation) {
     return { error: "moq" };
   }
@@ -290,11 +296,7 @@ export async function updateOrder(
     .where(eq(orderItems.orderId, id));
 
   // Existing lines keep their snapshots; only new lines read the catalog.
-  const { rows, hasMoqViolation } = await buildEditedItemRows(
-    user.companyId,
-    beforeItems,
-    data.items,
-  );
+  const { rows, hasMoqViolation } = await buildEditedItemRows(user.companyId, beforeItems, data.items, data.displayCurrency);
   if (data.status === "confirmed" && hasMoqViolation) {
     return { error: "moq" };
   }

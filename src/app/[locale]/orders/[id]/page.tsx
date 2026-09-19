@@ -193,7 +193,7 @@ export default async function OrderDetailPage({
             <div className="flex items-start justify-between gap-2">
               <span className="min-w-0 flex-1 text-[13.5px] font-bold text-ink">{r.name}</span>
               <span className="shrink-0 font-mono text-[13.5px] font-semibold tabular-nums text-ink">
-                {r.sellTotal.toFixed(2)} {r.currencySnapshot}
+                {r.sellTotal.toFixed(2)} {r.sellCurrency}
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-sub">
@@ -204,7 +204,7 @@ export default async function OrderDetailPage({
                 {r.cartons !== null ? `${r.cartons} × ${r.perCarton}` : "—"}
               </span>
               <span>
-                {r.unitPriceSnapshot.toFixed(2)} → {r.sellPrice.toFixed(2)} {r.currencySnapshot}
+                {r.unitPriceSnapshot.toFixed(2)} {r.currencySnapshot} → {r.sellPrice.toFixed(2)} {r.sellCurrency}
               </span>
             </div>
             {r.below ? (
@@ -257,10 +257,10 @@ export default async function OrderDetailPage({
                   {r.unitPriceSnapshot.toFixed(2)} {r.currencySnapshot}
                 </td>
                 <td className="px-4 py-2 text-ink">
-                  {r.sellPrice.toFixed(2)} {r.currencySnapshot}
+                  {r.sellPrice.toFixed(2)} {r.sellCurrency}
                 </td>
                 <td className="px-4 py-2 text-ink">
-                  {r.sellTotal.toFixed(2)} {r.currencySnapshot}
+                  {r.sellTotal.toFixed(2)} {r.sellCurrency}
                 </td>
               </tr>
               )),

@@ -56,6 +56,7 @@ export default async function EditOrderPage({
       supplierId: p.supplierId,
       price: p.price,
       sellPrice: p.sellPrice,
+      sellCurrency: p.sellCurrency || p.currency,
       currency: p.currency,
       moq: p.moq,
       qtyPerBox: p.qtyPerBox,
@@ -74,6 +75,10 @@ export default async function EditOrderPage({
       ...base,
       price: line.unitPriceSnapshot,
       currency: line.currencySnapshot,
+      // The line's own quoted price is its "list" price while editing, so
+      // the card only strikes it through once this edit changes it.
+      sellPrice: line.sellPriceSnapshot,
+      sellCurrency: line.sellCurrencySnapshot || line.currencySnapshot,
       moq: line.moqSnapshot,
       sku: line.skuSnapshot || base.sku,
       name: snapName || base.name,
@@ -128,6 +133,7 @@ export default async function EditOrderPage({
             // Orders saved before selling prices carry 0: they sold at cost.
             sellPrice:
               i.sellPriceSnapshot > 0 ? i.sellPriceSnapshot : i.unitPriceSnapshot,
+            sellCurrency: i.sellCurrencySnapshot || i.currencySnapshot,
           })),
         }}
       />

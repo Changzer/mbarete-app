@@ -6,7 +6,7 @@ import { Search, X, Check, ChevronLeft, Package } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { formatMoney } from "@/lib/money";
 import { authenticatedUploadLoader } from "@/lib/client/upload-image-loader";
-import { sellUnitPrice, suggestedQuantity } from "@/lib/calculations";
+import { sellUnitPrice, suggestedQuantity, sellCurrencyOf } from "@/lib/calculations";
 import type { BuilderProduct } from "@/components/orders/order-builder";
 
 /**
@@ -61,7 +61,7 @@ export function ProductPicker({
   // One estimate only when every picked product quotes the same currency —
   // adding RMB and USD together would be a lie.
   const picked = [...sel].map((id) => products.find((p) => p.id === id)!).filter(Boolean);
-  const oneCurrency = new Set(picked.map((p) => p.currency)).size === 1 && picked.length > 0;
+  const oneCurrency = new Set(picked.map((p) => sellCurrencyOf(p))).size === 1 && picked.length > 0;
   const estimate = oneCurrency
     ? picked.reduce((sum, p) => sum + suggestedQuantity(p, p.moq) * sellUnitPrice(p), 0)
     : null;
@@ -174,7 +174,7 @@ export function ProductPicker({
                 <span className="min-w-0">
                   <span className="block text-[14.5px] font-bold leading-tight text-ink">{p.name}</span>
                   <span className="mt-0.5 block truncate font-mono text-[11.5px] text-sub">
-                    {p.categoryName} · {formatMoney(sellUnitPrice(p), p.currency)} · {t("moq")} {p.moq} ·{" "}
+                    {p.categoryName} · {formatMoney(sellUnitPrice(p), sellCurrencyOf(p))} · {t("moq")} {p.moq} ·{" "}
                     {p.qtyPerBox > 1 ? `${p.qtyPerBox}/${t("ctnShort")}` : t("noCartonShort")}
                   </span>
                   {owned ? (
@@ -203,7 +203,7 @@ export function ProductPicker({
               data-testid="picker-add"
             >
               {t("pickerAddN", { count: sel.size })}
-              {estimate !== null ? ` · ${t("pickerEst")} ${formatMoney(estimate, picked[0].currency)}` : ""}
+              {estimate !== null ? ` · ${t("pickerEst")} ${formatMoney(estimate, sellCurrencyOf(picked[0]))}` : ""}
             </button>
             <div className="mt-2 text-center font-mono text-[11px] text-sub">{t("pickerAddedAtMin")}</div>
           </div>

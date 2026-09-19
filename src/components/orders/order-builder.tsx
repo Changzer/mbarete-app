@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,8 @@ import {
   type CurrencyRates,
   missingCartonFigures,
   sellUnitPrice,
+  quoteSellPrice,
+  sellCurrencyOf,
 } from "@/lib/calculations";
 import { createOrder, updateOrder, type OrderActionResult } from "@/lib/actions/orders";
 import { LineCard } from "@/components/orders/line-card";
@@ -59,6 +61,8 @@ export type BuilderProduct = {
   dimensionSource: "carton" | "piece";
   /** default selling price; 0 = none set, sells at the supplier price */
   sellPrice: number;
+  /** the currency that default is in (the cost currency when none was set) */
+  sellCurrency: string;
 };
 
 type Client = {
@@ -101,7 +105,8 @@ export function OrderBuilder({
     secondaryCurrency: string;
     commissionPct: number;
     notes: string;
-    items: { productId: number; quantity: number; sellPrice: number }[];
+    /** each line's sell price in the currency it was saved in */
+    items: { productId: number; quantity: number; sellPrice: number; sellCurrency: string }[];
   };
 }) {
   const t = useTranslations("orders");
@@ -121,12 +126,18 @@ export function OrderBuilder({
     initial?.commissionPct !== undefined ? String(initial.commissionPct) : "0",
   );
   const [notes, setNotes] = useState(initial?.notes ?? "");
-  // Each line owns its quantity and the price the client will be invoiced.
-  // The sell price is text while being edited so a half-typed "1." survives.
+  // Each line owns its quantity and the price the client will be invoiced,
+  // always in the order's quote currency: the client reads one currency on
+  // the proforma, whatever the supplier quoted in. A line saved in another
+  // currency (an older order, or the quote currency changed) is converted
+  // on load at the rate in force, so the number on screen is the number
+  // that will be saved. The sell price is text while being edited so a
+  // half-typed "1." survives.
   const [cart, setCart] = useState<Record<number, { qty: number; sellPrice: string }>>(() => {
     const map: Record<number, { qty: number; sellPrice: string }> = {};
+    const quote = initial?.displayCurrency ?? Object.keys(rates)[0] ?? "USD";
     initial?.items.forEach((i) => {
-      map[i.productId] = { qty: i.quantity, sellPrice: String(i.sellPrice) };
+      map[i.productId] = { qty: i.quantity, sellPrice: String(quoteSellPrice(i.sellPrice, i.sellCurrency, quote, rates)) };
     });
     return map;
   });
@@ -183,6 +194,40 @@ export function OrderBuilder({
 
   const productMap = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
 
+  /** The catalog's selling price (or cost) expressed in the quote currency. */
+  const listPriceOf = useCallback(
+    (product: BuilderProduct) => quoteSellPrice(sellUnitPrice(product), sellCurrencyOf(product), displayCurrency, rates),
+    [displayCurrency, rates],
+  );
+
+  /**
+   * Switching the quote currency re-expresses every typed price at the rate
+   * in force, so USD 9.50 becomes CNY 68.40 rather than a silent CNY 9.50.
+   */
+  function changeQuoteCurrency(next: string) {
+    if (next === displayCurrency) return;
+    setCart((prev) => {
+      const out: typeof prev = {};
+      for (const [id, entry] of Object.entries(prev)) {
+        const product = productMap.get(Number(id));
+        const n = Number(entry.sellPrice);
+        let sellPrice = entry.sellPrice;
+        if (product && Number.isFinite(n) && n > 0) {
+          // An untouched line takes the catalog price freshly expressed in
+          // the new currency, so it never picks up a cent of rounding drift.
+          sellPrice = String(
+            Math.abs(n - listPriceOf(product)) < 0.004
+              ? quoteSellPrice(sellUnitPrice(product), sellCurrencyOf(product), next, rates)
+              : quoteSellPrice(n, displayCurrency, next, rates),
+          );
+        }
+        out[Number(id)] = { ...entry, sellPrice };
+      }
+      return out;
+    });
+    setDisplayCurrency(next);
+  }
+
   const cartLines = useMemo(() => {
     return Object.entries(cart)
       .filter(([, entry]) => entry.qty > 0)
@@ -192,11 +237,11 @@ export function OrderBuilder({
         // The chosen sell price rides inside the product the maths reads, so
         // computeOrderTotals needs no special order-builder path.
         const chosen = Number(entry.sellPrice);
-        const sellPrice = Number.isFinite(chosen) && chosen > 0 ? chosen : sellUnitPrice(product);
-        return { product: { ...product, sellPrice }, quantity: entry.qty };
+        const sellPrice = Number.isFinite(chosen) && chosen > 0 ? chosen : listPriceOf(product);
+        return { product: { ...product, sellPrice, sellCurrency: displayCurrency }, quantity: entry.qty };
       })
       .filter((l): l is NonNullable<typeof l> => l !== null);
-  }, [cart, productMap]);
+  }, [cart, productMap, displayCurrency, listPriceOf]);
 
   // Both currencies are shown side by side: cost is usually quoted by the
   // supplier in RMB while the client is billed in USD.
@@ -233,9 +278,10 @@ export function OrderBuilder({
         ...prev,
         [productId]: {
           qty,
-          // First touch pre-fills the product's own selling price (or cost).
+          // First touch pre-fills the product's own selling price (or cost),
+          // in the quote currency.
           sellPrice:
-            existing?.sellPrice ?? String(product ? sellUnitPrice(product) : ""),
+            existing?.sellPrice ?? String(product ? listPriceOf(product) : ""),
         },
       };
     });
@@ -375,6 +421,8 @@ export function OrderBuilder({
             product={productMap.get(product.id)!}
             qty={quantity}
             sellPrice={product.sellPrice}
+            listPrice={listPriceOf(productMap.get(product.id)!)}
+            currency={displayCurrency}
             onStep={stepLine}
             onOpenKeypad={(id, tab) => setKeypad({ id, tab })}
             onFix={(id, qty) => setQuantity(id, qty)}
@@ -447,8 +495,8 @@ export function OrderBuilder({
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="displayCurrency">{t("quoteCurrency")}</Label>
-              <Select value={displayCurrency} onValueChange={setDisplayCurrency}>
-                <SelectTrigger id="displayCurrency">
+              <Select value={displayCurrency} onValueChange={changeQuoteCurrency}>
+                <SelectTrigger id="displayCurrency" data-testid="quote-currency">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -459,6 +507,7 @@ export function OrderBuilder({
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-[11px] leading-snug text-sub">{t("quoteCurrencyHelp", { currency: displayCurrency })}</p>
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="secondaryCurrency">{t("secondaryCurrency")}</Label>
@@ -692,8 +741,10 @@ export function OrderBuilder({
           qty={cart[keypad.id].qty}
           sellPrice={
             cartLines.find((l) => l.product.id === keypad.id)?.product.sellPrice ??
-            sellUnitPrice(productMap.get(keypad.id)!)
+            listPriceOf(productMap.get(keypad.id)!)
           }
+          listPrice={listPriceOf(productMap.get(keypad.id)!)}
+          currency={displayCurrency}
           initialTab={keypad.tab}
           onSetQty={setQuantity}
           onSetSellPrice={(id, price) => setSellPrice(id, String(price))}
