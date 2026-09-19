@@ -638,8 +638,9 @@ export function OrderBuilder({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="notes">{t("notes")}</Label>
-            <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <Label htmlFor="notes">{t("notesTitle")}</Label>
+            <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("notesPlaceholder")} />
+            <p className="text-[11px] leading-snug text-sub">{t("notesHelp")}</p>
           </div>
 
           {totals.hasMoqViolation ? (
