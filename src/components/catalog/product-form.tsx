@@ -111,6 +111,7 @@ export function ProductForm({
   rates = {},
   functionalCurrency = "USD",
   dutySuggestions = {},
+  returnQuery,
 }: {
   categories: Category[];
   action: (prevState: string | undefined, formData: FormData) => Promise<string | undefined>;
@@ -143,6 +144,8 @@ export function ProductForm({
   rates?: CurrencyRates;
   functionalCurrency?: string;
   dutySuggestions?: Partial<Record<Destination, number>>;
+  /** The catalog view (its query string) to land on after saving an edit. */
+  returnQuery?: string;
 }) {
   const t = useTranslations("catalog");
   const common = useTranslations("common");
@@ -908,6 +911,7 @@ export function ProductForm({
 
       <FormSection kicker={t("identityGroup")} className="lg:col-span-2">
         <input type="hidden" name="thumbPath" value={thumbPath} />
+        {returnQuery ? <input type="hidden" name="returnQuery" value={returnQuery} /> : null}
         <input type="hidden" name="boardText" value={aiBoardText ?? ""} />
         <input type="hidden" name="aiNotes" value={aiNotes ?? ""} />
         <div className="grid grid-cols-2 gap-3">

@@ -17,6 +17,7 @@ import {
 } from "@/db/schema";
 import { eq, and, ne, inArray } from "drizzle-orm";
 import { productSchema, categorySchema } from "@/lib/validators";
+import { catalogReturnHref } from "@/lib/catalog-return";
 import {
   computeCbm,
   estimateCartonCbm,
@@ -660,7 +661,8 @@ export async function updateProduct(
   await syncProductFromOffers(user.companyId, id);
 
   revalidatePath("/catalog");
-  redirect({ href: "/catalog?saved=1", locale: (await getLocale()) as Locale });
+  // Back to the catalog as it was found: same search, filters and product.
+  redirect({ href: catalogReturnHref(formData.get("returnQuery")), locale: (await getLocale()) as Locale });
 }
 
 export async function deleteProduct(id: number): Promise<string | undefined> {
