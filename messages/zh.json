@@ -272,7 +272,7 @@
     "aiBoardRead": "识别到的价格板",
     "noCategoryMatches": "没有匹配的类目",
     "errorPlanLimit": "已达到当前套餐的产品数量上限——请联系 Mbarete 升级。",
-    "costPriceHint": "还没拿到报价？可以留空，等供应商回复后再补上。",
+    "costPriceHint": "未税单价。尚未报价可留空。",
     "viewTable": "列表视图",
     "viewGallery": "图库视图",
     "aiVerifyHint": "AI 提取，请核对后使用",

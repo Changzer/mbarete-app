@@ -32,6 +32,7 @@ import { nextOrderNumber, getExchangeRates } from "@/lib/queries/orders";
 import { canTransition, isEditable, isDeletable } from "@/lib/order-status";
 import { deleteUpload } from "@/lib/uploads";
 import { logOrderEvent, diffOrderEdit, type OrderChange } from "@/lib/order-log";
+import { formatMoney } from "@/lib/money";
 import { defaultBankAccount } from "@/lib/proforma-bank";
 import { contacts } from "@/db/schema";
 
@@ -702,7 +703,7 @@ async function computeCatalogRefresh(companyId: number, orderId: number) {
     };
 
     const diff: LineRefreshDiff = { sku: product.sku, name: product.nameEn || product.nameZh };
-    if (!near(item.unitPriceSnapshot, fresh.unitPriceSnapshot) || item.currencySnapshot !== fresh.currencySnapshot) {
+    if (item.unitPriceSnapshot !== fresh.unitPriceSnapshot || item.currencySnapshot !== fresh.currencySnapshot) {
       diff.cost = {
         from: item.unitPriceSnapshot,
         to: fresh.unitPriceSnapshot,
@@ -782,8 +783,8 @@ export async function applyCatalogRefresh(
       changes.push({
         code: "line_cost",
         sku: diff.sku,
-        from: `${diff.cost.from.toFixed(2)} ${diff.cost.fromCurrency}`,
-        to: `${diff.cost.to.toFixed(2)} ${diff.cost.toCurrency}`,
+        from: formatMoney(diff.cost.from, diff.cost.fromCurrency, 4),
+        to: formatMoney(diff.cost.to, diff.cost.toCurrency, 4),
       });
     }
     if (diff.cbm || diff.weightKg || diff.cartons) {

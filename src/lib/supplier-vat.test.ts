@@ -3,6 +3,7 @@ import test from "node:test";
 import { supplierVatPctSchema, productSchema } from "./validators";
 import { supplierUnitCost, lineTotal, sellUnitPrice, sellCurrencyOf, quoteSellPrice, computeOrderTotals, deriveLineFigures } from "./calculations";
 import { rankOffers } from "./offers";
+import { formatMoney } from "./money";
 import { collectDraftFields } from "./offline/draft";
 
 const product = { price: 36, supplierVatPct: 3, currency: "CNY", sellPrice: 0, sellCurrency: "USD", moq: 1, qtyPerBox: 1, cbm: 0, weightKg: 0 };
@@ -20,6 +21,7 @@ test("blank supplier VAT means no surcharge; decimal percentages accept commas",
 test("supplier VAT is added once to the unit cost and order cost", () => {
   assert.equal(supplierUnitCost(product), 37.08);
   assert.equal(lineTotal(product, 100), 3708);
+  assert.equal(formatMoney(supplierUnitCost({ ...product, price: 0.01 }), "USD", 4), "$0.0103", "preview keeps sub-cent VAT visible");
   assert.equal(supplierUnitCost({ price: 36 }), 36);
   assert.equal(supplierUnitCost({ price: 36, supplierVatPct: 13 }), 40.68);
   assert.equal(supplierUnitCost({ price: 36, supplierVatPct: 2.5 }), 36.9);

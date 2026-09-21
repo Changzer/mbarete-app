@@ -860,7 +860,7 @@ export function ProductForm({
           </Field>
           {inclusiveCost !== null ? (
             <p className="col-span-2 -mt-1 text-[12px] text-sub" data-testid="supplier-cost-preview" aria-live="polite">
-              {t("costIncludingVat")}: <span className="font-mono font-semibold text-ink">{formatMoney(inclusiveCost, currency)}</span>
+              {t("costIncludingVat")}: <span className="font-mono font-semibold text-ink">{formatMoney(inclusiveCost, currency, 4)}</span>
             </p>
           ) : null}
           <CurrencyField

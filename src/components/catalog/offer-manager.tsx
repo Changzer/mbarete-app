@@ -1,5 +1,6 @@
 "use client";
 
+import { formatMoney } from "@/lib/money";
 import { supplierUnitCost } from "@/lib/calculations";
 import { supplierVatPctSchema } from "@/lib/validators";
 import { useActionState, useEffect, useRef, useState } from "react";
@@ -110,7 +111,7 @@ export function OfferManager({
                 {o.supplierName ?? t("supplierUnknown")}
               </span>
               <span className="font-medium text-ink">
-                {supplierUnitCost(o).toFixed(2)} {o.currency}
+                {formatMoney(supplierUnitCost(o), o.currency, 4)}
                 {(o.supplierVatPct ?? 0) > 0 ? <span className="ml-1 text-xs text-sub">{t("includesSupplierVat", { pct: o.supplierVatPct! })}</span> : null}
               </span>
               <span className="text-xs text-sub">

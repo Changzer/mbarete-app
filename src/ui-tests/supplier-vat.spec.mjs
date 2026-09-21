@@ -85,7 +85,7 @@ test("VAT survives capture and quote edits, and is applied exactly once to new o
     assert.equal(Number((await sql.query('SELECT supplier_vat_pct FROM products WHERE id=$1', [product.id])).rows[0].supplier_vat_pct), 0);
     await page.goto(`${BASE}/en/orders/${orderId}/edit`);
     assert.match(await page.getByTestId('builder-cost').innerText(), /37\.08/, 'ordinary edit uses the frozen inclusive cost');
-    await page.getByTestId('save-changes').click();
+    await page.getByRole('button', { name: 'Save as Draft' }).click();
     await page.waitForURL(new RegExp(`/en/orders/${orderId}$`));
     assert.equal(Number((await line()).unit_price_snapshot), 37.08, 'no second VAT and no silent catalog refresh');
     await page.getByTestId('catalog-refresh').click();
@@ -97,6 +97,19 @@ test("VAT survives capture and quote edits, and is applied exactly once to new o
     await dialog.waitFor({ state: 'hidden' });
     assert.equal(Number((await line()).unit_price_snapshot), 36, 'explicit refresh updates cost');
     assert.equal(Number((await line()).sell_price_snapshot), 37.08, 'agreed selling price stays unchanged');
+
+    // A 0.0003 unit-cost change matters over 1,000 pieces. The refresh must
+    // neither hide it behind two decimal places nor dismiss it as noise.
+    await sql.query('UPDATE products SET price=0.01, supplier_vat_pct=3 WHERE id=$1', [product.id]);
+    await sql.query('UPDATE order_items SET unit_price_snapshot=0.01, quantity=1000, line_total=10 WHERE order_id=$1', [orderId]);
+    await page.reload();
+    await page.getByTestId('catalog-refresh').click();
+    await dialog.waitFor();
+    assert.match(await dialog.innerText(), /0\.0103/);
+    await page.getByTestId('catalog-refresh-apply').click();
+    await dialog.waitFor({ state: 'hidden' });
+    assert.equal(Number((await line()).unit_price_snapshot), 0.0103);
+    assert.equal(Number((await line()).line_total), 10.3);
 
     // Offline queue stores the percentage before resetting for the next product.
     await page.goto(`${BASE}/en/catalog/new`);
