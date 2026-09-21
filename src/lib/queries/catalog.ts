@@ -1,6 +1,6 @@
 import { db, one } from "@/db";
 import { products, categories, productImages } from "@/db/schema";
-import { eq, asc, and, inArray } from "drizzle-orm";
+import { eq, asc, and, inArray, sql } from "drizzle-orm";
 
 export async function getCategories(companyId: number) {
   return await db
@@ -45,7 +45,7 @@ export async function getProducts(companyId: number, filters: ProductFilters = {
 
   const rows =
     filters.sort === "price-asc"
-      ? await query.orderBy(asc(products.price))
+      ? await query.orderBy(asc(sql`round(${products.price} * (1 + ${products.supplierVatPct} / 100), 4)`))
       : await query.orderBy(asc(products.nameEn));
 
   return rows;

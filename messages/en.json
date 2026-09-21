@@ -212,7 +212,7 @@
     "deleteOnOrders": "This product is on saved orders, so it cannot be deleted — untick Active instead to hide it from the catalog.",
     "costPrice": "Supplier price (cost)",
     "sellPrice": "Selling price",
-    "sellPriceHelp": "What the client is invoiced per unit, in the selling currency. Leave blank to invoice at the supplier price; you can always change it per order.",
+    "sellPriceHelp": "What the client is invoiced per unit, in the selling currency. Leave blank to invoice at supplier cost including VAT, converted to the order currency; you can change it per order.",
     "sellCurrency": "Selling currency",
     "sellsAtCost": "At cost — not set",
     "savedOffline": "Saved to phone — will upload when connected ({count} waiting)",
@@ -312,7 +312,13 @@
     "landedScope": "Planning subtotal. Excludes insurance, port/broker fees, local delivery, other import taxes and LCL minimum charges.",
     "landedFclAssumption": "FCL share assumes a full {cbm} m³ container. Booking it for a smaller shipment costs more per piece.",
     "landedEstimatedCarton": "Freight uses a carton estimate from piece dimensions and packing allowance.",
-    "landedPerPiece": "Per piece · {currency}"
+    "landedPerPiece": "Per piece · {currency}",
+    "supplierVatPct": "Supplier VAT (%)",
+    "supplierVatHint": "Optional. Leave blank for no VAT.",
+    "costIncludingVat": "Cost incl. VAT",
+    "includesSupplierVat": "Includes {pct}% VAT",
+    "errorSupplierVat": "Enter a VAT percentage from 0 to 100, with up to 2 decimal places.",
+    "supplierVatBreakdown": "{base} + {pct}% VAT"
   },
   "contacts": {
     "title": "Contacts",
@@ -885,7 +891,8 @@
     "field_hsCode": "HS / NCM code",
     "field_exportDestination": "Export destination",
     "field_importDutyPctBr": "Duty · Brazil",
-    "field_importDutyPctPy": "Duty · Paraguay"
+    "field_importDutyPctPy": "Duty · Paraguay",
+    "field_supplierVatPct": "Supplier VAT (%)"
   },
   "offline": {
     "offline": "Offline — the server can't be reached",

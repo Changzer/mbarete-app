@@ -225,6 +225,13 @@
       "when": 1789641000000,
       "tag": "0031_sell-currency",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1790000000000,
+      "tag": "0032_supplier-vat",
+      "breakpoints": true
     }
   ]
 }

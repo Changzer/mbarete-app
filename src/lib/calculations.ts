@@ -1,6 +1,8 @@
 export type ProductForCalc = {
   /** What the supplier charges per unit — the cost side. */
   price: number;
+  /** Supplier VAT added to the base price; absent/zero means no VAT. */
+  supplierVatPct?: number;
   /**
    * What the client is invoiced per unit — Mbarete's own pricing. Zero or
    * absent means no selling price has been set, and the line sells at cost;
@@ -22,9 +24,16 @@ export type ProductForCalc = {
   cbm: number;
 };
 
+/** What the supplier charges per unit, including their quoted VAT. */
+export function supplierUnitCost(product: Pick<ProductForCalc, "price" | "supplierVatPct">) {
+  // Keep the same four decimal places as stored unit prices. Round the line
+  // total to cents only after multiplying by quantity, including cheap items.
+  return roundMoney(product.price * (1 + (product.supplierVatPct ?? 0) / 100), 4);
+}
+
 /** The per-unit price the client pays for this product. */
-export function sellUnitPrice(product: Pick<ProductForCalc, "price" | "sellPrice">) {
-  return product.sellPrice && product.sellPrice > 0 ? product.sellPrice : product.price;
+export function sellUnitPrice(product: Pick<ProductForCalc, "price" | "sellPrice" | "supplierVatPct">) {
+  return product.sellPrice && product.sellPrice > 0 ? product.sellPrice : supplierUnitCost(product);
 }
 
 /**
@@ -32,8 +41,9 @@ export function sellUnitPrice(product: Pick<ProductForCalc, "price" | "sellPrice
  * currency when one is set, else the cost currency, which is what a line
  * sold at cost is denominated in anyway.
  */
-export function sellCurrencyOf(product: Pick<ProductForCalc, "currency" | "sellCurrency">) {
-  return product.sellCurrency || product.currency;
+export function sellCurrencyOf(product: Pick<ProductForCalc, "currency" | "sellCurrency" | "sellPrice">) {
+  return product.sellPrice && product.sellPrice > 0
+    ? product.sellCurrency || product.currency : product.currency;
 }
 
 /**
@@ -158,7 +168,7 @@ export function roundMoney(value: number, decimals = 2) {
 
 /** What the supplier charges for this line. */
 export function lineTotal(product: ProductForCalc, quantity: number) {
-  return roundMoney(product.price * quantity);
+  return roundMoney(supplierUnitCost(product) * quantity);
 }
 
 /** What the client is invoiced for this line. */

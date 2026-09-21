@@ -54,6 +54,7 @@ export type BuilderProduct = {
   thumbPath: string | null;
   supplierId: number | null;
   price: number;
+  supplierVatPct?: number;
   currency: string;
   moq: number;
   qtyPerBox: number;

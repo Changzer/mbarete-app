@@ -165,6 +165,7 @@ export async function syncProductFromOffers(companyId: number, productId: number
   await db.update(products)
     .set({
       price: winner.price,
+      supplierVatPct: winner.supplierVatPct,
       currency: winner.currency,
       moq: winner.moq,
       // Keeps "filter the catalog by supplier" answering with whoever the

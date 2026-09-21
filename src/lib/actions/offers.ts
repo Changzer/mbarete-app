@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { supplierVatPctSchema } from "@/lib/validators";
 import { revalidatePath } from "next/cache";
 import { db, one } from "@/db";
 import { productSuppliers, products, contacts } from "@/db/schema";
@@ -30,6 +31,7 @@ const offerSchema = z.object({
     .optional()
     .transform((v) => (typeof v === "number" ? v : null)),
   price: z.coerce.number().positive(),
+  supplierVatPct: supplierVatPctSchema,
   currency: z.string().trim().min(1).max(8).transform((s) => s.toUpperCase()),
   moq: z.coerce.number().int().min(1),
   // Never a deal breaker: most China lead times are the same 30 days.

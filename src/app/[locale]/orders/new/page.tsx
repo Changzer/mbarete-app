@@ -40,6 +40,7 @@ export default async function NewOrderPage({
       thumbPath: p.thumbPath || imagesByProduct.get(p.id)?.[0] || null,
       supplierId: p.supplierId,
       price: p.price,
+      supplierVatPct: p.supplierVatPct,
       sellPrice: p.sellPrice,
       sellCurrency: p.sellCurrency || p.currency,
       currency: p.currency,

@@ -55,6 +55,7 @@ export default async function EditOrderPage({
       thumbPath: p.thumbPath || imagesByProduct.get(p.id)?.[0] || null,
       supplierId: p.supplierId,
       price: p.price,
+      supplierVatPct: p.supplierVatPct,
       sellPrice: p.sellPrice,
       sellCurrency: p.sellCurrency || p.currency,
       currency: p.currency,
@@ -74,6 +75,8 @@ export default async function EditOrderPage({
     return {
       ...base,
       price: line.unitPriceSnapshot,
+      // The frozen unit price already includes supplier VAT.
+      supplierVatPct: 0,
       currency: line.currencySnapshot,
       // The line's own quoted price is its "list" price while editing, so
       // the card only strikes it through once this edit changes it.

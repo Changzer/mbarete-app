@@ -88,6 +88,7 @@ export default async function EditProductPage({
             supplierId: o.supplierId,
             supplierName: o.supplierName,
             price: o.price,
+            supplierVatPct: o.supplierVatPct,
             currency: o.currency,
             moq: o.moq,
             leadTimeDays: o.leadTimeDays,

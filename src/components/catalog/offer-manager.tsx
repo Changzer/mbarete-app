@@ -1,5 +1,7 @@
 "use client";
 
+import { supplierUnitCost } from "@/lib/calculations";
+import { supplierVatPctSchema } from "@/lib/validators";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Store, Clock } from "lucide-react";
@@ -25,6 +27,7 @@ export type ManagedOffer = {
   supplierId: number | null;
   supplierName: string | null;
   price: number;
+  supplierVatPct?: number;
   currency: string;
   moq: number;
   leadTimeDays: number;
@@ -107,7 +110,8 @@ export function OfferManager({
                 {o.supplierName ?? t("supplierUnknown")}
               </span>
               <span className="font-medium text-ink">
-                {o.price.toFixed(2)} {o.currency}
+                {supplierUnitCost(o).toFixed(2)} {o.currency}
+                {(o.supplierVatPct ?? 0) > 0 ? <span className="ml-1 text-xs text-sub">{t("includesSupplierVat", { pct: o.supplierVatPct! })}</span> : null}
               </span>
               <span className="text-xs text-sub">
                 {t("moq")} {o.moq}
@@ -196,6 +200,23 @@ export function OfferManager({
                   defaultValue={current.price || ""}
                   required
                 />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="offer-supplierVatPct">{t("supplierVatPct")}</Label>
+                <Input
+                  id="offer-supplierVatPct"
+                  name="supplierVatPct"
+                  type="text"
+                  numeric
+                  inputMode="decimal"
+                  suffix="%"
+                  placeholder={t("optionalPlaceholder")}
+                  defaultValue={current.supplierVatPct || ""}
+                  onChange={(event) => event.currentTarget.setCustomValidity(
+                    supplierVatPctSchema.safeParse(event.currentTarget.value).success ? "" : t("errorSupplierVat"),
+                  )}
+                />
+                <p className="text-xs text-sub">{t("supplierVatHint")}</p>
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="offer-currency">{t("currency")}</Label>

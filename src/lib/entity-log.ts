@@ -95,6 +95,7 @@ type ProductShape = {
   descriptionEn: string;
   descriptionZh: string;
   price: number;
+  supplierVatPct?: number;
   sellPrice: number;
   currency: string;
   moq: number;
@@ -135,6 +136,7 @@ export function diffProductEdit(
       ? changed("category", categoryNameOf(before.categoryId), categoryNameOf(after.categoryId))
       : null,
     changed("price", money(before.price, before.currency), money(after.price, after.currency)),
+    changed("supplierVatPct", `${before.supplierVatPct ?? 0}%`, `${after.supplierVatPct ?? 0}%`),
     changed(
       "sellPrice",
       money(before.sellPrice, before.currency),

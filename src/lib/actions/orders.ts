@@ -23,6 +23,7 @@ import {
   lineCbm,
   lineWeightKg,
   lineTotal,
+  supplierUnitCost,
   fullCartons,
   deriveLineFigures,
 } from "@/lib/calculations";
@@ -84,7 +85,7 @@ async function buildOrderItemRows(
     return {
       productId,
       quantity,
-      unitPriceSnapshot: product.price,
+      unitPriceSnapshot: supplierUnitCost(product),
       sellPriceSnapshot: sellPrice,
       currencySnapshot: product.currency,
       moqSnapshot: product.moq,
@@ -678,7 +679,7 @@ async function computeCatalogRefresh(companyId: number, orderId: number) {
     if (!product) continue; // a deleted product has nothing fresh to offer
 
     const fresh = {
-      unitPriceSnapshot: product.price,
+      unitPriceSnapshot: supplierUnitCost(product),
       currencySnapshot: product.currency,
       moqSnapshot: product.moq,
       lineTotal: lineTotal(product, item.quantity),
