@@ -212,7 +212,7 @@
     "deleteOnOrders": "该产品已存在于订单中，无法删除——可取消勾选“启用”将其从目录中隐藏。",
     "costPrice": "供应商价格（成本）",
     "sellPrice": "销售价格",
-    "sellPriceHelp": "开给客户的单价，按销售货币计。留空则按供应商价格开票；也可在每个订单中单独修改。",
+    "sellPriceHelp": "以销售币种计价的客户单价。留空则按供应商含税成本换算为订单币种，也可在每笔订单中调整。",
     "sellCurrency": "销售货币",
     "sellsAtCost": "按成本价——未设置",
     "savedOffline": "已保存到手机 — 联网后自动上传（{count} 条待传）",
@@ -272,7 +272,7 @@
     "aiBoardRead": "识别到的价格板",
     "noCategoryMatches": "没有匹配的类目",
     "errorPlanLimit": "已达到当前套餐的产品数量上限——请联系 Mbarete 升级。",
-    "costPriceHint": "还没拿到报价？可以留空，等供应商回复后再补上。",
+    "costPriceHint": "未税单价。尚未报价可留空。",
     "viewTable": "列表视图",
     "viewGallery": "图库视图",
     "aiVerifyHint": "AI 提取，请核对后使用",
@@ -312,7 +312,13 @@
     "landedScope": "仅供规划的小计，不含保险、港口及报关费用、当地配送、其他进口税费和拼箱最低收费。",
     "landedFclAssumption": "整箱按装满{cbm} m³分摊。少量货物单独订整箱时，每件运费更高。",
     "landedEstimatedCarton": "运费使用单件尺寸及包装余量估算的外箱体积。",
-    "landedPerPiece": "每件 · {currency}"
+    "landedPerPiece": "每件 · {currency}",
+    "supplierVatPct": "供应商增值税（%）",
+    "supplierVatHint": "选填。留空表示不加税。",
+    "costIncludingVat": "含税成本",
+    "includesSupplierVat": "含 {pct}% 增值税",
+    "errorSupplierVat": "请输入 0 到 100 之间的税率，最多保留两位小数。",
+    "supplierVatBreakdown": "{base} + {pct}% 增值税"
   },
   "contacts": {
     "title": "联系人",
@@ -885,7 +891,8 @@
     "field_hsCode": "HS / NCM编码",
     "field_exportDestination": "出口目的国",
     "field_importDutyPctBr": "关税 · 巴西",
-    "field_importDutyPctPy": "关税 · 巴拉圭"
+    "field_importDutyPctPy": "关税 · 巴拉圭",
+    "field_supplierVatPct": "供应商增值税（%）"
   },
   "offline": {
     "offline": "离线 — 无法连接服务器",

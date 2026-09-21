@@ -1,5 +1,6 @@
 "use client";
 
+import { supplierUnitCost } from "@/lib/calculations";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
@@ -29,6 +30,7 @@ export type CatalogProduct = {
   importDutyPctPy: number | null;
   categoryName: string;
   price: number;
+  supplierVatPct?: number;
   sellPrice: number;
   /** The currency the selling price is in; the cost currency when none was set. */
   sellCurrency: string;
@@ -167,7 +169,7 @@ export function ProductCard({
           {/* The cheapest live quote, like the phone row — with the count of
               the others, since a table has no room for the whole comparison. */}
           <td className="px-3 py-2.5 font-mono text-[13px] font-semibold tabular-nums text-ink">
-            {best ? formatMoney(best.price, best.currency) : "—"}
+            {best ? formatMoney(supplierUnitCost(best), best.currency, 4) : "—"}
           </td>
           <td className="px-3 py-2.5 font-mono text-[12px] tabular-nums text-sub">
             {best ? `${best.moq} · ${product.qtyPerBox}` : product.qtyPerBox}
@@ -236,7 +238,7 @@ export function ProductCard({
               {t("unitPerCtn")}
             </span>
             <span className="font-mono text-[14px] font-semibold tabular-nums text-ink">
-              {best ? formatMoney(best.price, best.currency) : "—"}
+              {best ? formatMoney(supplierUnitCost(best), best.currency, 4) : "—"}
               {best ? (
                 <span className="ml-1.5 font-sans text-[11px] font-medium text-sub">
                   {t("moq")} {best.moq}

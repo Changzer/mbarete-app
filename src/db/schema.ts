@@ -176,6 +176,7 @@ export const products = pgTable(
     importDutyPctBr: numeric("import_duty_pct_br", { precision: 7, scale: 3, mode: "number" }),
     importDutyPctPy: numeric("import_duty_pct_py", { precision: 7, scale: 3, mode: "number" }),
     price: numeric("price", { precision: 14, scale: 4, mode: "number" }).notNull(),
+    supplierVatPct: numeric("supplier_vat_pct", { precision: 5, scale: 2, mode: "number" }).notNull().default(0),
     // Default selling price for order lines. 0 means none set: the product
     // sells at the supplier price until a price is typed on the order.
     sellPrice: numeric("sell_price", { precision: 14, scale: 4, mode: "number" })
@@ -541,6 +542,7 @@ export const productSuppliers = pgTable(
     productId: integer("product_id").notNull(),
     supplierId: integer("supplier_id"),
     price: numeric("price", { precision: 14, scale: 4, mode: "number" }).notNull(),
+    supplierVatPct: numeric("supplier_vat_pct", { precision: 5, scale: 2, mode: "number" }).notNull().default(0),
     currency: text("currency").notNull().default("USD"),
     moq: integer("moq").notNull().default(1),
     // Optional: 0 means nobody recorded it. Never blocks saving an offer —

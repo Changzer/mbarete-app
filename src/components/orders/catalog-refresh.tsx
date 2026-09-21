@@ -1,5 +1,6 @@
 "use client";
 
+import { formatMoney } from "@/lib/money";
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -90,9 +91,9 @@ export function CatalogRefresh({ orderId }: { orderId: number }) {
                   ) : null}
                   {d.cost ? (
                     <li>
-                      {t("refreshCost")}: {d.cost.from.toFixed(2)} {d.cost.fromCurrency} →{" "}
+                      {t("refreshCost")}: {formatMoney(d.cost.from, d.cost.fromCurrency, 4)} →{" "}
                       <b className="text-ink">
-                        {d.cost.to.toFixed(2)} {d.cost.toCurrency}
+                        {formatMoney(d.cost.to, d.cost.toCurrency, 4)}
                       </b>
                     </li>
                   ) : null}

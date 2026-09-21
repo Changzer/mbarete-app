@@ -757,7 +757,7 @@ test("finance view: an unknown result currency is flagged, not a crash", () => {
 // --- selling in one currency, buying in another ------------------------------
 
 test("a product sells in its own currency, falling back to the cost currency", () => {
-  assert.equal(sellCurrencyOf({ currency: "CNY", sellCurrency: "USD" }), "USD");
+  assert.equal(sellCurrencyOf({ currency: "CNY", sellCurrency: "USD", sellPrice: 5 }), "USD");
   assert.equal(sellCurrencyOf({ currency: "CNY", sellCurrency: "" }), "CNY");
   assert.equal(sellCurrencyOf({ currency: "CNY" }), "CNY");
 });

@@ -1,3 +1,4 @@
+import { supplierUnitCost } from "@/lib/calculations";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import {
@@ -76,7 +77,7 @@ export default async function CatalogPage({
           sku: p.sku,
           name: p.name,
           categoryName: p.categoryName,
-          price: p.price,
+          price: supplierUnitCost(p),
           sellPrice: p.sellPrice,
           currency: p.currency,
           moq: p.moq,

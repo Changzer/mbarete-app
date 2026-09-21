@@ -95,6 +95,7 @@ function formToProductInput(formData: FormData) {
     // Market-floor captures may carry no price yet: blank means "not quoted",
     // stored as 0 and visibly missing, never a reason to block the save.
     price: dec(formData.get("price")) || 0,
+    supplierVatPct: formData.get("supplierVatPct"),
     sellPrice: dec(formData.get("sellPrice")) || 0,
     sellCurrency: formData.get("sellCurrency") ?? "",
     currency: formData.get("currency"),
@@ -340,6 +341,7 @@ export async function createProduct(
           importDutyPctBr: data.importDutyPctBr,
           importDutyPctPy: data.importDutyPctPy,
           price: data.price,
+          supplierVatPct: data.supplierVatPct,
           sellPrice: data.sellPrice,
           sellCurrency: data.sellCurrency,
           currency: data.currency,
@@ -365,6 +367,7 @@ export async function createProduct(
         productId: newProductId,
         supplierId,
         price: data.price,
+        supplierVatPct: data.supplierVatPct,
         currency: data.currency,
         moq: data.moq,
         quotedOn: new Date().toISOString().slice(0, 10),
@@ -582,6 +585,7 @@ export async function updateProduct(
       importDutyPctBr: data.importDutyPctBr,
       importDutyPctPy: data.importDutyPctPy,
       price: data.price,
+      supplierVatPct: data.supplierVatPct,
       sellPrice: data.sellPrice,
       sellCurrency: data.sellCurrency,
       currency: data.currency,
@@ -630,6 +634,7 @@ export async function updateProduct(
     .where(eq(productSuppliers.productId, id));
   const terms = {
     price: data.price,
+    supplierVatPct: data.supplierVatPct,
     currency: data.currency,
     moq: data.moq,
     updatedAt: new Date().toISOString(),

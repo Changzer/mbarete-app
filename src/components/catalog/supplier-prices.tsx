@@ -1,5 +1,6 @@
 "use client";
 
+import { supplierUnitCost } from "@/lib/calculations";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Store, Clock, CheckCircle2, ChevronDown } from "lucide-react";
@@ -23,6 +24,7 @@ export type CardOffer = {
   supplierId: number | null;
   supplierName: string | null;
   price: number;
+  supplierVatPct?: number;
   currency: string;
   moq: number;
   leadTimeDays: number;
@@ -77,7 +79,7 @@ export function SupplierPrices({
             className="font-mono text-[15px] font-semibold tabular-nums text-ink"
             data-testid="best-price"
           >
-            {formatMoney(best.price, best.currency)}
+            {formatMoney(supplierUnitCost(best), best.currency, 4)}
           </span>
           {rest.slice(0, 3).map((o) => (
             <span key={o.id} className="font-mono text-[11px] tabular-nums text-faint">
@@ -114,16 +116,21 @@ export function SupplierPrices({
           className="font-mono text-[18px] font-semibold tabular-nums text-ink"
           data-testid="best-price"
         >
-          {formatMoney(best.price, best.currency)}
+          {formatMoney(supplierUnitCost(best), best.currency, 4)}
         </span>
         {/* Everyone else, small, with the gap that matters. */}
         {rest.map((o) => (
           <span key={o.id} className="font-mono text-[12px] tabular-nums text-faint">
-            {formatMoney(o.price, o.currency)} (+{pct(best.comparable, o.comparable)}%)
+            {formatMoney(supplierUnitCost(o), o.currency, 4)} (+{pct(best.comparable, o.comparable)}%)
           </span>
         ))}
       </div>
 
+      {(best.supplierVatPct ?? 0) > 0 ? (
+        <p className="text-[11.5px] text-sub">
+          {t("supplierVatBreakdown", { base: formatMoney(best.price, best.currency), pct: best.supplierVatPct! })}
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px] text-sub">
         <span className="inline-flex items-center gap-1">
           <Store className="h-3 w-3" strokeWidth={1.5} />
@@ -202,7 +209,8 @@ export function SupplierPrices({
                       </span>
                     </td>
                     <td className="py-2 pr-3 text-right font-mono tabular-nums whitespace-nowrap">
-                      {formatMoney(o.price, o.currency)}
+                      {formatMoney(supplierUnitCost(o), o.currency, 4)}
+                      {(o.supplierVatPct ?? 0) > 0 ? <span className="block text-[10px] font-normal text-sub">{t("includesSupplierVat", { pct: o.supplierVatPct! })}</span> : null}
                     </td>
                     <td className="py-2 pr-3 text-right font-mono tabular-nums text-sub">
                       {i === 0 ? "—" : `+${pct(best.comparable, o.comparable)}%`}
@@ -211,8 +219,8 @@ export function SupplierPrices({
                     {sellPrice > 0 ? (
                       <td className="py-2 pr-3 text-right font-mono font-semibold tabular-nums whitespace-nowrap">
                         {o.currency === sellCurrency
-                          ? (sellPrice - o.price).toFixed(2)
-                          : `${formatMoney(sellPrice, sellCurrency)} − ${formatMoney(o.price, o.currency)}`}
+                          ? (sellPrice - supplierUnitCost(o)).toFixed(2)
+                          : `${formatMoney(sellPrice, sellCurrency)} − ${formatMoney(supplierUnitCost(o), o.currency, 4)}`}
                       </td>
                     ) : null}
                     <td className="py-2 pr-3 text-right font-mono tabular-nums">{o.moq}</td>

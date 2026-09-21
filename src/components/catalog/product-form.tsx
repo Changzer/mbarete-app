@@ -44,6 +44,9 @@ import {
   DEFAULT_PACKING_ALLOWANCE_PCT,
 } from "@/lib/calculations";
 import { normalizeDecimalInput } from "@/lib/decimal-input";
+import { supplierVatPctSchema } from "@/lib/validators";
+import { supplierUnitCost } from "@/lib/calculations";
+import { formatMoney } from "@/lib/money";
 import { useOutbox, probeServer } from "@/components/offline/outbox";
 
 type Category = { id: number; nameEn: string; nameZh: string };
@@ -70,6 +73,7 @@ type ProductFormValues = {
   importDutyPctBr: number | null;
   importDutyPctPy: number | null;
   price: number;
+  supplierVatPct?: number;
   sellPrice: number;
   /** "" means the cost currency (products from before selling currencies). */
   sellCurrency: string;
@@ -265,6 +269,11 @@ export function ProductForm({
   // The landed-cost estimate follows the price as it is typed; the input
   // itself stays uncontrolled so the AI can still write into it.
   const [priceText, setPriceText] = useState(defaultValues?.price ? String(defaultValues.price) : "");
+  const [vatText, setVatText] = useState(blankIfZero(defaultValues?.supplierVatPct));
+  const vat = supplierVatPctSchema.safeParse(vatText);
+  const basePrice = Number(normalizeDecimalInput(priceText));
+  const inclusiveCost = vat.success && Number.isFinite(basePrice) && basePrice > 0
+    ? supplierUnitCost({ price: basePrice, supplierVatPct: vat.data }) : null;
   const [destination, setDestination] = useState<"" | Destination>(defaultValues?.exportDestination ?? "");
   const exportDetailsRef = useRef<HTMLDetailsElement>(null);
   const [suggestedDuties, setSuggestedDuties] = useState(dutySuggestions);
@@ -410,6 +419,7 @@ export function ProductForm({
     formRef.current?.reset();
     setCaptureEpoch((epoch) => epoch + 1);
     setPriceText(defaultValues?.price ? String(defaultValues.price) : "");
+    setVatText(blankIfZero(defaultValues?.supplierVatPct));
     setDestination(defaultValues?.exportDestination ?? "");
     setDutyBr("");
     setDutyPy("");
@@ -504,6 +514,11 @@ export function ProductForm({
       formData.append(submitter.name, submitter.value);
     }
     const hsCode = String(formData.get("hsCode") ?? "");
+    if (!supplierVatPctSchema.safeParse(formData.get("supplierVatPct")).success) {
+      setErrorMessage("invalid-supplier-vat");
+      document.getElementById("supplierVatPct")?.focus();
+      return;
+    }
     const badCode = hsCode.trim() !== "" && !isHsCode(hsCode);
     const badDuty = [dutyBr, dutyPy].some((value) => value.trim() !== "" && readDuty(value) === null);
     if (badCode || badDuty) {
@@ -827,6 +842,27 @@ export function ProductForm({
               onInput={(e) => setPriceText(e.currentTarget.value)}
             />
           </Field>
+          <Field label={t("supplierVatPct")} htmlFor="supplierVatPct" hint={t("supplierVatHint")}>
+            <Input
+              id="supplierVatPct"
+              name="supplierVatPct"
+              type="text"
+              numeric
+              inputMode="decimal"
+              suffix="%"
+              placeholder={t("optionalPlaceholder")}
+              value={vatText}
+              onChange={(e) => setVatText(e.currentTarget.value)}
+              aria-invalid={!vat.success}
+              aria-describedby={!vat.success ? "supplier-vat-error" : undefined}
+            />
+            {!vat.success ? <p id="supplier-vat-error" className="text-xs text-danger">{t("errorSupplierVat")}</p> : null}
+          </Field>
+          {inclusiveCost !== null ? (
+            <p className="col-span-2 -mt-1 text-[12px] text-sub" data-testid="supplier-cost-preview" aria-live="polite">
+              {t("costIncludingVat")}: <span className="font-mono font-semibold text-ink">{formatMoney(inclusiveCost, currency, 4)}</span>
+            </p>
+          ) : null}
           <CurrencyField
             value={currency}
             onChange={setCurrency}
@@ -1209,7 +1245,7 @@ export function ProductForm({
             ) : null}
           </Field> : null}
           {destination ? <LandedCostBox
-            priceText={priceText}
+            priceText={inclusiveCost === null ? "" : String(inclusiveCost)}
             currency={currency}
             cartonCbm={source === "piece" ? estimatedCbm : cartonCbm}
             estimatedCarton={source === "piece"}
@@ -1236,6 +1272,7 @@ export function ProductForm({
       {errorMessage ? (
         <p className="text-[13px] font-semibold text-danger lg:col-span-2" data-testid="form-error">
           {errorMessage === "invalid-hs-code" ? t("errorHsCode")
+            : errorMessage === "invalid-supplier-vat" ? t("errorSupplierVat")
             : errorMessage === "invalid-duty" ? t("errorDuty")
             : errorMessage === "duplicate-sku"
             ? t("errorDuplicateSku")

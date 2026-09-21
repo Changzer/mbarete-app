@@ -1,4 +1,4 @@
-import { convert, UnknownCurrencyError, type CurrencyRates } from "@/lib/calculations";
+import { convert, supplierUnitCost, UnknownCurrencyError, type CurrencyRates } from "@/lib/calculations";
 
 /**
  * Choosing between suppliers for the same product.
@@ -14,6 +14,7 @@ export type Offer = {
   id: number;
   supplierId: number | null;
   price: number;
+  supplierVatPct?: number;
   currency: string;
   moq: number;
   leadTimeDays: number;
@@ -36,14 +37,14 @@ export const STALE_QUOTE_DAYS = 180;
  * comparison.
  */
 export function comparablePrice(
-  offer: Pick<Offer, "price" | "currency">,
+  offer: Pick<Offer, "price" | "currency" | "supplierVatPct">,
   basis: string,
   rates: CurrencyRates,
 ): number {
   try {
-    return convert(offer.price, offer.currency, basis, rates);
+    return convert(supplierUnitCost(offer), offer.currency, basis, rates);
   } catch (err) {
-    if (err instanceof UnknownCurrencyError) return offer.price;
+    if (err instanceof UnknownCurrencyError) return supplierUnitCost(offer);
     throw err;
   }
 }

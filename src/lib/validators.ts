@@ -17,6 +17,13 @@ const dutyPct = z.preprocess(
   z.coerce.number().nonnegative().max(200).nullable(),
 );
 
+/** A manually quoted surcharge, not an inferred destination tax rate. */
+export const supplierVatPctSchema = z.preprocess(
+  (v) => v == null || (typeof v === "string" && v.trim() === "")
+    ? 0 : typeof v === "string" ? normalizeDecimalInput(v) : v,
+  z.coerce.number().nonnegative().max(100).multipleOf(0.01),
+);
+
 export const productSchema = z
   .object({
     // Blank is allowed; the next free number is assigned on save.
@@ -49,6 +56,7 @@ export const productSchema = z
       .transform((v) => v.replace(/\r\n?/g, "\n")),
     aiNotes: z.string().trim().max(1000).default(""),
     price: z.coerce.number().nonnegative(),
+    supplierVatPct: supplierVatPctSchema,
     sellPrice: z.coerce.number().nonnegative().default(0),
     // "" keeps the cost currency; a code sets the selling side apart.
     sellCurrency: z.string().trim().max(8).transform((s) => s.toUpperCase()).default(""),
