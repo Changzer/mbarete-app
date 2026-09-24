@@ -59,11 +59,11 @@ Caddy is the least-work option — automatic certificates, two lines:
 ```
 # /etc/caddy/Caddyfile
 app.example.com {
-    # Uploads are parsed in memory; let the proxy refuse an oversized body
-    # before it reaches the app (the app's own cap is 80 MB, and it refuses
-    # a body with no Content-Length at all).
+    # Dossier documents allow 100 MiB per file. Leave room for multipart
+    # metadata: 100MB in Caddy is less than the app's 100 * 1024 * 1024 bytes.
+    # The dossier route also bounds actual request bytes, including chunked bodies.
     request_body {
-        max_size 100MB
+        max_size 110MB
     }
     reverse_proxy localhost:3000
 }
@@ -73,6 +73,16 @@ app.example.com {
 the certificate on first request. (nginx + certbot works the same if
 preferred.) The app already sends HSTS; behind https the session cookie
 becomes `Secure` automatically.
+
+**Existing installations:** update the Caddy body limit above and run
+`systemctl reload caddy` when deploying the larger-document upload change.
+For nginx use `client_max_body_size 110m;` and reload nginx. Check any NAS
+reverse proxy or upstream service too: its request limit must allow at least
+102 MiB. A lower proxy limit returns 413 before the app can receive the file.
+The dossier's dedicated `/api/orders/:id/dossier-document` endpoint accepts
+100 MiB files; other receipt/document forms still have their existing limits.
+Videos use their separate endpoint and require a proxy limit above
+`DOSSIER_VIDEO_MAX_MB` plus multipart overhead if used.
 
 Never publish port 3000 or 5432 to the internet. Postgres already stays
 compose-internal, but the compose default DOES publish 3000 on every

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { AlertTriangle, CheckCircle2, CircleDashed, Download, FileUp, Sparkles, XCircle } from "lucide-react";
@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useIsAdmin } from "@/components/role-provider";
 import { deleteOrderDocument } from "@/lib/actions/finance";
-import { updateDossierMeta, uploadDossierDocument } from "@/lib/actions/dossier";
+import { updateDossierMeta } from "@/lib/actions/dossier";
+import { DOSSIER_DOCUMENT_MAX_MB, DOSSIER_DOCUMENT_MAX_BYTES } from "@/lib/upload-limits";
 import {
   DOSSIER_ITEMS,
   FAPIAO_TYPES,
@@ -92,6 +93,7 @@ export function DossierCard({
         <div>
           <h2 className="text-sm font-semibold text-ink">{t("title")}</h2>
           <p className="mt-0.5 text-xs text-sub">{t("subtitle")}</p>
+          <p className="mt-1 text-xs text-sub">{t("documentHint", { mb: DOSSIER_DOCUMENT_MAX_MB })}</p>
         </div>
         <div className="flex items-center gap-2">
           <span
@@ -321,22 +323,46 @@ function ItemUpload({
   const t = useTranslations("dossier");
   const formRef = useRef<HTMLFormElement>(null);
   const [fapiao, setFapiao] = useState<string>("special");
-  async function action(prev: { error?: string } | undefined, formData: FormData) {
-    const result = await uploadDossierDocument(orderId, prev, formData);
-    if (!result.error) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (pending) return;
+    const body = new FormData(event.currentTarget);
+    const file = body.get("file");
+    if (!(file instanceof File) || !file.size) return;
+    setError(null);
+    if (file.size > DOSSIER_DOCUMENT_MAX_BYTES) {
+      setError("size");
+      return;
+    }
+    setPending(true);
+    try {
+      const res = await fetch(`/api/orders/${orderId}/dossier-document`, { method: "POST", body });
+      const data = await res.json().catch(() => null) as { ok?: boolean; error?: string } | null;
+      if (!res.ok || data?.ok !== true) {
+        const known = ["file", "storageFull", "invalid", "notFound", "size", "rate", "unauthorized", "forbidden"];
+        setError(res.status === 413 ? "size" : res.status === 429 ? "rate"
+          : known.includes(data?.error ?? "") ? data!.error! : "server");
+        return;
+      }
+      // Only confirmed success clears the native picker. React form actions
+      // reset it even when an action returns an error, losing the retry file.
       formRef.current?.reset();
       onDone();
+    } catch {
+      setError("network");
+    } finally {
+      setPending(false);
     }
-    return result;
   }
-  const [result, formAction, pending] = useActionState(action, undefined);
   return (
-    <form ref={formRef} action={formAction} className="flex flex-col gap-1.5" data-testid={`dossier-upload-${kind}`}>
+    <form ref={formRef} onSubmit={submit} className="flex flex-col gap-1.5" data-testid={`dossier-upload-${kind}`} aria-busy={pending}>
       <input type="hidden" name="kind" value={kind} />
       {withFapiao ? (
         <>
           <input type="hidden" name="fapiaoType" value={fapiao} />
-          <Select value={fapiao} onValueChange={setFapiao}>
+          <Select value={fapiao} onValueChange={setFapiao} disabled={pending}>
             <SelectTrigger className="h-8 text-xs" aria-label={t("fapiaoType")} data-testid="fapiao-type">
               <SelectValue />
             </SelectTrigger>
@@ -355,6 +381,9 @@ function ItemUpload({
           type="file"
           name="file"
           required
+          disabled={pending}
+          aria-label={t("chooseDocument")}
+          onChange={(event) => setError((event.target.files?.[0]?.size ?? 0) > DOSSIER_DOCUMENT_MAX_BYTES ? "size" : null)}
           accept=".pdf,.xlsx,.xls,.docx,image/png,image/jpeg,image/webp"
           className="min-w-0 flex-1 text-[11px] text-sub file:mr-2 file:rounded-md file:border file:border-line file:bg-surface-2 file:px-2 file:py-1 file:text-[11px] file:text-ink"
         />
@@ -363,8 +392,8 @@ function ItemUpload({
           {pending ? t("uploading") : t("upload")}
         </Button>
       </div>
-      {result?.error ? (
-        <p className="text-[11px] text-danger">{t(`uploadError_${result.error}` as "uploadError_invalid")}</p>
+      {error ? (
+        <p role="alert" className="text-[11px] text-danger">{t(`uploadError_${error}` as "uploadError_invalid", { mb: DOSSIER_DOCUMENT_MAX_MB })}</p>
       ) : null}
     </form>
   );
@@ -418,7 +447,7 @@ function VideoUpload({ orderId, maxMb, onDone }: { orderId: number; maxMb: numbe
         </Button>
       </div>
       <span className="text-[11px] text-sub">{t("videoHint", { mb: maxMb })}</span>
-      {error ? <p className="text-[11px] text-danger">{t(`uploadError_${error}` as "uploadError_invalid")}</p> : null}
+      {error ? <p className="text-[11px] text-danger">{t(`uploadError_${error}` as "uploadError_invalid", { mb: maxMb })}</p> : null}
     </form>
   );
 }
