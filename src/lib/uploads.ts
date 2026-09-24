@@ -2,6 +2,9 @@ import path from "node:path";
 import { hasStorageFor } from "@/lib/entitlements";
 import fs from "node:fs/promises";
 import crypto from "node:crypto";
+import { Readable } from "node:stream";
+import type { ReadableStream as NodeReadableStream } from "node:stream/web";
+import { DOSSIER_DOCUMENT_MAX_BYTES } from "@/lib/upload-limits";
 
 const ALLOWED_TYPES: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -149,6 +152,11 @@ export async function saveUploadedDocument(companyId: number, file: File): Promi
   return saveUpload(companyId, file, DOCUMENT_TYPES, MAX_DOCUMENT_BYTES, DOCUMENT_PREFIX);
 }
 
+/** Large scanned dossier files use a route handler, outside the Server Action cap. */
+export async function saveUploadedDossierDocument(companyId: number, file: File): Promise<string> {
+  return saveUpload(companyId, file, DOCUMENT_TYPES, DOSSIER_DOCUMENT_MAX_BYTES, DOCUMENT_PREFIX);
+}
+
 /** A dossier video: mp4/mov/webm, gated like every document, capped by DOSSIER_VIDEO_MAX_MB. */
 export async function saveUploadedVideo(companyId: number, file: File): Promise<string> {
   return saveUpload(companyId, file, VIDEO_TYPES, DOSSIER_VIDEO_MAX_MB * 1024 * 1024, DOCUMENT_PREFIX);
@@ -215,9 +223,16 @@ async function saveUpload(
   await fs.mkdir(dir, { recursive: true });
 
   const filename = `${prefix}${crypto.randomUUID()}.${ext}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
   const target = path.join(/* turbopackIgnore: true */ dir, filename);
-  await fs.writeFile(/* turbopackIgnore: true */ target, buffer);
+  try {
+    // writeFile accepts an async iterable: don't allocate a second 100 MB
+    // buffer on top of the multipart parser's File.
+    await fs.writeFile(/* turbopackIgnore: true */ target,
+      Readable.fromWeb(file.stream() as NodeReadableStream), { flag: "wx" });
+  } catch (error) {
+    await fs.unlink(/* turbopackIgnore: true */ target).catch(() => {});
+    throw error;
+  }
 
   return `/uploads/c${companyId}/${filename}`;
 }

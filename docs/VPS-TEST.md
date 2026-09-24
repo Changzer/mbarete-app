@@ -146,12 +146,11 @@ apt install -y caddy
 
 ```
 test.yourdomain.com {
-    # The app buffers each upload in memory while it parses it. It refuses a
-    # body it cannot measure (411) and one over its own 80 MB cap (413), but
-    # the proxy is the right place to drop an oversized body before a byte of
-    # it reaches the app.
+    # Dossier documents allow 100 MiB per file, plus multipart metadata.
+    # The route bounds actual bytes, even without Content-Length. Caddy's
+    # decimal 100MB would reject a file at the app's binary 100 MiB limit.
     request_body {
-        max_size 100MB
+        max_size 110MB
     }
     reverse_proxy localhost:3000
 }
@@ -159,6 +158,13 @@ test.yourdomain.com {
 
 `systemctl reload caddy`. With the DNS A record set, the first visit
 fetches a certificate automatically.
+
+On an existing server, apply this limit and reload Caddy as part of the
+deployment; rebuilding the app alone does not change a proxy's limit.
+Also check any upstream/NAS proxy (at least 102 MiB for dossier documents).
+For nginx, set `client_max_body_size 110m;` and reload it. Dossier videos
+still need a separate higher proxy allowance matching `DOSSIER_VIDEO_MAX_MB`
+plus multipart overhead.
 
 Postgres (5432) is compose-internal and never reaches the host. Port 3000
 is different: the compose default publishes it on **every** interface, which

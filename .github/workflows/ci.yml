@@ -98,6 +98,10 @@ jobs:
         if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
       - run: npm run test:vat
         if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
+      - run: npm run test:documents
+        if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
+        env:
+          UPLOADS_DIR: ${{ runner.temp }}/uploads
       - name: Upload supplier VAT screenshots
         if: always()
         uses: actions/upload-artifact@v4

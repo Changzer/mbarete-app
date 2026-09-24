@@ -8,7 +8,6 @@ import { and, eq } from "drizzle-orm";
 import { requireUser, requireModuleAction } from "@/lib/authz";
 import { logOrderEvent } from "@/lib/order-log";
 import { CUSTOMS_NO, TAX_REGIMES } from "@/lib/dossier";
-import { storeDossierDocument } from "@/lib/dossier-server";
 
 /**
  * The dossier's header lives on the order but is not the agreed document:
@@ -108,29 +107,4 @@ export async function updateDossierMeta(orderId: number, input: unknown): Promis
   await logOrderEvent(orderId, user.id, "dossier", { changes });
   refresh();
   return { version: updated[0].version };
-}
-
-export type DossierUploadResult = { error?: string };
-
-/** A document for one checklist item; the video item goes through its own route. */
-export async function uploadDossierDocument(
-  orderId: number,
-  _prev: DossierUploadResult | undefined,
-  formData: FormData,
-): Promise<DossierUploadResult> {
-  const user = await requireSession();
-  const kind = String(formData.get("kind") ?? "");
-  const fapiaoType = formData.get("fapiaoType");
-  const file = formData.get("file");
-  if (!(file instanceof File)) return { error: "invalid" };
-  const result = await storeDossierDocument(
-    user,
-    orderId,
-    kind,
-    typeof fapiaoType === "string" && fapiaoType ? fapiaoType : null,
-    file,
-  );
-  if (result.error) return { error: result.error };
-  refresh();
-  return {};
 }
