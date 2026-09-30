@@ -4,6 +4,8 @@ import test from "node:test";
 import { mkdir, readdir, readFile } from "node:fs/promises";
 import { chromium } from "playwright";
 import pg from "pg";
+import { randomBytes } from "node:crypto";
+import sharp from "sharp";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
 const PHOTO = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAIAAAD/gAIDAAAACXBIWXMAAAPoAAAD6AG1e1JrAAABUElEQVR4nO3XwQmAUBDE0Om/6djCv0gILLwCwrAqju3wNsIttfdbubF2Y+2Pd8td1m6s3WXN/XDfY7gba3dZu8dwlV8Iv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4AOv4COD54t6yshm4MnAAAAAElFTkSuQmCC", "base64");
@@ -127,7 +129,11 @@ test("enquiries persist photos, keep drafts after failures, and clean up rejecte
   try {
     await fill(email);
     const files = page.locator('input[type="file"]');
-    await files.setInputFiles(photo());
+    // Exercise the actual visible control, not just programmatically assigning
+    // a hidden input (which missed the dead Add photos button).
+    const chooser = page.waitForEvent("filechooser");
+    await page.getByLabel(copy.photosAdd, { exact: true }).click();
+    await (await chooser).setFiles(photo());
     await page.getByRole("img", { name: "product.png", exact: true }).waitFor();
     await files.setInputFiles({ name: "too-large.png", mimeType: "image/png", buffer: Buffer.alloc(8 * 1024 * 1024 + 1) });
     assert.equal(await page.getByRole("img", { name: "product.png", exact: true }).count(), 1, "rejected selection preserves accepted photo");
@@ -187,4 +193,128 @@ test("enquiries persist photos, keep drafts after failures, and clean up rejecte
     await sql.end();
     await browser.close();
   }
+});
+
+test("enquiry photo selection and submission work with scripts disabled or blocked", { timeout: 120_000 }, async () => {
+  const sql = new pg.Client({ connectionString: process.env.DATABASE_ADMIN_URL });
+  await sql.connect();
+  const browser = await chromium.launch();
+  try {
+    for (const [locale, javaScriptEnabled] of [["en", false], ["pt-BR", true]]) {
+      const text = JSON.parse(await readFile(`messages/${locale}.json`, "utf8")).landing.form;
+      const context = await browser.newContext({ javaScriptEnabled, viewport: { width: 390, height: 844 } });
+      // JS may be enabled in settings while a network/cache problem prevents
+      // any application bundle from arriving. Inline React replay still runs.
+      if (javaScriptEnabled) await context.route("**/_next/static/**/*.js", (route) => route.abort());
+      const page = await context.newPage();
+      await page.goto(`${BASE}/${locale}#contact`);
+      const email = `native-${locale}-${Date.now()}@example.com`;
+      await page.locator("#eq-message").fill(javaScriptEnabled ? "   " : "Please source insulated bottles.");
+      await page.locator("#eq-name").fill("Native form QA");
+      await page.locator("#eq-email").fill(email);
+      const attach = async () => {
+        const chooser = page.waitForEvent("filechooser");
+        await page.getByLabel(text.photosAdd, { exact: true }).click();
+        await (await chooser).setFiles(photo("native.png"));
+      };
+      await attach();
+      const form = page.locator("form");
+      assert.equal(await form.getAttribute("method"), "POST");
+      assert.ok(!(await form.getAttribute("action")).startsWith("javascript:"), "real native POST, not React's replay-only placeholder");
+      if (javaScriptEnabled) {
+        // Whitespace passes native required validation but fails the server
+        // schema. Even with no client bundle, the buyer must see an error and
+        // retain the contact details on the server-rendered retry form.
+        await form.getByRole("button", { name: text.submit, exact: true }).click();
+        await page.getByText(text.errorInvalid, { exact: true }).waitFor();
+        assert.equal(await page.locator("#eq-name").inputValue(), "Native form QA");
+        assert.equal(await page.locator("#eq-email").inputValue(), email);
+        await page.getByText(text.photosReselect, { exact: true }).waitFor();
+        await page.locator("#eq-message").fill("Please source insulated bottles.");
+        await attach();
+      }
+      const response = page.waitForResponse((res) => res.request().method() === "POST");
+      await page.locator('form button[type="submit"]').click();
+      const posted = await response;
+      assert.match(posted.headers()["content-type"], /text\/html/, "native form receives a complete HTML response");
+      assert.equal(posted.request().headers()["next-action"], undefined);
+      await page.getByText(text.thanksTitle, { exact: true }).waitFor();
+      const row = (await sql.query("SELECT id, locale FROM service_enquiries WHERE email=$1", [email])).rows[0];
+      assert.ok(row);
+      assert.equal(row.locale, locale);
+      assert.equal((await sql.query("SELECT path FROM service_enquiry_images WHERE enquiry_id=$1", [row.id])).rowCount, 1);
+      await context.close();
+    }
+  } finally {
+    await browser.close();
+    await sql.end();
+  }
+});
+
+test("late hydration keeps the buyer's text and photos, and a failed connection remains retryable", { timeout: 90_000 }, async () => {
+  const browser = await chromium.launch();
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  const held = [];
+  let releaseScripts;
+  const ready = new Promise((resolve) => { releaseScripts = resolve; });
+  await context.route("**/_next/static/**/*.js", async (route) => {
+    held.push(route.request().url());
+    await ready;
+    await route.continue();
+  });
+  const email = `late-hydration-${Date.now()}@example.com`;
+  try {
+    await page.goto(`${BASE}/en#contact`, { waitUntil: "commit" });
+    await page.locator("#eq-message").fill("Keep the text entered before scripts load.");
+    await page.locator("#eq-name").fill("Late bundle QA");
+    await page.locator("#eq-email").fill(email);
+    const chooser = page.waitForEvent("filechooser");
+    await page.getByLabel(copy.photosAdd, { exact: true }).click();
+    await (await chooser).setFiles(photo("before-hydration.png"));
+    assert.ok(held.length > 0, "the client bundle is still waiting");
+    releaseScripts();
+    // The preview proves hydration adopted the native selection.
+    await page.getByRole("img", { name: "before-hydration.png", exact: true }).waitFor();
+    assert.equal(await page.locator("#eq-email").inputValue(), email);
+    assert.match(await page.locator("#eq-message").inputValue(), /before scripts load/);
+
+    const failOnce = async (route) => {
+      if (route.request().method() === "POST") await route.abort();
+      else await route.continue();
+    };
+    await page.route(`${BASE}/en`, failOnce);
+    await page.locator('form button[type="submit"]').click();
+    await page.getByText(copy.errorFailed, { exact: true }).waitFor();
+    assert.equal(await page.locator("#eq-email").inputValue(), email);
+    assert.equal(await page.getByRole("img", { name: "before-hydration.png", exact: true }).count(), 1);
+    await page.unroute(`${BASE}/en`, failOnce);
+    await page.locator('form button[type="submit"]').click();
+    await page.getByText(copy.thanksTitle, { exact: true }).waitFor();
+  } finally {
+    releaseScripts();
+    await context.close();
+    await browser.close();
+  }
+});
+
+test("multiple valid enquiry photos can exceed the proxy's former 10 MiB body cap", { timeout: 90_000 }, async () => {
+  const browser = await chromium.launch();
+  const page = await browser.newPage();
+  try {
+    // Uncompressed pixels produce real, decodable files over 5 MiB each.
+    const buffer = await sharp(randomBytes(1500 * 1300 * 3), { raw: { width: 1500, height: 1300, channels: 3 } }).png({ compressionLevel: 0 }).toBuffer();
+    assert.ok(buffer.length > 5 * 1024 * 1024 && buffer.length < 8 * 1024 * 1024);
+    await page.goto(`${BASE}/en#contact`);
+    await page.locator("#eq-message").fill("Please source the two products pictured.");
+    await page.locator("#eq-name").fill("Large photo QA");
+    await page.locator("#eq-email").fill(`large-photos-${Date.now()}@example.com`);
+    await page.locator('input[type="file"]').setInputFiles([
+      { name: "product-a.png", mimeType: "image/png", buffer },
+      { name: "product-b.png", mimeType: "image/png", buffer },
+    ]);
+    await page.getByRole("img", { name: "product-b.png", exact: true }).waitFor();
+    await page.locator('form button[type="submit"]').click();
+    await page.getByText(copy.thanksTitle, { exact: true }).waitFor({ timeout: 30000 });
+  } finally { await browser.close(); }
 });

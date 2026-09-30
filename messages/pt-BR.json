@@ -50,6 +50,7 @@
       "photos": "Fotos",
       "photosOptional": "opcional, até 4",
       "photosHelp": "Fotos do produto, capturas de tela ou um desenho. Até 4 imagens de 8 MB cada.",
+      "photosReselect": "Seus dados foram mantidos. Selecione suas fotos novamente antes de tentar de novo.",
       "photosAdd": "Adicionar fotos",
       "photosAddMore": "Adicionar outra",
       "photosRemove": "Remover {name}",

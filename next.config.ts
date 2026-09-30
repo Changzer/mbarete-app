@@ -16,6 +16,9 @@ const nextConfig: NextConfig = {
     ],
   },
   experimental: {
+    // The public enquiry supports four 8 MiB photos. Proxy's default 10 MiB
+    // buffer truncates that POST before the Server Action can validate it.
+    proxyClientMaxBodySize: "40mb",
     serverActions: {
       // Product photos and supplier documents are submitted through server
       // actions; the 1MB default rejects a single phone photo with a bare

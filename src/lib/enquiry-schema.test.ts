@@ -1,6 +1,24 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { enquirySchema } from "./enquiry-schema";
+import { enquirySchema, enquiryDraft } from "./enquiry-schema";
+
+test("a failed native submission restores bounded text, never file contents or action metadata", () => {
+  const form = new FormData();
+  form.set("name", "Ana Souza");
+  form.set("message", "Product details ".repeat(1000));
+  form.set("email", "ana@example.com");
+  form.set("quantity", "500 pieces");
+  form.set("companyName", new File(["private photo"], "photo.jpg"));
+  form.set("$ACTION_ID_untrusted", "not a draft field");
+  const fields = enquiryDraft(form);
+  assert.equal(fields.name, "Ana Souza");
+  assert.equal(fields.email, "ana@example.com");
+  assert.equal(fields.quantity, "500 pieces");
+  assert.equal(fields.message.length, 4000);
+  assert.equal(fields.companyName, "");
+  assert.equal(fields.destination, "");
+  assert.ok(!("$ACTION_ID_untrusted" in fields));
+});
 
 const base = {
   name: "Ana Souza",

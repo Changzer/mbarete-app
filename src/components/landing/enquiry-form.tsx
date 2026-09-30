@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { Link } from "@/i18n/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { ArrowUpRight, CheckCircle2, ChevronDown } from "lucide-react";
 import { submitEnquiry, type EnquiryResult } from "@/lib/actions/enquiry";
 import { Button } from "@/components/ui/button";
@@ -10,32 +10,40 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PhotoPicker } from "@/components/landing/photo-picker";
-
-const initialFields = { message: "", name: "", companyName: "", email: "", preferredContact: "", quantity: "", destination: "", targetPrice: "" };
+import type { EnquiryFields } from "@/lib/enquiry-schema";
 
 export function EnquiryForm() {
   const t = useTranslations("landing.form");
-  // React resets uncontrolled forms after a resolved action, including a
-  // resolved validation error. Keep the brief and evidence until success.
-  const [fields, setFields] = useState(initialFields);
+  const locale = useLocale();
+  // Pass the Server Action itself: a client wrapper removes React's native
+  // POST fallback and leaves both buttons inert when hydration never finishes.
+  const [nativeResult, nativeAction] = useActionState(submitEnquiry, undefined, `/${locale}#contact`);
+  const [clientResult, setClientResult] = useState<EnquiryResult>();
+  const [isPending, setPending] = useState(false);
   const [photos, setPhotos] = useState<File[]>([]);
-  const [result, formAction, isPending] = useActionState<EnquiryResult | undefined, FormData>(
-    async (previous, formData) => {
-      // The picker has no named input. This accepted file set is the single
-      // source of truth after additions, removals, validation errors or resets.
-      for (const photo of photos) formData.append("photos", photo);
-      try { return await submitEnquiry(previous, formData); }
-      catch { return { error: "failed" }; }
-    }, undefined,
-  );
-  const bind = (field: keyof typeof fields) => ({
-    value: fields[field],
-    onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-      setFields((current) => ({ ...current, [field]: event.target.value })),
+  const result = clientResult ?? nativeResult;
+  const bind = (field: keyof EnquiryFields) => ({
+    defaultValue: nativeResult?.fields?.[field] ?? "",
   });
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (isPending) return;
+    // Native fields, including photos, remain the source of truth. Reading
+    // the DOM also preserves anything entered before scripts finished loading.
+    const formData = new FormData(event.currentTarget);
+    setClientResult({});
+    setPending(true);
+    try { setClientResult(await submitEnquiry(undefined, formData)); }
+    catch { setClientResult({ error: "failed" }); }
+    finally { setPending(false); }
+    // No React form reset on a failed response. The selected files and text
+    // stay in place until a confirmed success replaces the form.
+  }
   const errorKey = result?.error === "rate-limited" ? "errorRateLimited"
     : result?.error === "photos" ? "errorPhotos"
     : result?.error === "failed" ? "errorFailed" : "errorInvalid";
+  const nativeError = nativeResult?.error && !clientResult;
 
   if (result?.ok) return (
     <div className="flex flex-col items-center gap-4 py-12 text-center" role="status" aria-live="polite">
@@ -46,9 +54,10 @@ export function EnquiryForm() {
   );
 
   return (
-    <form action={formAction} className="flex flex-col gap-6" aria-busy={isPending}>
+    <form action={nativeAction} onSubmit={submit} className="flex flex-col gap-6" aria-busy={isPending}>
       <h3 className="sr-only">{t("formTitle")}</h3>
       <p className="text-xs leading-relaxed text-sub">{t("requiredHint")}</p>
+      {nativeError ? <p className="text-sm text-danger" role="alert">{t(errorKey)}</p> : null}
       <fieldset disabled={isPending} className="flex min-w-0 flex-col gap-5 disabled:opacity-70">
         <legend className="mb-3 text-sm font-semibold text-ink">{t("sectionProduct")}</legend>
         <div className="flex flex-col gap-2">
@@ -56,6 +65,9 @@ export function EnquiryForm() {
           <Textarea id="eq-message" name="message" required rows={4} maxLength={4000} placeholder={t("messagePlaceholder")} {...bind("message")} />
         </div>
         <PhotoPicker max={4} maxBytes={8 * 1024 * 1024} files={photos} onChange={setPhotos} disabled={isPending} />
+        {nativeResult?.error && nativeResult.hadPhotos && photos.length === 0 ? (
+          <p className="text-sm text-sub" role="status">{t("photosReselect")}</p>
+        ) : null}
         <details className="group border-y border-line py-3">
           <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-ink [&::-webkit-details-marker]:hidden">
             {t("detailsToggle")}<ChevronDown className="h-4 w-4 shrink-0 group-open:rotate-180" aria-hidden />
@@ -90,7 +102,7 @@ export function EnquiryForm() {
           <Input id="eq-company" name="companyName" autoComplete="organization" maxLength={120} {...bind("companyName")} />
         </div>
       </fieldset>
-      {result?.error ? <p className="text-sm text-danger" role="alert">{t(errorKey)}</p> : null}
+      {result?.error && !nativeError ? <p className="text-sm text-danger" role="alert">{t(errorKey)}</p> : null}
       <div className="flex flex-col gap-3">
         <Button type="submit" disabled={isPending} size="lg" className="min-h-13 h-auto whitespace-normal rounded-md py-3 text-base">
           {isPending ? t("submitting") : t("submit")}<ArrowUpRight aria-hidden />
