@@ -239,7 +239,8 @@ test("enquiry photo selection and submission work with scripts disabled or block
       assert.match(posted.headers()["content-type"], /text\/html/, "native form receives a complete HTML response");
       assert.equal(posted.request().headers()["next-action"], undefined);
       await page.getByText(text.thanksTitle, { exact: true }).waitFor();
-      const row = (await sql.query("SELECT id, locale FROM service_enquiries WHERE email=$1", [email])).rows[0];
+      // The public schema lowercases addresses, including the pt-BR fixture.
+      const row = (await sql.query("SELECT id, locale FROM service_enquiries WHERE email=$1", [email.toLowerCase()])).rows[0];
       assert.ok(row);
       assert.equal(row.locale, locale);
       assert.equal((await sql.query("SELECT path FROM service_enquiry_images WHERE enquiry_id=$1", [row.id])).rowCount, 1);
