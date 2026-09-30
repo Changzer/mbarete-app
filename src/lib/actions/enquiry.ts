@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { serviceEnquiries, serviceEnquiryImages } from "@/db/schema";
-import { enquirySchema } from "@/lib/enquiry-schema";
+import { enquirySchema, enquiryDraft, type EnquiryFields } from "@/lib/enquiry-schema";
 import {
   saveUploadedEnquiryImage,
   ENQUIRY_IMAGE_MAX,
@@ -14,7 +14,7 @@ import { getLocale } from "next-intl/server";
 
 export type EnquiryError = "invalid" | "rate-limited" | "photos" | "failed";
 
-export type EnquiryResult = { ok?: boolean; error?: EnquiryError };
+export type EnquiryResult = { ok?: boolean; error?: EnquiryError; fields?: EnquiryFields; hadPhotos?: boolean };
 
 /** A brake on the public form: a handful of enquiries per IP per hour. */
 const enquiryLimiter = makeLimiter({ max: 10, windowMs: 60 * 60 * 1000 });
@@ -23,7 +23,13 @@ export async function submitEnquiry(
   _prev: EnquiryResult | undefined,
   formData: FormData,
 ): Promise<EnquiryResult> {
-  if (enquiryLimiter.hit(await clientIp())) return { error: "rate-limited" };
+  const photos = formData
+    .getAll("photos")
+    .filter((f): f is File => f instanceof File && f.size > 0);
+  const fail = (error: EnquiryError): EnquiryResult => ({
+    error, fields: enquiryDraft(formData), hadPhotos: photos.length > 0,
+  });
+  if (enquiryLimiter.hit(await clientIp())) return fail("rate-limited");
 
   const parsed = enquirySchema.safeParse({
     name: formData.get("name"),
@@ -35,17 +41,14 @@ export async function submitEnquiry(
     destination: formData.get("destination"),
     targetPrice: formData.get("targetPrice"),
   });
-  if (!parsed.success) return { error: "invalid" };
+  if (!parsed.success) return fail("invalid");
 
   // Photos are checked and written BEFORE the row is inserted, so a rejected
   // file fails the whole submission rather than leaving an enquiry that
   // silently lost the picture it was about. The browser caps the count too,
   // but the browser is not the authority here — anyone can post this form.
-  const photos = formData
-    .getAll("photos")
-    .filter((f): f is File => f instanceof File && f.size > 0);
-  if (photos.length > ENQUIRY_IMAGE_MAX) return { error: "photos" };
-  if (photos.some((f) => f.size > ENQUIRY_IMAGE_MAX_BYTES)) return { error: "photos" };
+  if (photos.length > ENQUIRY_IMAGE_MAX) return fail("photos");
+  if (photos.some((f) => f.size > ENQUIRY_IMAGE_MAX_BYTES)) return fail("photos");
 
   const paths: string[] = [];
   try {
@@ -55,7 +58,7 @@ export async function submitEnquiry(
     for (const photo of photos) paths.push(await saveUploadedEnquiryImage(photo));
   } catch {
     await Promise.allSettled(paths.map(deleteUpload));
-    return { error: "photos" };
+    return fail("photos");
   }
 
   // No duplicate-swallowing here, unlike the old waitlist: there is no unique
@@ -76,7 +79,7 @@ export async function submitEnquiry(
     });
   } catch {
     await Promise.allSettled(paths.map(deleteUpload));
-    return { error: "failed" };
+    return fail("failed");
   }
   return { ok: true };
 }

@@ -1082,6 +1082,7 @@
       "photos": "Photos",
       "photosOptional": "optional, up to 4",
       "photosHelp": "Product photos, screenshots, or a sketch. Up to 4 images, 8 MB each.",
+      "photosReselect": "Your details have been kept. Please select your photos again before retrying.",
       "photosAdd": "Add photos",
       "photosAddMore": "Add another",
       "photosRemove": "Remove {name}",

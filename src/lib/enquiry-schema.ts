@@ -1,5 +1,22 @@
 import { z } from "zod";
 
+export const initialEnquiryFields = {
+  message: "", name: "", companyName: "", email: "", preferredContact: "",
+  quantity: "", destination: "", targetPrice: "",
+};
+export type EnquiryFields = typeof initialEnquiryFields;
+
+/** Only bounded text is returned to a form after a failed native submission. */
+export function enquiryDraft(formData: FormData): EnquiryFields {
+  const draft = { ...initialEnquiryFields };
+  for (const key of Object.keys(draft) as (keyof EnquiryFields)[]) {
+    const value = formData.get(key);
+    const max = key === "message" ? 4000 : key === "name" || key === "companyName" ? 120 : 200;
+    draft[key] = typeof value === "string" ? value.slice(0, max) : "";
+  }
+  return draft;
+}
+
 /**
  * Validation for the public enquiry form, kept out of the action module so it
  * can be tested directly: a "use server" file may only export async functions,

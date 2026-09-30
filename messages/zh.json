@@ -1168,6 +1168,7 @@
       "photos": "参考图片",
       "photosOptional": "选填，最多4张",
       "photosHelp": "产品照片、截图或草图均可。最多4张，每张不超过8 MB。",
+      "photosReselect": "您的填写内容已保留。请重新选择照片后再试。",
       "photosAdd": "添加图片",
       "photosAddMore": "再添加一张",
       "photosRemove": "移除 {name}",
