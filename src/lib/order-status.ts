@@ -1,12 +1,10 @@
 /**
  * The order lifecycle, written down once and enforced server-side.
  *
- * Shipped is terminal: goods left, the record is history. Cancelled is NOT —
- * a client who changes their mind reopens the same order instead of forcing
- * a duplicate; reopening lands back in draft (or straight to confirmed via
- * an edit-save). Deleting is for orders that never became business: drafts
- * and cancellations. The UI hides what the matrix forbids, but the matrix
- * is what actually refuses — a crafted request gets the same no.
+ * Shipped records stay locked until explicitly reopened as confirmed. This
+ * corrects an accidental shipment without duplicating the order or refreshing
+ * its commercial snapshots. Cancelled orders reopen as draft (or confirmed
+ * via an edit-save). Deleting is for drafts and cancellations only.
  */
 
 export type OrderStatus = "draft" | "confirmed" | "shipped" | "cancelled";
@@ -14,13 +12,21 @@ export type OrderStatus = "draft" | "confirmed" | "shipped" | "cancelled";
 const TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   draft: ["confirmed", "cancelled"],
   confirmed: ["draft", "shipped", "cancelled"],
-  shipped: [],
+  shipped: ["confirmed"],
   cancelled: ["draft", "confirmed"],
 };
 
 export function canTransition(from: OrderStatus, to: OrderStatus): boolean {
   if (from === to) return true; // idempotent no-op, never an error
   return (TRANSITIONS[from] ?? []).includes(to);
+}
+
+/** These changes need an explicit acknowledgement as well as a current version. */
+export function statusConfirmation(from: OrderStatus, to: OrderStatus): "ship" | "reopen" | null {
+  if (from === to) return null;
+  if (from === "confirmed" && to === "shipped") return "ship";
+  if (from === "shipped" && to === "confirmed") return "reopen";
+  return null;
 }
 
 /** Whether the order's lines and terms may still be edited. */

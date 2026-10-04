@@ -24,7 +24,8 @@
     "test:landed-cost": "node --test src/ui-tests/landed-cost.spec.mjs",
     "test:vat": "node --test src/ui-tests/supplier-vat.spec.mjs",
     "test:vat-migration": "tsx scripts/test-supplier-vat-migration.ts",
-    "test:documents": "node --test src/ui-tests/dossier-upload.spec.mjs"
+    "test:documents": "node --test src/ui-tests/dossier-upload.spec.mjs",
+    "test:order-status": "node --test src/ui-tests/order-status.spec.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",

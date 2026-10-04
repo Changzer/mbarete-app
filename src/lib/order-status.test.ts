@@ -1,12 +1,20 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { canTransition, isEditable, isDeletable } from "./order-status";
+import { canTransition, isEditable, isDeletable, statusConfirmation } from "./order-status";
 
-test("shipped is terminal: no transition leaves it", () => {
+test("shipped can only reopen as confirmed, without becoming a deletable draft", () => {
   assert.equal(canTransition("shipped", "draft"), false);
-  assert.equal(canTransition("shipped", "confirmed"), false);
+  assert.equal(canTransition("shipped", "confirmed"), true);
   assert.equal(canTransition("shipped", "cancelled"), false);
   assert.equal(canTransition("shipped", "shipped"), true); // idempotent no-op
+});
+
+test("shipping and reopening require their own explicit confirmation", () => {
+  assert.equal(statusConfirmation("confirmed", "shipped"), "ship");
+  assert.equal(statusConfirmation("shipped", "confirmed"), "reopen");
+  assert.equal(statusConfirmation("shipped", "shipped"), null);
+  assert.equal(statusConfirmation("draft", "confirmed"), null);
+  assert.equal(statusConfirmation("cancelled", "draft"), null);
 });
 
 test("cancelled reopens instead of forcing a duplicate order", () => {
