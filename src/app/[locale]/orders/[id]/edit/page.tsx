@@ -25,7 +25,7 @@ export default async function EditOrderPage({
   if (!data) notFound();
   const { order, items } = data;
 
-  // Shipped orders are history — the edit URL bounces back to the record.
+  // Reopen a shipped order from its actions before changing its commercial terms.
   if (!isEditable(order.status)) {
     redirect({ href: `/orders/${order.id}`, locale: locale as Locale });
   }

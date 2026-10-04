@@ -14,6 +14,7 @@ import {
   orderDocuments,
   orderPayments,
   orderExpenses,
+  orderEvents,
   bankAccounts,
 } from "@/db/schema";
 import { and, eq, inArray } from "drizzle-orm";
@@ -29,7 +30,7 @@ import {
 } from "@/lib/calculations";
 import { buildPartiesSnapshot, parsePartiesSnapshot } from "@/lib/parties-snapshot";
 import { nextOrderNumber, getExchangeRates } from "@/lib/queries/orders";
-import { canTransition, isEditable, isDeletable } from "@/lib/order-status";
+import { canTransition, isEditable, isDeletable, statusConfirmation } from "@/lib/order-status";
 import { deleteUpload } from "@/lib/uploads";
 import { logOrderEvent, diffOrderEdit, type OrderChange } from "@/lib/order-log";
 import { formatMoney } from "@/lib/money";
@@ -288,8 +289,8 @@ export async function updateOrder(
     .limit(1)
     .then(one);
   if (!before) return { error: "not-found" };
-  // Shipped is history: the goods left, the record holds. Cancelled edits
-  // fine — saving reopens it as whatever the builder chose.
+  // Shipped records must be deliberately reopened before editing. Cancelled
+  // orders can still reopen through the builder.
   if (!isEditable(before.status)) return { error: "frozen" };
   if (!canTransition(before.status, data.status)) return { error: "frozen" };
   const beforeItems = await db
@@ -397,8 +398,16 @@ export async function setOrderStatus(
   id: number,
   status: "draft" | "confirmed" | "shipped" | "cancelled",
   expectedVersion?: number,
+  confirmation?: "ship" | "reopen",
 ): Promise<OrderActionResult> {
   const user = await requireSession();
+  const parsed = z.object({
+    id: z.number().int().positive(),
+    status: z.enum(["draft", "confirmed", "shipped", "cancelled"]),
+    expectedVersion: z.number().int().positive().optional(),
+    confirmation: z.enum(["ship", "reopen"]).optional(),
+  }).safeParse({ id, status, expectedVersion, confirmation });
+  if (!parsed.success) return { error: "invalid" };
 
   // The order must be this company's before anything is read off it or written
   // to it — a serial id from another tenant must never be found here.
@@ -410,9 +419,18 @@ export async function setOrderStatus(
     .then(one);
   if (!current) return { error: "not-found" };
 
+  if (expectedVersion !== undefined && expectedVersion !== current.version) return { error: "conflict" };
   if (!canTransition(current.status, status)) return { error: "frozen" };
+  if (current.status === status) return {};
+  const requiredConfirmation = statusConfirmation(current.status, status);
+  if (requiredConfirmation && (confirmation !== requiredConfirmation || expectedVersion === undefined)) {
+    return { error: "confirmation" };
+  }
 
-  if (status === "confirmed") {
+  const reopening = current.status === "shipped" && status === "confirmed";
+  // Reopening must remain possible even for an old order with a bad MOQ:
+  // correcting that order is precisely why the user needs to unlock it.
+  if (status === "confirmed" && !reopening) {
     const items = await db
       .select()
       .from(orderItems)
@@ -421,41 +439,45 @@ export async function setOrderStatus(
     if (hasMoqViolation) return { error: "moq" };
   }
 
-  // Confirming freezes the parties; landing back in draft thaws them.
-  // Ship and cancel carry the confirmed copy forward untouched.
+  // Reopening is only a status correction. Preserve the confirmed parties,
+  // bank, rates and line snapshots even if the live catalog/settings changed.
   const partiesSnapshot =
-    status === "confirmed"
+    status === "confirmed" && !reopening
       ? await buildPartiesSnapshot(user.companyId, current.clientId, current.bankAccountId)
       : status === "draft"
         ? null
         : current.partiesSnapshot;
 
-  const won = await db
-    .update(orders)
-    .set({
-      status,
-      partiesSnapshot,
-      version: current.version + 1,
-      updatedAt: new Date().toISOString(),
-    })
-    .where(
-      and(
-        eq(orders.companyId, user.companyId),
-        eq(orders.id, id),
-        // The page the button lived on saw this version; a transition that
-        // raced another mutation refuses instead of compounding it. Callers
-        // not yet passing a version keep the previous last-write behavior.
-        eq(orders.version, expectedVersion ?? current.version),
-      ),
-    )
-    .returning({ id: orders.id });
-  if (won.length === 0) return { error: "conflict" };
-
-  if (current.status !== status) {
-    await logOrderEvent(id, user.id, "status", {
-      from: current.status,
-      to: status,
+  try {
+    const changed = await db.transaction(async (tx) => {
+      const won = await tx
+        .update(orders)
+        .set({
+          status,
+          partiesSnapshot,
+          updatedBy: user.id,
+          version: current.version + 1,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(and(
+          eq(orders.companyId, user.companyId),
+          eq(orders.id, id),
+          eq(orders.status, current.status),
+          eq(orders.version, expectedVersion ?? current.version),
+        ))
+        .returning({ id: orders.id });
+      if (won.length === 0) return false;
+      // The correction and its history must commit together. A failed log
+      // write must never leave an order silently shipped or reopened.
+      await tx.insert(orderEvents).values({
+        companyId: user.companyId, orderId: id, userId: user.id, kind: "status",
+        payload: JSON.stringify({ from: current.status, to: status }),
+      });
+      return true;
     });
+    if (!changed) return { error: "conflict" };
+  } catch {
+    return { error: "failed" };
   }
 
   revalidatePath("/orders");

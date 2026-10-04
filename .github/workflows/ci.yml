@@ -98,6 +98,16 @@ jobs:
         if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
       - run: npm run test:vat
         if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
+      - run: npm run test:order-status
+        if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
+      - name: Upload order status screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: order-status-review
+          path: artifacts/order-status
+          if-no-files-found: ignore
+          retention-days: 7
       - run: npm run test:documents
         if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
         env:
