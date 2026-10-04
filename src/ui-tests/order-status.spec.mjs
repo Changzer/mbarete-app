@@ -16,7 +16,7 @@ test("shipping needs confirmation and can be safely undone without changing save
   const sql = new pg.Client({ connectionString: process.env.DATABASE_ADMIN_URL });
   await sql.connect();
   const browser = await chromium.launch(executablePath ? { executablePath } : {});
-  let orderId, productId, clientId, categoryId, otherCompany, otherClient, otherOrder;
+  let orderId, productId, clientId, categoryId, otherCompany, otherClient, otherOrder, otherUser;
   const errors = [];
   try {
     const user = (await sql.query("SELECT id,company_id FROM users WHERE email=$1", [EMAIL])).rows[0];
@@ -36,7 +36,8 @@ test("shipping needs confirmation and can be safely undone without changing save
     await sql.query("INSERT INTO order_payments(company_id,order_id,direction,amount,currency,paid_on,created_by) VALUES ($1,$2,'in',100,'USD','2026-10-01',$3)", [user.company_id, orderId, user.id]);
     otherCompany = (await sql.query("INSERT INTO companies(name) VALUES ($1) RETURNING id", [stamp])).rows[0].id;
     otherClient = (await sql.query("INSERT INTO contacts(company_id,type,company_name) VALUES ($1,'client','Other company client') RETURNING id", [otherCompany])).rows[0].id;
-    otherOrder = (await sql.query("INSERT INTO orders(company_id,order_number,client_id,status) VALUES ($1,$2,$3,'shipped') RETURNING id", [otherCompany, `${stamp}-other`, otherClient])).rows[0].id;
+    otherUser = (await sql.query("INSERT INTO users(company_id,email,password_hash,name,active) VALUES ($1,$2,'unused-test-account','Other operator',false) RETURNING id", [otherCompany, `${stamp}@example.com`])).rows[0].id;
+    otherOrder = (await sql.query("INSERT INTO orders(company_id,order_number,client_id,status,created_by) VALUES ($1,$2,$3,'shipped',$4) RETURNING id", [otherCompany, `${stamp}-other`, otherClient, otherUser])).rows[0].id;
 
     const state = async () => (await sql.query("SELECT status,version,updated_by FROM orders WHERE id=$1", [orderId])).rows[0];
     const history = async () => (await sql.query("SELECT user_id,payload FROM order_events WHERE order_id=$1 AND kind='status' ORDER BY id", [orderId])).rows;
@@ -174,6 +175,7 @@ test("shipping needs confirmation and can be safely undone without changing save
     if (categoryId) await sql.query("DELETE FROM categories WHERE id=$1", [categoryId]);
     if (otherOrder) await sql.query("DELETE FROM orders WHERE id=$1", [otherOrder]);
     if (otherClient) await sql.query("DELETE FROM contacts WHERE id=$1", [otherClient]);
+    if (otherUser) await sql.query("DELETE FROM users WHERE id=$1", [otherUser]);
     if (otherCompany) await sql.query("DELETE FROM companies WHERE id=$1", [otherCompany]);
     await sql.end();
   }
