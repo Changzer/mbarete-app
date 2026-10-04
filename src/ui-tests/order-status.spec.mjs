@@ -64,7 +64,7 @@ test("shipping needs confirmation and can be safely undone without changing save
     assert.equal((await history()).length, 0);
     assert.equal(await dialog.getByRole("button", { name: "Cancel", exact: true }).evaluate((el) => el === document.activeElement), true, "confirmation is not the default keyboard action");
     await mkdir("artifacts/order-status", { recursive: true });
-    await page.screenshot({ path: "artifacts/order-status/ship-desktop.png" });
+    await page.screenshot({ path: "artifacts/order-status/ship-desktop.png", animations: "disabled" });
     await page.keyboard.press("Escape");
     await dialog.waitFor({ state: "hidden" });
     assert.equal((await state()).status, "confirmed");
@@ -110,7 +110,7 @@ test("shipping needs confirmation and can be safely undone without changing save
     const sheet = page.getByTestId("order-actions-sheet");
     await sheet.getByTestId("reopen-shipped-order").click();
     await dialog.waitFor();
-    await page.screenshot({ path: "artifacts/order-status/reopen-mobile.png" });
+    await page.screenshot({ path: "artifacts/order-status/reopen-mobile.png", animations: "disabled" });
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
     await dialog.waitFor({ state: "hidden" });
