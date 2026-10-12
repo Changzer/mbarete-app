@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { formatNcm } from "@/lib/customs";
 import { getOrderView } from "@/lib/queries/order-view";
 import {
   getCompanyProfile,
@@ -32,6 +33,12 @@ export type OrderExportLine = {
   unitPrice: number;
   amount: number;
   currency: string;
+  /**
+   * The product's NCM (HS code) in the customs format, "" when unknown.
+   * Read from the live product: a classification corrected after the order
+   * was saved is the one the forwarder should declare.
+   */
+  ncm: string;
   /** Logistics for the packing list: one carton, and the whole line. */
   cartonCbm: number;
   cartonWeightKg: number;
@@ -225,6 +232,7 @@ export async function getOrderExportData(
       unitPrice: r.sellPrice,
       amount: r.sellTotal,
       currency: r.sellCurrency,
+      ncm: formatNcm(productMap.get(r.productId)?.hsCode),
       cartonCbm: r.cartonCbm,
       cartonWeightKg: r.cartonWeightKg,
       lineCbm: r.lineCbm,
@@ -254,6 +262,7 @@ export async function getOrderExportData(
     labels: {
       title: isQuote ? t("quoteTitle") : t("title"),
       packingListTitle: t("packingListTitle"),
+      ncm: t("ncm"),
       consignee: t("consignee"),
       cbmPerCarton: t("cbmPerCarton"),
       kgPerCarton: t("kgPerCarton"),

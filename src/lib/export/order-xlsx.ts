@@ -8,7 +8,7 @@ const SUB = "FF3D3D3D";
 /**
  * The order as a packing list — the spreadsheet the forwarder and the
  * warehouse work from: company header, one line per product with its
- * photo, SKU, quantity, cartons, and the volume and weight per carton and
+ * photo, SKU, NCM, quantity, cartons, and the volume and weight per carton and
  * for the line, then the shipment totals. No prices and no bank details:
  * money lives on the proforma (the PDF); this file is about the boxes.
  */
@@ -22,6 +22,7 @@ export async function buildOrderXlsx(data: OrderExportData): Promise<Buffer> {
     { width: 7 }, // line photo
     { width: 40 },
     { width: 12 },
+    { width: 12 }, // NCM
     { width: 9 },
     { width: 9 },
     { width: 11 },
@@ -29,7 +30,7 @@ export async function buildOrderXlsx(data: OrderExportData): Promise<Buffer> {
     { width: 10 },
     { width: 11 },
   ];
-  const LAST = 9;
+  const LAST = 10;
 
   let r = 1;
   const set = (
@@ -108,6 +109,7 @@ export async function buildOrderXlsx(data: OrderExportData): Promise<Buffer> {
     data.labels.photo,
     data.labels.item,
     data.labels.sku,
+    data.labels.ncm,
     data.labels.quantity,
     data.labels.cartons,
     data.labels.cbmPerCarton,
@@ -136,13 +138,14 @@ export async function buildOrderXlsx(data: OrderExportData): Promise<Buffer> {
     );
     nameCell.alignment = { ...nameCell.alignment, wrapText: true, vertical: "middle" };
     set(r, 3, line.sku, { color: SUB });
-    set(r, 4, line.quantity, { align: "right" });
-    set(r, 5, line.cartons ?? "—", { align: "right" });
+    set(r, 4, line.ncm || "—");
+    set(r, 5, line.quantity, { align: "right" });
+    set(r, 6, line.cartons ?? "—", { align: "right" });
     // An unmeasured carton shows as a dash, never as a zero that sums quietly.
-    set(r, 6, line.cartonCbm > 0 ? line.cartonCbm : "—", { align: "right", numFmt: cbm });
-    set(r, 7, line.lineCbm > 0 ? line.lineCbm : "—", { align: "right", numFmt: cbm });
-    set(r, 8, line.cartonWeightKg > 0 ? line.cartonWeightKg : "—", { align: "right", numFmt: kg });
-    set(r, 9, line.lineWeightKg > 0 ? line.lineWeightKg : "—", { align: "right", numFmt: kg });
+    set(r, 7, line.cartonCbm > 0 ? line.cartonCbm : "—", { align: "right", numFmt: cbm });
+    set(r, 8, line.lineCbm > 0 ? line.lineCbm : "—", { align: "right", numFmt: cbm });
+    set(r, 9, line.cartonWeightKg > 0 ? line.cartonWeightKg : "—", { align: "right", numFmt: kg });
+    set(r, 10, line.lineWeightKg > 0 ? line.lineWeightKg : "—", { align: "right", numFmt: kg });
     totalCartons += line.cartons ?? 0;
     totalCbm += line.lineCbm;
     totalKg += line.lineWeightKg;
@@ -161,10 +164,10 @@ export async function buildOrderXlsx(data: OrderExportData): Promise<Buffer> {
 
   // Shipment totals under their own columns, so the sheet foots by eye.
   set(r, 2, data.labels.totalCartons, { bold: true, align: "right" });
-  set(r, 5, totalCartons, { bold: true, align: "right" });
+  set(r, 6, totalCartons, { bold: true, align: "right" });
   // A shipment nobody has measured yet totals to a dash, not a false zero.
-  set(r, 7, totalCbm > 0 ? Math.round(totalCbm * 1000) / 1000 : "—", { bold: true, align: "right", numFmt: cbm });
-  set(r, 9, totalKg > 0 ? Math.round(totalKg * 1000) / 1000 : "—", { bold: true, align: "right", numFmt: kg });
+  set(r, 8, totalCbm > 0 ? Math.round(totalCbm * 1000) / 1000 : "—", { bold: true, align: "right", numFmt: cbm });
+  set(r, 10, totalKg > 0 ? Math.round(totalKg * 1000) / 1000 : "—", { bold: true, align: "right", numFmt: kg });
   ws.getRow(r).border = { top: { style: "thin" } };
   r += 2;
 
