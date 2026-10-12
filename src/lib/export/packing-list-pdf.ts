@@ -5,7 +5,7 @@ import { BRAND, INK, LINE, MARGIN, SUB, drawLetterhead, hrule, openPdf, pageFor 
  * The packing list as a landscape A4 PDF — the same document as the
  * spreadsheet, for the forwarder who wants a file that prints as is:
  * letterhead, consignee once the order is confirmed, one line per product
- * with photo, SKU, quantity, cartons, and volume and weight per carton and
+ * with photo, SKU, NCM, quantity, cartons, and volume and weight per carton and
  * for the line, then the shipment totals. Never a price.
  */
 const PAGE = pageFor("landscape");
@@ -40,14 +40,15 @@ export async function buildPackingListPdf(data: OrderExportData): Promise<Buffer
     doc.y += 10;
   }
 
-  // Nine columns across the landscape page; the photo leads.
+  // Ten columns across the landscape page; the photo leads.
   const PHOTO = 30;
   const numW = 62;
   const right = MARGIN + INNER;
   const cols = [
     { label: data.labels.photo, x: MARGIN, w: PHOTO + 4, align: "left" as const },
     { label: data.labels.item, x: MARGIN + PHOTO + 8, w: 0, align: "left" as const },
-    { label: data.labels.sku, x: 0, w: 66, align: "left" as const },
+    { label: data.labels.sku, x: 0, w: 58, align: "left" as const },
+    { label: data.labels.ncm, x: 0, w: 66, align: "left" as const },
     { label: data.labels.quantity, x: 0, w: 48, align: "right" as const },
     { label: data.labels.cartons, x: 0, w: 48, align: "right" as const },
     { label: data.labels.cbmPerCarton, x: 0, w: numW, align: "right" as const },
@@ -82,12 +83,13 @@ export async function buildPackingListPdf(data: OrderExportData): Promise<Buffer
     const cells: { text: string; col: (typeof cols)[number]; sub?: boolean }[] = [
       { text: line.name, col: cols[1] },
       { text: line.sku, col: cols[2], sub: true },
-      { text: String(line.quantity), col: cols[3] },
-      { text: line.cartons != null ? String(line.cartons) : "—", col: cols[4] },
-      { text: fig(line.cartonCbm), col: cols[5] },
-      { text: fig(line.lineCbm), col: cols[6] },
-      { text: fig(line.cartonWeightKg), col: cols[7] },
-      { text: fig(line.lineWeightKg), col: cols[8] },
+      { text: line.ncm || "—", col: cols[3] },
+      { text: String(line.quantity), col: cols[4] },
+      { text: line.cartons != null ? String(line.cartons) : "—", col: cols[5] },
+      { text: fig(line.cartonCbm), col: cols[6] },
+      { text: fig(line.lineCbm), col: cols[7] },
+      { text: fig(line.cartonWeightKg), col: cols[8] },
+      { text: fig(line.lineWeightKg), col: cols[9] },
     ];
     let rowBottom = y;
     doc.fontSize(8.5).font("regular");
@@ -123,9 +125,9 @@ export async function buildPackingListPdf(data: OrderExportData): Promise<Buffer
   const y = doc.y;
   doc.font("bold").fontSize(9).fillColor(INK);
   doc.text(data.labels.totalCartons, cols[1].x + 2, y + 3, { width: cols[1].w - 4, align: "right" });
-  doc.text(String(totalCartons), cols[4].x + 2, y + 3, { width: cols[4].w - 4, align: "right" });
-  doc.text(fig(totalCbm), cols[6].x + 2, y + 3, { width: cols[6].w - 4, align: "right" });
-  doc.text(fig(totalKg), cols[8].x + 2, y + 3, { width: cols[8].w - 4, align: "right" });
+  doc.text(String(totalCartons), cols[5].x + 2, y + 3, { width: cols[5].w - 4, align: "right" });
+  doc.text(fig(totalCbm), cols[7].x + 2, y + 3, { width: cols[7].w - 4, align: "right" });
+  doc.text(fig(totalKg), cols[9].x + 2, y + 3, { width: cols[9].w - 4, align: "right" });
   doc.y = y + 18;
   doc.moveTo(MARGIN, y).lineTo(right, y).lineWidth(0.7).strokeColor(INK).stroke();
 

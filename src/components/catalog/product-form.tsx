@@ -387,6 +387,11 @@ export function ProductForm({
   // Which transcription request is current: a photo added mid-flight starts a
   // newer run, and the stale response must not land after (or between) it.
   const aiRun = useRef(0);
+  // "Suggest NCM": the same photo read, applied to the code alone — for a
+  // product registered before classification existed, whose other fields
+  // are already right and must not be touched.
+  const [ncmPending, setNcmPending] = useState(false);
+  const [ncmError, setNcmError] = useState<"no-photos" | "failed" | "limit" | "none" | null>(null);
   const aiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /**
@@ -607,6 +612,43 @@ export function ProductForm({
       if (run === aiRun.current) setAiError("failed");
     } finally {
       if (run === aiRun.current) setAiPending(false);
+    }
+  }
+
+  async function handleSuggestNcm() {
+    if (!transcribe) return;
+    const input = formRef.current?.elements.namedItem("images");
+    const files = input instanceof HTMLInputElement ? Array.from(input.files ?? []) : [];
+    if (files.length === 0 && existingImages.length === 0) {
+      setNcmError("no-photos");
+      return;
+    }
+    setNcmError(null);
+    setNcmPending(true);
+    try {
+      const data = new FormData();
+      for (const file of files) data.append("images", file);
+      if (files.length === 0) {
+        for (const img of existingImages) data.append("existingPaths", img.path);
+      }
+      const result = await transcribe(data);
+      if (!result.ok) {
+        setNcmError(result.error === "no-photos" ? "no-photos" : result.error === "limit" ? "limit" : "failed");
+        return;
+      }
+      const code = result.fields.hsCode;
+      const el = formRef.current?.elements.namedItem("hsCode");
+      if (!code || !(el instanceof HTMLInputElement)) {
+        setNcmError("none");
+        return;
+      }
+      // An explicit press asks for the reading, so it replaces the field.
+      el.value = code;
+      setSuggestedDuties({ BR: result.fields.importDutyBrPct, PY: result.fields.importDutyPyPct });
+    } catch {
+      setNcmError("failed");
+    } finally {
+      setNcmPending(false);
     }
   }
 
@@ -1200,6 +1242,37 @@ export function ProductForm({
               onChange={() => setSuggestedDuties({})}
               data-testid="hs-code"
             />
+            {transcribe && existingImages.length > 0 ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={ncmPending || aiPending}
+                  onClick={handleSuggestNcm}
+                  data-testid="suggest-ncm"
+                  className="mt-1 w-fit"
+                >
+                  {ncmPending ? (
+                    <Loader2 className="h-4 w-4 animate-[spin_2.4s_linear_infinite]" strokeWidth={1.5} />
+                  ) : (
+                    <Sparkles className="h-4 w-4" strokeWidth={1.5} />
+                  )}
+                  {ncmPending ? t("suggestNcmPending") : t("suggestNcm")}
+                </Button>
+                {ncmError ? (
+                  <p className="text-[12px] font-semibold text-danger" data-testid="suggest-ncm-error">
+                    {ncmError === "no-photos"
+                      ? t("aiErrorNoPhotos")
+                      : ncmError === "limit"
+                        ? t("aiErrorLimit")
+                        : ncmError === "none"
+                          ? t("suggestNcmNone")
+                          : t("aiErrorFailed")}
+                  </p>
+                ) : null}
+              </>
+            ) : null}
           </Field>
           <Field label={t("destination")} htmlFor="exportDestination">
             <input type="hidden" name="exportDestination" value={destination} />

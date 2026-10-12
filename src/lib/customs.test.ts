@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { productSchema } from "./validators";
-import { draftExportFields } from "./customs";
+import { draftExportFields, formatNcm } from "./customs";
 import { shippingRateSchema } from "./shipping-rate-schema";
 
 const product = { nameEn: "Sample", categoryId: 1, price: 10, currency: "USD", moq: 1, qtyPerBox: 10 };
@@ -46,4 +46,13 @@ test("shipping quotes reject impossible dates and values that cannot be stored",
   for (const amount of ["", "0", "-1", "1000000000000", "NaN"]) {
     assert.equal(shippingRateSchema.safeParse({ ...quote, amount }).success, false);
   }
+});
+
+test("the NCM prints in the customs format; anything else prints nothing", () => {
+  assert.equal(formatNcm("96032100"), "9603.21.00");
+  assert.equal(formatNcm("9603.21.00"), "9603.21.00");
+  assert.equal(formatNcm("420222"), "4202.22");
+  assert.equal(formatNcm(""), "");
+  assert.equal(formatNcm(null), "");
+  assert.equal(formatNcm("12345"), "");
 });

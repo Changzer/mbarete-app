@@ -181,6 +181,17 @@ test("a booth capture becomes a product, an order, a quote and an invoice", asyn
     const duty = (await sql.query("SELECT import_duty_pct_br, import_duty_pct_py FROM products WHERE id=$1", [product.id])).rows[0];
     assert.equal(Number(duty.import_duty_pct_br), 20, "chosen estimate persisted");
     assert.equal(duty.import_duty_pct_py, null, "unchosen estimate stayed unknown");
+
+    // A product registered before classification existed has no code; the
+    // edit page reads its stored photos and fills the NCM alone.
+    await sql.query("UPDATE products SET hs_code='' WHERE id=$1", [product.id]);
+    await page.goto(`${BASE}/en/catalog/${product.id}/edit`);
+    await page.getByTestId("export-disclosure").click();
+    assert.equal(await page.locator("#hsCode").inputValue(), "", "legacy product starts without a code");
+    await page.getByTestId("suggest-ncm").click();
+    await page.waitForFunction((code) => document.querySelector("#hsCode")?.value === code, STUB.hsCode, { timeout: 15_000 });
+    // Not saved here: the rest of the run works from the stored product.
+    await sql.query("UPDATE products SET hs_code=$2 WHERE id=$1", [product.id, STUB.hsCode]);
     const supplierA = (await sql.query("INSERT INTO contacts (company_id,type,company_name,company_name_zh) VALUES ($1,'supplier','Original Factory','原始工厂') RETURNING id", [account.company_id])).rows[0].id;
     const supplierB = (await sql.query("INSERT INTO contacts (company_id,type,company_name,company_name_zh) VALUES ($1,'supplier','Replacement Factory','替代工厂') RETURNING id", [account.company_id])).rows[0].id;
     await sql.query("UPDATE products SET supplier_id=$1 WHERE id=$2", [supplierA, product.id]);
@@ -221,6 +232,8 @@ test("a booth capture becomes a product, an order, a quote and an invoice", asyn
     assert.doesNotMatch(packing.text, /Bank details/i, "no bank details on a packing list");
     assert.match(packing.text, new RegExp(STUB.supplierCode), "factory code on the line");
     assert.match(packing.text, /CBM\/ctn/, "volume per carton column");
+    assert.match(packing.text, /\bNCM\b/, "NCM column");
+    assert.match(packing.text, /4202\.22\.00/, "the product's NCM in the customs format");
     assert.ok(packing.sheet.getImages().length >= 1, "line thumbnail embedded");
     // 24 pcs × $13.08 = 313.92 — the money stays off this file.
     const subtotal = (STUB.moq * STUB.price).toFixed(2);

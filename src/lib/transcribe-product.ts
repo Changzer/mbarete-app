@@ -99,7 +99,7 @@ export type TranscribedFields = {
   uncertain?: string[];
   /** The board verbatim, kept on a draft's transcript so promotion stores it. */
   boardText?: string;
-  /** Proposed customs classification: 6-digit HS, or the 8-digit Mercosur NCM. */
+  /** Proposed customs classification: the 8-digit Mercosur NCM (6-digit HS as a fallback). */
   hsCode?: string;
   /** Proposed ad valorem import duty at the destination, percent. Estimates to verify. */
   importDutyBrPct?: number;
@@ -151,7 +151,7 @@ Rules:
 - A bare quantity with no MOQ/min/起订 marking (e.g. "1500 pc" on its own) is NOT the MOQ: leave moq null, copy it into notes, and list "moq" in uncertain.
 - uncertain: the names of the fields above whose reading you are not confident of (e.g. ["price", "moq"]) — a smudged digit, a comma that could be either separator, a quantity of unclear meaning. Empty or null when every field is clear.
 - notes: at most 15 words, in English, only for uncertain readings or board info that has no field. Null when there is nothing to flag.
-- hsCode: the customs classification that best fits the product as shown — the 8-digit Mercosur NCM when you are confident of it (digits only, e.g. "96032100"), otherwise the 6-digit HS subheading. This is a judgement from the photos, not a reading: give your best classification, and list "hsCode" in uncertain when two headings are plausible. Null only when the photos do not show what the product is.
+- hsCode: the 8-digit Mercosur NCM that best fits the product as shown (digits only, e.g. "96032100"). This is a judgement from the photos, not a reading: give your closest 8-digit code even when the last digits are an approximation, and list "hsCode" in uncertain whenever you are not sure of the full code or two headings are plausible. Give only the 6-digit HS subheading when you truly cannot place it within one. Null only when the photos do not show what the product is.
 - importDutyBrPct and importDutyPyPct: the ad valorem import duty rate, as a percent number, that Brazil (Imposto de Importação under the Mercosur TEC) and Paraguay (DAI) apply to that classification, to the best of your knowledge (e.g. 18, 16, 2). These are estimates for a landed-cost comparison and will be checked by a person; Return null when you are unsure; do not invent a rate to fill the field. Always list "importDuty" in uncertain when proposing a rate: there is no live tariff lookup here and the proposal is not used until a person explicitly chooses it. Do not include VAT, IPI, PIS/COFINS or ICMS.`;
 
 export async function transcribeProductPhotos(
