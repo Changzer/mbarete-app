@@ -1,4 +1,4 @@
-import { isHsCode, normalizeHsCode } from "@/lib/customs";
+import { isHsCode, normalizeHsCode, isCnHsCode } from "@/lib/customs";
 import { z } from "zod";
 import { isPlausibleCartonCbm } from "@/lib/calculations";
 import { extractJson, type VisionImage, type VisionUsage } from "@/lib/vision";
@@ -65,6 +65,9 @@ const transcriptionSchema = z.object({
   notes: z.string().nullable(),
   /** Customs classification and the destination duty rates, best knowledge; optional for older stubs. */
   hsCode: z.string().nullable().optional(),
+  /** China's 10-digit export code and the declaration elements; optional for older stubs. */
+  cnHsCode: z.string().nullable().optional(),
+  declarationElements: z.string().nullable().optional(),
   importDutyBrPct: z.number().nullable().optional(),
   importDutyPyPct: z.number().nullable().optional(),
 });
@@ -72,7 +75,7 @@ const transcriptionSchema = z.object({
 // Keep in sync with transcriptionSchema — this is what the JSON-mode backend
 // is told to return.
 const JSON_SPEC =
-  '{"boardText": string|null, "supplierCode": string|null, "thumbImage": number|null, "thumbBox": {"left": number, "top": number, "right": number, "bottom": number}|null, "nameEn": string|null, "nameZh": string|null, "descriptionEn": string|null, "descriptionZh": string|null, "price": number|null, "currency": string|null, "moq": number|null, "qtyPerBox": number|null, "categoryId": number|null, "newCategoryEn": string|null, "newCategoryZh": string|null, "lengthCm": number|null, "widthCm": number|null, "heightCm": number|null, "weightKg": number|null, "cbm": number|null, "uncertain": string[]|null, "notes": string|null, "hsCode": string|null, "importDutyBrPct": number|null, "importDutyPyPct": number|null}';
+  '{"boardText": string|null, "supplierCode": string|null, "thumbImage": number|null, "thumbBox": {"left": number, "top": number, "right": number, "bottom": number}|null, "nameEn": string|null, "nameZh": string|null, "descriptionEn": string|null, "descriptionZh": string|null, "price": number|null, "currency": string|null, "moq": number|null, "qtyPerBox": number|null, "categoryId": number|null, "newCategoryEn": string|null, "newCategoryZh": string|null, "lengthCm": number|null, "widthCm": number|null, "heightCm": number|null, "weightKg": number|null, "cbm": number|null, "uncertain": string[]|null, "notes": string|null, "hsCode": string|null, "cnHsCode": string|null, "declarationElements": string|null, "importDutyBrPct": number|null, "importDutyPyPct": number|null}';
 
 export type RawTranscription = z.infer<typeof transcriptionSchema>;
 
@@ -101,6 +104,10 @@ export type TranscribedFields = {
   boardText?: string;
   /** Proposed customs classification: the 8-digit Mercosur NCM (6-digit HS as a fallback). */
   hsCode?: string;
+  /** Proposed China export code (10 digits) for the 报关单; a classification to verify. */
+  cnHsCode?: string;
+  /** Proposed 申报要素, in Chinese, for the Chinese export declaration. */
+  declarationElements?: string;
   /** Proposed ad valorem import duty at the destination, percent. Estimates to verify. */
   importDutyBrPct?: number;
   importDutyPyPct?: number;
@@ -152,6 +159,8 @@ Rules:
 - uncertain: the names of the fields above whose reading you are not confident of (e.g. ["price", "moq"]) — a smudged digit, a comma that could be either separator, a quantity of unclear meaning. Empty or null when every field is clear.
 - notes: at most 15 words, in English, only for uncertain readings or board info that has no field. Null when there is nothing to flag.
 - hsCode: the 8-digit Mercosur NCM that best fits the product as shown (digits only, e.g. "96032100"). This is a judgement from the photos, not a reading: give your closest 8-digit code even when the last digits are an approximation, and list "hsCode" in uncertain whenever you are not sure of the full code or two headings are plausible. Give only the 6-digit HS subheading when you truly cannot place it within one. Null only when the photos do not show what the product is.
+- cnHsCode: China's own 10-digit export tariff code (中国海关商品编号) for the same product, digits only (e.g. "3918909000"). Its first 6 digits are the HS subheading; give your closest full code and list "cnHsCode" in uncertain whenever the last digits are an approximation. Null only when the photos do not show what the product is.
+- declarationElements: a draft of the Chinese export declaration elements (申报要素) for that code, in Chinese, comma-separated, in the order the tariff asks for that heading — typically 品名, 品牌 (write 无品牌 unless a brand is visible), 材质/成分, 用途, 型号 (write 型号无 unless one is visible). Example: "脚垫，无品牌，热塑性弹性体，型号无，主要用于车内". At most 120 characters. List "declarationElements" in uncertain when the material or use is a guess. Null when the photos do not show what the product is.
 - importDutyBrPct and importDutyPyPct: the ad valorem import duty rate, as a percent number, that Brazil (Imposto de Importação under the Mercosur TEC) and Paraguay (DAI) apply to that classification, to the best of your knowledge (e.g. 18, 16, 2). These are estimates for a landed-cost comparison and will be checked by a person; Return null when you are unsure; do not invent a rate to fill the field. Always list "importDuty" in uncertain when proposing a rate: there is no live tariff lookup here and the proposal is not used until a person explicitly chooses it. Do not include VAT, IPI, PIS/COFINS or ICMS.`;
 
 export async function transcribeProductPhotos(
@@ -266,6 +275,9 @@ export function sanitizeTranscription(
   // This workflow supports HS subheadings (6) and Mercosur NCM (8), not arbitrary lengths.
   const hsDigits = normalizeHsCode(raw.hsCode ?? "");
   const hsCode = isHsCode(hsDigits) ? hsDigits : undefined;
+  const cnDigits = normalizeHsCode(raw.cnHsCode ?? "");
+  const cnHsCode = isCnHsCode(cnDigits) ? cnDigits : undefined;
+  const declarationElements = text(raw.declarationElements ?? null)?.replace(/\s*\n\s*/g, " ").slice(0, 200);
   const pct = (v: number | null | undefined) =>
     v !== null && v !== undefined && Number.isFinite(v) && v >= 0 && v <= 100
       ? Math.round(v * 100) / 100
@@ -311,6 +323,8 @@ export function sanitizeTranscription(
       cbm,
       ...(uncertain.length > 0 ? { uncertain } : {}),
       ...(hsCode ? { hsCode } : {}),
+      ...(cnHsCode ? { cnHsCode } : {}),
+      ...(declarationElements ? { declarationElements } : {}),
       ...(pct(raw.importDutyBrPct) !== undefined ? { importDutyBrPct: pct(raw.importDutyBrPct) } : {}),
       ...(pct(raw.importDutyPyPct) !== undefined ? { importDutyPyPct: pct(raw.importDutyPyPct) } : {}),
     },

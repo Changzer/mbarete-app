@@ -4,6 +4,8 @@ import { getOrderExportData } from "@/lib/export/order-export";
 import { buildOrderXlsx } from "@/lib/export/order-xlsx";
 import { buildOrderPdf } from "@/lib/export/order-pdf";
 import { buildPackingListPdf } from "@/lib/export/packing-list-pdf";
+import { getCustomsPackData } from "@/lib/export/customs-pack-data";
+import { buildCustomsPackXlsx } from "@/lib/export/customs-pack-xlsx";
 import { routing, type Locale } from "@/i18n/routing";
 import { makeLimiter } from "@/lib/rate-limit";
 
@@ -12,11 +14,14 @@ import { makeLimiter } from "@/lib/rate-limit";
 const exportLimiter = makeLimiter({ max: 60, windowMs: 5 * 60 * 1000 });
 
 /**
- * GET /api/orders/:id/export?format=xlsx|pdf&doc=proforma|packing&locale=en|zh
+ * GET /api/orders/:id/export?format=xlsx|pdf&doc=proforma|packing|customs&locale=en|zh
  *
- * Two documents: the proforma (a price quote while the order is a draft)
- * and the packing list. The spreadsheet is always the packing list; the
- * PDF is the proforma unless `doc=packing` asks for the list.
+ * Three documents: the proforma (a price quote while the order is a draft),
+ * the packing list, and the customs pack — the broker's five-sheet workbook
+ * (shipment summary, invoice, packing list, contract, draft declaration),
+ * only for a confirmed or shipped order and only as a spreadsheet. The
+ * spreadsheet is otherwise the packing list; the PDF is the proforma unless
+ * `doc=packing` asks for the list.
  *
  * A generated file, not a page — so agents get something they can attach to
  * WeChat/WhatsApp in one tap. Lives under /api (outside the middleware), so
@@ -55,6 +60,28 @@ export async function GET(
   const locale: Locale = routing.locales.includes(localeParam as Locale)
     ? (localeParam as Locale)
     : routing.defaultLocale;
+
+  if (url.searchParams.get("doc") === "customs") {
+    if (format !== "xlsx") return new NextResponse("Bad request", { status: 400 });
+    const customs = await getCustomsPackData(user.companyId, orderId);
+    if (!customs) return new NextResponse("Not found", { status: 404 });
+    // A draft is still a negotiation and a cancelled order ships nothing:
+    // there is no export to declare.
+    if (customs.status !== "confirmed" && customs.status !== "shipped") {
+      return new NextResponse("Conflict", { status: 409 });
+    }
+    const body = await buildCustomsPackXlsx(customs.pack);
+    const number = (customs.pack.docNo || `order-${orderId}`).trim();
+    const ascii = `${number.replace(/[^A-Za-z0-9._-]+/g, "_") || `order-${orderId}`}_customs-pack`;
+    const utf8 = encodeURIComponent(`${number} 报关资料.xlsx`);
+    return new NextResponse(new Uint8Array(body), {
+      headers: {
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": `attachment; filename="${ascii}.xlsx"; filename*=UTF-8''${utf8}`,
+        "Cache-Control": "private, no-store",
+      },
+    });
+  }
 
   const data = await getOrderExportData(user.companyId, orderId, locale);
   if (!data) return new NextResponse("Not found", { status: 404 });

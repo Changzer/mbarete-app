@@ -232,6 +232,13 @@
       "when": 1790000000000,
       "tag": "0032_supplier-vat",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1790001000000,
+      "tag": "0033_customs-pack",
+      "breakpoints": true
     }
   ]
 }

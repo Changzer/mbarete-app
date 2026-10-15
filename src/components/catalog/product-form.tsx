@@ -32,7 +32,7 @@ import type { TranscribeResult, TranscribedFields } from "@/lib/transcribe-produ
 import { DESTINATIONS, type Destination, type RatesByMode } from "@/lib/landed-cost";
 import type { CurrencyRates } from "@/lib/calculations";
 import { LandedCostBox } from "@/components/catalog/landed-cost-box";
-import { isHsCode, normalizeHsCode, readDuty } from "@/lib/customs";
+import { isHsCode, normalizeHsCode, readDuty, isCnHsCode } from "@/lib/customs";
 import type { CardTranscribeResult } from "@/lib/transcribe-card";
 import type { MatchCandidate } from "@/lib/contact-match";
 import {
@@ -69,6 +69,9 @@ type ProductFormValues = {
   boardText: string;
   aiNotes: string;
   hsCode: string;
+  cnHsCode: string;
+  declarationElements: string;
+  customsUnit: "pcs" | "set" | "pair";
   exportDestination: "" | Destination;
   importDutyPctBr: number | null;
   importDutyPctPy: number | null;
@@ -333,6 +336,8 @@ export function ProductForm({
 
     setIfUntouched("supplierCode", fields.supplierCode);
     setIfUntouched("hsCode", fields.hsCode);
+    setIfUntouched("cnHsCode", fields.cnHsCode);
+    setIfUntouched("declarationElements", fields.declarationElements);
     const hsInput = form.elements.namedItem("hsCode") as HTMLInputElement;
     // A model proposal is not a current tariff lookup, nor permission to
     // replace a manually entered rate. It stays separate until chosen.
@@ -390,6 +395,7 @@ export function ProductForm({
   // "Suggest NCM": the same photo read, applied to the code alone — for a
   // product registered before classification existed, whose other fields
   // are already right and must not be touched.
+  const [customsUnit, setCustomsUnit] = useState<"pcs" | "set" | "pair">(defaultValues?.customsUnit ?? "pcs");
   const [ncmPending, setNcmPending] = useState(false);
   const [ncmError, setNcmError] = useState<"no-photos" | "failed" | "limit" | "none" | null>(null);
   const aiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -525,11 +531,13 @@ export function ProductForm({
       return;
     }
     const badCode = hsCode.trim() !== "" && !isHsCode(hsCode);
+    const cnCode = String(formData.get("cnHsCode") ?? "");
+    const badCnCode = cnCode.trim() !== "" && !isCnHsCode(cnCode);
     const badDuty = [dutyBr, dutyPy].some((value) => value.trim() !== "" && readDuty(value) === null);
-    if (badCode || badDuty) {
-      setErrorMessage(badCode ? "invalid-hs-code" : "invalid-duty");
+    if (badCode || badCnCode || badDuty) {
+      setErrorMessage(badCode ? "invalid-hs-code" : badCnCode ? "invalid-cn-hs-code" : "invalid-duty");
       if (exportDetailsRef.current) exportDetailsRef.current.open = true;
-      document.getElementById(badCode ? "hsCode" : "importDuty")?.focus();
+      document.getElementById(badCode ? "hsCode" : badCnCode ? "cnHsCode" : "importDuty")?.focus();
       return;
     }
     startTransition(async () => {
@@ -637,13 +645,21 @@ export function ProductForm({
         return;
       }
       const code = result.fields.hsCode;
-      const el = formRef.current?.elements.namedItem("hsCode");
+      const form = formRef.current;
+      const el = form?.elements.namedItem("hsCode");
       if (!code || !(el instanceof HTMLInputElement)) {
         setNcmError("none");
         return;
       }
-      // An explicit press asks for the reading, so it replaces the field.
+      // An explicit press asks for the reading, so it replaces the codes —
+      // the NCM, and China's code and declaration elements when proposed.
       el.value = code;
+      const cnEl = form?.elements.namedItem("cnHsCode");
+      if (result.fields.cnHsCode && cnEl instanceof HTMLInputElement) cnEl.value = result.fields.cnHsCode;
+      const elementsEl = form?.elements.namedItem("declarationElements");
+      if (result.fields.declarationElements && elementsEl instanceof HTMLTextAreaElement) {
+        elementsEl.value = result.fields.declarationElements;
+      }
       setSuggestedDuties({ BR: result.fields.importDutyBrPct, PY: result.fields.importDutyPyPct });
     } catch {
       setNcmError("failed");
@@ -1328,6 +1344,51 @@ export function ProductForm({
             rates={rates}
             target={functionalCurrency}
           /> : null}
+          {/* What the Chinese side of the border files: China's own code,
+              the declaration elements and the unit the quantity is declared
+              in. They feed the customs pack's 报关单. */}
+          <div className="flex flex-col gap-3 border-t border-line pt-3 sm:col-span-2" data-testid="cn-declaration">
+            <p className="font-mono text-[10.5px] font-bold uppercase tracking-[0.1em] text-sub">{t("cnDeclarationGroup")}</p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label={t("cnHsCode")} htmlFor="cnHsCode" hint={t("cnHsCodeHelp")}>
+                <Input
+                  id="cnHsCode"
+                  name="cnHsCode"
+                  inputMode="numeric"
+                  placeholder={t("optionalPlaceholder")}
+                  defaultValue={defaultValues?.cnHsCode}
+                  className="font-mono"
+                  data-testid="cn-hs-code"
+                />
+              </Field>
+              <Field label={t("customsUnit")} htmlFor="customsUnit">
+                <input type="hidden" name="customsUnit" value={customsUnit} />
+                <Select value={customsUnit} onValueChange={(v) => setCustomsUnit(v === "set" || v === "pair" ? v : "pcs")}>
+                  <SelectTrigger id="customsUnit" data-testid="customs-unit">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(["pcs", "set", "pair"] as const).map((u) => (
+                      <SelectItem key={u} value={u}>
+                        {t(`customsUnit_${u}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label={t("declarationElements")} htmlFor="declarationElements" hint={t("declarationElementsHelp")} className="sm:col-span-2">
+                <Textarea
+                  id="declarationElements"
+                  name="declarationElements"
+                  rows={2}
+                  maxLength={500}
+                  placeholder={t("optionalPlaceholder")}
+                  defaultValue={defaultValues?.declarationElements}
+                  data-testid="declaration-elements"
+                />
+              </Field>
+            </div>
+          </div>
         </div>
       </details>
 
@@ -1345,6 +1406,7 @@ export function ProductForm({
       {errorMessage ? (
         <p className="text-[13px] font-semibold text-danger lg:col-span-2" data-testid="form-error">
           {errorMessage === "invalid-hs-code" ? t("errorHsCode")
+            : errorMessage === "invalid-cn-hs-code" ? t("errorCnHsCode")
             : errorMessage === "invalid-supplier-vat" ? t("errorSupplierVat")
             : errorMessage === "invalid-duty" ? t("errorDuty")
             : errorMessage === "duplicate-sku"

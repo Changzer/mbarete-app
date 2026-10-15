@@ -8,6 +8,7 @@ import { and, eq } from "drizzle-orm";
 import { requireUser, requireModuleAction } from "@/lib/authz";
 import { logOrderEvent } from "@/lib/order-log";
 import { CUSTOMS_NO, TAX_REGIMES } from "@/lib/dossier";
+import { DESTINATION_COUNTRY_CODES } from "@/lib/customs";
 
 /**
  * The dossier's header lives on the order but is not the agreed document:
@@ -36,6 +37,11 @@ const metaInput = z.object({
   purchaseContractDate: optionalDate,
   warehouseInDate: optionalDate,
   exportDate: optionalDate,
+  // Shipment facts for the customs pack; all optional.
+  portOfLoading: z.string().trim().max(120).default(""),
+  portOfDestination: z.string().trim().max(120).default(""),
+  destinationCountry: z.union([z.enum(DESTINATION_COUNTRY_CODES as [string, ...string[]]), z.literal("")]).default(""),
+  goodsOrigin: z.string().trim().max(120).default(""),
 });
 
 export type DossierMetaResult = { error?: string; version?: number };
@@ -81,6 +87,10 @@ export async function updateDossierMeta(orderId: number, input: unknown): Promis
     ["purchaseContractDate", before.purchaseContractDate, data.purchaseContractDate],
     ["warehouseInDate", before.warehouseInDate, data.warehouseInDate],
     ["exportDate", before.exportDate, data.exportDate],
+    ["portOfLoading", before.portOfLoading || null, data.portOfLoading || null],
+    ["portOfDestination", before.portOfDestination || null, data.portOfDestination || null],
+    ["destinationCountry", before.destinationCountry || null, data.destinationCountry || null],
+    ["goodsOrigin", before.goodsOrigin || null, data.goodsOrigin || null],
   ] as const;
   const changes = fields
     .filter(([, from, to]) => (from ?? null) !== (to ?? null))
@@ -96,6 +106,10 @@ export async function updateDossierMeta(orderId: number, input: unknown): Promis
       purchaseContractDate: data.purchaseContractDate,
       warehouseInDate: data.warehouseInDate,
       exportDate: data.exportDate,
+      portOfLoading: data.portOfLoading,
+      portOfDestination: data.portOfDestination,
+      destinationCountry: data.destinationCountry,
+      goodsOrigin: data.goodsOrigin,
       version: before.version + 1,
       updatedBy: user.id,
       updatedAt: new Date().toISOString(),

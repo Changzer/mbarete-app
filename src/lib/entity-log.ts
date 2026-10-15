@@ -107,6 +107,9 @@ type ProductShape = {
   supplierId: number | null;
   active: boolean;
   hsCode?: string;
+  cnHsCode?: string;
+  declarationElements?: string;
+  customsUnit?: string;
   exportDestination?: string;
   importDutyPctBr?: number | null;
   importDutyPctPy?: number | null;
@@ -147,6 +150,9 @@ export function diffProductEdit(
     changed("dimensions", dims(before), dims(after)),
     changed("weight", `${before.weightKg} kg`, `${after.weightKg} kg`),
     changed("hsCode", before.hsCode ?? "", after.hsCode ?? ""),
+    changed("cnHsCode", before.cnHsCode ?? "", after.cnHsCode ?? ""),
+    changed("declarationElements", before.declarationElements ?? "", after.declarationElements ?? ""),
+    changed("customsUnit", before.customsUnit ?? "pcs", after.customsUnit ?? "pcs"),
     changed("exportDestination", before.exportDestination ?? "", after.exportDestination ?? ""),
     changed("importDutyPctBr", duty(before.importDutyPctBr), duty(after.importDutyPctBr)),
     changed("importDutyPctPy", duty(before.importDutyPctPy), duty(after.importDutyPctPy)),

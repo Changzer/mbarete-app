@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useIsAdmin } from "@/components/role-provider";
 import { deleteOrderDocument } from "@/lib/actions/finance";
+import { DESTINATION_COUNTRIES, DESTINATION_COUNTRY_CODES } from "@/lib/customs";
 import { updateDossierMeta } from "@/lib/actions/dossier";
 import { DOSSIER_DOCUMENT_MAX_MB, DOSSIER_DOCUMENT_MAX_BYTES } from "@/lib/upload-limits";
 import {
@@ -35,6 +36,10 @@ export type DossierMeta = {
   purchaseContractDate: string;
   warehouseInDate: string;
   exportDate: string;
+  portOfLoading: string;
+  portOfDestination: string;
+  destinationCountry: string;
+  goodsOrigin: string;
 };
 
 export function DossierCard({
@@ -65,7 +70,11 @@ export function DossierCard({
     form.exportContractDate !== meta.exportContractDate ||
     form.purchaseContractDate !== meta.purchaseContractDate ||
     form.warehouseInDate !== meta.warehouseInDate ||
-    form.exportDate !== meta.exportDate;
+    form.exportDate !== meta.exportDate ||
+    form.portOfLoading !== meta.portOfLoading ||
+    form.portOfDestination !== meta.portOfDestination ||
+    form.destinationCountry !== meta.destinationCountry ||
+    form.goodsOrigin !== meta.goodsOrigin;
 
   function save() {
     setSaveMsg(null);
@@ -163,6 +172,28 @@ export function DossierCard({
         <DateField id="exportContractDate" label={t("exportContractDate")} value={form.exportContractDate} onChange={set("exportContractDate")} />
         <DateField id="purchaseContractDate" label={t("purchaseContractDate")} value={form.purchaseContractDate} onChange={set("purchaseContractDate")} />
         <DateField id="warehouseInDate" label={t("warehouseInDate")} value={form.warehouseInDate} onChange={set("warehouseInDate")} />
+
+        {/* Shipment: what the customs pack prints in the contract and the 报关单. */}
+        <p className="mt-1 font-mono text-[10.5px] font-bold uppercase tracking-[0.1em] text-sub md:col-span-3">{t("shipment")}</p>
+        <TextField id="portOfLoading" label={t("portOfLoading")} placeholder="Ningbo, CN" value={form.portOfLoading} onChange={set("portOfLoading")} />
+        <TextField id="portOfDestination" label={t("portOfDestination")} placeholder="Montevideo, UY" value={form.portOfDestination} onChange={set("portOfDestination")} />
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="destinationCountry">{t("destinationCountry")}</Label>
+          <Select value={form.destinationCountry || "none"} onValueChange={(v) => set("destinationCountry")(v === "none" ? "" : v)}>
+            <SelectTrigger id="destinationCountry" data-testid="destinationCountry">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">{t("destinationCountryNone")}</SelectItem>
+              {DESTINATION_COUNTRY_CODES.map((code) => (
+                <SelectItem key={code} value={code}>
+                  {locale === "zh" ? DESTINATION_COUNTRIES[code].zh : DESTINATION_COUNTRIES[code].en}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <TextField id="goodsOrigin" label={t("goodsOrigin")} help={t("goodsOriginHelp")} placeholder="浙江省义乌市" value={form.goodsOrigin} onChange={set("goodsOrigin")} />
         <div className="flex items-end gap-2">
           <Button type="button" size="sm" onClick={save} disabled={!dirty || saving} data-testid="dossier-save">
             {t("save")}
@@ -268,6 +299,30 @@ export function DossierCard({
         })}
       </ul>
     </section>
+  );
+}
+
+function TextField({
+  id,
+  label,
+  help,
+  placeholder,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  help?: string;
+  placeholder?: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <Input id={id} value={value} placeholder={placeholder} maxLength={120} onChange={(e) => onChange(e.target.value)} data-testid={id} />
+      {help ? <span className="text-[11px] text-sub">{help}</span> : null}
+    </div>
   );
 }
 

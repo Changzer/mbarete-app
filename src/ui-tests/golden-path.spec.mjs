@@ -33,6 +33,8 @@ const STUB = {
   name: "Quilted PU Leather Handbag 24cm",
   supplierCode: "AA012604240",
   hsCode: "42022200",
+  cnHsCode: "4202220000",
+  nameZh: "绗缝PU皮手提包",
   price: 13.08,
   moq: 24,
 };
@@ -239,6 +241,11 @@ test("a booth capture becomes a product, an order, a quote and an invoice", asyn
     const subtotal = (STUB.moq * STUB.price).toFixed(2);
     assert.doesNotMatch(packing.text.replace(/[,\s]/g, ""), new RegExp(subtotal.replace(".", "\\.")));
 
+    // The customs pack is for an export, not a negotiation.
+    assert.equal(await page.getByTestId("export-customs").count(), 0, "no customs pack on a draft");
+    const draftCustoms = await context.request.get(`${BASE}/api/orders/${orderId}/export?format=xlsx&doc=customs&locale=en`);
+    assert.equal(draftCustoms.status(), 409, "a draft has no customs pack");
+
     // ── 7. Confirming turns the same order into a proforma invoice ───────
     await page.getByRole("button", { name: "Confirm Order" }).click();
     await page.getByText("Confirmed").first().waitFor({ timeout: 15_000 });
@@ -251,6 +258,31 @@ test("a booth capture becomes a product, an order, a quote and an invoice", asyn
     assert.equal(packingPdf.status(), 200, "packing list PDF answered");
     assert.equal(packingPdf.headers()["content-type"], "application/pdf");
     assert.match(packingPdf.headers()["content-disposition"] ?? "", /Packing/, "named as the packing list");
+
+    // The shipment facts go in the dossier; the customs pack carries them.
+    await page.getByTestId("export-customs").waitFor();
+    await page.locator("#portOfLoading").fill("Ningbo, CN");
+    await page.locator("#portOfDestination").fill("Montevideo, UY");
+    await page.getByTestId("destinationCountry").click();
+    await page.getByRole("option", { name: "Paraguay", exact: true }).click();
+    await page.locator("#goodsOrigin").fill("浙江省义乌市");
+    await page.getByTestId("dossier-save").click();
+    await page.getByTestId("dossier-save-msg").filter({ hasText: "Saved." }).waitFor({ timeout: 15_000 });
+    const customs = await context.request.get(`${BASE}/api/orders/${orderId}/export?format=xlsx&doc=customs&locale=en`);
+    assert.equal(customs.status(), 200, "customs pack answered");
+    assert.match(customs.headers()["content-disposition"] ?? "", /customs-pack/, "named as the customs pack");
+    const customsBook = new ExcelJS.Workbook();
+    await customsBook.xlsx.load(await customs.body());
+    assert.deepEqual(customsBook.worksheets.map((w) => w.name), ["出货清单", "inv", "pck", "合同", "报关单"]);
+    const declaration = customsBook.getWorksheet("报关单");
+    assert.equal(declaration.getCell("B22").value, STUB.cnHsCode, "China's code proposed from the photo");
+    assert.equal(declaration.getCell("D22").value, STUB.nameZh, "the Chinese name on the declaration");
+    assert.equal(declaration.getCell("K22").value, "巴拉圭", "country of destination in Chinese");
+    const declText = [];
+    declaration.eachRow((row) => row.eachCell((c) => declText.push(String(c.value ?? ""))));
+    for (const fact of ["Ningbo, CN", "Montevideo, UY", "浙江省义乌市", "申报要素：手提包"]) {
+      assert.ok(declText.join(" | ").includes(fact), `declaration carries ${fact}`);
+    }
 
     // Supplier provenance survives live reassignment, rename, ordinary edits
     // and even deletion. Only an exact, approved refresh can change it.

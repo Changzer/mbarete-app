@@ -175,6 +175,14 @@ export const products = pgTable(
     exportDestination: text("export_destination", { enum: ["", "BR", "PY"] }).notNull().default(""),
     importDutyPctBr: numeric("import_duty_pct_br", { precision: 7, scale: 3, mode: "number" }),
     importDutyPctPy: numeric("import_duty_pct_py", { precision: 7, scale: 3, mode: "number" }),
+    /**
+     * For the Chinese export declaration: China's own 10-digit code (the
+     * NCM above is the destination's), the declaration elements (申报要素)
+     * the broker files with it, and the unit the quantity is declared in.
+     */
+    cnHsCode: text("cn_hs_code").notNull().default(""),
+    declarationElements: text("declaration_elements").notNull().default(""),
+    customsUnit: text("customs_unit", { enum: ["pcs", "set", "pair"] }).notNull().default("pcs"),
     price: numeric("price", { precision: 14, scale: 4, mode: "number" }).notNull(),
     supplierVatPct: numeric("supplier_vat_pct", { precision: 5, scale: 2, mode: "number" }).notNull().default(0),
     // Default selling price for order lines. 0 means none set: the product
@@ -628,6 +636,16 @@ export const orders = pgTable(
     purchaseContractDate: date("purchase_contract_date", { mode: "string" }),
     warehouseInDate: date("warehouse_in_date", { mode: "string" }),
     exportDate: date("export_date", { mode: "string" }),
+    /**
+     * Shipment facts for the customs pack: the port the goods leave from,
+     * the port they are bound for, the country of destination (ISO code),
+     * and where in China the goods were made (境内货源地). Free text except
+     * the country; all optional and editable on any status.
+     */
+    portOfLoading: text("port_of_loading").notNull().default(""),
+    portOfDestination: text("port_of_destination").notNull().default(""),
+    destinationCountry: text("destination_country").notNull().default(""),
+    goodsOrigin: text("goods_origin").notNull().default(""),
     // Optimistic concurrency: every mutation sends the version it read and
     // the UPDATE carries WHERE version = that — two people editing at once
     // produce a visible conflict, never silent last-write-wins.

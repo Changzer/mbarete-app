@@ -20,6 +20,8 @@ export const STUB_READING = {
   boardText: "Quilted PU Leather Handbag\n$13.08\nMOQ 24\n24/ctn",
   supplierCode: "AA012604240",
   hsCode: "42022200",
+  cnHsCode: "4202220000",
+  declarationElements: "手提包，无品牌，聚氨酯，日常携带物品用，型号无",
   importDutyBrPct: 20,
   importDutyPyPct: 16,
   thumbImage: 1,

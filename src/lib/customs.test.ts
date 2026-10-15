@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { productSchema } from "./validators";
-import { draftExportFields, formatNcm } from "./customs";
+import { draftExportFields, formatNcm, isCnHsCode } from "./customs";
 import { shippingRateSchema } from "./shipping-rate-schema";
 
 const product = { nameEn: "Sample", categoryId: 1, price: 10, currency: "USD", moq: 1, qtyPerBox: 10 };
@@ -34,6 +34,26 @@ test("draft review preserves destination, cleared code, unknown duty and explici
   assert.deepEqual(draftExportFields({}, "42022200"), {
     hsCode: "42022200", exportDestination: "", importDutyPctBr: null, importDutyPctPy: null,
   });
+});
+
+test("draft review carries China's code and the declaration elements, typed over proposed", () => {
+  const proposed = { cnHsCode: "4202220000", declarationElements: "手提包，无品牌" };
+  assert.deepEqual(draftExportFields({}, "42022200", proposed), {
+    hsCode: "42022200", cnHsCode: "4202220000", declarationElements: "手提包，无品牌",
+    exportDestination: "", importDutyPctBr: null, importDutyPctPy: null,
+  });
+  const typed = draftExportFields({ cnHsCode: "", declarationElements: "包", customsUnit: "set" }, undefined, proposed);
+  assert.equal(typed.cnHsCode, "", "a cleared code stays cleared");
+  assert.equal(typed.declarationElements, "包");
+  assert.equal(typed.customsUnit, "set");
+  assert.equal("customsUnit" in draftExportFields({ customsUnit: "box" }), false, "an unknown unit is dropped");
+});
+
+test("China's export code is exactly ten digits", () => {
+  assert.equal(isCnHsCode("3918909000"), true);
+  assert.equal(isCnHsCode("3918.90.90.00"), true);
+  assert.equal(isCnHsCode("39189090"), false);
+  assert.equal(isCnHsCode(""), false);
 });
 
 test("shipping quotes reject impossible dates and values that cannot be stored", () => {

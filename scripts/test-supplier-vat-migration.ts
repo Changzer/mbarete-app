@@ -23,11 +23,17 @@ async function main() {
     created = true;
     await target.connect();
     const journal = JSON.parse(await readFile("drizzle/meta/_journal.json", "utf8"));
-    const previous = journal.entries.filter((e: { idx: number }) => e.idx <= 31);
-    await mkdir(path.join(temporary, "meta"));
-    await writeFile(path.join(temporary, "meta/_journal.json"), JSON.stringify({ ...journal, entries: previous }));
-    for (const entry of previous) await copyFile(`drizzle/${entry.tag}.sql`, path.join(temporary, `${entry.tag}.sql`));
-    await migrate(drizzle(target), { migrationsFolder: temporary });
+    // A migrations folder holding the journal up to `idx`, so this test
+    // exercises 0032 itself and later migrations cannot change what it sees.
+    const upTo = async (idx: number) => {
+      const folder = path.join(temporary, `upto-${idx}`);
+      const entries = journal.entries.filter((e: { idx: number }) => e.idx <= idx);
+      await mkdir(path.join(folder, "meta"), { recursive: true });
+      await writeFile(path.join(folder, "meta/_journal.json"), JSON.stringify({ ...journal, entries }));
+      for (const entry of entries) await copyFile(`drizzle/${entry.tag}.sql`, path.join(folder, `${entry.tag}.sql`));
+      return folder;
+    };
+    await migrate(drizzle(target), { migrationsFolder: await upTo(31) });
     const company = (await target.query("INSERT INTO companies (name) VALUES ('Upgrade QA') RETURNING id")).rows[0].id;
     const user = (await target.query("INSERT INTO users (company_id,email,password_hash,name) VALUES ($1,'upgrade@example.com','unused-test-hash','Upgrade QA') RETURNING id", [company])).rows[0].id;
     const contact = (await target.query("INSERT INTO contacts (company_id,type,company_name) VALUES ($1,'supplier','Current, not historical') RETURNING id", [company])).rows[0].id;
@@ -39,7 +45,7 @@ async function main() {
     const productBefore = (await target.query("SELECT * FROM products WHERE id=$1", [product])).rows[0];
     const offerBefore = (await target.query("SELECT * FROM product_suppliers WHERE product_id=$1", [product])).rows[0];
     const before = (await target.query("SELECT * FROM order_items WHERE order_id=$1", [order])).rows[0];
-    await migrate(drizzle(target), { migrationsFolder: "drizzle" });
+    await migrate(drizzle(target), { migrationsFolder: await upTo(32) });
     const after = (await target.query("SELECT * FROM order_items WHERE order_id=$1", [order])).rows[0];
     assert.deepEqual(after, before, "VAT migration must not rewrite historical order prices");
     for (const [table, beforeRow] of [["products", productBefore], ["product_suppliers", offerBefore]] as const) {
