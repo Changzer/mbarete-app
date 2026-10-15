@@ -14,14 +14,29 @@ import { Button } from "@/components/ui/button";
 export function OrderExportButtons({
   orderId,
   sellMissingCount,
+  customs = null,
 }: {
   orderId: number;
   sellMissingCount: number;
+  /**
+   * The customs pack, offered once the order is confirmed: how many lines
+   * lack China's export code and how many shipment fields are unset, so
+   * the agent knows what the broker will find blank. Null hides the button.
+   */
+  customs?: { missingCodes: number; missingShipment: number } | null;
 }) {
   const t = useTranslations("orders");
   const locale = useLocale();
 
-  const download = (doc: "proforma" | "packing", format: "xlsx" | "pdf") => {
+  const download = (doc: "proforma" | "packing" | "customs", format: "xlsx" | "pdf") => {
+    if (
+      doc === "customs" &&
+      customs &&
+      (customs.missingCodes > 0 || customs.missingShipment > 0) &&
+      !confirm(t("customsMissingWarning", { codes: customs.missingCodes, shipment: customs.missingShipment }))
+    ) {
+      return;
+    }
     // Only the proforma carries prices; the packing list never quotes a cost.
     if (
       doc === "proforma" &&
@@ -46,6 +61,11 @@ export function OrderExportButtons({
       <Button variant="outline" size="sm" onClick={() => download("packing", "pdf")} data-testid="export-packing-pdf">
         {t("exportPackingPdf")}
       </Button>
+      {customs ? (
+        <Button variant="outline" size="sm" onClick={() => download("customs", "xlsx")} data-testid="export-customs">
+          {t("exportCustoms")}
+        </Button>
+      ) : null}
     </>
   );
 }

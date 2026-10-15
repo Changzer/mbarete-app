@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getOrderView } from "@/lib/queries/order-view";
+import { getProducts } from "@/lib/queries/catalog";
 import { getOrderFinanceRows, parseRatesSnapshot } from "@/lib/queries/orders";
 import { getUserNames } from "@/lib/queries/users";
 import { getBankAccounts, getCompanyProfile } from "@/lib/queries/settings";
@@ -58,6 +59,10 @@ export default async function OrderDetailPage({
     ]);
   if (!view) notFound();
   const { order, client, rows, targets, totals, effectiveRates } = view;
+  // China's export code per product on the order, for the customs pack's warning.
+  const cnCodeByProduct = new Map(
+    (await getProducts(companyId)).filter((p) => rows.some((r) => r.productId === p.id)).map((p) => [p.id, p.cnHsCode]),
+  );
   // Lines under the supplier they come from, so a mixed order reads booth
   // by booth. Recorded supplier names survive later contact edits/deletion.
   const groups = groupBySupplier(rows).map((g) => ({
@@ -162,6 +167,15 @@ export default async function OrderDetailPage({
             <OrderExportButtons
               orderId={order.id}
               sellMissingCount={rows.filter((r) => r.sellMissing).length}
+              customs={
+                order.status === "confirmed" || order.status === "shipped"
+                  ? {
+                      missingCodes: rows.filter((r) => !/^\d{10}$/.test(cnCodeByProduct.get(r.productId) ?? "")).length,
+                      missingShipment: [order.portOfLoading, order.portOfDestination, order.destinationCountry, order.goodsOrigin, order.exportDate ?? ""]
+                        .filter((v) => !v).length,
+                    }
+                  : null
+              }
             />
             <div className="lg:ml-auto">
               <ProformaBankSelect
@@ -366,6 +380,10 @@ export default async function OrderDetailPage({
             purchaseContractDate: order.purchaseContractDate ?? "",
             warehouseInDate: order.warehouseInDate ?? "",
             exportDate: order.exportDate ?? "",
+            portOfLoading: order.portOfLoading,
+            portOfDestination: order.portOfDestination,
+            destinationCountry: order.destinationCountry,
+            goodsOrigin: order.goodsOrigin,
           }}
           status={dossierStatus}
           financeOn={!!modules.finance}

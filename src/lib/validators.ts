@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isHsCode, normalizeHsCode } from "@/lib/customs";
+import { isHsCode, normalizeHsCode, isCnHsCode, CUSTOMS_UNITS } from "@/lib/customs";
 import { normalizeDecimalInput } from "@/lib/decimal-input";
 
 /**
@@ -43,6 +43,21 @@ export const productSchema = z
       .transform(normalizeHsCode)
       .refine((v) => v === "" || isHsCode(v), "hsCode")
       .default(""),
+    // For the Chinese export declaration: China's 10-digit code, the
+    // declaration elements (申报要素) and the declared unit.
+    cnHsCode: z
+      .string()
+      .trim()
+      .transform(normalizeHsCode)
+      .refine((v) => v === "" || isCnHsCode(v), "cnHsCode")
+      .default(""),
+    declarationElements: z
+      .string()
+      .trim()
+      .max(500)
+      .transform((v) => v.replace(/\r\n?/g, " ").replace(/\s*\n\s*/g, " "))
+      .default(""),
+    customsUnit: z.enum(CUSTOMS_UNITS).default("pcs"),
     exportDestination: z.enum(["", "BR", "PY"]).default(""),
     importDutyPctBr: dutyPct,
     importDutyPctPy: dutyPct,
