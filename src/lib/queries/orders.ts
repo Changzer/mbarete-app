@@ -42,7 +42,8 @@ export async function getOrderById(companyId: number, id: number) {
   const items = await db
     .select()
     .from(orderItems)
-    .where(eq(orderItems.orderId, id));
+    .where(eq(orderItems.orderId, id))
+    .orderBy(asc(orderItems.id));
 
   const client = await db.select().from(contacts).where(eq(contacts.id, order.clientId)).limit(1).then(one);
 

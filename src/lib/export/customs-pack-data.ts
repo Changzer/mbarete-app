@@ -70,9 +70,10 @@ export async function getCustomsPackData(companyId: number, orderId: number): Pr
     portOfDestination: order.portOfDestination,
     destinationCountry: order.destinationCountry,
     goodsOrigin: order.goodsOrigin,
-    lines: rows.map((r, i) => {
+    lines: rows.map((r) => {
       const product = productMap.get(r.productId);
-      const zhRow = zh.rows[i];
+      // Each language sorts its own names, so pair the lines by id.
+      const zhRow = zh.rows.find((z) => z.id === r.id);
       return {
         nameZh: zhRow?.name ?? r.name,
         nameEn: r.name,

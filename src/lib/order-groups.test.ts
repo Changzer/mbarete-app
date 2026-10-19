@@ -33,6 +33,21 @@ test("lines without a supplier form one group, last, wherever they appeared", ()
   assert.equal(groups[1].supplierName, null);
 });
 
+test("given a comparison, suppliers read by name, unknown still last", () => {
+  const groups = groupBySupplier(
+    [line(1, 7, "Zhejiang Bags"), line(2, null), line(3, 3, "anji toys"), line(4, 7, "Zhejiang Bags")],
+    (a, b) => a.localeCompare(b, "en", { sensitivity: "base" }),
+  );
+  assert.deepEqual(
+    groups.map((g) => [g.supplierId, g.rows.map((r) => r.id)]),
+    [
+      [3, [3]],
+      [7, [1, 4]],
+      [null, [2]],
+    ],
+  );
+});
+
 test("an empty order has no groups", () => {
   assert.deepEqual(groupBySupplier([]), []);
 });

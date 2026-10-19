@@ -1,8 +1,9 @@
 /**
  * Order lines grouped by the supplier they come from, in the order the
- * suppliers first appear, with the lines that have no supplier last. The
- * lines inside a group keep their order. Pure, so the detail page and any
- * document that wants the same grouping agree.
+ * suppliers first appear (or by name, given a comparison), with the lines
+ * that have no supplier last. The lines inside a group keep their order.
+ * Pure, so the detail page and any document that wants the same grouping
+ * agree.
  */
 export type SupplierGroup<T> = {
   /** null for lines without recorded supplier provenance */
@@ -13,6 +14,7 @@ export type SupplierGroup<T> = {
 
 export function groupBySupplier<T extends { supplierId: number | null; supplierName: string | null }>(
   rows: T[],
+  compareNames?: (a: string, b: string) => number,
 ): SupplierGroup<T>[] {
   const groups = new Map<number | null, SupplierGroup<T>>();
   for (const row of rows) {
@@ -25,6 +27,7 @@ export function groupBySupplier<T extends { supplierId: number | null; supplierN
     group.rows.push(row);
   }
   const ordered = [...groups.values()];
+  if (compareNames) ordered.sort((a, b) => compareNames(a.supplierName ?? "", b.supplierName ?? ""));
   const unknown = ordered.findIndex((g) => g.supplierId === null);
   if (unknown >= 0) ordered.push(...ordered.splice(unknown, 1));
   return ordered;
