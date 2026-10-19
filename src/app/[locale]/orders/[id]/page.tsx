@@ -8,6 +8,7 @@ import { getBankAccounts, getCompanyProfile } from "@/lib/queries/settings";
 import type { Locale } from "@/i18n/routing";
 import { computeOrderFinanceView, formatCbm } from "@/lib/calculations";
 import { groupBySupplier } from "@/lib/order-groups";
+import { compareNames } from "@/lib/name-order";
 import { computeDossierStatus, DOSSIER_KINDS, type TaxRegime } from "@/lib/dossier";
 import { DossierCard } from "@/components/orders/dossier-card";
 import { DOSSIER_VIDEO_MAX_MB } from "@/lib/uploads";
@@ -64,8 +65,9 @@ export default async function OrderDetailPage({
     (await getProducts(companyId)).filter((p) => rows.some((r) => r.productId === p.id)).map((p) => [p.id, p.cnHsCode]),
   );
   // Lines under the supplier they come from, so a mixed order reads booth
-  // by booth. Recorded supplier names survive later contact edits/deletion.
-  const groups = groupBySupplier(rows).map((g) => ({
+  // by booth, suppliers and lines alphabetically. Recorded supplier names
+  // survive later contact edits/deletion.
+  const groups = groupBySupplier(rows, compareNames(locale)).map((g) => ({
     ...g,
     label: g.supplierName ?? catalogT("supplierUnknown"),
   }));

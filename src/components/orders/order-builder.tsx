@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState, useTransition, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,6 +27,7 @@ import {
   sellCurrencyOf,
 } from "@/lib/calculations";
 import { createOrder, updateOrder, type OrderActionResult } from "@/lib/actions/orders";
+import { compareNames } from "@/lib/name-order";
 import { LineCard } from "@/components/orders/line-card";
 import { CurrencyField, SALE_CHOICES } from "@/components/catalog/currency-field";
 import { OrderKeypad } from "@/components/orders/order-keypad";
@@ -113,6 +114,7 @@ export function OrderBuilder({
 }) {
   const t = useTranslations("orders");
   const common = useTranslations("common");
+  const locale = useLocale();
   const [isPending, startTransition] = useTransition();
 
   const [clientId, setClientId] = useState(
@@ -230,6 +232,7 @@ export function OrderBuilder({
     setDisplayCurrency(next);
   }
 
+  const byName = useMemo(() => compareNames(locale), [locale]);
   const cartLines = useMemo(() => {
     return Object.entries(cart)
       .filter(([, entry]) => entry.qty > 0)
@@ -242,8 +245,10 @@ export function OrderBuilder({
         const sellPrice = Number.isFinite(chosen) && chosen > 0 ? chosen : listPriceOf(product);
         return { product: { ...product, sellPrice, sellCurrency: displayCurrency }, quantity: entry.qty };
       })
-      .filter((l): l is NonNullable<typeof l> => l !== null);
-  }, [cart, productMap, displayCurrency, listPriceOf]);
+      .filter((l): l is NonNullable<typeof l> => l !== null)
+      // Alphabetical, like the saved order and its documents.
+      .sort((a, b) => byName(a.product.name, b.product.name) || a.product.id - b.product.id);
+  }, [cart, productMap, displayCurrency, listPriceOf, byName]);
 
   // Both currencies are shown side by side: cost is usually quoted by the
   // supplier in RMB while the client is billed in USD.

@@ -3,6 +3,7 @@ import { getProducts } from "@/lib/queries/catalog";
 import { localizeField } from "@/lib/localize";
 import type { Locale } from "@/i18n/routing";
 import { computeSnapshotTotals, type OrderTotals } from "@/lib/calculations";
+import { sortByName } from "@/lib/name-order";
 
 export type OrderViewRow = {
   id: number;
@@ -67,7 +68,7 @@ export async function getOrderView(companyId: number, orderId: number, locale: L
   }
   const effectiveRates = { ...rates, ...snapshot };
 
-  const rows: OrderViewRow[] = items.map((item) => {
+  const unsorted: OrderViewRow[] = items.map((item) => {
     // The line's own snapshots first; the live product only fills rows from
     // before the snapshots existed. A renamed, repacked or deleted product
     // must not change what a saved order shows.
@@ -112,6 +113,8 @@ export async function getOrderView(companyId: number, orderId: number, locale: L
       below: item.quantity < item.moqSnapshot,
     };
   });
+  // Lines read alphabetically everywhere the order is shown or printed.
+  const rows = sortByName(unsorted, (r) => r.name, locale);
 
   const targets = [...new Set([order.displayCurrency, order.secondaryCurrency])];
   const totals: OrderTotals = computeSnapshotTotals(
