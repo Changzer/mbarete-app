@@ -25,7 +25,8 @@
     "test:vat": "node --test src/ui-tests/supplier-vat.spec.mjs",
     "test:vat-migration": "tsx scripts/test-supplier-vat-migration.ts",
     "test:documents": "node --test src/ui-tests/dossier-upload.spec.mjs",
-    "test:order-status": "node --test src/ui-tests/order-status.spec.mjs"
+    "test:order-status": "node --test src/ui-tests/order-status.spec.mjs",
+    "test:followup": "node --test src/ui-tests/followup.spec.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",

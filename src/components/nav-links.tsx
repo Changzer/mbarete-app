@@ -10,17 +10,19 @@ import {
   Settings,
   History,
   MoreHorizontal,
+  KanbanSquare,
 } from "lucide-react";
 
 export type NavItem = {
   href: string;
   label: string;
-  icon: "catalog" | "orders" | "contacts" | "finance" | "users" | "settings" | "activity" | "more";
+  icon: "catalog" | "orders" | "followup" | "contacts" | "finance" | "users" | "settings" | "activity" | "more";
 };
 
 const ICONS = {
   catalog: LayoutGrid,
   orders: ClipboardList,
+  followup: KanbanSquare,
   contacts: Users,
   finance: LineChart,
   users: UserCog,

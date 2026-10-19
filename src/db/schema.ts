@@ -14,6 +14,7 @@ import {
   primaryKey,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
+import { FOLLOWUP_STAGES, FOLLOWUP_ENTRY_KINDS } from "@/lib/followup-stages";
 
 /**
  * Timestamps are stored as text in SQLite's "YYYY-MM-DD HH:MM:SS" UTC shape,
@@ -1444,4 +1445,148 @@ export const platformEvents = pgTable(
     createdAt: text("created_at").notNull().default(utcNow),
   },
   (table) => [index("platform_events_created_idx").on(table.createdAt)],
+);
+
+/**
+ * The follow-up board (跟单): one card per supplier on a confirmed order,
+ * one for the lines that have no supplier recorded, and one per shipped order
+ * for its export paperwork. Cards are created on demand from the order's
+ * saved supplier identities (src/lib/followup-server.ts), so an order that is
+ * confirmed — or edited to add a supplier — gains its cards the next time the
+ * board is opened, and a supplier removed from the order keeps its history.
+ */
+export const followupCards = pgTable(
+  "followup_cards",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    orderId: integer("order_id").notNull(),
+    kind: text("kind", { enum: ["supplier", "unassigned", "shipment"] }).notNull(),
+    /** The order lines' saved supplier id; null for the unassigned and shipment cards. */
+    supplierId: integer("supplier_id"),
+    stage: text("stage", { enum: FOLLOWUP_STAGES }).notNull().default("deposit"),
+    /** What has to happen next, in whoever's words; "" shows the stage's default action. */
+    nextStep: text("next_step").notNull().default(""),
+    /** ISO date the next step is due; null when no date was agreed. */
+    nextDue: text("next_due"),
+    nextOwnerId: integer("next_owner_id"),
+    /** A problem someone flagged (QC failed, late, short); "" when none. */
+    problem: text("problem").notNull().default(""),
+    version: integer("version").notNull().default(1),
+    createdAt: text("created_at").notNull().default(utcNow),
+    updatedAt: text("updated_at").notNull().default(utcNow),
+    updatedBy: integer("updated_by"),
+  },
+  (table) => [
+    uniqueIndex("followup_cards_company_id_uq").on(table.companyId, table.id),
+    uniqueIndex("followup_cards_order_uq").on(table.orderId, table.kind, sql`COALESCE(${table.supplierId}, 0)`),
+    index("followup_cards_company_idx").on(table.companyId),
+    foreignKey({
+      name: "followup_cards_company_order_fk",
+      columns: [table.companyId, table.orderId],
+      foreignColumns: [orders.companyId, orders.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "followup_cards_company_owner_fk",
+      columns: [table.companyId, table.nextOwnerId],
+      foreignColumns: [users.companyId, users.id],
+    }),
+  ],
+);
+
+export const followupChecklistItems = pgTable(
+  "followup_checklist_items",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    cardId: integer("card_id").notNull(),
+    text: text("text").notNull(),
+    ownerId: integer("owner_id"),
+    done: boolean("done").notNull().default(false),
+    doneBy: integer("done_by"),
+    doneAt: text("done_at"),
+    position: integer("position").notNull().default(0),
+    createdBy: integer("created_by"),
+    createdAt: text("created_at").notNull().default(utcNow),
+  },
+  (table) => [
+    index("followup_checklist_items_card_idx").on(table.cardId),
+    foreignKey({
+      name: "followup_checklist_items_company_card_fk",
+      columns: [table.companyId, table.cardId],
+      foreignColumns: [followupCards.companyId, followupCards.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "followup_checklist_items_company_owner_fk",
+      columns: [table.companyId, table.ownerId],
+      foreignColumns: [users.companyId, users.id],
+    }),
+  ],
+);
+
+/**
+ * A card's feed: what people wrote and what they changed, in order. Events
+ * carry a JSON payload with the values at the time, so the feed keeps saying
+ * what happened after the card moves on. A removed comment keeps its row.
+ */
+export const followupEntries = pgTable(
+  "followup_entries",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    cardId: integer("card_id").notNull(),
+    userId: integer("user_id"),
+    kind: text("kind", { enum: FOLLOWUP_ENTRY_KINDS }).notNull(),
+    body: text("body").notNull().default(""),
+    payload: text("payload").notNull().default("{}"),
+    /** The browser's id for a posted update, so a retried post saves once. */
+    clientKey: text("client_key"),
+    removedAt: text("removed_at"),
+    removedBy: integer("removed_by"),
+    createdAt: text("created_at").notNull().default(utcNow),
+  },
+  (table) => [
+    uniqueIndex("followup_entries_company_id_uq").on(table.companyId, table.id),
+    uniqueIndex("followup_entries_client_key_uq").on(table.companyId, table.clientKey),
+    index("followup_entries_card_idx").on(table.cardId, table.id),
+    foreignKey({
+      name: "followup_entries_company_card_fk",
+      columns: [table.companyId, table.cardId],
+      foreignColumns: [followupCards.companyId, followupCards.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "followup_entries_company_user_fk",
+      columns: [table.companyId, table.userId],
+      foreignColumns: [users.companyId, users.id],
+    }),
+  ],
+);
+
+export const followupAttachments = pgTable(
+  "followup_attachments",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    entryId: integer("entry_id").notNull(),
+    path: text("path").notNull(),
+    originalName: text("original_name").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    createdAt: text("created_at").notNull().default(utcNow),
+  },
+  (table) => [
+    index("followup_attachments_entry_idx").on(table.entryId),
+    foreignKey({
+      name: "followup_attachments_company_entry_fk",
+      columns: [table.companyId, table.entryId],
+      foreignColumns: [followupEntries.companyId, followupEntries.id],
+    }).onDelete("cascade"),
+  ],
 );

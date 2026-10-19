@@ -239,6 +239,13 @@
       "when": 1790001000000,
       "tag": "0033_customs-pack",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1790002000000,
+      "tag": "0034_followup",
+      "breakpoints": true
     }
   ]
 }
