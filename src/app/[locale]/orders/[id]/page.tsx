@@ -48,6 +48,7 @@ export default async function OrderDetailPage({
   const t = await getTranslations("orders");
   const catalogT = await getTranslations("catalog");
   const proformaT = await getTranslations("proforma");
+  const followupT = await getTranslations("followup");
 
   const [view, userNames, finance, bankAccounts, profile, { result: requestedResult }] =
     await Promise.all([
@@ -159,6 +160,13 @@ export default async function OrderDetailPage({
                 <span aria-hidden className="hidden w-px self-stretch bg-line lg:block" />
                 <CatalogRefresh orderId={order.id} />
               </>
+            ) : null}
+            {order.status === "confirmed" || order.status === "shipped" ? (
+              <Button asChild variant="ghost" size="sm" className="lg:ml-auto">
+                <Link href={`/followup?order=${order.id}`} data-testid="order-followup-link">
+                  {followupT("openInFollowup")}
+                </Link>
+              </Button>
             ) : null}
           </div>
           {/* Row two: the documents, with the bank setting at the far end. */}
@@ -371,7 +379,8 @@ export default async function OrderDetailPage({
         <p className="mt-4 text-xs text-warn">{t("moqBlocksConfirm")}</p>
       ) : null}
 
-      <div className="mt-4">
+      {/* The follow-up board's shipment card links here to upload the paperwork. */}
+      <div className="mt-4 scroll-mt-20" id="dossier">
         <DossierCard
           orderId={order.id}
           meta={{

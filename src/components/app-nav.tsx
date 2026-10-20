@@ -43,6 +43,15 @@ export async function AppNav({
       ]
     : [];
   const tabs: NavItem[] = [...primary, { href: "/more", label: t("more"), icon: "more" }];
+  // The follow-up board is desk work: a link on the desktop bar, a row under
+  // More on a phone, so the tab bar keeps its five thumb-sized tabs.
+  const followup: NavItem[] = modules.orders ? [{ href: "/followup", label: t("followup"), icon: "followup" }] : [];
+  const desktop: NavItem[] = [
+    ...primary.slice(0, modules.orders ? 2 : 1),
+    ...followup,
+    ...primary.slice(modules.orders ? 2 : 1),
+    ...behindMore,
+  ];
 
   return (
     <>
@@ -57,7 +66,7 @@ export async function AppNav({
             <Link href="/catalog" className="shrink-0" aria-label="Mbarete">
               <Brand />
             </Link>
-            <NavLinks items={[...primary, ...behindMore]} />
+            <NavLinks items={desktop} />
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
             {/* The sync state belongs in the chrome, not in a page: it is true
@@ -80,7 +89,7 @@ export async function AppNav({
         </div>
       </header>
 
-      <MobileNav items={tabs} moreItems={behindMore} />
+      <MobileNav items={tabs} moreItems={[...followup, ...behindMore]} />
     </>
   );
 }

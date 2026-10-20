@@ -32,6 +32,7 @@ import { buildPartiesSnapshot, parsePartiesSnapshot } from "@/lib/parties-snapsh
 import { nextOrderNumber, getExchangeRates } from "@/lib/queries/orders";
 import { canTransition, isEditable, isDeletable, statusConfirmation } from "@/lib/order-status";
 import { deleteUpload } from "@/lib/uploads";
+import { followupFilesOfOrder } from "@/lib/followup-server";
 import { logOrderEvent, diffOrderEdit, type OrderChange } from "@/lib/order-log";
 import { formatMoney } from "@/lib/money";
 import { defaultBankAccount } from "@/lib/proforma-bank";
@@ -625,10 +626,11 @@ export async function deleteOrder(id: number) {
 
   // Document and receipt rows cascade with the order; the files would stay
   // behind in the uploads volume forever if they were not removed here.
-  const [documents, payments, expenses] = await Promise.all([
+  const [documents, payments, expenses, followupFiles] = await Promise.all([
     db.select().from(orderDocuments).where(eq(orderDocuments.orderId, id)),
     db.select().from(orderPayments).where(eq(orderPayments.orderId, id)),
     db.select().from(orderExpenses).where(eq(orderExpenses.orderId, id)),
+    followupFilesOfOrder(id),
   ]);
 
   await db.delete(orders).where(and(eq(orders.companyId, admin.companyId), eq(orders.id, id)));
@@ -637,6 +639,10 @@ export async function deleteOrder(id: number) {
   }
   for (const row of [...payments, ...expenses]) {
     if (row.receiptPath) await deleteUpload(row.receiptPath);
+  }
+  // Photos and files posted on the order's follow-up cards go the same way.
+  for (const path of followupFiles) {
+    await deleteUpload(path);
   }
 
   revalidatePath("/orders");

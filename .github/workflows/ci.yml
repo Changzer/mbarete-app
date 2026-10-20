@@ -108,6 +108,22 @@ jobs:
           path: artifacts/order-status
           if-no-files-found: ignore
           retention-days: 7
+      # The follow-up board: cards per supplier from a confirmed order, stage
+      # moves (button and drag), next step and who, checklist, a Chinese
+      # update with a photo, a stale save refused, and a shipped order's
+      # export paperwork read from the dossier.
+      - run: npm run test:followup
+        if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
+        env:
+          UPLOADS_DIR: ${{ runner.temp }}/uploads
+      - name: Upload follow-up board screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: followup-review
+          path: artifacts/followup
+          if-no-files-found: ignore
+          retention-days: 7
       - run: npm run test:documents
         if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
         env:

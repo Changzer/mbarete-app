@@ -1,8 +1,8 @@
 import { getTranslations, getLocale } from "next-intl/server";
-import { ChevronRight, History, LogOut, Settings, UserCog } from "lucide-react";
+import { ChevronRight, History, KanbanSquare, LogOut, Settings, UserCog } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { auth } from "@/lib/auth";
-import { sessionUser } from "@/lib/authz";
+import { getCompanyModules, sessionUser } from "@/lib/authz";
 import { signOutAction } from "@/lib/actions/auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ChangePasswordForm } from "@/components/change-password-form";
@@ -25,14 +25,19 @@ export default async function MorePage() {
   const boundSignOut = signOutAction.bind(null, locale);
   const user = await sessionUser();
 
-  const links =
-    user?.role === "admin"
+  const modules = user ? await getCompanyModules(user.companyId) : null;
+
+  const links = [
+    // The follow-up board is for everyone on orders, not only admins.
+    ...(modules?.orders ? [{ href: "/followup" as const, label: nav("followup"), Icon: KanbanSquare }] : []),
+    ...(user?.role === "admin"
       ? [
           { href: "/users" as const, label: nav("users"), Icon: UserCog },
           { href: "/settings" as const, label: nav("settings"), Icon: Settings },
           { href: "/activity" as const, label: nav("activity"), Icon: History },
         ]
-      : [];
+      : []),
+  ];
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-5 px-4 py-5">
