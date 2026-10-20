@@ -206,10 +206,9 @@ export async function createOrder(input: unknown): Promise<OrderActionResult> {
     .then(one);
   if (!client) return { error: "invalid" };
 
-  const { rows, hasMoqViolation } = await buildOrderItemRows(user.companyId, data.items, data.displayCurrency);
-  if (data.status === "confirmed" && hasMoqViolation) {
-    return { error: "moq" };
-  }
+  // A line below its MOQ is a warning, never a block: small first orders and
+  // samples are negotiated below MOQ all the time.
+  const { rows } = await buildOrderItemRows(user.companyId, data.items, data.displayCurrency);
 
   // Freeze the rates used, so a saved quote does not move when rates change.
   const ratesSnapshot = JSON.stringify(await getExchangeRates(user.companyId));
@@ -300,10 +299,7 @@ export async function updateOrder(
     .where(eq(orderItems.orderId, id));
 
   // Existing lines keep their snapshots; only new lines read the catalog.
-  const { rows, hasMoqViolation } = await buildEditedItemRows(user.companyId, beforeItems, data.items, data.displayCurrency);
-  if (data.status === "confirmed" && hasMoqViolation) {
-    return { error: "moq" };
-  }
+  const { rows } = await buildEditedItemRows(user.companyId, beforeItems, data.items, data.displayCurrency);
 
   // The parties freeze when an order becomes confirmed, and re-freeze when
   // a confirmed order deliberately changes client. Landing in draft thaws
@@ -429,16 +425,6 @@ export async function setOrderStatus(
   }
 
   const reopening = current.status === "shipped" && status === "confirmed";
-  // Reopening must remain possible even for an old order with a bad MOQ:
-  // correcting that order is precisely why the user needs to unlock it.
-  if (status === "confirmed" && !reopening) {
-    const items = await db
-      .select()
-      .from(orderItems)
-      .where(eq(orderItems.orderId, id));
-    const hasMoqViolation = items.some((i) => isBelowMoq(i.quantity, i.moqSnapshot));
-    if (hasMoqViolation) return { error: "moq" };
-  }
 
   // Reopening is only a status correction. Preserve the confirmed parties,
   // bank, rates and line snapshots even if the live catalog/settings changed.

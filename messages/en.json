@@ -420,7 +420,6 @@
     "refreshApply": "Apply updates",
     "saveDraft": "Save as Draft",
     "confirmOrder": "Confirm Order",
-    "moqBlocksConfirm": "Cannot confirm: one or more lines are below MOQ.",
     "removeLine": "Remove",
     "addProducts": "Add products from catalog",
     "cart": "Order Cart",
@@ -480,7 +479,6 @@
     "proformaBankDefault": "Default: {label}",
     "totalsTitle": "Totals",
     "rateSnapshot": "Rate frozen at {rate} when this order was started.",
-    "belowMoqBlocks": "One line is below its MOQ — a draft is fine, confirming is not.",
     "actions": "Actions",
     "exportXlsx": "Packing list (Excel)",
     "exportPackingPdf": "Packing list (PDF)",
@@ -530,7 +528,8 @@
     "orderConflict": "This order changed while you were working — refresh the page to see the latest version, then try again.",
     "refreshSupplier": "Supplier",
     "supplierNotRecorded": "Supplier not recorded",
-    "refreshStale": "The order or catalog changed. Preview the changes again before applying."
+    "refreshStale": "The order or catalog changed. Preview the changes again before applying.",
+    "moqBelowNote": "Some lines are below the supplier's MOQ — you can still confirm; make sure the factory agreed."
   },
   "settings": {
     "exchangeRates": "Exchange Rates",

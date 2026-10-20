@@ -420,7 +420,6 @@
     "refreshApply": "应用更新",
     "saveDraft": "保存为草稿",
     "confirmOrder": "确认订单",
-    "moqBlocksConfirm": "无法确认：存在低于起订量的产品行。",
     "removeLine": "移除",
     "addProducts": "从目录添加产品",
     "cart": "订单购物车",
@@ -480,7 +479,6 @@
     "proformaBankDefault": "默认：{label}",
     "totalsTitle": "合计",
     "rateSnapshot": "汇率已在建单时锁定为 {rate}。",
-    "belowMoqBlocks": "有一行低于起订量 — 可存草稿，但不能确认。",
     "actions": "操作",
     "exportXlsx": "装箱单 (Excel)",
     "exportPackingPdf": "装箱单 (PDF)",
@@ -530,7 +528,8 @@
     "orderConflict": "该订单在您操作期间已被修改——请刷新页面查看最新版本后重试。",
     "refreshSupplier": "供应商",
     "supplierNotRecorded": "未记录供应商",
-    "refreshStale": "订单或目录已更改，请重新预览后再应用。"
+    "refreshStale": "订单或目录已更改，请重新预览后再应用。",
+    "moqBelowNote": "有产品低于起订量 — 仍可确认订单，请先和工厂确认。"
   },
   "settings": {
     "exchangeRates": "汇率",
