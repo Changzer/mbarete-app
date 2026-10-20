@@ -650,16 +650,13 @@ export function OrderBuilder({
           </div>
 
           {totals.hasMoqViolation ? (
-            <p className="rounded-[10px] bg-warn-soft px-3 py-2 text-[11px] leading-relaxed text-warn" data-testid="moq-blocks-confirm">{t("moqBlocksConfirm")}</p>
+            <p className="rounded-[10px] bg-warn-soft px-3 py-2 text-[11px] leading-relaxed text-warn" data-testid="moq-below-note">{t("moqBelowNote")}</p>
           ) : null}
           {error === "empty" ? (
             <p className="text-[12px] font-semibold text-danger">{t("emptyCart")}</p>
           ) : null}
           {error === "client" ? (
             <p className="text-[12px] font-semibold text-danger">{t("selectClient")}</p>
-          ) : null}
-          {error === "moq" ? (
-            <p className="text-[12px] font-semibold text-danger">{t("moqBlocksConfirm")}</p>
           ) : null}
           {error === "frozen" ? (
             <p className="text-[12px] font-semibold text-danger">{t("orderFrozen")}</p>
@@ -674,7 +671,7 @@ export function OrderBuilder({
               {t("unpricedLines", { names: error.slice("price:".length) })}
             </p>
           ) : null}
-          {error && !["empty", "client", "moq", "frozen", "conflict"].includes(error) && !error.startsWith("price:") ? (
+          {error && !["empty", "client", "frozen", "conflict"].includes(error) && !error.startsWith("price:") ? (
             <p className="text-[12px] font-semibold text-danger" data-testid="order-save-failed">
               {t("saveFailed")}
             </p>
@@ -685,7 +682,7 @@ export function OrderBuilder({
               /* A confirmed order stays confirmed through an edit — offering
                  "save as draft" here would silently demote it. */
               <Button
-                disabled={isPending || totals.hasMoqViolation}
+                disabled={isPending}
                 onClick={() => handleSubmit("confirmed")}
                 type="button"
                 data-testid="save-changes"
@@ -703,7 +700,7 @@ export function OrderBuilder({
                   {t("saveDraft")}
                 </Button>
                 <Button
-                  disabled={isPending || totals.hasMoqViolation}
+                  disabled={isPending}
                   onClick={() => handleSubmit("confirmed")}
                   type="button"
                 >

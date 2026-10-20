@@ -376,7 +376,7 @@ export default async function OrderDetailPage({
       <OrderNotesCard orderId={order.id} notes={order.notes} />
 
       {totals.hasMoqViolation && order.status === "draft" ? (
-        <p className="mt-4 text-xs text-warn">{t("moqBlocksConfirm")}</p>
+        <p className="mt-4 text-xs text-warn" data-testid="moq-below-note">{t("moqBelowNote")}</p>
       ) : null}
 
       {/* The follow-up board's shipment card links here to upload the paperwork. */}

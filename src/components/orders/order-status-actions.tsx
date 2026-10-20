@@ -51,7 +51,7 @@ export function OrderStatusActions({
   }
   const feedback = error ? (
     <p className="text-sm text-danger" role="alert" data-testid={error === "conflict" ? "status-conflict" : "status-error"}>
-      {error === "moq" ? t("moqBlocksConfirm") : error === "conflict" ? t("orderConflict")
+      {error === "conflict" ? t("orderConflict")
         : error === "frozen" ? t("orderFrozen") : error === "confirmation" ? t("statusConfirmationRequired") : t("statusFailed")}
     </p>
   ) : null;
