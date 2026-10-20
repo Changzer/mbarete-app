@@ -62,9 +62,11 @@ export type RankContext = {
  *
  * Cheapest wins. When two quotes tie, a supplier this product has already
  * been ordered from beats a stranger — a proven factory is worth more than a
- * rounding difference. Failing that the fresher quote wins, because the
- * newer price is the one more likely to still be honoured; and failing that
- * the more recently added offer, which keeps the order stable.
+ * rounding difference — and a named supplier beats a price whose source was
+ * never recorded, which nobody can place an order with. Failing that the
+ * fresher quote wins, because the newer price is the one more likely to
+ * still be honoured; and failing that the more recently added offer, which
+ * keeps the order stable.
  */
 export function rankOffers<T extends Offer>(offers: T[], ctx: RankContext): T[] {
   const ordered = ctx.orderedSupplierIds ?? new Set<number>();
@@ -78,6 +80,9 @@ export function rankOffers<T extends Offer>(offers: T[], ctx: RankContext): T[] 
     .sort((a, b) => {
       if (a.value !== b.value) return a.value - b.value;
       if (a.known !== b.known) return a.known ? -1 : 1;
+      const aNamed = a.offer.supplierId !== null;
+      const bNamed = b.offer.supplierId !== null;
+      if (aNamed !== bNamed) return aNamed ? -1 : 1;
       const byQuote = b.offer.quotedOn.localeCompare(a.offer.quotedOn);
       if (byQuote !== 0) return byQuote;
       return b.offer.id - a.offer.id;
