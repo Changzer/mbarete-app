@@ -479,6 +479,13 @@ export const contacts = pgTable(
     // booth ("一区2楼C区9街4642店"), its own field because it is the retrieval
     // key on a revisit, not a footnote.
     boothLocation: text("booth_location").notNull().default(""),
+    /**
+     * Suppliers: where they are — a province from the fixed list
+     * (china-regions.ts) and a city or county as written ("义乌市"). Together
+     * they are the export declaration's 境内货源地 for this supplier's lines.
+     */
+    province: text("province").notNull().default(""),
+    city: text("city").notNull().default(""),
     // Bank accounts as read off the card back. Free text, one account per
     // line. Always treated as unverified: finance checks the digits against
     // the stored card photo before any payment goes out.
@@ -649,6 +656,8 @@ export const orders = pgTable(
     portOfDestination: text("port_of_destination").notNull().default(""),
     destinationCountry: text("destination_country").notNull().default(""),
     goodsOrigin: text("goods_origin").notNull().default(""),
+    /** The marks on the cartons (唛头), one line each; "" prints N/M. */
+    shippingMarks: text("shipping_marks").notNull().default(""),
     // Optimistic concurrency: every mutation sends the version it read and
     // the UPDATE carries WHERE version = that — two people editing at once
     // produce a visible conflict, never silent last-write-wins.

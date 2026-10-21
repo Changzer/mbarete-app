@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { ContactActionResult } from "@/lib/actions/contacts";
 import type { CardTranscribeResult, TranscribedContactFields } from "@/lib/transcribe-card";
+import { PROVINCES } from "@/lib/china-regions";
 import { findSimilarContact, type MatchCandidate } from "@/lib/contact-match";
 import { useTranslations } from "next-intl";
 import { Eye, EyeOff, Loader2, Sparkles, TriangleAlert } from "lucide-react";
@@ -24,6 +25,8 @@ type ContactFormValues = {
   whatsapp: string;
   wechat: string;
   boothLocation: string;
+  province?: string;
+  city?: string;
   bankInfo: string;
   notes: string;
 };
@@ -196,7 +199,7 @@ export function ContactForm({
     for (const [name, value] of Object.entries(fields)) {
       if (value === undefined) continue;
       const el = form.elements.namedItem(name);
-      if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) continue;
+      if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) continue;
       if (el.value.trim() !== "") continue;
       el.value = value;
     }
@@ -485,6 +488,36 @@ export function ContactForm({
           defaultValue={defaultValues?.boothLocation}
         />
       </div>
+
+      {/* Where the supplier is: the export declaration's 境内货源地 for their lines. */}
+      {type === "supplier" ? (
+        <div className="flex flex-col gap-1.5">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="province">{t("province")}</Label>
+              <select
+                id="province"
+                name="province"
+                defaultValue={defaultValues?.province ?? ""}
+                className="focus-ring h-11 w-full rounded-[10px] border border-line bg-surface px-3 text-[13.5px] text-ink focus-visible:border-action"
+                data-testid="contact-province"
+              >
+                <option value="">{t("provinceNone")}</option>
+                {PROVINCES.map((p) => (
+                  <option key={p.zh} value={p.zh}>
+                    {p.zh} {p.en}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="city">{t("city")}</Label>
+              <Input id="city" name="city" placeholder="义乌市" defaultValue={defaultValues?.city} data-testid="contact-city" />
+            </div>
+          </div>
+          <p className="text-[11px] leading-relaxed text-sub">{t("regionHelp")}</p>
+        </div>
+      ) : null}
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="companyName">{t("companyNameEn")}</Label>

@@ -382,7 +382,11 @@
     "bankInfoVerify": "Check these digits against the card photo before paying.",
     "countSuppliers": "{count} suppliers",
     "countClients": "{count} clients",
-    "aiVerifyHint": "AI-read — please verify before using"
+    "aiVerifyHint": "AI-read — please verify before using",
+    "province": "Province 省份",
+    "provinceNone": "Not set",
+    "city": "City / county 城市",
+    "regionHelp": "Where this supplier makes the goods. The customs declaration prints it as the goods origin (境内货源地) for their products."
   },
   "orders": {
     "title": "Orders",
@@ -529,7 +533,8 @@
     "refreshSupplier": "Supplier",
     "supplierNotRecorded": "Supplier not recorded",
     "refreshStale": "The order or catalog changed. Preview the changes again before applying.",
-    "moqBelowNote": "Some lines are below the supplier's MOQ — you can still confirm; make sure the factory agreed."
+    "moqBelowNote": "Some lines are below the supplier's MOQ — you can still confirm; make sure the factory agreed.",
+    "exportLabels": "Carton labels (PDF)"
   },
   "settings": {
     "exchangeRates": "Exchange Rates",
@@ -877,7 +882,8 @@
     "dossier_destinationCountry": "Country of destination",
     "dossier_goodsOrigin": "Goods origin",
     "changeLineSupplier": "{sku}: supplier {from} → {to}",
-    "supplierNotRecorded": "Supplier not recorded"
+    "supplierNotRecorded": "Supplier not recorded",
+    "dossier_shippingMarks": "Shipping marks"
   },
   "activity": {
     "title": "Activity",
@@ -924,7 +930,9 @@
     "field_exportDestination": "Export destination",
     "field_importDutyPctBr": "Duty · Brazil",
     "field_importDutyPctPy": "Duty · Paraguay",
-    "field_supplierVatPct": "Supplier VAT (%)"
+    "field_supplierVatPct": "Supplier VAT (%)",
+    "field_province": "Province",
+    "field_city": "City"
   },
   "offline": {
     "offline": "Offline — the server can't be reached",
@@ -1197,7 +1205,7 @@
     "destinationCountry": "Country of destination 运抵国",
     "destinationCountryNone": "Not set",
     "goodsOrigin": "Goods origin 境内货源地",
-    "goodsOriginHelp": "Where in China the goods were made, e.g. 山东省临沂市.",
+    "goodsOriginHelp": "Where in China the goods were made, e.g. 山东省临沂市. Set the province and city on the suppliers and it fills itself.",
     "save": "Save dossier",
     "saved": "Saved.",
     "error_customsNo": "The declaration number must be exactly 18 digits.",
@@ -1251,7 +1259,11 @@
     "uploadError_storageFull": "Storage is full for this company.",
     "uploadError_invalid": "Could not upload. Check the file and, for the input invoice, the invoice type.",
     "uploadError_rate": "Too many uploads in an hour. Try again later.",
-    "remove": "Remove"
+    "remove": "Remove",
+    "goodsOriginFromSuppliers": "From the suppliers: {origin}. Type here only to overrule it.",
+    "goodsOriginOthers": "Lines from elsewhere declare their own: {others}.",
+    "shippingMarks": "Shipping marks 唛头",
+    "shippingMarksHelp": "One per line: the customer code your forwarder gave you, the order number, the destination. Printed on the carton labels and every customs sheet; left blank, the sheets say N/M."
   },
   "followup": {
     "title": "Follow-up",

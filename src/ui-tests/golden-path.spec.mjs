@@ -275,7 +275,7 @@ test("a booth capture becomes a product, an order, a quote and an invoice", asyn
     assert.match(customs.headers()["content-disposition"] ?? "", /customs-pack/, "named as the customs pack");
     const customsBook = new ExcelJS.Workbook();
     await customsBook.xlsx.load(await customs.body());
-    assert.deepEqual(customsBook.worksheets.map((w) => w.name), ["出货清单", "inv", "pck", "合同", "报关单"]);
+    assert.deepEqual(customsBook.worksheets.map((w) => w.name), ["出货清单", "inv", "pck", "合同", "报关单", "委托书"]);
     const declaration = customsBook.getWorksheet("报关单");
     assert.equal(declaration.getCell("B22").value, STUB.cnHsCode, "China's code proposed from the photo");
     assert.equal(declaration.getCell("D22").value, STUB.nameZh, "the Chinese name on the declaration");

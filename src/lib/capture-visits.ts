@@ -7,6 +7,8 @@ import { reserveAiRead } from "@/lib/ai-budget";
 import { recordAiUsage } from "@/lib/ai-usage";
 import { loadStoredImages } from "@/lib/drafts";
 import { logEntityEvent } from "@/lib/entity-log";
+import { regionFromBooth } from "@/lib/customs";
+import { normalizeProvince } from "@/lib/china-regions";
 
 /** `db` or a transaction: both select and insert the same way. */
 type Queryer = Pick<typeof db, "select" | "insert">;
@@ -256,6 +258,9 @@ export async function createSupplierFromReading(input: {
       whatsapp: f.whatsapp ?? "",
       wechat: f.wechat ?? "",
       boothLocation: f.boothLocation ?? "",
+      ...(normalizeProvince(f.province ?? "") || f.city
+        ? { province: normalizeProvince(f.province ?? ""), city: f.city ?? "" }
+        : regionFromBooth(f.boothLocation ?? "")),
       bankInfo: f.bankInfo ?? "",
       notes: `Identified from capture photo (draft #${input.evidenceDraftId}).`,
     })

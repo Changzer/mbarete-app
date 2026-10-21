@@ -8,6 +8,8 @@ import { contactSchema } from "@/lib/validators";
 import { saveUploadedImage, deleteUpload } from "@/lib/uploads";
 import { requireUser, requireAdmin } from "@/lib/authz";
 import { logEntityEvent, diffContactEdit } from "@/lib/entity-log";
+import { regionFromBooth } from "@/lib/customs";
+import { normalizeProvince } from "@/lib/china-regions";
 
 async function requireSession() {
   return await requireUser();
@@ -25,9 +27,20 @@ function formToContactInput(formData: FormData) {
     whatsapp: formData.get("whatsapp") ?? "",
     wechat: formData.get("wechat") ?? "",
     boothLocation: formData.get("boothLocation") ?? "",
+    province: formData.get("province") ?? "",
+    city: formData.get("city") ?? "",
     bankInfo: formData.get("bankInfo") ?? "",
     notes: formData.get("notes") ?? "",
   });
+  // Only a supplier has a place of origin; one with a Yiwu booth and no
+  // place given is in Yiwu until someone says otherwise.
+  if (data.type !== "supplier") {
+    data.province = "";
+    data.city = "";
+  } else {
+    data.province = normalizeProvince(data.province);
+    if (!data.province && !data.city) Object.assign(data, regionFromBooth(data.boothLocation));
+  }
   // A capture may arrive with only a Chinese name or only a person — the
   // stored English slot is backfilled so no list ever shows a blank row.
   if (!data.companyName) data.companyName = data.companyNameZh || data.contactPerson;

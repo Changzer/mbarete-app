@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { extractJson, type VisionImage , type VisionUsage } from "@/lib/vision";
+import { normalizeProvince } from "@/lib/china-regions";
 
 /**
  * Reads photos of a vendor's business card (front and back) into a draft
@@ -21,6 +22,8 @@ export type TranscribedContactFields = {
   whatsapp?: string;
   wechat?: string;
   boothLocation?: string;
+  province?: string;
+  city?: string;
   bankInfo?: string;
 };
 
@@ -41,13 +44,15 @@ const cardSchema = z.object({
   whatsapp: z.string().nullable(),
   wechat: z.string().nullable(),
   boothLocation: z.string().nullable(),
+  province: z.string().nullable().optional(),
+  city: z.string().nullable().optional(),
   bankInfo: z.string().nullable(),
   notes: z.string().nullable(),
 });
 
 // Keep in sync with cardSchema — what the JSON-mode backend is told to return.
 const JSON_SPEC =
-  '{"companyNameEn": string|null, "companyNameZh": string|null, "taxId": string|null, "contactPerson": string|null, "phone": string|null, "email": string|null, "whatsapp": string|null, "wechat": string|null, "boothLocation": string|null, "bankInfo": string|null, "notes": string|null}';
+  '{"companyNameEn": string|null, "companyNameZh": string|null, "taxId": string|null, "contactPerson": string|null, "phone": string|null, "email": string|null, "whatsapp": string|null, "wechat": string|null, "boothLocation": string|null, "province": string|null, "city": string|null, "bankInfo": string|null, "notes": string|null}';
 
 export type RawCardTranscription = z.infer<typeof cardSchema>;
 
@@ -61,6 +66,7 @@ Rules:
 - phone: every phone/mobile number on the card, joined with " / ". Digits exactly as printed — never guess an unclear digit; drop it and flag it in notes instead.
 - wechat: ONLY an explicitly printed WeChat ID, or the phone number when the card says 微信同号 (WeChat = phone). A QR code is NOT a WeChat ID — never invent one from a QR; mention the QR in notes instead.
 - boothLocation: the market booth/shop address, English first when the card prints both, with the Chinese original after it, e.g. "No.4642, Street 9, Area C, 2/F, District 1, Yiwu International Trade City (义乌国际商贸城一区2楼C区9街4642店)". A separate factory address (厂址) goes in notes, not here.
+- province and city: where the goods are made, in Chinese, as an export declaration names it. province is the full provincial name ("浙江省", "广东省", "上海市"); city is the city or county with its suffix ("义乌市", "深圳市", "永康市"; a district for the four municipalities, e.g. "浦东新区"). Read them from the factory address (厂址/工厂地址) when the card prints one, else from the company address; a card with only a Yiwu market booth gives "浙江省" and "义乌市". Null when the card prints no address at all.
 - bankInfo: bank accounts from the card, one per line as "Bank — account holder — account number" (e.g. "工商银行 — 陈云娟 — 6222 0312 0800 2746 705"). Keep the printed digit grouping. Transcribe the account holder exactly — it is often a different person than the contact. Never guess a digit: if any digit is unclear, leave that whole account out and say so in notes.
 - notes: at most 15 words, in English — a factory address, "WeChat QR on card back", a skipped unreadable digit. Null when there is nothing.
 - Use null for anything not clearly readable.`;
@@ -104,6 +110,8 @@ export function sanitizeCardTranscription(raw: RawCardTranscription): {
       whatsapp: text(raw.whatsapp),
       wechat: text(raw.wechat),
       boothLocation: text(raw.boothLocation),
+      province: normalizeProvince(raw.province ?? "") || undefined,
+      city: text(raw.city ?? null),
       bankInfo: text(raw.bankInfo),
     },
     notes: text(raw.notes) ?? null,

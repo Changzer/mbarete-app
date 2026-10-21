@@ -20,12 +20,13 @@ const pack = buildCustomsPack({
   portOfLoading: "Qingdao, CN",
   portOfDestination: "Montevideo, UY",
   destinationCountry: "PY",
-  goodsOrigin: "山东省临沂市",
+  goodsOrigin: "",
+  shippingMarks: "BLG-88\nORD-20260524-001\nPARAGUAY\nC/NO. 1-225",
   lines: [
     {
       nameZh: "TPE环保汽车脚垫", nameEn: "TPE Car Floor Mats", cnHsCode: "3918909000",
       declarationElements: "脚垫，无品牌，热塑性弹性体，型号无，主要用于车内", unit: "set",
-      quantity: 2200, unitPrice: 21.0232, amount: 46251, cartons: 225, grossKg: 10686.5, cbm: 50.77, supplier: "临沂某工厂",
+      quantity: 2200, unitPrice: 21.0232, amount: 46251, cartons: 225, grossKg: 10686.5, cbm: 50.77, supplier: "临沂某工厂", goodsOrigin: "山东省临沂市",
     },
   ],
 });
@@ -42,9 +43,9 @@ const text = (ws: ExcelJS.Worksheet) => {
   return out.join(" | ");
 };
 
-test("the pack has the broker's five sheets, in their order", async () => {
+test("the pack has the broker's five sheets and the forwarder's letter, in their order", async () => {
   const wb = await load();
-  assert.deepEqual(wb.worksheets.map((w) => w.name), ["出货清单", "inv", "pck", "合同", "报关单"]);
+  assert.deepEqual(wb.worksheets.map((w) => w.name), ["出货清单", "inv", "pck", "合同", "报关单", "委托书"]);
 });
 
 test("the declaration carries China's code, the Chinese name, unit, country and elements", async () => {
@@ -74,4 +75,27 @@ test("invoice, packing list and contract foot to the same totals", async () => {
   assert.ok(contract.includes("The seller shall bear all transportation costs"), "the order's terms restated");
   const summary = text(wb.getWorksheet("出货清单")!);
   assert.ok(summary.includes("临沂某工厂") && summary.includes("2026-05-24"));
+});
+
+test("each line declares its supplier's origin, and the marks replace N/M", async () => {
+  const wb = await load();
+  const decl = wb.getWorksheet("报关单")!;
+  assert.equal(decl.getCell("H21").value, "境内货源地");
+  assert.equal(decl.getCell("H22").value, "山东省临沂市");
+  assert.equal(decl.getCell("O11").value, "山东省临沂市", "the header takes the supplier's when the order names none");
+  assert.equal(decl.getCell("A19").value, "BLG-88  ORD-20260524-001  PARAGUAY  C/NO. 1-225");
+  const inv = wb.getWorksheet("inv")!;
+  assert.deepEqual([19, 20, 21, 22].map((r) => inv.getCell(`A${r}`).value), ["BLG-88", "ORD-20260524-001", "PARAGUAY", "C/NO. 1-225"]);
+  assert.ok(!text(inv).includes("N/M"));
+  const pck = wb.getWorksheet("pck")!;
+  assert.equal(pck.getCell("A15").value, "BLG-88");
+  assert.ok(text(wb.getWorksheet("合同")!).includes("Shipping Marks 唛头: BLG-88 / ORD-20260524-001"));
+  assert.equal(wb.getWorksheet("出货清单")!.getCell("L13").value, "山东省临沂市");
+});
+
+test("the 委托书 carries the seller's half of the agreement", async () => {
+  const all = text((await load()).getWorksheet("委托书")!);
+  for (const fact of ["代理报关委托书", "委托报关协议", "义乌玻汭进出口有限公司", "TPE环保汽车脚垫", "3918909000", "USD 46,251.00", "一般贸易", "山东省临沂市", "2026-05-24", "+8619550534361"]) {
+    assert.ok(all.includes(fact), `委托书 names ${fact}`);
+  }
 });

@@ -57,6 +57,8 @@ type ContactShape = {
   whatsapp: string;
   wechat: string;
   boothLocation: string;
+  province: string;
+  city: string;
   bankInfo: string;
   notes: string;
 };
@@ -77,6 +79,8 @@ export function diffContactEdit(before: ContactShape, after: ContactShape): Fiel
     changed("whatsapp", before.whatsapp, after.whatsapp),
     changed("wechat", before.wechat, after.wechat),
     changed("boothLocation", before.boothLocation, after.boothLocation),
+    changed("province", before.province, after.province),
+    changed("city", before.city, after.city),
     changed("bankInfo", before.bankInfo, after.bankInfo),
   ].filter((c): c is FieldChange => c !== null);
 

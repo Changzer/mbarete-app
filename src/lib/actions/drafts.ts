@@ -7,6 +7,8 @@ import { captureDrafts, captureDraftImages, contacts, contactImages } from "@/db
 import { requireUser } from "@/lib/authz";
 import { readDraft } from "@/lib/drafts";
 import { logEntityEvent } from "@/lib/entity-log";
+import { regionFromBooth } from "@/lib/customs";
+import { normalizeProvince } from "@/lib/china-regions";
 
 async function requireSession() {
   return await requireUser();
@@ -89,6 +91,11 @@ export async function importContactDraft(id: number): Promise<string | undefined
       whatsapp: merged("whatsapp"),
       wechat: merged("wechat"),
       boothLocation: merged("boothLocation"),
+      ...(type !== "supplier"
+        ? {}
+        : normalizeProvince(merged("province")) || merged("city")
+          ? { province: normalizeProvince(merged("province")), city: merged("city") }
+          : regionFromBooth(merged("boothLocation"))),
       bankInfo: merged("bankInfo"),
       notes: merged("notes"),
     })
@@ -206,6 +213,8 @@ const readingSchema = z.object({
   whatsapp: z.string().trim().max(200).optional(),
   wechat: z.string().trim().max(200).optional(),
   boothLocation: z.string().trim().max(400).optional(),
+  province: z.string().trim().max(40).optional(),
+  city: z.string().trim().max(60).optional(),
   bankInfo: z.string().trim().max(1000).optional(),
 });
 

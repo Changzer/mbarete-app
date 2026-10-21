@@ -1,6 +1,7 @@
 import { db, one } from "@/db";
 import { contacts, contactImages } from "@/db/schema";
 import { eq, and, desc, asc, inArray } from "drizzle-orm";
+import { goodsOriginOf } from "@/lib/china-regions";
 
 export async function getContactsByType(companyId: number, type: "supplier" | "client") {
   return db
@@ -60,4 +61,15 @@ export async function getImagesByContact(contactIds: number[]) {
     grouped.set(row.contactId, list);
   }
   return grouped;
+}
+
+/** Each supplier's 境内货源地 ("浙江省义乌市"), for the customs pack and the order's dossier. */
+export async function getSupplierOrigins(companyId: number, supplierIds: number[]): Promise<Map<number, string>> {
+  const ids = [...new Set(supplierIds)];
+  if (ids.length === 0) return new Map();
+  const rows = await db
+    .select({ id: contacts.id, province: contacts.province, city: contacts.city })
+    .from(contacts)
+    .where(and(eq(contacts.companyId, companyId), inArray(contacts.id, ids)));
+  return new Map(rows.map((r) => [r.id, goodsOriginOf(r.province, r.city)]));
 }

@@ -382,7 +382,11 @@
     "bankInfoVerify": "付款前请与名片照片核对这些数字。",
     "countSuppliers": "{count} 家供应商",
     "countClients": "{count} 位客户",
-    "aiVerifyHint": "AI 提取，请核对后使用"
+    "aiVerifyHint": "AI 提取，请核对后使用",
+    "province": "省份",
+    "provinceNone": "未填",
+    "city": "城市 / 县",
+    "regionHelp": "供应商的生产地。报关单上作为该供应商产品的境内货源地。"
   },
   "orders": {
     "title": "订单",
@@ -529,7 +533,8 @@
     "refreshSupplier": "供应商",
     "supplierNotRecorded": "未记录供应商",
     "refreshStale": "订单或目录已更改，请重新预览后再应用。",
-    "moqBelowNote": "有产品低于起订量 — 仍可确认订单，请先和工厂确认。"
+    "moqBelowNote": "有产品低于起订量 — 仍可确认订单，请先和工厂确认。",
+    "exportLabels": "箱唛 (PDF)"
   },
   "settings": {
     "exchangeRates": "汇率",
@@ -877,7 +882,8 @@
     "dossier_destinationCountry": "运抵国",
     "dossier_goodsOrigin": "境内货源地",
     "changeLineSupplier": "{sku}：供应商 {from} → {to}",
-    "supplierNotRecorded": "未记录供应商"
+    "supplierNotRecorded": "未记录供应商",
+    "dossier_shippingMarks": "唛头"
   },
   "activity": {
     "title": "操作记录",
@@ -924,7 +930,9 @@
     "field_exportDestination": "出口目的国",
     "field_importDutyPctBr": "关税 · 巴西",
     "field_importDutyPctPy": "关税 · 巴拉圭",
-    "field_supplierVatPct": "供应商增值税（%）"
+    "field_supplierVatPct": "供应商增值税（%）",
+    "field_province": "省份",
+    "field_city": "城市"
   },
   "offline": {
     "offline": "离线 — 无法连接服务器",
@@ -1089,7 +1097,7 @@
     "destinationCountry": "运抵国",
     "destinationCountryNone": "未设置",
     "goodsOrigin": "境内货源地",
-    "goodsOriginHelp": "货物在中国的生产地，例如：山东省临沂市。",
+    "goodsOriginHelp": "货物在中国的生产地，例如：山东省临沂市。在供应商上填好省份和城市就会自动带出。",
     "save": "保存单证信息",
     "saved": "已保存。",
     "error_customsNo": "报关单号须为18位数字。",
@@ -1143,7 +1151,11 @@
     "uploadError_storageFull": "本企业存储空间已满。",
     "uploadError_invalid": "上传失败，请检查文件；进项发票需选择发票类型。",
     "uploadError_rate": "一小时内上传过多，请稍后再试。",
-    "remove": "删除"
+    "remove": "删除",
+    "goodsOriginFromSuppliers": "按供应商：{origin}。只有需要改时才填。",
+    "goodsOriginOthers": "其他产地的产品按各自产地申报：{others}。",
+    "shippingMarks": "唛头",
+    "shippingMarksHelp": "每行一项：货代给的客户代码、订单号、目的地。打印在箱唛和每张报关资料上；不填则为 N/M。"
   },
   "landing": {
     "signIn": "员工入口",
