@@ -5,6 +5,7 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import { Brand } from "@/components/brand";
 import { NavLinks, MobileNav, type NavItem } from "@/components/nav-links";
 import { HeaderSyncChip } from "@/components/offline/header-sync-chip";
+import { TaskBell } from "@/components/tasks/task-bell";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 
@@ -73,6 +74,8 @@ export async function AppNav({
                 of the whole app and it is what the agent checks before
                 walking out of signal. */}
             <HeaderSyncChip />
+            {/* What the follow-up board is waiting on you for; it lives with orders. */}
+            {modules.orders ? <TaskBell /> : null}
             <div className="hidden lg:block">
               <LanguageSwitcher />
             </div>

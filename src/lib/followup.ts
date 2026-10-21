@@ -158,6 +158,14 @@ export type LineGroup = {
   cost: { currency: string; amount: number }[];
 };
 
+/**
+ * RMB and CNY are both kept as codes because suppliers quote either way, but
+ * they are the same yuan: a card adds them up instead of showing "¥6,720 + 2,993 RMB".
+ */
+function sameMoney(currency: string): string {
+  return currency === "RMB" ? "CNY" : currency;
+}
+
 export function groupKey(orderId: number, supplierId: number | null): string {
   return `${orderId}:${supplierId ?? "none"}`;
 }
@@ -185,9 +193,10 @@ export function groupLines(lines: FollowupLine[]): Map<string, LineGroup> {
     const en = named.supplierNameEn.trim();
     const cost: { currency: string; amount: number }[] = [];
     for (const line of list) {
-      const entry = cost.find((c) => c.currency === line.currency);
+      const currency = sameMoney(line.currency);
+      const entry = cost.find((c) => c.currency === currency);
       if (entry) entry.amount = Math.round((entry.amount + line.lineTotal) * 100) / 100;
-      else cost.push({ currency: line.currency, amount: line.lineTotal });
+      else cost.push({ currency, amount: line.lineTotal });
     }
     groups.set(key, {
       orderId: list[0].orderId,

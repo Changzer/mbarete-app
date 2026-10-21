@@ -91,6 +91,10 @@ export async function moveFollowupCard(cardId: number, stage: string, expectedVe
         // starts from its own default. Who holds it stays the same.
         nextStep: "",
         nextDue: null,
+        // A new stage is a new step for whoever holds the card: their bell
+        // says so unless they moved it themselves.
+        nextAssignedBy: user.id,
+        nextAssignedAt: sql`to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD HH24:MI:SS')`,
         version: card.version + 1,
         updatedBy: user.id,
         updatedAt: sql`to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD HH24:MI:SS')`,
@@ -140,6 +144,8 @@ export async function setFollowupNextStep(
         nextStep: next.nextStep,
         nextDue: next.nextDue,
         nextOwnerId: next.nextOwnerId,
+        nextAssignedBy: user.id,
+        nextAssignedAt: sql`to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD HH24:MI:SS')`,
         version: card.version + 1,
         updatedBy: user.id,
         updatedAt: sql`to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD HH24:MI:SS')`,
@@ -217,6 +223,8 @@ export async function addFollowupChecklistItem(cardId: number, text: string, own
       cardId: card.id,
       text: parsed.data,
       ownerId: owner.data,
+      assignedBy: owner.data === null ? null : user.id,
+      assignedAt: owner.data === null ? null : sql`to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD HH24:MI:SS')`,
       position: next,
       createdBy: user.id,
     });
@@ -271,7 +279,11 @@ export async function setFollowupChecklistOwner(itemId: number, ownerId: number 
   if (!(await validOwner(user, owner.data))) return { error: "owner" };
   await db
     .update(followupChecklistItems)
-    .set({ ownerId: owner.data })
+    .set({
+      ownerId: owner.data,
+      assignedBy: owner.data === null ? null : user.id,
+      assignedAt: owner.data === null ? null : sql`to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD HH24:MI:SS')`,
+    })
     .where(and(eq(followupChecklistItems.companyId, user.companyId), eq(followupChecklistItems.id, itemId)));
   refresh();
   return {};

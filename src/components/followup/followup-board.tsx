@@ -56,6 +56,13 @@ export function FollowupBoard({
   const [view, setView] = useState<"board" | "orders">(searchParams.get("view") === "orders" ? "orders" : "board");
   const [orderFilter, setOrderFilter] = useState<number | null>(Number(searchParams.get("order")) || null);
   const [openCard, setOpenCard] = useState<number | null>(Number(searchParams.get("card")) || null);
+  // A link to ?card= while the board is already open (the task bell) opens that card.
+  const cardParam = Number(searchParams.get("card")) || null;
+  const [lastCardParam, setLastCardParam] = useState(cardParam);
+  if (cardParam !== lastCardParam) {
+    setLastCardParam(cardParam);
+    if (cardParam !== null && cardParam !== openCard) setOpenCard(cardParam);
+  }
   const [filter, setFilter] = useState<Filter>("all");
   // Optimistic moves, kept only until the server's next word on the board.
   const [optimistic, setOptimistic] = useState<{ board: Board; moved: Map<number, FollowupStage> }>({ board, moved: new Map() });
@@ -588,9 +595,15 @@ function ByOrder({
                     <span className="flex items-start justify-between gap-2">
                       <span className="min-w-0">
                         <span className="block font-bold leading-tight text-ink">{card.kind === "unassigned" ? t("noSupplier") : card.supplierName}</span>
-                        <span className="block truncate text-[12.5px] font-semibold text-ink">
-                          {card.mainProductName}
-                          {card.otherLines > 0 ? <span className="font-normal text-sub"> {t("moreLines", { count: card.otherLines })}</span> : null}
+                        {card.supplierNameAlt ? (
+                          <span className="block truncate font-mono text-[10.5px] uppercase tracking-[0.06em] text-sub">{card.supplierNameAlt}</span>
+                        ) : null}
+                        {/* A long name shortens; the "+2 more" never does, or the card looks like one product. */}
+                        <span className="flex min-w-0 items-baseline gap-1 text-[12.5px]" data-testid="followup-mini-product">
+                          <span className="truncate font-semibold text-ink" title={card.mainProductName}>
+                            {card.mainProductName}
+                          </span>
+                          {card.otherLines > 0 ? <span className="shrink-0 whitespace-nowrap text-sub">{t("moreLines", { count: card.otherLines })}</span> : null}
                         </span>
                       </span>
                       <Avatar user={owner} label={owner ? `${t("who")}: ${owner.name}` : t("nobody")} />

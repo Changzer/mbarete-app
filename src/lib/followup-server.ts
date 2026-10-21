@@ -62,6 +62,9 @@ type CardCommon = {
   nextStep: string;
   nextDue: string | null;
   nextOwnerId: number | null;
+  /** Who last set or moved the next step, and when (ISO); read by the task bell. */
+  nextAssignedBy: number | null;
+  nextAssignedAt: string | null;
   problem: string;
   version: number;
   comments: number;
@@ -296,6 +299,8 @@ function common(card: CardRow, order: OrderRow, client: string, counts: Awaited<
     nextStep: card.nextStep,
     nextDue: card.nextDue,
     nextOwnerId: card.nextOwnerId,
+    nextAssignedBy: card.nextAssignedBy,
+    nextAssignedAt: card.nextAssignedAt ? utcStampToIso(card.nextAssignedAt) : null,
     problem: card.problem,
     version: card.version,
     comments: posted?.count ?? 0,

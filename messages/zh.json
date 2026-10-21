@@ -1368,5 +1368,19 @@
     "dragHint": "把卡片拖到其他列，或打开卡片移动。",
     "openInFollowup": "跟单看板",
     "cardMissing": "这张卡片已不在看板上。"
+  },
+  "tasks": {
+    "bellLabel": "我的任务",
+    "bellLabelCount": "我的任务：{count} 项需要你处理",
+    "title": "我的任务",
+    "count": "{count, plural, =0 {暂无待办} other {# 项待办}}",
+    "loading": "正在加载任务…",
+    "loadFailed": "任务加载失败。请检查网络后再打开。",
+    "empty": "暂时没有等你处理的事。有人在跟单看板上把下一步或清单事项分配给你时，会出现在这里。",
+    "new": "新",
+    "from": "来自 {name}",
+    "checklist": "清单事项",
+    "shipment": "发货",
+    "openBoard": "打开跟单看板"
   }
 }
