@@ -124,6 +124,19 @@ jobs:
           path: artifacts/followup
           if-no-files-found: ignore
           retention-days: 7
+      # The task bell: a step and a checklist item handed to a colleague ring
+      # their bell once, opening it is reading it, a task opens its card, and
+      # a stage move by someone else is new again.
+      - run: npm run test:tasks
+        if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
+      - name: Upload task bell screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tasks-review
+          path: artifacts/tasks
+          if-no-files-found: ignore
+          retention-days: 7
       - run: npm run test:documents
         if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
         env:

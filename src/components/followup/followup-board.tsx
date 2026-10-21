@@ -56,6 +56,13 @@ export function FollowupBoard({
   const [view, setView] = useState<"board" | "orders">(searchParams.get("view") === "orders" ? "orders" : "board");
   const [orderFilter, setOrderFilter] = useState<number | null>(Number(searchParams.get("order")) || null);
   const [openCard, setOpenCard] = useState<number | null>(Number(searchParams.get("card")) || null);
+  // A link to ?card= while the board is already open (the task bell) opens that card.
+  const cardParam = Number(searchParams.get("card")) || null;
+  const [lastCardParam, setLastCardParam] = useState(cardParam);
+  if (cardParam !== lastCardParam) {
+    setLastCardParam(cardParam);
+    if (cardParam !== null && cardParam !== openCard) setOpenCard(cardParam);
+  }
   const [filter, setFilter] = useState<Filter>("all");
   // Optimistic moves, kept only until the server's next word on the board.
   const [optimistic, setOptimistic] = useState<{ board: Board; moved: Map<number, FollowupStage> }>({ board, moved: new Map() });

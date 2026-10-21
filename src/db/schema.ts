@@ -119,6 +119,8 @@ export const users = pgTable(
     // are only ever sent to the address on file, so verification is a trust
     // signal, not a login gate.
     emailVerifiedAt: text("email_verified_at"),
+    /** When they last opened the task bell: tasks handed to them after this show as new. */
+    tasksSeenAt: text("tasks_seen_at"),
     createdAt: text("created_at").notNull().default(utcNow),
   },
   (table) => [
@@ -1472,6 +1474,12 @@ export const followupCards = pgTable(
     /** ISO date the next step is due; null when no date was agreed. */
     nextDue: text("next_due"),
     nextOwnerId: integer("next_owner_id"),
+    /**
+     * Who last set or moved the next step, and when — so the owner's bell can
+     * say "new from Abel". Equal to the owner when they did it themselves.
+     */
+    nextAssignedBy: integer("next_assigned_by"),
+    nextAssignedAt: text("next_assigned_at"),
     /** A problem someone flagged (QC failed, late, short); "" when none. */
     problem: text("problem").notNull().default(""),
     version: integer("version").notNull().default(1),
@@ -1506,6 +1514,9 @@ export const followupChecklistItems = pgTable(
     cardId: integer("card_id").notNull(),
     text: text("text").notNull(),
     ownerId: integer("owner_id"),
+    /** Who gave the item its owner, and when; read by the owner's bell. */
+    assignedBy: integer("assigned_by"),
+    assignedAt: text("assigned_at"),
     done: boolean("done").notNull().default(false),
     doneBy: integer("done_by"),
     doneAt: text("done_at"),

@@ -42,6 +42,27 @@ first owner is whoever created the order.
   have something pending.
 - Dates are read against the viewer's own calendar day.
 
+## Task bell
+
+The bell in the header (every page, phone included, when the orders module
+is on) lists what is waiting on you: cards whose next step is yours — the
+same set as *Waiting on me* — and open checklist items given to you. It is
+read from the board, so a step done, moved on or handed to someone else
+leaves the bell with nothing to dismiss. A task opens its card.
+
+- **New**: a step or item someone else set for you, or a card someone else
+  moved to a new stage while you hold it, since you last opened the bell.
+  Your own changes and the cards you get by creating an order are never new.
+  Each card and item records who set it and when (`next_assigned_by/at`,
+  `assigned_by/at`); `users.tasks_seen_at` is when you last opened the bell.
+- **The number** counts tasks that are new or overdue. Opening the bell
+  marks what it showed as seen (up to the instant the list was read, so a
+  task handed over a second later still rings); overdue ones keep counting
+  until they are done or re-dated.
+- The bell reads `/api/tasks` on each page, every minute while the tab is in
+  view, and fresh on opening. A Route Handler, not a Server Action: a
+  background read must not queue behind someone's save on the board.
+
 ## Feed
 
 Updates (text plus up to six photos or files, stored as gated company
