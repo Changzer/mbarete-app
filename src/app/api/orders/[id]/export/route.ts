@@ -6,6 +6,8 @@ import { buildOrderPdf } from "@/lib/export/order-pdf";
 import { buildPackingListPdf } from "@/lib/export/packing-list-pdf";
 import { getCustomsPackData } from "@/lib/export/customs-pack-data";
 import { buildCustomsPackXlsx } from "@/lib/export/customs-pack-xlsx";
+import { buildCartonLabelsPdf } from "@/lib/export/carton-labels-pdf";
+import { cartonLabels, labelMarks } from "@/lib/carton-labels";
 import { routing, type Locale } from "@/i18n/routing";
 import { makeLimiter } from "@/lib/rate-limit";
 
@@ -14,12 +16,14 @@ import { makeLimiter } from "@/lib/rate-limit";
 const exportLimiter = makeLimiter({ max: 60, windowMs: 5 * 60 * 1000 });
 
 /**
- * GET /api/orders/:id/export?format=xlsx|pdf&doc=proforma|packing|customs&locale=en|zh
+ * GET /api/orders/:id/export?format=xlsx|pdf&doc=proforma|packing|customs|labels&locale=en|zh
  *
- * Three documents: the proforma (a price quote while the order is a draft),
- * the packing list, and the customs pack — the broker's five-sheet workbook
- * (shipment summary, invoice, packing list, contract, draft declaration),
- * only for a confirmed or shipped order and only as a spreadsheet. The
+ * Four documents: the proforma (a price quote while the order is a draft),
+ * the packing list, the customs pack — the broker's six-sheet workbook
+ * (shipment summary, invoice, packing list, contract, draft declaration,
+ * the forwarder's 委托书),
+ * only for a confirmed or shipped order and only as a spreadsheet, and the
+ * carton labels (one per box, as a PDF) on the same terms. The
  * spreadsheet is otherwise the packing list; the PDF is the proforma unless
  * `doc=packing` asks for the list.
  *
@@ -60,6 +64,30 @@ export async function GET(
   const locale: Locale = routing.locales.includes(localeParam as Locale)
     ? (localeParam as Locale)
     : routing.defaultLocale;
+
+  if (url.searchParams.get("doc") === "labels") {
+    if (format !== "pdf") return new NextResponse("Bad request", { status: 400 });
+    const customs = await getCustomsPackData(user.companyId, orderId);
+    if (!customs) return new NextResponse("Not found", { status: 404 });
+    if (customs.status !== "confirmed" && customs.status !== "shipped") {
+      return new NextResponse("Conflict", { status: 409 });
+    }
+    const { pack } = customs;
+    const { labels } = cartonLabels(
+      pack.lines.map((l) => ({ nameEn: l.nameEn, nameZh: l.nameZh, quantity: l.quantity, cartons: l.cartons, perCarton: l.perCarton ?? 0 })),
+    );
+    const body = await buildCartonLabelsPdf({ marks: labelMarks(pack.marks, pack.docNo, pack.countryEn), orderNumber: pack.docNo, labels });
+    const number = (pack.docNo || `order-${orderId}`).trim();
+    const ascii = `${number.replace(/[^A-Za-z0-9._-]+/g, "_") || `order-${orderId}`}_carton-labels`;
+    const utf8 = encodeURIComponent(`${number} 唛头.pdf`);
+    return new NextResponse(new Uint8Array(body), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="${ascii}.pdf"; filename*=UTF-8''${utf8}`,
+        "Cache-Control": "no-store",
+      },
+    });
+  }
 
   if (url.searchParams.get("doc") === "customs") {
     if (format !== "xlsx") return new NextResponse("Bad request", { status: 400 });

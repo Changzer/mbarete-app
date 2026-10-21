@@ -42,6 +42,12 @@ const metaInput = z.object({
   portOfDestination: z.string().trim().max(120).default(""),
   destinationCountry: z.union([z.enum(DESTINATION_COUNTRY_CODES as [string, ...string[]]), z.literal("")]).default(""),
   goodsOrigin: z.string().trim().max(120).default(""),
+  // The carton marks, one line each, as they print on the boxes and the sheets.
+  shippingMarks: z
+    .string()
+    .max(600)
+    .default("")
+    .transform((v) => v.split("\n").map((l) => l.trim()).filter(Boolean).slice(0, 8).join("\n")),
 });
 
 export type DossierMetaResult = { error?: string; version?: number };
@@ -91,6 +97,7 @@ export async function updateDossierMeta(orderId: number, input: unknown): Promis
     ["portOfDestination", before.portOfDestination || null, data.portOfDestination || null],
     ["destinationCountry", before.destinationCountry || null, data.destinationCountry || null],
     ["goodsOrigin", before.goodsOrigin || null, data.goodsOrigin || null],
+    ["shippingMarks", before.shippingMarks || null, data.shippingMarks || null],
   ] as const;
   const changes = fields
     .filter(([, from, to]) => (from ?? null) !== (to ?? null))
@@ -110,6 +117,7 @@ export async function updateDossierMeta(orderId: number, input: unknown): Promis
       portOfDestination: data.portOfDestination,
       destinationCountry: data.destinationCountry,
       goodsOrigin: data.goodsOrigin,
+      shippingMarks: data.shippingMarks,
       version: before.version + 1,
       updatedBy: user.id,
       updatedAt: new Date().toISOString(),

@@ -12,6 +12,8 @@ const contact = {
   whatsapp: "",
   wechat: "yao888",
   boothLocation: "District 1, 2/F",
+  province: "浙江省",
+  city: "义乌市",
   bankInfo: "工商银行 — 陈云娟 — 6222 0312",
   notes: "",
 };
@@ -38,6 +40,13 @@ describe("diffContactEdit", () => {
       changes.map((c) => c.field),
       ["phone", "wechat"],
     );
+  });
+
+  it("records a supplier moving city", () => {
+    assert.deepEqual(diffContactEdit(contact, { ...contact, province: "广东省", city: "深圳市" }), [
+      { field: "province", from: "浙江省", to: "广东省" },
+      { field: "city", from: "义乌市", to: "深圳市" },
+    ]);
   });
 
   it("marks notes as changed without keeping the text", () => {

@@ -120,6 +120,8 @@ export const contactSchema = z
   whatsapp: z.string().default(""),
   wechat: z.string().default(""),
   boothLocation: z.string().default(""),
+  province: z.string().trim().max(40).default(""),
+  city: z.string().trim().max(60).default(""),
   bankInfo: z.string().default(""),
   notes: z.string().default(""),
   })

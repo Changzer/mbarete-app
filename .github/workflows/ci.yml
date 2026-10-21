@@ -137,6 +137,19 @@ jobs:
           path: artifacts/tasks
           if-no-files-found: ignore
           retention-days: 7
+      # Customs documents: suppliers' province and city through the form,
+      # each line's 境内货源地 and the marks in the pack, the 委托书 sheet, and
+      # one carton label per box.
+      - run: npm run test:customs
+        if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
+      - name: Upload customs documents review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: customs-review
+          path: artifacts/customs
+          if-no-files-found: ignore
+          retention-days: 7
       - run: npm run test:documents
         if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
         env:

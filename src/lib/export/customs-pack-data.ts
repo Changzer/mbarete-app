@@ -1,6 +1,7 @@
 import { getOrderView } from "@/lib/queries/order-view";
 import { getCompanyProfile } from "@/lib/queries/settings";
 import { getProducts } from "@/lib/queries/catalog";
+import { getSupplierOrigins } from "@/lib/queries/contacts";
 import { convert, roundMoney, UnknownCurrencyError } from "@/lib/calculations";
 import { parsePartiesSnapshot, usesFrozenParties } from "@/lib/parties-snapshot";
 import { buildCustomsPack, type CustomsPack } from "@/lib/customs-pack";
@@ -29,6 +30,8 @@ export async function getCustomsPackData(companyId: number, orderId: number): Pr
   ]);
   if (!en || !zh) return null;
   const { order, client, rows, effectiveRates } = en;
+  // A supplier's origin is read live, like the codes: a corrected one is the one to declare.
+  const origins = await getSupplierOrigins(companyId, rows.flatMap((r) => (r.supplierId ? [r.supplierId] : [])));
   const productMap = new Map(products.map((p) => [p.id, p]));
   const quote = order.displayCurrency;
 
@@ -70,6 +73,7 @@ export async function getCustomsPackData(companyId: number, orderId: number): Pr
     portOfDestination: order.portOfDestination,
     destinationCountry: order.destinationCountry,
     goodsOrigin: order.goodsOrigin,
+    shippingMarks: order.shippingMarks,
     lines: rows.map((r) => {
       const product = productMap.get(r.productId);
       // Each language sorts its own names, so pair the lines by id.
@@ -87,6 +91,8 @@ export async function getCustomsPackData(companyId: number, orderId: number): Pr
         grossKg: r.lineWeightKg,
         cbm: r.lineCbm,
         supplier: zhRow?.supplierName ?? r.supplierName ?? "",
+        goodsOrigin: (r.supplierId && origins.get(r.supplierId)) || "",
+        perCarton: r.perCarton,
       };
     }),
   });

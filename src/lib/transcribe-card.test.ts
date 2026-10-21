@@ -50,7 +50,16 @@ test("nulls and blank strings become absent fields", () => {
     whatsapp: undefined,
     wechat: undefined,
     boothLocation: undefined,
+    province: undefined,
+    city: undefined,
     bankInfo: undefined,
   });
   assert.equal(notes, null);
+});
+
+test("a card's place is kept only as a real province, and its city as printed", () => {
+  const read = (province: string | null, city: string | null) => sanitizeCardTranscription({ ...raw({}), province, city }).fields;
+  assert.deepEqual([read("广东", " 深圳市 ").province, read("广东", " 深圳市 ").city], ["广东省", "深圳市"]);
+  assert.equal(read("Zhejiang Province", null).province, "浙江省");
+  assert.equal(read("Shenzhen", "深圳市").province, undefined, "a city in the province slot is not a province");
 });

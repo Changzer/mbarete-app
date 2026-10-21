@@ -28,6 +28,8 @@ type Contact = {
   whatsapp: string;
   wechat: string;
   boothLocation: string;
+  province: string;
+  city: string;
   bankInfo: string;
   notes: string;
   images: ExistingCardImage[];

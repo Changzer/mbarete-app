@@ -2,9 +2,10 @@ import ExcelJS from "exceljs";
 import type { CustomsPack } from "@/lib/customs-pack";
 
 /**
- * The customs pack as the broker receives it: one workbook, five sheets,
+ * The customs pack as the broker receives it: one workbook, six sheets,
  * laid out like the files Mbarete has filed with — 出货清单, inv, pck, 合同,
- * 报关单 — so the broker reads them without relearning anything. Labels are
+ * 报关单 — so the broker reads them without relearning anything, and the
+ * 委托书 a forwarder asks for before declaring in Mbarete's name. Labels are
  * the fixed bilingual customs wording of those files, not app translations.
  * Blank cells are facts the order does not hold yet; the broker fills them.
  */
@@ -48,21 +49,31 @@ function letterhead(ws: ExcelJS.Worksheet, pack: CustomsPack, lastCol: string, w
   ws.getRow(3).height = 28;
 }
 
+/** The marks down column A from `row`, one line per row; returns the first row after them. */
+function marksDown(ws: ExcelJS.Worksheet, pack: CustomsPack, row: number): number {
+  pack.marks.forEach((line, i) => put(ws, `A${row + i}`, line, { size: 9 }));
+  return row + pack.marks.length;
+}
+
 function summarySheet(wb: ExcelJS.Workbook, pack: CustomsPack) {
   const ws = wb.addWorksheet("出货清单");
-  ws.columns = [16, 26, 10, 7, 11, 13, 18, 10, 12, 12, 11].map((width) => ({ width }));
+  ws.columns = [16, 26, 10, 7, 11, 13, 18, 10, 12, 12, 11, 18].map((width) => ({ width }));
   put(ws, "A3", "合同号", { bold: true });
   put(ws, "B3", pack.docNo);
   put(ws, "E3", "开票工厂", { bold: true });
-  band(ws, "F3:K3", pack.factories);
+  band(ws, "F3:L3", pack.factories);
   put(ws, "A5", "收货人", { bold: true });
-  band(ws, "B5:G5", pack.consignee);
+  band(ws, "B5:D5", pack.consignee);
+  put(ws, "E5", "境内货源地", { bold: true });
+  band(ws, "F5:L5", pack.goodsOrigin);
   put(ws, "A7", "装柜日期", { bold: true });
   put(ws, "B7", pack.exportDate);
+  put(ws, "E7", "唛头", { bold: true });
+  band(ws, "F7:L7", pack.marks.join(" / "), { wrap: true });
   put(ws, "A9", "目的港", { bold: true });
   put(ws, "B9", pack.portOfDestination);
 
-  const head = ["中文品名", "英文品名", "数量", "单位", "单价", "总金额", "开票工厂", "箱数 CTNS", "毛重 KGS", "净重 KGS", "体积 CBM"];
+  const head = ["中文品名", "英文品名", "数量", "单位", "单价", "总金额", "开票工厂", "箱数 CTNS", "毛重 KGS", "净重 KGS", "体积 CBM", "境内货源地"];
   head.forEach((h, i) => put(ws, `${String.fromCharCode(65 + i)}12`, h, { bold: true, border: true, align: "center", wrap: true }));
   let r = 13;
   for (const l of pack.lines) {
@@ -77,6 +88,7 @@ function summarySheet(wb: ExcelJS.Workbook, pack: CustomsPack) {
     put(ws, `I${r}`, l.grossKg || "", { border: true, align: "right", numFmt: MEASURE });
     put(ws, `J${r}`, l.netKg || "", { border: true, align: "right", numFmt: MEASURE });
     put(ws, `K${r}`, l.cbm || "", { border: true, align: "right", numFmt: MEASURE });
+    put(ws, `L${r}`, l.goodsOrigin, { border: true, wrap: true });
     r += 1;
   }
   put(ws, `A${r}`, "合计 TOTAL", { bold: true, border: true });
@@ -87,7 +99,7 @@ function summarySheet(wb: ExcelJS.Workbook, pack: CustomsPack) {
   put(ws, `I${r}`, pack.totals.grossKg, { bold: true, border: true, align: "right", numFmt: MEASURE });
   put(ws, `J${r}`, pack.totals.netKg, { bold: true, border: true, align: "right", numFmt: MEASURE });
   put(ws, `K${r}`, pack.totals.cbm, { bold: true, border: true, align: "right", numFmt: MEASURE });
-  for (const c of ["B", "E", "G"]) put(ws, `${c}${r}`, "", { border: true });
+  for (const c of ["B", "E", "G", "L"]) put(ws, `${c}${r}`, "", { border: true });
 }
 
 function invoiceSheet(wb: ExcelJS.Workbook, pack: CustomsPack) {
@@ -117,7 +129,7 @@ function invoiceSheet(wb: ExcelJS.Workbook, pack: CustomsPack) {
   put(ws, "H16", "总价", { bold: true, align: "center" });
   put(ws, "H17", `Amount (${pack.currency})`, { bold: true, align: "center" });
   let r = 19;
-  put(ws, "A19", "N/M");
+  const afterMarks = marksDown(ws, pack, 19);
   for (const l of pack.lines) {
     put(ws, `D${r}`, l.nameEn, { wrap: true });
     put(ws, `E${r}`, l.quantity, { align: "right" });
@@ -126,7 +138,7 @@ function invoiceSheet(wb: ExcelJS.Workbook, pack: CustomsPack) {
     put(ws, `H${r}`, l.amount, { align: "right", numFmt: MONEY });
     r += 1;
   }
-  r += 1;
+  r = Math.max(r, afterMarks) + 1;
   put(ws, `G${r}`, "TOTAL:", { bold: true, align: "right" });
   put(ws, `H${r}`, pack.totals.amount, { bold: true, align: "right", numFmt: MONEY });
   put(ws, `I${r}`, pack.currency, { bold: true });
@@ -159,7 +171,7 @@ function packingSheet(wb: ExcelJS.Workbook, pack: CustomsPack) {
   band(ws, "K12:L12", "体积", { bold: true, align: "center" });
   band(ws, "K13:L13", "MEAS(CBM)", { bold: true, align: "center" });
   let r = 15;
-  put(ws, "A15", "N/M");
+  const afterMarks = marksDown(ws, pack, 15);
   for (const l of pack.lines) {
     put(ws, `B${r}`, l.nameEn, { wrap: true });
     put(ws, `C${r}`, l.quantity, { align: "right" });
@@ -174,7 +186,7 @@ function packingSheet(wb: ExcelJS.Workbook, pack: CustomsPack) {
     put(ws, `L${r}`, "CBM");
     r += 1;
   }
-  r += 1;
+  r = Math.max(r, afterMarks) + 1;
   put(ws, `B${r}`, "TOTAL:", { bold: true, align: "right" });
   put(ws, `C${r}`, pack.totals.quantity, { bold: true, align: "right" });
   put(ws, `D${r}`, pack.totals.unit ? pack.lines[0].unitEn : "", { bold: true });
@@ -237,6 +249,8 @@ function contractSheet(wb: ExcelJS.Workbook, pack: CustomsPack) {
   put(ws, `I${r}`, pack.currency, { bold: true });
   put(ws, `J${r}`, pack.totals.amount, { bold: true, align: "right", numFmt: MONEY });
   if (pack.incoterms) put(ws, `A${r}`, `${pack.incoterms} ${pack.portOfLoading}`.trim(), { bold: true });
+  r += 1;
+  band(ws, `A${r}:J${r}`, `Shipping Marks 唛头: ${pack.marks.join(" / ")}`, { wrap: true });
 
   r += 3;
   put(ws, `A${r}`, "(1) 装运期限", { bold: true });
@@ -271,7 +285,7 @@ function contractSheet(wb: ExcelJS.Workbook, pack: CustomsPack) {
 
 function declarationSheet(wb: ExcelJS.Workbook, pack: CustomsPack) {
   const ws = wb.addWorksheet("报关单");
-  ws.columns = [6, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8].map((width) => ({ width }));
+  ws.columns = [6, 8, 8, 8, 8, 8, 8, 13, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8].map((width) => ({ width }));
   band(ws, "A1:R1", "中华人民共和国海关出口货物报关单（草稿）", { bold: true, size: 14, align: "center" });
   band(ws, "A3:I3", "预录入编号：");
   band(ws, "J3:R3", `海关编号：${pack.customsDeclarationNo}`);
@@ -308,10 +322,10 @@ function declarationSheet(wb: ExcelJS.Workbook, pack: CustomsPack) {
   band(ws, "F17:N17", "", { border: true });
   band(ws, "O17:R17", pack.factories, { border: true, wrap: true });
   band(ws, "A18:R18", "标记唛码及备注", { border: true, bold: true, size: 9 });
-  band(ws, "A19:R19", "N/M", { border: true });
+  band(ws, "A19:R19", pack.marks.join("  "), { border: true, wrap: true });
 
   const head: [string, string][] = [
-    ["A21:A21", "项号"], ["B21:C21", "商品编号"], ["D21:H21", "商品名称、规格型号"], ["I21:J21", "数量及单位"],
+    ["A21:A21", "项号"], ["B21:C21", "商品编号"], ["D21:G21", "商品名称、规格型号"], ["H21:H21", "境内货源地"], ["I21:J21", "数量及单位"],
     ["K21:L21", "最终目的国"], ["M21:N21", "单价"], ["O21:P21", "总价"], ["Q21:Q21", "币制"], ["R21:R21", "征免"],
   ];
   for (const [range, label] of head) {
@@ -322,7 +336,8 @@ function declarationSheet(wb: ExcelJS.Workbook, pack: CustomsPack) {
   pack.lines.forEach((l, i) => {
     put(ws, `A${r}`, i + 1, { border: true, align: "center" });
     band(ws, `B${r}:C${r}`, l.cnHsCode, { border: true });
-    band(ws, `D${r}:H${r}`, l.nameZh, { border: true, wrap: true });
+    band(ws, `D${r}:G${r}`, l.nameZh, { border: true, wrap: true });
+    put(ws, `H${r}`, l.goodsOrigin, { border: true, wrap: true, size: 9 });
     put(ws, `I${r}`, l.quantity, { border: true, align: "right" });
     put(ws, `J${r}`, l.unitZh, { border: true, align: "center" });
     band(ws, `K${r}:L${r}`, pack.countryZh, { border: true, align: "center" });
@@ -348,6 +363,68 @@ function declarationSheet(wb: ExcelJS.Workbook, pack: CustomsPack) {
   band(ws, `E${r + 3}:K${r + 3}`, "申报单位（签章）", { size: 9 });
 }
 
+/**
+ * 代理报关委托书 and 委托报关协议: the letter a forwarder needs before it can
+ * declare in Mbarete's name, in the customs brokers' association's standard
+ * wording. The seller's half is filled from the order; the forwarder's half,
+ * the choices and the stamps stay for the people who sign.
+ */
+function attorneySheet(wb: ExcelJS.Workbook, pack: CustomsPack) {
+  const ws = wb.addWorksheet("委托书");
+  ws.columns = [14, 12, 12, 12, 14, 12, 12, 12].map((width) => ({ width }));
+  const main = [...pack.lines].sort((a, b) => b.amount - a.amount)[0];
+  const total = `${pack.currency} ${pack.totals.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const blankDate = "        年      月      日";
+
+  band(ws, "A1:H1", "代理报关委托书", { bold: true, size: 16, align: "center" });
+  band(ws, "E2:H2", `编号：${pack.docNo}`, { align: "right" });
+  band(
+    ws,
+    "A4:H6",
+    "        我单位现  A  （A.逐票  B.长期）委托贵公司代理  ________  （A.填单申报  B.辅助查验  C.垫缴税款  D.办理海关证明联  E.审批手册  F.核销手册  G.申办减免税手续  H.其他）等通关事宜，详见《委托报关协议》。",
+    { wrap: true },
+  );
+  band(ws, "A7:H8", "        我单位保证遵守《海关法》和国家有关法规，保证所提供的情况真实、完整、单货相符。否则，愿承担相关法律责任。", { wrap: true });
+  band(ws, "A9:H9", `        本委托书有效期自签字之日起至${blankDate}止。`);
+  band(ws, "E11:H11", `委托方（盖章）：${pack.companyZh}`);
+  band(ws, "E12:H13", "法定代表人或其授权签署《代理报关委托书》的人（签字）：", { wrap: true });
+  band(ws, "E14:H14", blankDate);
+
+  band(ws, "A16:H16", "委托报关协议", { bold: true, size: 14, align: "center" });
+  band(ws, "A17:H17", "        为明确委托报关具体事项和各自责任，双方经平等协商签定协议如下：");
+  const rows: [string, ExcelJS.CellValue, string, ExcelJS.CellValue][] = [
+    ["委托方", pack.companyZh, "被委托方", ""],
+    ["主要货物名称", main ? `${main.nameZh}${pack.lines.length > 1 ? " 等" : ""}` : "", "*报关单编码", `No. ${pack.customsDeclarationNo}`],
+    ["HS编码", main?.cnHsCode ?? "", "收到单证日期", blankDate],
+    ["货物总价", total, "收到单证情况", "合同□  发票□  装箱清单□  提（运）单□  加工贸易手册□  许可证件□  其他"],
+    ["进出口日期", pack.exportDate, "报关收费", "人民币：            元"],
+    ["提单号", "", "承诺说明", ""],
+    ["贸易方式", "一般贸易", "", ""],
+    ["原产地/货源地", pack.goodsOrigin, "", ""],
+    ["传真电话", pack.phone, "", ""],
+    ["其他要求", "", "", ""],
+  ];
+  let r = 18;
+  for (const [leftLabel, leftValue, rightLabel, rightValue] of rows) {
+    put(ws, `A${r}`, leftLabel, { bold: true, border: true, size: 9 });
+    band(ws, `B${r}:D${r}`, leftValue, { border: true, wrap: true });
+    put(ws, `E${r}`, rightLabel, { bold: true, border: true, size: 9 });
+    band(ws, `F${r}:H${r}`, rightValue, { border: true, wrap: true, size: 9 });
+    ws.getRow(r).height = 22;
+    r += 1;
+  }
+  const terms = "背面所列通用条款是本协议不可分割的一部分，对本协议的签署构成了对背面通用条款的同意。";
+  band(ws, `A${r}:D${r + 1}`, terms, { border: true, wrap: true, size: 9 });
+  band(ws, `E${r}:H${r + 1}`, terms, { border: true, wrap: true, size: 9 });
+  r += 2;
+  band(ws, `A${r}:D${r}`, "委托方业务签章：", { border: true });
+  band(ws, `E${r}:H${r}`, "被委托方业务签章：", { border: true });
+  band(ws, `A${r + 1}:D${r + 1}`, "经办人签章：", { border: true });
+  band(ws, `E${r + 1}:H${r + 1}`, "经办报关员签章：", { border: true });
+  band(ws, `A${r + 2}:D${r + 2}`, `联系电话：${pack.phone}${blankDate}`, { border: true });
+  band(ws, `E${r + 2}:H${r + 2}`, `联系电话：${blankDate}`, { border: true });
+}
+
 export async function buildCustomsPackXlsx(pack: CustomsPack): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
   wb.creator = pack.companyEn;
@@ -356,6 +433,7 @@ export async function buildCustomsPackXlsx(pack: CustomsPack): Promise<Buffer> {
   packingSheet(wb, pack);
   contractSheet(wb, pack);
   declarationSheet(wb, pack);
+  attorneySheet(wb, pack);
   for (const ws of wb.worksheets) {
     ws.pageSetup = { paperSize: 9, orientation: ws.name === "报关单" || ws.name === "出货清单" ? "landscape" : "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
   }

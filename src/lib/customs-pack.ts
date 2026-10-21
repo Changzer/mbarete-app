@@ -31,6 +31,10 @@ export type CustomsPackLineInput = {
   cbm: number;
   /** The factory that invoices this line, in Chinese where known. */
   supplier: string;
+  /** That supplier's 境内货源地 from their contact; "" when nobody has said. */
+  goodsOrigin: string;
+  /** Pieces in a full carton, for the carton labels; 0 when unknown. */
+  perCarton?: number;
 };
 
 export type CustomsPackInput = {
@@ -51,7 +55,10 @@ export type CustomsPackInput = {
   portOfLoading: string;
   portOfDestination: string;
   destinationCountry: string;
+  /** The order's own 境内货源地; "" lets its suppliers' decide. */
   goodsOrigin: string;
+  /** The carton marks (唛头), one line each; "" prints N/M. */
+  shippingMarks: string;
   lines: CustomsPackLineInput[];
 };
 
@@ -62,7 +69,9 @@ export type CustomsPackLine = CustomsPackLineInput & {
   netKg: number;
 };
 
-export type CustomsPack = Omit<CustomsPackInput, "lines" | "companyName"> & {
+export type CustomsPack = Omit<CustomsPackInput, "lines" | "companyName" | "shippingMarks"> & {
+  /** The marks as printed: the order's lines, or ["N/M"]. */
+  marks: string[];
   companyZh: string;
   companyEn: string;
   countryZh: string;
@@ -109,12 +118,38 @@ export function splitCompanyName(name: string): { zh: string; en: string } {
 
 const round3 = (n: number) => Math.round(n * 1000) / 1000;
 
+/**
+ * An order's 境内货源地 from its lines: the supplier origin carrying the most
+ * money (the declaration's header names one), ties to the first line's.
+ * "" when no line's supplier has an origin.
+ */
+export function mainGoodsOrigin(lines: { goodsOrigin: string; amount: number }[]): string {
+  const byOrigin = new Map<string, number>();
+  for (const l of lines) {
+    const origin = l.goodsOrigin.trim();
+    if (origin) byOrigin.set(origin, (byOrigin.get(origin) ?? 0) + l.amount);
+  }
+  let best = "";
+  for (const [origin, amount] of byOrigin) if (!best || amount > byOrigin.get(best)!) best = origin;
+  return best;
+}
+
+/** The marks as printed: the order's own lines, else "N/M" (no marks). */
+export function shippingMarkLines(marks: string): string[] {
+  const lines = marks.split("\n").map((l) => l.trim()).filter(Boolean);
+  return lines.length ? lines : ["N/M"];
+}
+
 export function buildCustomsPack(input: CustomsPackInput): CustomsPack {
   const { zh: companyZh, en: companyEn } = splitCompanyName(input.companyName);
   const country = DESTINATION_COUNTRIES[input.destinationCountry as DestinationCountry];
 
+  // The header names the order's origin, else its main supplier's; a line
+  // whose supplier has none declares the header's.
+  const goodsOrigin = input.goodsOrigin.trim() || mainGoodsOrigin(input.lines);
   const lines: CustomsPackLine[] = input.lines.map((l) => ({
     ...l,
+    goodsOrigin: l.goodsOrigin.trim() || goodsOrigin,
     unitEn: CUSTOMS_UNIT_LABEL[l.unit].en,
     unitZh: CUSTOMS_UNIT_LABEL[l.unit].zh,
     netKg: l.grossKg,
@@ -137,7 +172,7 @@ export function buildCustomsPack(input: CustomsPackInput): CustomsPack {
   if (!input.portOfLoading) shipment.push("portOfLoading");
   if (!input.portOfDestination) shipment.push("portOfDestination");
   if (!country) shipment.push("destinationCountry");
-  if (!input.goodsOrigin) shipment.push("goodsOrigin");
+  if (!goodsOrigin) shipment.push("goodsOrigin");
   if (!input.exportDate) shipment.push("exportDate");
 
   // "100% T/T" style terms read as TT on the declaration; anything else is
@@ -145,10 +180,12 @@ export function buildCustomsPack(input: CustomsPackInput): CustomsPack {
   const firstTerm = input.paymentTerms[0] ?? "";
   const payment = /t\s*\/?\s*t/i.test(firstTerm) || firstTerm === "" ? "T/T" : firstTerm;
 
-  const { companyName: _unused, ...rest } = input;
+  const { companyName: _unused, shippingMarks, ...rest } = input;
   void _unused;
   return {
     ...rest,
+    goodsOrigin,
+    marks: shippingMarkLines(shippingMarks),
     companyZh,
     companyEn,
     countryZh: country?.zh ?? "",

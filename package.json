@@ -27,7 +27,8 @@
     "test:documents": "node --test src/ui-tests/dossier-upload.spec.mjs",
     "test:order-status": "node --test src/ui-tests/order-status.spec.mjs",
     "test:followup": "node --test src/ui-tests/followup.spec.mjs",
-    "test:tasks": "node --test src/ui-tests/tasks.spec.mjs"
+    "test:tasks": "node --test src/ui-tests/tasks.spec.mjs",
+    "test:customs": "node --test src/ui-tests/customs-docs.spec.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",

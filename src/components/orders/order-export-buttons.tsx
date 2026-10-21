@@ -28,7 +28,7 @@ export function OrderExportButtons({
   const t = useTranslations("orders");
   const locale = useLocale();
 
-  const download = (doc: "proforma" | "packing" | "customs", format: "xlsx" | "pdf") => {
+  const download = (doc: "proforma" | "packing" | "customs" | "labels", format: "xlsx" | "pdf") => {
     if (
       doc === "customs" &&
       customs &&
@@ -62,9 +62,15 @@ export function OrderExportButtons({
         {t("exportPackingPdf")}
       </Button>
       {customs ? (
-        <Button variant="outline" size="sm" onClick={() => download("customs", "xlsx")} data-testid="export-customs">
-          {t("exportCustoms")}
-        </Button>
+        <>
+          <Button variant="outline" size="sm" onClick={() => download("customs", "xlsx")} data-testid="export-customs">
+            {t("exportCustoms")}
+          </Button>
+          {/* One label per carton for the forwarder's warehouse: marks, 报关件, box number. */}
+          <Button variant="outline" size="sm" onClick={() => download("labels", "pdf")} data-testid="export-labels">
+            {t("exportLabels")}
+          </Button>
+        </>
       ) : null}
     </>
   );

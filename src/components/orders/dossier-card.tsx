@@ -6,6 +6,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { AlertTriangle, CheckCircle2, CircleDashed, Download, FileUp, Sparkles, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -40,17 +41,24 @@ export type DossierMeta = {
   portOfDestination: string;
   destinationCountry: string;
   goodsOrigin: string;
+  shippingMarks: string;
 };
 
 export function DossierCard({
   orderId,
   meta,
+  suppliersOrigin,
+  otherOrigins,
   status,
   financeOn,
   videoMaxMb,
 }: {
   orderId: number;
   meta: DossierMeta;
+  /** The 境内货源地 the order's suppliers give, carrying the most money; "" when none is known. */
+  suppliersOrigin: string;
+  /** Other suppliers' origins on the order, each declared on its own lines. */
+  otherOrigins: string[];
   status: DossierStatus;
   /** The zip needs the finance module (it carries supplier-side files). */
   financeOn: boolean;
@@ -74,7 +82,8 @@ export function DossierCard({
     form.portOfLoading !== meta.portOfLoading ||
     form.portOfDestination !== meta.portOfDestination ||
     form.destinationCountry !== meta.destinationCountry ||
-    form.goodsOrigin !== meta.goodsOrigin;
+    form.goodsOrigin !== meta.goodsOrigin ||
+    form.shippingMarks !== meta.shippingMarks;
 
   function save() {
     setSaveMsg(null);
@@ -193,7 +202,31 @@ export function DossierCard({
             </SelectContent>
           </Select>
         </div>
-        <TextField id="goodsOrigin" label={t("goodsOrigin")} help={t("goodsOriginHelp")} placeholder="浙江省义乌市" value={form.goodsOrigin} onChange={set("goodsOrigin")} />
+        <TextField
+          id="goodsOrigin"
+          label={t("goodsOrigin")}
+          help={
+            suppliersOrigin
+              ? `${t("goodsOriginFromSuppliers", { origin: suppliersOrigin })}${otherOrigins.length ? ` ${t("goodsOriginOthers", { others: otherOrigins.join("、") })}` : ""}`
+              : t("goodsOriginHelp")
+          }
+          placeholder={suppliersOrigin || "浙江省义乌市"}
+          value={form.goodsOrigin}
+          onChange={set("goodsOrigin")}
+        />
+        <div className="flex flex-col gap-1.5 md:col-span-2">
+          <Label htmlFor="shippingMarks">{t("shippingMarks")}</Label>
+          <Textarea
+            id="shippingMarks"
+            rows={3}
+            value={form.shippingMarks}
+            placeholder={"BLG-123\nORD-20260907-755343\nPARAGUAY\nMADE IN CHINA"}
+            onChange={(e) => set("shippingMarks")(e.target.value)}
+            className="font-mono text-[12.5px]"
+            data-testid="shippingMarks"
+          />
+          <span className="text-[11px] text-sub">{t("shippingMarksHelp")}</span>
+        </div>
         <div className="flex items-end gap-2">
           <Button type="button" size="sm" onClick={save} disabled={!dirty || saving} data-testid="dossier-save">
             {t("save")}

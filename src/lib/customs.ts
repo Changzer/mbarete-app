@@ -84,3 +84,11 @@ export const DESTINATION_COUNTRIES = {
 export type DestinationCountry = keyof typeof DESTINATION_COUNTRIES;
 export const DESTINATION_COUNTRY_CODES = Object.keys(DESTINATION_COUNTRIES) as DestinationCountry[];
 
+/**
+ * A supplier's province and city read from their booth: Yiwu's markets
+ * declare as Yiwu (customs takes the place of the earliest purchase when the
+ * factory is unknown). Anything else is left for a person or a card to say.
+ */
+export function regionFromBooth(booth: string): { province: string; city: string } {
+  return /义乌|yiwu/i.test(booth) ? { province: "浙江省", city: "义乌市" } : { province: "", city: "" };
+}

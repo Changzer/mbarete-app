@@ -26,6 +26,8 @@ import { OrderNotesCard } from "@/components/orders/order-notes-card";
 import { ProformaBankSelect } from "@/components/orders/proforma-bank-select";
 import { OrderExportButtons } from "@/components/orders/order-export-buttons";
 import { requireUser, requireModulePage, getCompanyModules } from "@/lib/authz";
+import { getSupplierOrigins } from "@/lib/queries/contacts";
+import { mainGoodsOrigin } from "@/lib/customs-pack";
 
 const STATUS_VARIANT = {
   draft: "secondary",
@@ -65,6 +67,12 @@ export default async function OrderDetailPage({
   const cnCodeByProduct = new Map(
     (await getProducts(companyId)).filter((p) => rows.some((r) => r.productId === p.id)).map((p) => [p.id, p.cnHsCode]),
   );
+  // Where the goods come from, by supplier: the customs pack declares each
+  // line's, and the order's own field is only needed to overrule them.
+  const supplierOrigins = await getSupplierOrigins(companyId, rows.flatMap((r) => (r.supplierId ? [r.supplierId] : [])));
+  const originLines = rows.map((r) => ({ goodsOrigin: (r.supplierId && supplierOrigins.get(r.supplierId)) || "", amount: r.sellTotal }));
+  const suppliersOrigin = mainGoodsOrigin(originLines);
+  const otherOrigins = [...new Set(originLines.map((l) => l.goodsOrigin).filter((o) => o && o !== suppliersOrigin))];
   // Lines under the supplier they come from, so a mixed order reads booth
   // by booth, suppliers and lines alphabetically. Recorded supplier names
   // survive later contact edits/deletion.
@@ -181,7 +189,7 @@ export default async function OrderDetailPage({
                 order.status === "confirmed" || order.status === "shipped"
                   ? {
                       missingCodes: rows.filter((r) => !/^\d{10}$/.test(cnCodeByProduct.get(r.productId) ?? "")).length,
-                      missingShipment: [order.portOfLoading, order.portOfDestination, order.destinationCountry, order.goodsOrigin, order.exportDate ?? ""]
+                      missingShipment: [order.portOfLoading, order.portOfDestination, order.destinationCountry, order.goodsOrigin || suppliersOrigin, order.exportDate ?? ""]
                         .filter((v) => !v).length,
                     }
                   : null
@@ -395,7 +403,10 @@ export default async function OrderDetailPage({
             portOfDestination: order.portOfDestination,
             destinationCountry: order.destinationCountry,
             goodsOrigin: order.goodsOrigin,
+            shippingMarks: order.shippingMarks,
           }}
+          suppliersOrigin={suppliersOrigin}
+          otherOrigins={otherOrigins}
           status={dossierStatus}
           financeOn={!!modules.finance}
           videoMaxMb={DOSSIER_VIDEO_MAX_MB}
