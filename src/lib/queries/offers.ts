@@ -30,6 +30,17 @@ async function orderedProductIds(companyId: number): Promise<Set<number>> {
   return new Set(rows.map((r) => r.productId));
 }
 
+/**
+ * The suppliers a tie should favour. Order lines do not record which offer
+ * they were bought on, so a product that has been ordered at all counts all
+ * its named suppliers as proven — coarse on purpose, and the same everywhere
+ * offers are ranked.
+ */
+function provenSuppliers(offers: { supplierId: number | null }[], productOrdered: boolean): Set<number> {
+  if (!productOrdered) return new Set();
+  return new Set(offers.filter((o) => o.supplierId !== null).map((o) => o.supplierId!));
+}
+
 /** Every offer for the given products, grouped by product, best first. */
 export async function getOffersByProduct(
   companyId: number,
@@ -69,12 +80,9 @@ export async function getOffersByProduct(
 
   // Each product's offers arrive ranked, so every caller shows the same order.
   for (const [productId, list] of grouped) {
-    const proven = new Set(
-      list.filter((o) => o.timesOrdered > 0 && o.supplierId !== null).map((o) => o.supplierId!),
-    );
     grouped.set(
       productId,
-      rankOffers(list, { basis: OFFER_BASIS, rates, orderedSupplierIds: proven }),
+      rankOffers(list, { basis: OFFER_BASIS, rates, orderedSupplierIds: provenSuppliers(list, ordered.has(productId)) }),
     );
   }
   return grouped;
@@ -118,13 +126,10 @@ export async function getAllOffersForProduct(
     timesOrdered: ordered.has(row.offer.productId) ? 1 : 0,
   }));
 
-  const proven = new Set(
-    all.filter((o) => o.timesOrdered > 0 && o.supplierId !== null).map((o) => o.supplierId!),
-  );
   const live = rankOffers(all, {
     basis: OFFER_BASIS,
     rates,
-    orderedSupplierIds: proven,
+    orderedSupplierIds: provenSuppliers(all, ordered.has(productId)),
   });
   const liveIds = new Set(live.map((o) => o.id));
   return [...live, ...all.filter((o) => !liveIds.has(o.id))];
@@ -146,8 +151,13 @@ export async function getOfferSpread(companyId: number, offers: Offer[]) {
  * which offer leads. A product whose last offer was deactivated keeps its
  * final known price rather than dropping to zero and pretending it is free.
  */
-export async function syncProductFromOffers(companyId: number, productId: number) {
-  const [offers, rates] = await Promise.all([
+export async function syncProductFromOffers(
+  companyId: number,
+  productId: number,
+  /** The company's ordered products, when the caller already has them. */
+  ordered?: Set<number>,
+) {
+  const [offers, rates, orderedIds] = await Promise.all([
     db
       .select()
       .from(productSuppliers)
@@ -158,8 +168,16 @@ export async function syncProductFromOffers(companyId: number, productId: number
         ),
       ),
     getExchangeRates(companyId),
+    ordered ?? orderedProductIds(companyId),
   ]);
-  const winner = pickPrimaryOffer(offers, { basis: OFFER_BASIS, rates });
+  // The same ranking the catalog shows, "ordered before" included: the cache
+  // the order builder reads must name the supplier the product page leads
+  // with, or a line lands under "no supplier" while the catalog shows one.
+  const winner = pickPrimaryOffer(offers, {
+    basis: OFFER_BASIS,
+    rates,
+    orderedSupplierIds: provenSuppliers(offers, orderedIds.has(productId)),
+  });
   if (!winner) return;
 
   await db.update(products)
@@ -173,4 +191,16 @@ export async function syncProductFromOffers(companyId: number, productId: number
       supplierId: winner.supplierId,
     })
     .where(eq(products.id, productId));
+}
+
+/**
+ * Re-derives several products' cached supplier, price and MOQ from their
+ * offers before an order reads them, so a cache left behind by an older
+ * ranking can never put a line under the wrong supplier.
+ */
+export async function syncProductsFromOffers(companyId: number, productIds: number[]) {
+  const ids = [...new Set(productIds)];
+  if (ids.length === 0) return;
+  const ordered = await orderedProductIds(companyId);
+  for (const id of ids) await syncProductFromOffers(companyId, id, ordered);
 }

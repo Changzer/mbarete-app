@@ -100,6 +100,9 @@ test("VAT survives capture and quote edits, and is applied exactly once to new o
 
     // A 0.0003 unit-cost change matters over 1,000 pieces. The refresh must
     // neither hide it behind two decimal places nor dismiss it as noise.
+    // A price changes on the supplier's quote — the offers are the truth and
+    // the product row is their cache, which a refresh re-derives first.
+    await sql.query('UPDATE product_suppliers SET price=0.01, supplier_vat_pct=3 WHERE product_id=$1', [product.id]);
     await sql.query('UPDATE products SET price=0.01, supplier_vat_pct=3 WHERE id=$1', [product.id]);
     await sql.query('UPDATE order_items SET unit_price_snapshot=0.01, quantity=1000, line_total=10 WHERE order_id=$1', [orderId]);
     await page.reload();

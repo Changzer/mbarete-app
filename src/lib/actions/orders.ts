@@ -33,6 +33,7 @@ import { nextOrderNumber, getExchangeRates } from "@/lib/queries/orders";
 import { canTransition, isEditable, isDeletable, statusConfirmation } from "@/lib/order-status";
 import { deleteUpload } from "@/lib/uploads";
 import { followupFilesOfOrder } from "@/lib/followup-server";
+import { syncProductsFromOffers } from "@/lib/queries/offers";
 import { logOrderEvent, diffOrderEdit, type OrderChange } from "@/lib/order-log";
 import { formatMoney } from "@/lib/money";
 import { defaultBankAccount } from "@/lib/proforma-bank";
@@ -70,6 +71,8 @@ async function buildOrderItemRows(
   sellCurrency: string,
 ) {
   const productIds = items.map((i) => i.productId);
+  // The cached supplier/price/MOQ must be the catalog's current winner.
+  await syncProductsFromOffers(companyId, productIds);
   const productRows = await db
     .select({ product: products, supplier: contacts })
     .from(products)
@@ -674,6 +677,8 @@ async function computeCatalogRefresh(companyId: number, orderId: number) {
   }
 
   const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+  // Refresh against the supplier the catalog actually leads with today.
+  await syncProductsFromOffers(companyId, items.map((i) => i.productId));
   const productRows = await db
     .select({ product: products, supplier: contacts })
     .from(products)

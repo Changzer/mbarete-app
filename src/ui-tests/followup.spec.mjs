@@ -289,3 +289,74 @@ test("supplier cards move, carry the next step and who, and shipped orders track
     await sql.end();
   }
 });
+
+test("a line left under 'no supplier' by a tied quote moves to its factory with Update from catalog", { timeout: 120_000 }, async () => {
+  assert.ok(process.env.DATABASE_ADMIN_URL, "explicit disposable test database required");
+  const sql = new pg.Client({ connectionString: process.env.DATABASE_ADMIN_URL });
+  await sql.connect();
+  const q = async (text, values) => (await sql.query(text, values)).rows;
+  const browser = await chromium.launch(executablePath ? { executablePath } : {});
+  const ids = { orders: [], products: [], contacts: [], categories: [] };
+  try {
+    const [admin] = await q("SELECT id, company_id FROM users WHERE email=$1", [EMAIL]);
+    const company = admin.company_id;
+    const stamp = `fu-tie-${Date.now()}`;
+    const [cat] = await q("INSERT INTO categories(company_id,name_en,name_zh) VALUES ($1,$2,'美妆工具') RETURNING id", [company, stamp]);
+    ids.categories.push(cat.id);
+    const [client] = await q("INSERT INTO contacts(company_id,type,company_name) VALUES ($1,'client',$2) RETURNING id", [company, stamp]);
+    const [angel] = await q("INSERT INTO contacts(company_id,type,company_name) VALUES ($1,'supplier',$2) RETURNING id", [company, `Angel Packing ${stamp}`]);
+    ids.contacts.push(client.id, angel.id);
+    // Two quotes at the same price: the factory's, and an older-style one with
+    // no supplier and a newer date. The cache still points at the unnamed one,
+    // as an earlier ranking left it on a real catalog.
+    const [bottle] = await q(
+      "INSERT INTO products(company_id,sku,name_en,name_zh,category_id,price,currency,moq,qty_per_box,supplier_id) VALUES ($1,$2,'50ml Foam Pump Bottle','50毫升泡沫泵瓶',$3,1.5,'RMB',1,600,NULL) RETURNING id",
+      [company, stamp, cat.id],
+    );
+    ids.products.push(bottle.id);
+    await q("INSERT INTO product_suppliers(company_id,product_id,supplier_id,price,currency,moq,quoted_on) VALUES ($1,$2,$3,1.5,'CNY',3000,'2026-08-01')", [company, bottle.id, angel.id]);
+    await q("INSERT INTO product_suppliers(company_id,product_id,supplier_id,price,currency,moq,quoted_on) VALUES ($1,$2,NULL,1.5,'RMB',1,'2026-09-07')", [company, bottle.id]);
+    const [order] = await q(
+      "INSERT INTO orders(company_id,order_number,client_id,status,rates_snapshot,created_by) VALUES ($1,$2,$3,'confirmed','{\"USD\":1,\"CNY\":0.14,\"RMB\":0.14}',$4) RETURNING id",
+      [company, stamp, client.id, admin.id],
+    );
+    ids.orders.push(order.id);
+    await q(
+      `INSERT INTO order_items(company_id,order_id,product_id,quantity,unit_price_snapshot,sell_price_snapshot,currency_snapshot,moq_snapshot,line_total,line_cbm,line_weight_kg,cartons_snapshot,sku_snapshot,name_en_snapshot,qty_per_box_snapshot,carton_cbm_snapshot,carton_weight_snapshot,sell_currency_snapshot)
+       VALUES ($1,$2,$3,1995,1.5,0.8,'RMB',1,2992.5,0.01,1,4,$4,'50ml Foam Pump Bottle',600,0,0,'USD')`,
+      [company, order.id, bottle.id, stamp],
+    );
+
+    const page = await (await browser.newContext({ viewport: { width: 1440, height: 960 } })).newPage();
+    await page.goto(`${BASE}/en/login`);
+    await page.fill('input[name="email"]', EMAIL);
+    await page.fill('input[name="password"]', PASSWORD);
+    await page.click('button[type="submit"]');
+    await page.waitForURL(/catalog/);
+    const kinds = async () => {
+      await page.goto(`${BASE}/en/followup?order=${order.id}`);
+      await page.getByTestId("followup-board").waitFor();
+      return page.getByTestId("followup-card").evaluateAll((els) => els.map((e) => e.dataset.kind));
+    };
+    assert.deepEqual(await kinds(), ["unassigned"]);
+
+    await page.goto(`${BASE}/en/orders/${order.id}`);
+    await page.getByTestId("catalog-refresh").click();
+    const dialog = page.getByTestId("catalog-refresh-dialog");
+    await dialog.waitFor();
+    assert.match(await dialog.innerText(), new RegExp(`Angel Packing ${stamp}`), "the refresh names the factory the catalog leads with");
+    await dialog.getByTestId("catalog-refresh-apply").click();
+    await dialog.waitFor({ state: "hidden" });
+    const [line] = await q("SELECT supplier_id_snapshot, currency_snapshot, moq_snapshot, quantity FROM order_items WHERE order_id=$1", [order.id]);
+    assert.deepEqual(line, { supplier_id_snapshot: angel.id, currency_snapshot: "CNY", moq_snapshot: 3000, quantity: 1995 });
+    assert.deepEqual(await kinds(), ["supplier"], "the bottle now sits on the factory's card");
+  } finally {
+    await browser.close();
+    if (ids.orders.length) await q("DELETE FROM orders WHERE id = ANY($1)", [ids.orders]);
+    if (ids.products.length) await q("DELETE FROM product_suppliers WHERE product_id = ANY($1)", [ids.products]);
+    if (ids.products.length) await q("DELETE FROM products WHERE id = ANY($1)", [ids.products]);
+    if (ids.contacts.length) await q("DELETE FROM contacts WHERE id = ANY($1)", [ids.contacts]);
+    if (ids.categories.length) await q("DELETE FROM categories WHERE id = ANY($1)", [ids.categories]);
+    await sql.end();
+  }
+});

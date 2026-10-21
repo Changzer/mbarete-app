@@ -196,6 +196,8 @@ test("a booth capture becomes a product, an order, a quote and an invoice", asyn
     await sql.query("UPDATE products SET hs_code=$2 WHERE id=$1", [product.id, STUB.hsCode]);
     const supplierA = (await sql.query("INSERT INTO contacts (company_id,type,company_name,company_name_zh) VALUES ($1,'supplier','Original Factory','原始工厂') RETURNING id", [account.company_id])).rows[0].id;
     const supplierB = (await sql.query("INSERT INTO contacts (company_id,type,company_name,company_name_zh) VALUES ($1,'supplier','Replacement Factory','替代工厂') RETURNING id", [account.company_id])).rows[0].id;
+    // As the product form does: the quote names the supplier, the product row caches it.
+    await sql.query("UPDATE product_suppliers SET supplier_id=$1 WHERE product_id=$2", [supplierA, product.id]);
     await sql.query("UPDATE products SET supplier_id=$1 WHERE id=$2", [supplierA, product.id]);
 
     // ── 5. Build an order: new client, pick the product ──────────────────
@@ -292,6 +294,8 @@ test("a booth capture becomes a product, an order, a quote and an invoice", asyn
     const original = { supplier_id_snapshot: supplierA, supplier_name_en_snapshot: "Original Factory", supplier_name_zh_snapshot: "原始工厂" };
     assert.deepEqual(await supplierSnapshot(), original, "supplier captured at order creation");
     await sql.query("UPDATE contacts SET company_name='Renamed Factory', active=false WHERE id=$1", [supplierA]);
+    // As the product form does: the quote names the supplier, the product row caches it.
+    await sql.query("UPDATE product_suppliers SET supplier_id=$1 WHERE product_id=$2", [supplierB, product.id]);
     await sql.query("UPDATE products SET supplier_id=$1 WHERE id=$2", [supplierB, product.id]);
     await page.reload();
     assert.match(await page.getByTestId(`supplier-group-${supplierA}`).filter({ visible: true }).innerText(), /Original Factory/i);

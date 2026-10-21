@@ -38,6 +38,16 @@ test("offers: a tie goes to a supplier we have ordered from", () => {
   assert.equal(pickPrimaryOffer([stranger, known], ctx([22]))?.id, 2);
 });
 
+test("offers: a tie goes to a named supplier over a quote with no source", () => {
+  const named = offer({ id: 1, supplierId: 11, price: 1.5, currency: "CNY", quotedOn: "2026-01-01" });
+  const unnamed = offer({ id: 2, supplierId: null, price: 1.5, currency: "RMB", quotedOn: "2026-09-01" });
+  // The anonymous quote is newer and still loses: nobody can order from it.
+  assert.equal(pickPrimaryOffer([named, unnamed], ctx())?.id, 1);
+  // A proven factory still comes first.
+  const proven = offer({ id: 3, supplierId: 33, price: 1.5, currency: "CNY", quotedOn: "2025-01-01" });
+  assert.equal(pickPrimaryOffer([named, unnamed, proven], ctx([33]))?.id, 3);
+});
+
 test("offers: with no history, the freshest quote wins the tie", () => {
   const old = offer({ id: 1, supplierId: 11, price: 10, quotedOn: "2025-02-01" });
   const fresh = offer({ id: 2, supplierId: 22, price: 10, quotedOn: "2026-08-01" });
