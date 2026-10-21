@@ -588,9 +588,15 @@ function ByOrder({
                     <span className="flex items-start justify-between gap-2">
                       <span className="min-w-0">
                         <span className="block font-bold leading-tight text-ink">{card.kind === "unassigned" ? t("noSupplier") : card.supplierName}</span>
-                        <span className="block truncate text-[12.5px] font-semibold text-ink">
-                          {card.mainProductName}
-                          {card.otherLines > 0 ? <span className="font-normal text-sub"> {t("moreLines", { count: card.otherLines })}</span> : null}
+                        {card.supplierNameAlt ? (
+                          <span className="block truncate font-mono text-[10.5px] uppercase tracking-[0.06em] text-sub">{card.supplierNameAlt}</span>
+                        ) : null}
+                        {/* A long name shortens; the "+2 more" never does, or the card looks like one product. */}
+                        <span className="flex min-w-0 items-baseline gap-1 text-[12.5px]" data-testid="followup-mini-product">
+                          <span className="truncate font-semibold text-ink" title={card.mainProductName}>
+                            {card.mainProductName}
+                          </span>
+                          {card.otherLines > 0 ? <span className="shrink-0 whitespace-nowrap text-sub">{t("moreLines", { count: card.otherLines })}</span> : null}
                         </span>
                       </span>
                       <Avatar user={owner} label={owner ? `${t("who")}: ${owner.name}` : t("nobody")} />

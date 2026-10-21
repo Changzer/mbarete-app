@@ -92,6 +92,16 @@ test("lines group per order and supplier, led by the line the most money goes to
   assert.equal(groups.get(groupKey(2, 7))!.otherLines, 0);
 });
 
+test("RMB and CNY lines add up as one yuan total on the card", () => {
+  const g = groupLines([
+    line({ productId: 1, name: "Mini Refillable Atomizer Spray Bottle", quantity: 1200, lineTotal: 4920 }),
+    line({ productId: 2, name: "Silicone Travel Bottle", quantity: 600, lineTotal: 1800 }),
+    line({ productId: 3, name: "50ml Foam Pump Bottle", quantity: 1995, lineTotal: 2992.5, currency: "RMB" }),
+  ]).get(groupKey(1, 7))!;
+  assert.deepEqual(g.cost, [{ currency: "CNY", amount: 9712.5 }]);
+  assert.equal(g.otherLines, 2);
+});
+
 test("a supplier with only an English name leads with it and has no second name", () => {
   const g = groupLines([line({ supplierNameZh: "" })]).get(groupKey(1, 7))!;
   assert.equal(g.supplierName, "Yongkang Jingmi Vehicle");
