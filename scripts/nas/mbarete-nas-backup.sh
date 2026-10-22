@@ -193,17 +193,36 @@ fi
 
 # --- one run -------------------------------------------------------------------
 
-# One run at a time; a lock older than 12 hours is a crashed run's.
+# One run at a time. The lock holds the running script's pid: a first copy
+# over a slow line can take a day, and a run is only over when its process
+# is gone (crash, reboot), never because it has been going for long. A lock
+# without a pid (written by an older version of this script) counts as held
+# for 48 hours.
 LOCK="$DEST/.lock"
+lock_alive() {
+  holder="$(cat "$LOCK/pid" 2>/dev/null)"
+  if [ -n "$holder" ]; then
+    kill -0 "$holder" 2>/dev/null || return 1
+    # A reused pid after a reboot is someone else's process, not ours.
+    [ -r "/proc/$holder/cmdline" ] && ! tr '\0' ' ' < "/proc/$holder/cmdline" | grep -q 'nas-backup' && return 1
+    return 0
+  fi
+  [ -z "$(find "$LOCK" -maxdepth 0 -mmin +2880 2>/dev/null)" ]
+}
 if ! mkdir "$LOCK" 2>/dev/null; then
-  if [ -n "$(find "$LOCK" -maxdepth 0 -mmin +720 2>/dev/null)" ]; then
-    rmdir "$LOCK" 2>/dev/null; mkdir "$LOCK" 2>/dev/null || { log "another run holds $LOCK"; exit 0; }
-  else
-    log "another run is in progress; leaving it alone"
+  if lock_alive; then
+    log "the previous run is still going${holder:+ (pid $holder)}; leaving it alone"
     exit 0
   fi
+  log "the previous run is gone without finishing; taking over"
+  rm -rf "$LOCK"
+  mkdir "$LOCK" 2>/dev/null || { log "another run took the lock first"; exit 0; }
 fi
-trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
+echo $$ > "$LOCK/pid"
+# A stopped run ends there (releasing the lock on the way out); it never
+# carries on without the lock.
+trap 'rm -rf "$LOCK"' EXIT
+trap 'exit 1' INT TERM HUP
 
 log "checking $VPS for a new backup"
 with_retries remote_list_raw || fail "cannot reach the server: $(tail -n 1 "$INCOMING/.list-err")"
