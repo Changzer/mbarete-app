@@ -185,6 +185,55 @@ test("the NAS pulls, hardlinks, retries, refuses a bad copy and reports", { skip
   }
 });
 
+test("one run at a time: a long first copy is never doubled, a dead run's lock is taken over", { skip: !ready && "needs rsync, rrsync and sha256sum" }, async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "nas-lock-"));
+  const lock = path.join(tmp, ".lock");
+  // The server is never reached here: a run that gets past the lock fails at
+  // "cannot reach the server", which is how these tests tell it went ahead.
+  const env = { ...process.env, NAS_BACKUP_CONF: path.join(tmp, "none.conf"), DEST: tmp, VPS: "backup@tokyo", SSH_CMD: "false", RETRIES: "1", RETRY_DELAYS: "0" };
+  const days = (n: number) => new Date(Date.now() - n * 86_400_000);
+  const holdLock = (pid: number | null, age: Date) => {
+    fs.rmSync(lock, { recursive: true, force: true });
+    fs.mkdirSync(lock);
+    if (pid !== null) fs.writeFileSync(path.join(lock, "pid"), `${pid}\n`);
+    fs.utimesSync(lock, age, age);
+  };
+  // A first copy still going after three days, its argv naming the script.
+  const copying = spawn("sh", ["-c", "sleep 60; :", "mbarete-nas-backup.sh"], { stdio: "ignore" });
+  const stranger = spawn("sleep", ["60"], { stdio: "ignore" });
+  try {
+    holdLock(copying.pid!, days(3));
+    let r = await runScript([], env);
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.match(r.stdout, new RegExp(`still going \\(pid ${copying.pid}\\)`));
+    assert.equal(fs.readFileSync(path.join(lock, "pid"), "utf8").trim(), String(copying.pid), "its lock is left alone");
+
+    // An older script's lock has no pid: held for two days, then taken over.
+    holdLock(null, days(1));
+    r = await runScript([], env);
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.match(r.stdout, /still going/);
+    holdLock(null, days(3));
+    r = await runScript([], env);
+    assert.match(r.stdout, /gone without finishing; taking over/);
+    assert.match(r.stdout, /cannot reach the server/);
+    assert.ok(!fs.existsSync(lock), "released when the run ends");
+
+    // A pid that is gone, or reused by something else after a reboot, holds nothing.
+    const gone = spawnSync("sh", ["-c", "echo $$"], { encoding: "utf8" }).stdout.trim();
+    for (const pid of [Number(gone), stranger.pid!]) {
+      holdLock(pid, new Date());
+      r = await runScript([], env);
+      assert.match(r.stdout, /gone without finishing; taking over/, `pid ${pid}`);
+      assert.match(r.stdout, /cannot reach the server/);
+    }
+  } finally {
+    copying.kill();
+    stranger.kill();
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test("history: the newest 30 nights, then the first of each month for 3 years", () => {
   const names: string[] = [];
   // Four years of nightly snapshots, 2022-11-01 → 2026-10-22.

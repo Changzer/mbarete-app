@@ -203,7 +203,10 @@ tail -f logs/nas-backup.log
 
 Wait for `stored backup-… (N files verified)`, then Ctrl-C the `tail`. If
 the line drops, the script retries by itself and picks up where it
-stopped. Later nights only carry what changed and take minutes.
+stopped. Scheduled runs that come round while it is still going leave it
+alone, however many days it takes; if the NAS restarts mid-copy, the next
+scheduled run takes over. Later nights only carry what changed and take
+minutes.
 
 **B8. Schedule it.** Every six hours — it fetches the nightly backup within
 hours of it being made, and a run with nothing new costs a few seconds.
