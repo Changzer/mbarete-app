@@ -44,20 +44,25 @@ It prints something like `/var/lib/docker/volumes/mbarete-app_mbarete-backups/_d
 (If it says "no such volume", run `docker volume ls | grep backups` and use
 that name.) Write the path down — it is **BACKUPS** below.
 
-**A3. Make sure `rrsync` is there.** It is the small program that limits the
-NAS key to reading that one folder.
+**A3. Install `rsync` (it brings `rrsync`).** `rsync` copies the files;
+`rrsync` is the small program that limits the NAS key to reading that one
+folder. Many servers have neither until you install them:
 
 ```sh
-command -v rrsync || ls /usr/share/doc/rsync/scripts/
+apt-get update && apt-get install -y rsync
+command -v rsync rrsync
+rrsync 2>&1 | head -2
 ```
 
-If the first command prints a path (`/usr/bin/rrsync`), you are done. If not,
-install it from the rsync package's own copy:
+The second command must print two paths (`/usr/bin/rsync`, `/usr/bin/rrsync`)
+and the third a short complaint (it was not started by SSH) — that means it
+works. If `rrsync` is still missing (older systems package it separately),
+fetch the official script; it needs `python3`, which Ubuntu and Debian have:
 
 ```sh
-cp /usr/share/doc/rsync/scripts/rrsync /usr/local/bin/rrsync 2>/dev/null \
-  || zcat /usr/share/doc/rsync/scripts/rrsync.gz > /usr/local/bin/rrsync
+curl -fsSL https://raw.githubusercontent.com/RsyncProject/rsync/v3.2.7/support/rrsync -o /usr/local/bin/rrsync
 chmod 755 /usr/local/bin/rrsync
+head -1 /usr/local/bin/rrsync     # must print a #! line, not nothing
 ```
 
 **A4. Make the report token** — the password the NAS uses to tell the server
@@ -84,7 +89,7 @@ restrict,command="/usr/bin/rrsync -ro BACKUPS" ssh-ed25519 AAAA…the rest of th
 ```
 
 Replace `BACKUPS` with the path from A2, and `/usr/bin/rrsync` with
-`/usr/local/bin/rrsync` if you installed it in A3. `restrict` takes away
+whatever `command -v rrsync` printed in A3. `restrict` takes away
 everything else a key could do (no shell, no tunnels); `rrsync -ro` allows
 reading that folder and nothing more. Save. Nothing needs restarting.
 
