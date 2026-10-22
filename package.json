@@ -28,7 +28,8 @@
     "test:order-status": "node --test src/ui-tests/order-status.spec.mjs",
     "test:followup": "node --test src/ui-tests/followup.spec.mjs",
     "test:tasks": "node --test src/ui-tests/tasks.spec.mjs",
-    "test:customs": "node --test src/ui-tests/customs-docs.spec.mjs"
+    "test:customs": "node --test src/ui-tests/customs-docs.spec.mjs",
+    "test:nas-setup": "node --test src/ui-tests/nas-setup.spec.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",

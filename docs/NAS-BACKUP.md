@@ -20,8 +20,40 @@ Why the NAS fetches instead of the server sending: nothing at the office is
 opened to the internet, and the server holds no key to the NAS — whoever
 breaks into the server can neither reach nor delete the copies at home.
 
-Setup takes about 15 minutes on the server and 15 on the NAS. Do the steps
-in order.
+## Setting it up: two pasted lines
+
+Before you start: in UGOS, turn on SSH (Control Panel → Terminal), and — if
+you like to see it in the file manager — create a shared folder named
+`mbarete-backup` (private to your admin account; not shared through
+UGREENlink). If you skip the folder, the setup makes one on `/volume1`.
+
+**1. On the Tokyo server**, logged in as root:
+
+```sh
+cd /opt/mbarete-app && git pull && sh scripts/nas/setup-server.sh
+```
+
+It installs `rsync`, gives the app its report token, restarts the app on
+this version (a few minutes), makes a fresh backup — and then prints one
+green line and waits. Leave that window open.
+
+**2. On the NAS**, log in over SSH (`ssh your-nas-admin@NAS-IP`) and paste
+the green line. It asks for the NAS password once (for `sudo`). It makes the
+NAS's own key, introduces it to the server with a one-time code (the server
+window then lets it in, read-only, by itself), schedules the backup every 6
+hours, and starts the first copy in the background.
+
+Both windows end with "Done" / "All set". The first copy carries every photo
+and document, so over the Tokyo line it can take hours; the admin panel shows
+`NAS copy: backup-… · Nh old` once it has arrived. Last, press **Test email**
+on the panel: that is how the alarm reaches you, so it must arrive.
+
+Either script can be run again safely (with a fresh green line): nothing is
+duplicated, your own login keys are never touched, copies already on the NAS
+stay.
+
+The parts below are the same setup done by hand, step by step — for when
+something does not go as above, or to see exactly what the scripts do.
 
 ---
 
@@ -44,20 +76,25 @@ It prints something like `/var/lib/docker/volumes/mbarete-app_mbarete-backups/_d
 (If it says "no such volume", run `docker volume ls | grep backups` and use
 that name.) Write the path down — it is **BACKUPS** below.
 
-**A3. Make sure `rrsync` is there.** It is the small program that limits the
-NAS key to reading that one folder.
+**A3. Install `rsync` (it brings `rrsync`).** `rsync` copies the files;
+`rrsync` is the small program that limits the NAS key to reading that one
+folder. Many servers have neither until you install them:
 
 ```sh
-command -v rrsync || ls /usr/share/doc/rsync/scripts/
+apt-get update && apt-get install -y rsync
+command -v rsync rrsync
+rrsync 2>&1 | head -2
 ```
 
-If the first command prints a path (`/usr/bin/rrsync`), you are done. If not,
-install it from the rsync package's own copy:
+The second command must print two paths (`/usr/bin/rsync`, `/usr/bin/rrsync`)
+and the third a short complaint (it was not started by SSH) — that means it
+works. If `rrsync` is still missing (older systems package it separately),
+fetch the official script; it needs `python3`, which Ubuntu and Debian have:
 
 ```sh
-cp /usr/share/doc/rsync/scripts/rrsync /usr/local/bin/rrsync 2>/dev/null \
-  || zcat /usr/share/doc/rsync/scripts/rrsync.gz > /usr/local/bin/rrsync
+curl -fsSL https://raw.githubusercontent.com/RsyncProject/rsync/v3.2.7/support/rrsync -o /usr/local/bin/rrsync
 chmod 755 /usr/local/bin/rrsync
+head -1 /usr/local/bin/rrsync     # must print a #! line, not nothing
 ```
 
 **A4. Make the report token** — the password the NAS uses to tell the server
@@ -84,7 +121,7 @@ restrict,command="/usr/bin/rrsync -ro BACKUPS" ssh-ed25519 AAAA…the rest of th
 ```
 
 Replace `BACKUPS` with the path from A2, and `/usr/bin/rrsync` with
-`/usr/local/bin/rrsync` if you installed it in A3. `restrict` takes away
+whatever `command -v rrsync` printed in A3. `restrict` takes away
 everything else a key could do (no shell, no tunnels); `rrsync -ro` allows
 reading that folder and nothing more. Save. Nothing needs restarting.
 
