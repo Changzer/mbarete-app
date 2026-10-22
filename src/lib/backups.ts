@@ -157,11 +157,14 @@ async function dumpTable(
   client: Client,
   table: string,
   file: string,
-): Promise<{ rows: number; sha256: string }> {
+): Promise<{ rows: number; sha256: string; fileSha256: string }> {
   const gzip = zlib.createGzip({ level: 6 });
   const out = createWriteStream(file);
   const done = pipeline(gzip, out);
   const hash = crypto.createHash("sha256");
+  // The compressed bytes too, for SHA256SUMS: what a copy elsewhere can check with a stock tool.
+  const fileHash = crypto.createHash("sha256");
+  gzip.on("data", (chunk) => fileHash.update(chunk as Buffer));
 
   // Cursors only live inside a transaction — runBackup opened one, so this
   // rides the same REPEATABLE READ snapshot as every other table.
@@ -183,7 +186,26 @@ async function dumpTable(
   }
   gzip.end();
   await done;
-  return { rows, sha256: hash.digest("hex") };
+  return { rows, sha256: hash.digest("hex"), fileSha256: fileHash.digest("hex") };
+}
+
+/**
+ * Every file of a snapshot with its SHA-256, in the format `sha256sum -c`
+ * reads — so a copy pulled to another machine (the NAS, docs/NAS-BACKUP.md)
+ * proves itself with a stock tool, no JSON parser needed. Sorted by path;
+ * a name holding a backslash or newline is escaped the way GNU coreutils does.
+ */
+export function sha256sumsText(dbFiles: Record<string, string>, uploads: Record<string, FileRecord>): string {
+  const entries: [string, string][] = [
+    ...Object.entries(dbFiles).map(([table, sha]): [string, string] => [`db/${table}.jsonl.gz`, sha]),
+    ...Object.entries(uploads).map(([rel, rec]): [string, string] => [`uploads/${rel}`, rec.sha256]),
+  ].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  return entries
+    .map(([file, sha]) =>
+      /[\\\n]/.test(file) ? `\\${sha}  ${file.replace(/\\/g, "\\\\").replace(/\n/g, "\\n")}` : `${sha}  ${file}`,
+    )
+    .map((line) => `${line}\n`)
+    .join("");
 }
 
 /** Copy while hashing — the bytes are in hand anyway, the hash is free. */
@@ -310,10 +332,12 @@ export async function runBackup(): Promise<BackupResult> {
     const tables = await tableNames(client);
     const counts: Record<string, number> = {};
     const tableHashes: Record<string, string> = {};
+    const dumpFileHashes: Record<string, string> = {};
     for (const table of tables) {
       const dumped = await dumpTable(client, table, path.join(tmp, "db", `${table}.jsonl.gz`));
       counts[table] = dumped.rows;
       tableHashes[table] = dumped.sha256;
+      dumpFileHashes[table] = dumped.fileSha256;
     }
 
     await client.query("COMMIT");
@@ -351,6 +375,7 @@ export async function runBackup(): Promise<BackupResult> {
     );
 
     const rows = Object.values(counts).reduce((a, b) => a + b, 0);
+    await fs.writeFile(path.join(tmp, "SHA256SUMS"), sha256sumsText(dumpFileHashes, fileRecords));
     await fs.writeFile(
       path.join(tmp, "manifest.json"),
       JSON.stringify(

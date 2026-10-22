@@ -80,6 +80,11 @@ services:
       BACKUP_DIR: ${BACKUP_DIR:-/app/backups}
       BACKUP_RETENTION: ${BACKUP_RETENTION:-14}
       BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
+      # The NAS that pulls each night's backup reports back with this token
+      # (docs/NAS-BACKUP.md); the panel shows its copy and the operator is
+      # mailed when it is NAS_STALE_HOURS old. Unset = no NAS reporting.
+      NAS_REPORT_TOKEN: ${NAS_REPORT_TOKEN:-}
+      NAS_STALE_HOURS: ${NAS_STALE_HOURS:-48}
       # AI photo transcription. Moonshot (Kimi) is preferred when set;
       # Anthropic (Claude) is the fallback. Unset both to hide the AI features.
       # Uptime dead-man's switch: while healthy the app GETs this URL every

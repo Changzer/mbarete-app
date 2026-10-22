@@ -41,6 +41,13 @@ async function main() {
   const backupPath = path.join(backupDir, result.name);
   ok(`backup ${result.name}: ${result.rows} rows, ${result.files} files`);
 
+  // ---- a copy elsewhere (the NAS) proves itself with nothing but coreutils
+  const sums = spawnSync("sha256sum", ["-c", "SHA256SUMS"], { cwd: backupPath, encoding: "utf8" });
+  if (sums.status !== 0) fail(`SHA256SUMS does not verify: ${sums.stdout}${sums.stderr}`);
+  const listed = sums.stdout.trim().split("\n").length;
+  if (listed < result.tables + result.files) fail(`SHA256SUMS lists ${listed} files, expected ${result.tables + result.files}`);
+  ok(`SHA256SUMS verifies all ${listed} files with sha256sum -c`);
+
   // ---- damage everything the backup protects
   const before = await client
     .query("SELECT id, name_en FROM products ORDER BY id LIMIT 1")

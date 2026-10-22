@@ -1,0 +1,29 @@
+# Settings for mbarete-nas-backup.sh — copy to mbarete-nas-backup.conf in the
+# same folder and fill in. docs/NAS-BACKUP.md walks through every line.
+
+# The Tokyo server, as ssh reaches it.
+VPS=root@203.0.113.10
+VPS_PORT=22
+
+# The folder on the NAS that holds everything: this script, the key, the
+# snapshots/ it builds. Defaults to the folder this script is in.
+#DEST=/volume1/mbarete-backup
+
+# The key the NAS logs in with (made in step 2 of the guide).
+#SSH_KEY=/volume1/mbarete-backup/id_ed25519
+
+# How much history to keep: the newest 30 nightly copies, and the first copy
+# of each month for 36 months (3 years).
+KEEP_DAILY=30
+KEEP_MONTHLY=36
+
+# Retries when the connection drops: 6 attempts, waiting longer each time.
+RETRIES=6
+
+# Optional: cap the download speed in KB/s so the office line stays usable.
+#BWLIMIT=2000
+
+# Where the NAS reports what it holds; the same token as NAS_REPORT_TOKEN
+# in the server's .env.
+REPORT_URL=https://mbarete.cn/api/backups/nas-report
+REPORT_TOKEN=

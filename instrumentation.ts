@@ -50,6 +50,10 @@ export async function register() {
     const { startBackupScheduler } = await import("./src/lib/backups");
     startBackupScheduler();
 
+    // The copy the NAS pulls each night: alarm when it goes stale; see src/lib/nas-backup.ts.
+    const { startNasWatch } = await import("./src/lib/nas-backup");
+    startNasWatch();
+
     // Uptime heartbeat + process-level error capture; see src/lib/monitoring.ts.
     const { startHeartbeat, registerProcessErrorHandlers } = await import("./src/lib/monitoring");
     registerProcessErrorHandlers();
