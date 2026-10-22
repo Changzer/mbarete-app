@@ -77,6 +77,9 @@ jobs:
           MOONSHOT_API_KEY: stub
           MOONSHOT_BASE_URL: http://localhost:9099
           UPLOADS_DIR: ${{ runner.temp }}/uploads
+          # The NAS setup rehearsal pairs against these.
+          BACKUP_DIR: ${{ runner.temp }}/backups
+          NAS_REPORT_TOKEN: ci-nas-report-token
         run: |
           node scripts/e2e/vision-stub.mjs &
           npm start &
@@ -142,6 +145,14 @@ jobs:
       # one carton label per box.
       - run: npm run test:customs
         if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
+      # The two-command NAS setup against the running app: the server script
+      # opens a pairing, the NAS script hands its key over, the key lands
+      # read-only, and the first copy runs through that very line.
+      - run: npm run test:nas-setup
+        if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
+        env:
+          BACKUP_DIR: ${{ runner.temp }}/backups
+          UPLOADS_DIR: ${{ runner.temp }}/uploads
       - name: Upload customs documents review
         if: always()
         uses: actions/upload-artifact@v4

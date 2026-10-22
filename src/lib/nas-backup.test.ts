@@ -1,6 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { applyNasReport, describeNasTrouble, nasHealth, parseNasReport, shouldAlert, snapshotTimeMs } from "./nas-backup";
+import {
+  applyNasReport,
+  checkPairing,
+  describeNasTrouble,
+  isNasPublicKey,
+  nasHealth,
+  parseNasReport,
+  shouldAlert,
+  snapshotTimeMs,
+} from "./nas-backup";
 import { sha256sumsText } from "./backups";
 
 const at = (iso: string) => Date.parse(iso);
@@ -68,4 +77,22 @@ test("SHA256SUMS lists every dump and upload in the format sha256sum -c reads", 
       `\\${"d".repeat(64)}  uploads/c1/odd\\\\name.jpg\n` +
       `${"c".repeat(64)}  uploads/c1/photo.jpg\n`,
   );
+});
+
+test("pairing takes one ed25519 public key with the right code, before it expires", () => {
+  const key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFnMhGI/VlSrQXGnW6zYQY8TuCtvg/GIz/SXbUJUaOse";
+  assert.equal(isNasPublicKey(key), true);
+  assert.equal(isNasPublicKey(`${key} mbarete-nas`), true);
+  assert.equal(isNasPublicKey(`${key} mbarete-nas\nssh-ed25519 AAAA… evil`), false, "one line only");
+  assert.equal(isNasPublicKey(`command="sh" ${key}`), false, "no options can ride along");
+  assert.equal(isNasPublicKey("ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ abel"), false);
+  assert.equal(isNasPublicKey("937e1b286875acd442fde3dc343bb4c8d25040905bf132b3f2ed7366b53683c3"), false, "a token is not a key");
+
+  const pairing = { code: "59b117e5b6d8ce238de90679bd620f52", expiresAt: "2026-10-22T05:20:00Z" };
+  const now = Date.parse("2026-10-22T05:05:00Z");
+  assert.equal(checkPairing(pairing, "59b117e5b6d8ce238de90679bd620f52", now), "ok");
+  assert.equal(checkPairing(pairing, "00000000000000000000000000000000", now), "wrong-code");
+  assert.equal(checkPairing(pairing, "59b117e5b6d8ce238de90679bd620f52", Date.parse("2026-10-22T05:21:00Z")), "expired");
+  assert.equal(checkPairing(null, "anything", now), "closed");
+  assert.equal(checkPairing({ code: "", expiresAt: "2099-01-01T00:00:00Z" }, "", now), "closed", "an empty code never opens it");
 });

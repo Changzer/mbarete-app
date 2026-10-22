@@ -20,8 +20,40 @@ Why the NAS fetches instead of the server sending: nothing at the office is
 opened to the internet, and the server holds no key to the NAS — whoever
 breaks into the server can neither reach nor delete the copies at home.
 
-Setup takes about 15 minutes on the server and 15 on the NAS. Do the steps
-in order.
+## Setting it up: two pasted lines
+
+Before you start: in UGOS, turn on SSH (Control Panel → Terminal), and — if
+you like to see it in the file manager — create a shared folder named
+`mbarete-backup` (private to your admin account; not shared through
+UGREENlink). If you skip the folder, the setup makes one on `/volume1`.
+
+**1. On the Tokyo server**, logged in as root:
+
+```sh
+cd /opt/mbarete-app && git pull && sh scripts/nas/setup-server.sh
+```
+
+It installs `rsync`, gives the app its report token, restarts the app on
+this version (a few minutes), makes a fresh backup — and then prints one
+green line and waits. Leave that window open.
+
+**2. On the NAS**, log in over SSH (`ssh your-nas-admin@NAS-IP`) and paste
+the green line. It asks for the NAS password once (for `sudo`). It makes the
+NAS's own key, introduces it to the server with a one-time code (the server
+window then lets it in, read-only, by itself), schedules the backup every 6
+hours, and starts the first copy in the background.
+
+Both windows end with "Done" / "All set". The first copy carries every photo
+and document, so over the Tokyo line it can take hours; the admin panel shows
+`NAS copy: backup-… · Nh old` once it has arrived. Last, press **Test email**
+on the panel: that is how the alarm reaches you, so it must arrive.
+
+Either script can be run again safely (with a fresh green line): nothing is
+duplicated, your own login keys are never touched, copies already on the NAS
+stay.
+
+The parts below are the same setup done by hand, step by step — for when
+something does not go as above, or to see exactly what the scripts do.
 
 ---
 

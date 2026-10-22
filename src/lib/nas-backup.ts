@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
@@ -173,4 +174,57 @@ export function startNasWatch() {
   if (g[WATCH_KEY] || !backupDir()) return;
   g[WATCH_KEY] = true;
   setInterval(() => void checkNasAlarm().catch(() => {}), 3_600_000);
+}
+
+// --- pairing: the NAS hands its key over without anyone copying it ----------
+//
+// scripts/nas/setup-server.sh opens a pairing for twenty minutes by writing a
+// one-time code into BACKUP_DIR and prints the one command to paste on the
+// NAS. The NAS posts its public key with that code (POST
+// /api/backups/nas-pair); the app drops it beside the code and closes the
+// pairing; the server script, waiting as root, installs the key read-only.
+// The app never touches SSH itself — it only passes a public key along.
+
+export const NAS_PAIR_FILE = ".nas-pair.json";
+export const NAS_PAIR_KEY_FILE = ".nas-pair-key";
+
+const ED25519_PUBLIC_KEY = /^ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI[A-Za-z0-9+/]{43}( [A-Za-z0-9@._-]{1,64})?$/;
+
+/** One ed25519 public key on one line, an optional plain comment — nothing else can ride along. */
+export function isNasPublicKey(key: string): boolean {
+  return ED25519_PUBLIC_KEY.test(key);
+}
+
+export type NasPairing = { code: string; expiresAt: string };
+
+export function checkPairing(
+  pairing: NasPairing | null,
+  code: string,
+  nowMs: number,
+): "ok" | "closed" | "expired" | "wrong-code" {
+  if (!pairing || typeof pairing.code !== "string" || pairing.code.length < 16) return "closed";
+  if (!(Date.parse(pairing.expiresAt) > nowMs)) return "expired";
+  const a = crypto.createHash("sha256").update(code).digest();
+  const b = crypto.createHash("sha256").update(pairing.code).digest();
+  return crypto.timingSafeEqual(a, b) ? "ok" : "wrong-code";
+}
+
+export async function readPairing(): Promise<NasPairing | null> {
+  const dir = backupDir();
+  if (!dir) return null;
+  try {
+    return JSON.parse(await fs.readFile(path.join(dir, NAS_PAIR_FILE), "utf8")) as NasPairing;
+  } catch {
+    return null;
+  }
+}
+
+/** Hands the key to the waiting server script and closes the pairing: the code works once. */
+export async function acceptPairedKey(key: string): Promise<void> {
+  const dir = backupDir();
+  if (!dir) throw new Error("BACKUP_DIR not set");
+  const file = path.join(dir, NAS_PAIR_KEY_FILE);
+  await fs.writeFile(`${file}.tmp`, `${key}\n`, { mode: 0o644 });
+  await fs.rename(`${file}.tmp`, file);
+  await fs.rm(path.join(dir, NAS_PAIR_FILE), { force: true });
 }

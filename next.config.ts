@@ -14,6 +14,8 @@ const nextConfig: NextConfig = {
       "./src/assets/fonts/**",
       "./node_modules/pdfkit/js/data/**",
     ],
+    // The NAS downloads its setup and backup scripts from the app.
+    "/api/nas/[file]": ["./scripts/nas/*.sh"],
   },
   experimental: {
     // The public enquiry supports four 8 MiB photos. Proxy's default 10 MiB
