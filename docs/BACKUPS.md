@@ -13,6 +13,7 @@ One directory per snapshot:
 /app/backups/
   backup-20260825-050000/        ← UTC timestamp; newest name sorts last
     manifest.json                ← written LAST — its presence marks a complete backup
+    SHA256SUMS                   ← every file's SHA-256 in `sha256sum -c` format, for copies elsewhere
     db/
       companies.jsonl.gz         ← one gzipped JSON-lines file per table, all rows
       products.jsonl.gz
@@ -128,6 +129,14 @@ docker compose restart mbarete-app
   restored ids.
 - `--skip-uploads` restores only the database.
 
+## At the office: the NAS pull
+
+The recommended second home for these snapshots is a NAS that fetches each
+night's backup over a read-only key, verifies it against `SHA256SUMS`,
+keeps 30 nights and 36 months, and reports back to the panel (which mails
+the operator when the copy at home goes stale). Setup and restore are in
+**docs/NAS-BACKUP.md**.
+
 ## Offsite, encrypted
 
 Retention protects against mistakes and disk loss (if `BACKUP_DIR` is on
@@ -189,9 +198,9 @@ Drill log (snapshot → encrypt → ship → verify → decrypt → restore → 
 
 ## What this does NOT cover
 
-- **Offsite copies you did not set up.** The app takes snapshots; shipping
-  them off the machine is the host's cron job above, and it only exists once
-  someone creates the key and the destination.
+- **Offsite copies you did not set up.** The app takes snapshots; getting
+  them off the machine is the NAS pull (docs/NAS-BACKUP.md) or the host's
+  cron job above, and neither exists until someone sets it up.
 - **Point-in-time recovery.** Snapshots are daily; work since the last one
   is lost on restore. For a busy SaaS on a real server, add continuous WAL
   archiving at the Postgres level later.

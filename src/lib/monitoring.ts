@@ -107,9 +107,19 @@ function operatorEmail(): string | null {
 
 /** Fire-and-forget: an alert that fails must never take a request with it. */
 function alertMailer(subject: string, text: string): void {
+  alertOperator(subject, text);
+}
+
+/**
+ * Email the operator (ALERT_EMAIL, else the admin addresses). False when
+ * nobody can be mailed — no address or no SMTP — so a caller that throttles
+ * on "alerted" does not count an alarm that never left.
+ */
+export function alertOperator(subject: string, text: string): boolean {
   const to = operatorEmail();
-  if (!to || !isMailConfigured()) return;
+  if (!to || !isMailConfigured()) return false;
   void sendMail({ to, subject, text }).catch(() => {});
+  return true;
 }
 
 // One log per process, hot-reload-proof like the other singletons.

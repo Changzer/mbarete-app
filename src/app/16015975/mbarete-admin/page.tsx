@@ -10,6 +10,7 @@ import { PlanSelect } from "./plan-select";
 import { BackupNow } from "./backup-now";
 import { TestEmail } from "./test-email";
 import { backupStatus, type BackupStatus } from "@/lib/backups";
+import { nasHealth, readNasState, type NasHealth } from "@/lib/nas-backup";
 import { SeatStepper } from "./seat-stepper";
 import { AiBudgetControl } from "./ai-budget-control";
 import { UnlockPanel } from "./unlock-panel";
@@ -136,6 +137,33 @@ function BackupLine({ status, now }: { status: BackupStatus; now: number }) {
   );
 }
 
+/** The copy at home: what the NAS last said it holds, verified (docs/NAS-BACKUP.md). */
+function NasLine({ health }: { health: NasHealth }) {
+  if (health.level === "off") {
+    return (
+      <span className="text-[11px] text-faint" data-testid="nas-status">
+        NAS copy not set up
+      </span>
+    );
+  }
+  const kept = health.state.lastOk?.kept;
+  const age = health.ageHours === null ? "" : ` · ${health.ageHours}h old`;
+  const text =
+    health.level === "failing"
+      ? `NAS copy: last pull failed — ${health.state.lastFailure?.error.slice(0, 80)}`
+      : `NAS copy: ${health.snapshot ?? "none yet"}${age}${kept ? ` · ${kept} kept` : ""}`;
+  return (
+    <span
+      className={`text-[11px] ${health.level === "ok" ? "text-sub" : "font-medium text-amber-700"}`}
+      data-testid="nas-status"
+      data-level={health.level}
+    >
+      {text}
+      {health.level === "stale" ? " · STALE" : ""}
+    </span>
+  );
+}
+
 /**
  * Server errors from the last 24 hours — in-memory, so what the operator
  * sees is this process since its last restart; a restart wiping the list
@@ -172,6 +200,7 @@ export default async function PlatformAdminPage() {
   const enquiries = await loadEnquiries();
   const events = await recentPlatformEvents(20);
   const backups = await backupStatus();
+  const nas = nasHealth(await readNasState(), nowMs());
   const errors = recentErrors();
   const now = nowMs();
 
@@ -188,6 +217,7 @@ export default async function PlatformAdminPage() {
           <UnlockPanel unlocked={platformReauth.isFresh(operator.id)} />
           <ErrorsLine errors={errors} />
           <BackupLine status={backups} now={now} />
+          {backups.configured ? <NasLine health={nas} /> : null}
           {backups.configured ? <BackupNow /> : null}
           <TestEmail />
           <ResetLink />
