@@ -71,6 +71,11 @@ const ISO_INSTANT = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})Z$/;
  * Opening the bell: what was on the list the person saw is no longer new.
  * Only ever moves forward, and never past the database's clock, so a stale
  * or forged instant cannot hide tomorrow's assignments.
+ *
+ * Seen up to the second BEFORE the list was read: stamps are whole seconds,
+ * and a step handed over later in that same second was not on the list, so
+ * it must still ring. One from that second that was on the list shows as new
+ * once more — twice beats never.
  */
 export async function markTasksSeen(user: SessionUser, upTo: string): Promise<boolean> {
   const match = ISO_INSTANT.exec(upTo);
@@ -81,7 +86,10 @@ export async function markTasksSeen(user: SessionUser, upTo: string): Promise<bo
     .set({
       tasksSeenAt: sql`GREATEST(
         COALESCE(${users.tasksSeenAt}, ''),
-        LEAST(${stamp}::text, to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD HH24:MI:SS'))
+        to_char(
+          LEAST(${stamp}::timestamp, date_trunc('second', now() AT TIME ZONE 'utc')) - interval '1 second',
+          'YYYY-MM-DD HH24:MI:SS'
+        )
       )`,
     })
     .where(and(eq(users.companyId, user.companyId), eq(users.id, user.id)));
