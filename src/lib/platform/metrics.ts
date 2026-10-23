@@ -1,4 +1,4 @@
-import { count, countDistinct, desc, eq, gte, max, sql, sum, inArray } from "drizzle-orm";
+import { and, count, countDistinct, desc, eq, gte, max, sql, sum, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { companies, users, products, orders, contacts, userActivityDays, invites, aiUsage, waitlistSignups, serviceEnquiries, serviceEnquiryImages } from "@/db/schema";
 import { companyStorageBytes } from "@/lib/uploads";
@@ -84,7 +84,7 @@ export async function loadPlatformOverview(): Promise<PlatformOverview> {
     db
       .select({ companyId: users.companyId, n: count() })
       .from(users)
-      .where(eq(users.active, true))
+      .where(and(eq(users.active, true), eq(users.kind, "person")))
       .groupBy(users.companyId),
     db
       .select({ companyId: products.companyId, n: count() })

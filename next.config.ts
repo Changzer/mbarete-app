@@ -16,6 +16,8 @@ const nextConfig: NextConfig = {
     ],
     // The NAS downloads its setup and backup scripts from the app.
     "/api/nas/[file]": ["./scripts/nas/*.sh"],
+    // The OpenClaw skill file, served with the app's address filled in.
+    "/api/assistant/skill": ["./integrations/openclaw/mbarete/SKILL.md"],
   },
   experimental: {
     // The public enquiry supports four 8 MiB photos. Proxy's default 10 MiB

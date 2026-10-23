@@ -3,13 +3,15 @@ import { redirect } from "@/i18n/navigation";
 import { requireUser } from "@/lib/authz";
 import { db, one } from "@/db";
 import { users, companies } from "@/db/schema";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { UserManager, type TeamUser } from "@/components/users/user-manager";
 import { InviteManager } from "@/components/users/invite-manager";
 import { pendingInvites } from "@/lib/queries/users";
 import { recentAdminEvents } from "@/lib/admin-events";
 import { AdminActivity } from "@/components/users/admin-activity";
+import { AssistantManager } from "@/components/users/assistant-manager";
+import { listAssistants } from "@/lib/queries/assistants";
 
 export default async function UsersPage() {
   // requireUser (not sessionUser) so a dead session lands on login, not on a
@@ -29,10 +31,11 @@ export default async function UsersPage() {
     .limit(1)
     .then(one);
 
+  // People only; assistant accounts have their own section below.
   const rows = await db
     .select()
     .from(users)
-    .where(eq(users.companyId, current.companyId))
+    .where(and(eq(users.companyId, current.companyId), eq(users.kind, "person")))
     .orderBy(asc(users.name));
   const teamUsers: TeamUser[] = rows.map((u) => ({
     id: u.id,
@@ -57,6 +60,9 @@ export default async function UsersPage() {
         currentUserId={Number(session?.user?.id ?? 0)}
         ownerUserId={company?.ownerUserId ?? null}
       />
+      <div className="mt-6">
+        <AssistantManager assistants={await listAssistants(current.companyId)} />
+      </div>
       <div className="mt-6">
         <AdminActivity events={await recentAdminEvents(current.companyId)} />
       </div>

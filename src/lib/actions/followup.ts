@@ -54,13 +54,13 @@ function refresh() {
   revalidatePath("/[locale]/followup", "page");
 }
 
-/** A user of this company who can take work: active, same company. */
+/** A person of this company who can take work: active, same company, not an assistant. */
 async function validOwner(user: SessionUser, ownerId: number | null): Promise<boolean> {
   if (ownerId === null) return true;
   const row = await db
     .select({ id: users.id })
     .from(users)
-    .where(and(eq(users.companyId, user.companyId), eq(users.id, ownerId), eq(users.active, true)))
+    .where(and(eq(users.companyId, user.companyId), eq(users.id, ownerId), eq(users.active, true), eq(users.kind, "person")))
     .limit(1)
     .then(one);
   return Boolean(row);

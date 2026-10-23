@@ -6,6 +6,7 @@ import { users, companies } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { enterTenant, enterPlatform } from "@/db/tenant-context";
 import { touchActivity } from "@/lib/activity";
+import { currentAssistant } from "@/lib/assistant-context";
 
 export type Role = "admin" | "collaborator";
 
@@ -31,11 +32,21 @@ export type SessionUser = {
  * Deliberately enters NO scope: the caller decides tenant or platform.
  */
 async function loadValidatedIdentity() {
+  // Inside the assistant API the key named the account (assistant-auth.ts);
+  // a browser cookie riding along on that request is ignored. Re-read here
+  // like any session, and pinned to what an assistant can ever be.
+  const assistant = currentAssistant();
+  if (assistant) {
+    const row = await db.select().from(users).where(eq(users.id, assistant.userId)).limit(1).then(one);
+    if (!row || !row.active || row.kind !== "assistant") return null;
+    return { ...row, role: "collaborator" as const, platformAdmin: false };
+  }
   const session = await auth();
   const id = Number(session?.user?.id);
   if (!id) return null;
   const row = await db.select().from(users).where(eq(users.id, id)).limit(1).then(one);
-  if (!row || !row.active) return null;
+  // An assistant account has no password, so a session naming one is forged or stale.
+  if (!row || !row.active || row.kind !== "person") return null;
   if (row.passwordChangedAt) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const authAt = (session?.user as any)?.authAt as number | undefined;
@@ -57,7 +68,8 @@ export async function sessionUser(): Promise<SessionUser | null> {
   // pool stamps it into the connection and RLS enforces it (tenant-context.ts).
   enterTenant(row.companyId);
   // The platform's pulse: throttled, fire-and-forget, never blocks a request.
-  touchActivity(row.companyId, row.id);
+  // People only — an assistant's requests are not someone using the app.
+  if (row.kind === "person") touchActivity(row.companyId, row.id);
   return {
     id: row.id,
     companyId: row.companyId,

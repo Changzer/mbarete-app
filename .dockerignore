@@ -7,3 +7,5 @@ public/uploads
 .env.local
 npm-debug.log*
 *.md
+# The OpenClaw skill file is served by the app (/api/assistant/skill).
+!integrations/openclaw/**/SKILL.md

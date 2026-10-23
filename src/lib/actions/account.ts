@@ -47,7 +47,7 @@ export async function requestPasswordReset(
   if (forgotEmailLimiter.hit(email)) return { done: true };
 
   const user = await db.select().from(users).where(eq(users.email, email)).limit(1).then(one);
-  if (!user || !user.active) return { done: true };
+  if (!user || !user.active || user.kind !== "person") return { done: true };
 
   const token = newToken();
   await db.insert(authTokens).values({

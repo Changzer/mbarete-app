@@ -45,7 +45,8 @@ const byRequest = (g.__mbTenantByRequest ??= new WeakMap<object, number>());
 const platformStorage = (g.__mbPlatformStorage ??= new AsyncLocalStorage<boolean>());
 const platformByRequest = (g.__mbPlatformByRequest ??= new WeakMap<object, boolean>());
 
-function requestStore(): object | undefined {
+/** The current request's work-unit store, the object per-request state hangs off. */
+export function requestStore(): object | undefined {
   try {
     return workUnitAsyncStorage.getStore();
   } catch {

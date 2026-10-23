@@ -140,6 +140,20 @@ jobs:
           path: artifacts/tasks
           if-no-files-found: ignore
           retention-days: 7
+      # A chat assistant with a key: added on the Team page, reads an order
+      # without prices, moves a card and posts under its own name, and is
+      # refused what it was not allowed, other companies, bank details,
+      # deletes, and its old key after a new one.
+      - run: npm run test:assistant
+        if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
+      - name: Upload assistant screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: assistant-review
+          path: artifacts/assistant
+          if-no-files-found: ignore
+          retention-days: 7
       # Customs documents: suppliers' province and city through the form,
       # each line's 境内货源地 and the marks in the pack, the 委托书 sheet, and
       # one carton label per box.

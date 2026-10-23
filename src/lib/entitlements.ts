@@ -39,7 +39,8 @@ async function seatRoom(q: Queryer, companyId: number): Promise<boolean> {
   const row = await q
     .select({ n: count() })
     .from(users)
-    .where(and(eq(users.companyId, companyId), eq(users.active, true)))
+    // Seats are for people; an assistant account never takes one.
+    .where(and(eq(users.companyId, companyId), eq(users.active, true), eq(users.kind, "person")))
     .then((rows) => rows[0]);
   return hasRoomFor(limit, row?.n ?? 0);
 }

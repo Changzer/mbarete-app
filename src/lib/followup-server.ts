@@ -101,7 +101,8 @@ export type ShipmentCardView = CardCommon & {
 
 export type FollowupCardView = SupplierCardView | ShipmentCardView;
 
-export type FollowupUser = { id: number; name: string; active: boolean };
+/** `assignable` is false for assistant accounts: they appear in histories, never in "who". */
+export type FollowupUser = { id: number; name: string; active: boolean; assignable: boolean };
 
 export type FollowupBoard = {
   cards: SupplierCardView[];
@@ -114,11 +115,11 @@ const COMPLETE_SHIPMENT_DAYS = 14;
 
 async function companyUsers(companyId: number): Promise<FollowupUser[]> {
   const rows = await db
-    .select({ id: users.id, name: users.name, active: users.active })
+    .select({ id: users.id, name: users.name, active: users.active, kind: users.kind })
     .from(users)
     .where(eq(users.companyId, companyId))
     .orderBy(asc(users.name));
-  return rows;
+  return rows.map(({ kind, ...u }) => ({ ...u, assignable: kind === "person" }));
 }
 
 async function lineRows(orderIds: number[], locale: Locale) {

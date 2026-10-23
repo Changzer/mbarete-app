@@ -104,6 +104,13 @@ export const users = pgTable(
     // team or read the finance report.
     role: text("role").$type<"admin" | "collaborator">().notNull().default("collaborator"),
     /**
+     * "assistant" is a bot account (a chat assistant working through the
+     * assistant API with a key, assistant-auth.ts): never signs in, never
+     * takes a seat or a task, always a collaborator, and its changes carry
+     * its own name in every history.
+     */
+    kind: text("kind").$type<"person" | "assistant">().notNull().default("person"),
+    /**
      * Operator of the whole platform, not a tenant role: unlocks the hidden
      * cross-company panel. Granted only via PLATFORM_ADMIN_EMAIL at boot —
      * deliberately no UI can set it.
@@ -1608,5 +1615,43 @@ export const followupAttachments = pgTable(
       columns: [table.companyId, table.entryId],
       foreignColumns: [followupEntries.companyId, followupEntries.id],
     }).onDelete("cascade"),
+  ],
+);
+
+/**
+ * The key an assistant account works with (assistant-auth.ts). One per
+ * assistant; a new key replaces the old one. Only the SHA-256 of the secret
+ * is kept, so the key is shown once and a database copy cannot be used.
+ * `scopes` is the comma list of what the admin allowed beyond reading
+ * (ASSISTANT_SCOPES).
+ */
+export const assistantKeys = pgTable(
+  "assistant_keys",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
+    userId: integer("user_id").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    scopes: text("scopes").notNull().default(""),
+    createdBy: integer("created_by").notNull(),
+    createdAt: text("created_at").notNull().default(utcNow),
+    keyIssuedAt: text("key_issued_at").notNull().default(utcNow),
+    lastUsedAt: text("last_used_at"),
+  },
+  (table) => [
+    uniqueIndex("assistant_keys_user_uq").on(table.userId),
+    index("assistant_keys_company_idx").on(table.companyId),
+    foreignKey({
+      name: "assistant_keys_company_user_fk",
+      columns: [table.companyId, table.userId],
+      foreignColumns: [users.companyId, users.id],
+    }),
+    foreignKey({
+      name: "assistant_keys_company_creator_fk",
+      columns: [table.companyId, table.createdBy],
+      foreignColumns: [users.companyId, users.id],
+    }),
   ],
 );
