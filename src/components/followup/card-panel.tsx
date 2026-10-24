@@ -379,8 +379,9 @@ function OwnerSelect({
   testId?: string;
 }) {
   const t = useTranslations("followup");
-  // A deactivated owner stays visible on what they held, but cannot be picked anew.
-  const options = users.filter((u) => u.active || u.id === value);
+  // A deactivated owner stays visible on what they held, but cannot be picked
+  // anew; an assistant account never holds work.
+  const options = users.filter((u) => (u.active && u.assignable) || u.id === value);
   return (
     <select
       id={id}
@@ -393,7 +394,7 @@ function OwnerSelect({
     >
       <option value="">{t("nobody")}</option>
       {options.map((u) => (
-        <option key={u.id} value={u.id} disabled={!u.active}>
+        <option key={u.id} value={u.id} disabled={!u.active || !u.assignable}>
           {u.name}
         </option>
       ))}

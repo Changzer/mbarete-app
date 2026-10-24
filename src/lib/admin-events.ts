@@ -19,7 +19,12 @@ export type AdminAction =
   | "email-changed"
   | "user-activated"
   | "user-deactivated"
-  | "role-changed";
+  | "role-changed"
+  | "assistant-created"
+  | "assistant-allowed"
+  | "assistant-key"
+  | "assistant-on"
+  | "assistant-off";
 
 export async function recordAdminEvent(event: {
   companyId: number;

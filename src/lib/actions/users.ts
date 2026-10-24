@@ -139,7 +139,7 @@ export async function updateUser(
   const target = await db
     .select({ id: users.id, email: users.email })
     .from(users)
-    .where(and(eq(users.companyId, admin.companyId), eq(users.id, id)))
+    .where(and(eq(users.companyId, admin.companyId), eq(users.id, id), eq(users.kind, "person")))
     .limit(1)
     .then(one);
   if (!target) {
@@ -245,7 +245,7 @@ export async function setUserActive(
   const exists = await db
     .select({ id: users.id })
     .from(users)
-    .where(and(eq(users.companyId, admin.companyId), eq(users.id, id)))
+    .where(and(eq(users.companyId, admin.companyId), eq(users.id, id), eq(users.kind, "person")))
     .limit(1)
     .then(one);
   if (!exists) {
@@ -257,10 +257,11 @@ export async function setUserActive(
     if (id === currentUserId) return { error: "self-deactivate" };
     // The owner account can never be deactivated by anyone.
     if (await isCompanyOwner(admin.companyId, id)) return { error: "owner-locked" };
+    // An assistant left switched on is no way in for a person.
     const activeUsers = await db
       .select()
       .from(users)
-      .where(and(eq(users.companyId, admin.companyId), eq(users.active, true)));
+      .where(and(eq(users.companyId, admin.companyId), eq(users.active, true), eq(users.kind, "person")));
     if (activeUsers.length <= 1) return { error: "last-user" };
     const target = activeUsers.find((u) => u.id === id);
     // Deactivating the only active admin would leave nobody able to manage
@@ -302,7 +303,7 @@ export async function setUserRole(
   const target = await db
     .select()
     .from(users)
-    .where(and(eq(users.companyId, admin.companyId), eq(users.id, id)))
+    .where(and(eq(users.companyId, admin.companyId), eq(users.id, id), eq(users.kind, "person")))
     .limit(1)
     .then(one);
   if (!target) return { error: "not-found" };

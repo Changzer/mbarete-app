@@ -172,6 +172,19 @@ test("a step and a checklist item given to the assistant ring their bell, once",
     assert.match(await moved.innerText(), new RegExp(`新 · 来自 ${admin.name}`));
     await liPage.screenshot({ path: `${SHOTS}/bell-open-zh.png`, animations: "disabled" });
 
+    // Stamps are whole seconds: a step handed over later in the very second
+    // her list was read was not on that list, so it must still ring.
+    const read = await (await liPage.request.get(`${BASE}/api/tasks?locale=en`)).json();
+    await q("UPDATE followup_cards SET next_assigned_by=$1, next_assigned_at=$2 WHERE id=$3", [
+      admin.id,
+      read.asOf.slice(0, 19).replace("T", " "),
+      card.id,
+    ]);
+    const seen = await liPage.request.post(`${BASE}/api/tasks`, { data: { upTo: read.asOf } });
+    assert.equal(seen.status(), 200);
+    const after = await (await liPage.request.get(`${BASE}/api/tasks?locale=en`)).json();
+    assert.equal(after.tasks.find((task) => task.key === `step:${card.id}`)?.isNew, true, "same second, still new");
+
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();

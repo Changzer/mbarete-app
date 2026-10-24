@@ -64,7 +64,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return fail();
         }
         // Deactivated accounts keep their history but lose their access.
-        if (!user.active) return null;
+        // Assistant accounts work with a key (assistant-auth.ts), never a password.
+        if (!user.active || user.kind !== "person") return null;
 
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return fail();
