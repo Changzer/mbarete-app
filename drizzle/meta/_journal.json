@@ -267,6 +267,13 @@
       "when": 1790005000000,
       "tag": "0037_assistants",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1790006000000,
+      "tag": "0038_packing-and-labels",
+      "breakpoints": true
     }
   ]
 }

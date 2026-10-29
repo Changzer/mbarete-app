@@ -16,6 +16,7 @@ import {
   FileUp,
   FileX,
   PlusCircle,
+  Package,
 } from "lucide-react";
 
 /**
@@ -111,6 +112,28 @@ function describe(kind: string, payload: any, t: T, finT: FinT): string {
         .join(" · ");
       return t("dossierUpdated", { details });
     }
+    case "packing": {
+      const lines: { sku: string; name: string; reset?: true; perCarton: [number, number]; cartons: [number, number] }[] =
+        payload.lines ?? [];
+      const set = lines
+        .filter((l) => !l.reset)
+        .map((l) =>
+          t("packingLine", {
+            name: l.name || l.sku,
+            from: l.perCarton[0],
+            to: l.perCarton[1],
+            cartonsFrom: l.cartons[0],
+            cartonsTo: l.cartons[1],
+          }),
+        );
+      const reset = lines.filter((l) => l.reset).map((l) => l.name || l.sku);
+      return [
+        set.length ? t("packingUpdated", { details: set.join(" · ") }) : "",
+        reset.length ? t("packingBackToCatalog", { names: reset.join(", ") }) : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+    }
     default:
       return kind;
   }
@@ -129,6 +152,7 @@ const ICONS: Record<string, typeof History> = {
   document_added: FileUp,
   document_removed: FileX,
   dossier: Pencil,
+  packing: Package,
 };
 
 /** SQLite's current_timestamp is UTC without a zone marker; pin it before formatting. */

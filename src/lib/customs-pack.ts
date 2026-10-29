@@ -35,6 +35,9 @@ export type CustomsPackLineInput = {
   goodsOrigin: string;
   /** Pieces in a full carton, for the carton labels; 0 when unknown. */
   perCarton?: number;
+  /** A full carton's gross weight and volume, for the carton labels; 0 or absent when unknown. */
+  cartonKg?: number;
+  cartonCbm?: number;
 };
 
 export type CustomsPackInput = {

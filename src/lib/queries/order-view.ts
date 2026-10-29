@@ -36,6 +36,8 @@ export type OrderViewRow = {
   cartonCbm: number;
   cartonWeightKg: number;
   below: boolean;
+  /** The carton figures are the factory's, entered on the order — not the quote. */
+  packingConfirmed: boolean;
 };
 
 export type OrderView = NonNullable<Awaited<ReturnType<typeof getOrderView>>>;
@@ -111,6 +113,7 @@ export async function getOrderView(companyId: number, orderId: number, locale: L
       cartonCbm: item.cartonCbmSnapshot > 0 ? item.cartonCbmSnapshot : (product?.cbm ?? 0),
       cartonWeightKg: item.cartonWeightSnapshot > 0 ? item.cartonWeightSnapshot : (product?.weightKg ?? 0),
       below: item.quantity < item.moqSnapshot,
+      packingConfirmed: item.packingConfirmed,
     };
   });
   // Lines read alphabetically everywhere the order is shown or printed.

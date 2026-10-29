@@ -6,6 +6,7 @@ import { convert, roundMoney, UnknownCurrencyError } from "@/lib/calculations";
 import { parsePartiesSnapshot, usesFrozenParties } from "@/lib/parties-snapshot";
 import { buildCustomsPack, type CustomsPack } from "@/lib/customs-pack";
 import type { CustomsUnit } from "@/lib/customs";
+import { orderClientConsignee } from "@/lib/label-details";
 
 function splitLines(text: string): string[] {
   return text.split("\n").map((l) => l.trim()).filter(Boolean);
@@ -21,6 +22,8 @@ function splitLines(text: string): string[] {
 export async function getCustomsPackData(companyId: number, orderId: number): Promise<{
   pack: CustomsPack;
   status: string;
+  /** What the carton labels print besides the pack's marks and lines. */
+  labels: { warehouse: string; consignee: string; customsStamp: boolean };
 } | null> {
   const [en, zh, company, products] = await Promise.all([
     getOrderView(companyId, orderId, "en"),
@@ -93,8 +96,18 @@ export async function getCustomsPackData(companyId: number, orderId: number): Pr
         supplier: zhRow?.supplierName ?? r.supplierName ?? "",
         goodsOrigin: (r.supplierId && origins.get(r.supplierId)) || "",
         perCarton: r.perCarton,
+        cartonKg: r.cartonWeightKg,
+        cartonCbm: r.cartonCbm,
       };
     }),
   });
-  return { pack, status: order.status };
+  return {
+    pack,
+    status: order.status,
+    labels: {
+      warehouse: order.labelWarehouse,
+      consignee: order.labelConsignee || orderClientConsignee(order, client),
+      customsStamp: order.labelCustomsStamp,
+    },
+  };
 }

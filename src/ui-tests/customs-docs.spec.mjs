@@ -99,13 +99,29 @@ test("each line declares its supplier's place, the marks print everywhere, one l
     const dossier = page.getByTestId("dossier-card");
     await dossier.waitFor();
     assert.match(await dossier.innerText(), /From the suppliers: 浙江省义乌市\.[\s\S]*Lines from elsewhere declare their own: 广东省深圳市\./);
-    await page.getByTestId("shippingMarks").fill("BLG-88\nPARAGUAY");
     await page.getByTestId("destinationCountry").click();
     await page.getByRole("option", { name: "Paraguay", exact: true }).click();
     await page.getByTestId("dossier-save").click();
     await page.getByTestId("dossier-save-msg").waitFor();
-    assert.equal((await q("SELECT shipping_marks FROM orders WHERE id=$1", [order.id]))[0].shipping_marks, "BLG-88\nPARAGUAY");
     await dossier.screenshot({ path: `${SHOTS}/dossier.png` });
+
+    // The labels card: the title lines (the marks), where the goods are
+    // delivered in China, and the final destination — the client until said otherwise.
+    const labelsCard = page.getByTestId("labels-card");
+    await page.waitForFunction(() => document.querySelector('[data-testid="labelConsignee"]')?.value.endsWith("PARAGUAY"));
+    assert.equal(await page.getByTestId("labelConsignee").inputValue(), `Client ${stamp}\nPARAGUAY`);
+    await page.getByTestId("shippingMarks").fill("BLG-88\nPARAGUAY");
+    await page.getByTestId("labelWarehouse").fill("Yiwu Hengli Logistics\nNo. 88 Chouzhou Rd, Yiwu\n入仓号 YW-2231");
+    await page.getByTestId("labels-save").click();
+    await labelsCard.getByTestId("labels-message").waitFor();
+    assert.deepEqual((await q("SELECT shipping_marks, label_warehouse, label_consignee, label_customs_stamp FROM orders WHERE id=$1", [order.id]))[0], {
+      shipping_marks: "BLG-88\nPARAGUAY",
+      label_warehouse: "Yiwu Hengli Logistics\nNo. 88 Chouzhou Rd, Yiwu\n入仓号 YW-2231",
+      // Left as the client's details, it keeps following the client.
+      label_consignee: "",
+      label_customs_stamp: true,
+    });
+    await labelsCard.screenshot({ path: `${SHOTS}/labels-card.png` });
 
     // The pack: the header names the main origin, each line its own, the marks replace N/M.
     const pack = await context.request.get(`${BASE}/api/orders/${order.id}/export?format=xlsx&doc=customs&locale=en`);
@@ -124,7 +140,35 @@ test("each line declares its supplier's place, the marks print everywhere, one l
     book.getWorksheet("委托书").eachRow((row) => row.eachCell((c) => attorney.push(String(c.value ?? ""))));
     assert.ok(attorney.join(" ").includes("代理报关委托书") && attorney.join(" ").includes("浙江省义乌市"));
 
-    // Carton labels: six cartons, two to a sheet.
+    // The factory packed the bottles 400 to a carton, not the quoted 600:
+    // five boxes, not four. Corrected on the order, every document counts five.
+    const packing = page.getByTestId("packing-card");
+    assert.equal(await packing.getByTestId(`packing-state-${bottle}`).innerText(), "As quoted");
+    await packing.getByTestId(`per-${bottle}`).fill("400");
+    await packing.getByTestId(`kg-${bottle}`).fill("8");
+    assert.equal(await packing.getByTestId(`packing-cartons-${bottle}`).innerText(), "5 cartons");
+    await packing.getByTestId("packing-save").click();
+    await packing.getByTestId("packing-message").waitFor();
+    await page.waitForFunction((id) => document.querySelector(`[data-testid="packing-state-${id}"]`)?.textContent === "As packed", bottle);
+    const [bottleLine] = await q(
+      "SELECT qty_per_box_snapshot, cartons_snapshot, carton_weight_snapshot, line_weight_kg, line_total, quantity, packing_confirmed FROM order_items WHERE order_id=$1 AND product_id=$2",
+      [order.id, bottle],
+    );
+    assert.deepEqual(bottleLine, {
+      qty_per_box_snapshot: 400,
+      cartons_snapshot: 5,
+      carton_weight_snapshot: 8,
+      line_weight_kg: (1995 / 400) * 8,
+      line_total: "1995.00",
+      quantity: 1995,
+      packing_confirmed: true,
+    }, "the money and quantity stay; the boxes are the factory's");
+    await packing.screenshot({ path: `${SHOTS}/packing-card.png` });
+    const packed = new ExcelJS.Workbook();
+    await packed.xlsx.load(await (await context.request.get(`${BASE}/api/orders/${order.id}/export?format=xlsx&doc=customs&locale=en`)).body());
+    assert.equal(packed.getWorksheet("报关单").getCell("F15").value, 7, "the declaration's 件数 counts the boxes as packed");
+
+    // Carton labels: seven cartons now, two to a sheet.
     // The button downloads (headless Chrome names a navigated PDF "download", so the name is read off the response).
     const [download] = await Promise.all([page.waitForEvent("download"), page.getByTestId("export-labels").click()]);
     const pdf = await (await download.createReadStream()).toArray().then((chunks) => Buffer.concat(chunks));
@@ -132,7 +176,24 @@ test("each line declares its supplier's place, the marks print everywhere, one l
     assert.match(labels.headers()["content-disposition"] ?? "", /_carton-labels\.pdf"/);
     await writeFile(`${SHOTS}/labels.pdf`, pdf);
     assert.equal(pdf.subarray(0, 5).toString(), "%PDF-");
-    assert.equal((pdf.toString("latin1").match(/\/Type \/Page\b/g) ?? []).length, 3, "six labels on three sheets");
+    assert.equal((pdf.toString("latin1").match(/\/Type \/Page\b/g) ?? []).length, 4, "seven labels on four sheets");
+
+    // Update from catalog brings the camera line to the catalog's packing,
+    // but leaves the bottles as the factory packed them.
+    await page.getByTestId("catalog-refresh").click();
+    const refresh = page.getByTestId("catalog-refresh-dialog");
+    await refresh.waitFor();
+    await refresh.getByTestId("catalog-refresh-apply").click();
+    await refresh.waitFor({ state: "hidden" });
+    const after = Object.fromEntries(
+      (await q("SELECT product_id, cartons_snapshot, qty_per_box_snapshot FROM order_items WHERE order_id=$1", [order.id])).map((r) => [r.product_id, r]),
+    );
+    assert.deepEqual([after[bottle].qty_per_box_snapshot, after[bottle].cartons_snapshot], [400, 5], "the factory's figures hold");
+    assert.equal(after[camera].qty_per_box_snapshot, 1, "a quoted line follows the catalog");
+
+    // The history says what happened, in words.
+    await page.goto(`${BASE}/en/orders/${order.id}`);
+    assert.match(await page.locator("body").innerText(), /Set the packing as the factory packed it: 50ml Foam Pump Bottle: 600 → 400 pcs per carton, 4 → 5 cartons/);
 
     assert.deepEqual(errors, []);
   } finally {

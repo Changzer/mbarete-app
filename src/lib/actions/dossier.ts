@@ -42,12 +42,24 @@ const metaInput = z.object({
   portOfDestination: z.string().trim().max(120).default(""),
   destinationCountry: z.union([z.enum(DESTINATION_COUNTRY_CODES as [string, ...string[]]), z.literal("")]).default(""),
   goodsOrigin: z.string().trim().max(120).default(""),
-  // The carton marks, one line each, as they print on the boxes and the sheets.
-  shippingMarks: z
+});
+
+/** A block of lines as it prints: trimmed, blank lines dropped, at most `max`. */
+const lines = (max: number, chars: number) =>
+  z
     .string()
-    .max(600)
+    .max(chars)
     .default("")
-    .transform((v) => v.split("\n").map((l) => l.trim()).filter(Boolean).slice(0, 8).join("\n")),
+    .transform((v) => v.split("\n").map((l) => l.trim()).filter(Boolean).slice(0, max).join("\n"));
+
+const labelInput = z.object({
+  version: z.number().int().min(1),
+  // The carton marks — the label's title lines — as they print on the boxes and the sheets.
+  shippingMarks: lines(8, 600),
+  labelWarehouse: lines(4, 400),
+  // "" = the client's own details.
+  labelConsignee: lines(4, 400),
+  labelCustomsStamp: z.boolean(),
 });
 
 export type DossierMetaResult = { error?: string; version?: number };
@@ -97,7 +109,6 @@ export async function updateDossierMeta(orderId: number, input: unknown): Promis
     ["portOfDestination", before.portOfDestination || null, data.portOfDestination || null],
     ["destinationCountry", before.destinationCountry || null, data.destinationCountry || null],
     ["goodsOrigin", before.goodsOrigin || null, data.goodsOrigin || null],
-    ["shippingMarks", before.shippingMarks || null, data.shippingMarks || null],
   ] as const;
   const changes = fields
     .filter(([, from, to]) => (from ?? null) !== (to ?? null))
@@ -117,7 +128,62 @@ export async function updateDossierMeta(orderId: number, input: unknown): Promis
       portOfDestination: data.portOfDestination,
       destinationCountry: data.destinationCountry,
       goodsOrigin: data.goodsOrigin,
+      version: before.version + 1,
+      updatedBy: user.id,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(and(eq(orders.id, orderId), eq(orders.companyId, user.companyId), eq(orders.version, data.version)))
+    .returning({ version: orders.version });
+  if (updated.length === 0) return { error: "conflict" };
+
+  await logOrderEvent(orderId, user.id, "dossier", { changes });
+  refresh();
+  return { version: updated[0].version };
+}
+
+/**
+ * What the carton labels carry besides the product: the marks (their title
+ * lines, also on the customs pack), the forwarder's warehouse in China the
+ * goods are delivered to, the final consignee, and whether the 报关件 stamp
+ * belongs on the boxes. Editable on any status — the forwarder's details
+ * often arrive after confirmation — logged, and version-checked.
+ */
+export async function updateLabelDetails(orderId: number, input: unknown): Promise<DossierMetaResult> {
+  const user = await requireSession();
+  const parsed = labelInput.safeParse(input);
+  if (!parsed.success) return { error: "invalid" };
+  const data = parsed.data;
+
+  const before = await db
+    .select()
+    .from(orders)
+    .where(and(eq(orders.companyId, user.companyId), eq(orders.id, orderId)))
+    .limit(1)
+    .then(one);
+  if (!before) return { error: "notFound" };
+  if (before.version !== data.version) return { error: "conflict" };
+
+  // The history shows a block on one line.
+  const oneLine = (v: string) => v.split("\n").join(" / ") || null;
+  const stamp = (v: boolean) => (v ? "on" : "off");
+  const fields = [
+    ["shippingMarks", oneLine(before.shippingMarks), oneLine(data.shippingMarks)],
+    ["labelWarehouse", oneLine(before.labelWarehouse), oneLine(data.labelWarehouse)],
+    ["labelConsignee", oneLine(before.labelConsignee), oneLine(data.labelConsignee)],
+    ["labelCustomsStamp", stamp(before.labelCustomsStamp), stamp(data.labelCustomsStamp)],
+  ] as const;
+  const changes = fields
+    .filter(([, from, to]) => from !== to)
+    .map(([field, from, to]) => ({ field, from, to }));
+  if (changes.length === 0) return { version: before.version };
+
+  const updated = await db
+    .update(orders)
+    .set({
       shippingMarks: data.shippingMarks,
+      labelWarehouse: data.labelWarehouse,
+      labelConsignee: data.labelConsignee,
+      labelCustomsStamp: data.labelCustomsStamp,
       version: before.version + 1,
       updatedBy: user.id,
       updatedAt: new Date().toISOString(),
