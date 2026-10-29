@@ -7,7 +7,7 @@ import { buildPackingListPdf } from "@/lib/export/packing-list-pdf";
 import { getCustomsPackData } from "@/lib/export/customs-pack-data";
 import { buildCustomsPackXlsx } from "@/lib/export/customs-pack-xlsx";
 import { buildCartonLabelsPdf } from "@/lib/export/carton-labels-pdf";
-import { cartonLabels, labelMarks } from "@/lib/carton-labels";
+import { addressLines, cartonLabels, labelMarks } from "@/lib/carton-labels";
 import { routing, type Locale } from "@/i18n/routing";
 import { makeLimiter } from "@/lib/rate-limit";
 
@@ -74,9 +74,24 @@ export async function GET(
     }
     const { pack } = customs;
     const { labels } = cartonLabels(
-      pack.lines.map((l) => ({ nameEn: l.nameEn, nameZh: l.nameZh, quantity: l.quantity, cartons: l.cartons, perCarton: l.perCarton ?? 0 })),
+      pack.lines.map((l) => ({
+        nameEn: l.nameEn,
+        nameZh: l.nameZh,
+        quantity: l.quantity,
+        cartons: l.cartons,
+        perCarton: l.perCarton ?? 0,
+        cartonKg: l.cartonKg,
+        cartonCbm: l.cartonCbm,
+      })),
     );
-    const body = await buildCartonLabelsPdf({ marks: labelMarks(pack.marks, pack.docNo, pack.countryEn), orderNumber: pack.docNo, labels });
+    const body = await buildCartonLabelsPdf({
+      marks: labelMarks(pack.marks, pack.docNo, pack.countryEn),
+      orderNumber: pack.docNo,
+      labels,
+      warehouse: addressLines(customs.labels.warehouse),
+      consignee: addressLines(customs.labels.consignee),
+      customsStamp: customs.labels.customsStamp,
+    });
     const number = (pack.docNo || `order-${orderId}`).trim();
     const ascii = `${number.replace(/[^A-Za-z0-9._-]+/g, "_") || `order-${orderId}`}_carton-labels`;
     const utf8 = encodeURIComponent(`${number} 唛头.pdf`);

@@ -665,6 +665,12 @@ export const orders = pgTable(
     goodsOrigin: text("goods_origin").notNull().default(""),
     /** The marks on the cartons (唛头), one line each; "" prints N/M. */
     shippingMarks: text("shipping_marks").notNull().default(""),
+    /** Carton labels: the forwarder's warehouse in China the goods are delivered to. */
+    labelWarehouse: text("label_warehouse").notNull().default(""),
+    /** Carton labels: the final consignee; "" prints the client's own details. */
+    labelConsignee: text("label_consignee").notNull().default(""),
+    /** Carton labels: the 报关件 stamp, for goods declared under the exporter's own name. */
+    labelCustomsStamp: boolean("label_customs_stamp").notNull().default(true),
     // Optimistic concurrency: every mutation sends the version it read and
     // the UPDATE carries WHERE version = that — two people editing at once
     // produce a visible conflict, never silent last-write-wins.
@@ -759,6 +765,12 @@ export const orderItems = pgTable(
     qtyPerBoxSnapshot: integer("qty_per_box_snapshot").notNull().default(0),
     cartonCbmSnapshot: doublePrecision("carton_cbm_snapshot").notNull().default(0),
     cartonWeightSnapshot: doublePrecision("carton_weight_snapshot").notNull().default(0),
+    /**
+     * The three carton figures above are the factory's own, entered on the
+     * order once the goods were packed (order-packing.ts) — not the quote.
+     * Update-from-catalog leaves a confirmed line's packing alone.
+     */
+    packingConfirmed: boolean("packing_confirmed").notNull().default(false),
     // The currency the SELL price was quoted in, frozen at line creation.
     // The intentional catalog refresh may change the cost currency; it must
     // never relabel what the client was quoted.
@@ -975,6 +987,7 @@ export const orderEvents = pgTable(
         "document_added",
         "document_removed",
         "dossier",
+        "packing",
       ],
     }).notNull(),
     /** JSON payload; shape depends on kind. See src/lib/order-log.ts. */

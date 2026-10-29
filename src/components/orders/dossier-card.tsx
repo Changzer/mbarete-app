@@ -6,7 +6,6 @@ import { useTranslations, useLocale } from "next-intl";
 import { AlertTriangle, CheckCircle2, CircleDashed, Download, FileUp, Sparkles, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -41,7 +40,6 @@ export type DossierMeta = {
   portOfDestination: string;
   destinationCountry: string;
   goodsOrigin: string;
-  shippingMarks: string;
 };
 
 export function DossierCard({
@@ -82,8 +80,7 @@ export function DossierCard({
     form.portOfLoading !== meta.portOfLoading ||
     form.portOfDestination !== meta.portOfDestination ||
     form.destinationCountry !== meta.destinationCountry ||
-    form.goodsOrigin !== meta.goodsOrigin ||
-    form.shippingMarks !== meta.shippingMarks;
+    form.goodsOrigin !== meta.goodsOrigin;
 
   function save() {
     setSaveMsg(null);
@@ -214,19 +211,6 @@ export function DossierCard({
           value={form.goodsOrigin}
           onChange={set("goodsOrigin")}
         />
-        <div className="flex flex-col gap-1.5 md:col-span-2">
-          <Label htmlFor="shippingMarks">{t("shippingMarks")}</Label>
-          <Textarea
-            id="shippingMarks"
-            rows={3}
-            value={form.shippingMarks}
-            placeholder={"BLG-123\nORD-20260907-755343\nPARAGUAY\nMADE IN CHINA"}
-            onChange={(e) => set("shippingMarks")(e.target.value)}
-            className="font-mono text-[12.5px]"
-            data-testid="shippingMarks"
-          />
-          <span className="text-[11px] text-sub">{t("shippingMarksHelp")}</span>
-        </div>
         <div className="flex items-end gap-2">
           <Button type="button" size="sm" onClick={save} disabled={!dirty || saving} data-testid="dossier-save">
             {t("save")}

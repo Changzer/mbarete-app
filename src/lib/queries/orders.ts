@@ -1,6 +1,6 @@
 import { db, one } from "@/db";
 import { orders, orderItems, contacts, exchangeRates, users, orderPayments, orderExpenses, orderDocuments } from "@/db/schema";
-import { eq, and, desc, asc } from "drizzle-orm";
+import { eq, and, desc, asc, ne } from "drizzle-orm";
 
 export async function getExchangeRates(companyId: number) {
   const rows = await db
@@ -89,4 +89,19 @@ export function parseRatesSnapshot(json: string): Record<string, number> | undef
   } catch {
     return undefined;
   }
+}
+
+/**
+ * The forwarder's warehouse the company's most recent other order was
+ * delivered to — the usual answer for the next one.
+ */
+export async function lastLabelWarehouse(companyId: number, exceptOrderId: number): Promise<string> {
+  const row = await db
+    .select({ warehouse: orders.labelWarehouse })
+    .from(orders)
+    .where(and(eq(orders.companyId, companyId), ne(orders.id, exceptOrderId), ne(orders.labelWarehouse, "")))
+    .orderBy(desc(orders.updatedAt))
+    .limit(1)
+    .then(one);
+  return row?.warehouse ?? "";
 }

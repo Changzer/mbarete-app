@@ -23,7 +23,21 @@ export type OrderEventKind =
   | "document_added"
   | "document_removed"
   /** The rebate dossier's header changed: regime, declaration number or dates. */
-  | "dossier";
+  | "dossier"
+  /** Lines' cartons set to the factory's figures, or back to the catalog's. */
+  | "packing";
+
+/** One line's packing before and after, as the "packing" event carries it. */
+export type PackingChange = {
+  sku: string;
+  name: string;
+  /** Back to the catalog's figures rather than the factory's. */
+  reset?: true;
+  perCarton: [number, number];
+  cartonCbm: [number, number];
+  cartonKg: [number, number];
+  cartons: [number, number];
+};
 
 /** One field-level difference inside an "edited" event. */
 export type OrderChange =

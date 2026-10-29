@@ -121,7 +121,7 @@ async function buildOrderItemRows(
   return { rows, hasMoqViolation };
 }
 
-type OrderItemRow = Awaited<ReturnType<typeof buildOrderItemRows>>["rows"][number];
+type OrderItemRow = Awaited<ReturnType<typeof buildOrderItemRows>>["rows"][number] & { packingConfirmed?: boolean };
 type StoredItem = typeof orderItems.$inferSelect;
 
 /**
@@ -181,6 +181,8 @@ async function buildEditedItemRows(
       qtyPerBoxSnapshot: prior.qtyPerBoxSnapshot,
       cartonCbmSnapshot: prior.cartonCbmSnapshot,
       cartonWeightSnapshot: prior.cartonWeightSnapshot,
+      // The factory's figures stay the factory's through an ordinary edit.
+      packingConfirmed: prior.packingConfirmed,
       // The edit re-enters every sell price in the order's quote currency
       // (the builder converted older quotes on load), so it is the line's.
       sellCurrencySnapshot: sellCurrency,
@@ -720,6 +722,18 @@ async function computeCatalogRefresh(companyId: number, orderId: number) {
       cartonCbmSnapshot: product.cbm,
       cartonWeightSnapshot: product.weightKg,
     };
+    // Packing the factory confirmed on the order outranks the catalog's quote:
+    // the line keeps it, and its cartons, volume and weight with it.
+    if (item.packingConfirmed) {
+      Object.assign(fresh, {
+        lineCbm: item.lineCbm,
+        lineWeightKg: item.lineWeightKg,
+        cartonsSnapshot: item.cartonsSnapshot,
+        qtyPerBoxSnapshot: item.qtyPerBoxSnapshot,
+        cartonCbmSnapshot: item.cartonCbmSnapshot,
+        cartonWeightSnapshot: item.cartonWeightSnapshot,
+      });
+    }
 
     const diff: LineRefreshDiff = { sku: product.sku, name: product.nameEn || product.nameZh };
     if (item.unitPriceSnapshot !== fresh.unitPriceSnapshot || item.currencySnapshot !== fresh.currencySnapshot) {

@@ -25,6 +25,10 @@ import { OrderChangelog } from "@/components/orders/order-changelog";
 import { OrderNotesCard } from "@/components/orders/order-notes-card";
 import { ProformaBankSelect } from "@/components/orders/proforma-bank-select";
 import { OrderExportButtons } from "@/components/orders/order-export-buttons";
+import { PackingCard } from "@/components/orders/packing-card";
+import { LabelsCard } from "@/components/orders/labels-card";
+import { orderClientConsignee } from "@/lib/label-details";
+import { lastLabelWarehouse } from "@/lib/queries/orders";
 import { requireUser, requireModulePage, getCompanyModules } from "@/lib/authz";
 import { getSupplierOrigins } from "@/lib/queries/contacts";
 import { mainGoodsOrigin } from "@/lib/customs-pack";
@@ -387,6 +391,44 @@ export default async function OrderDetailPage({
         <p className="mt-4 text-xs text-warn" data-testid="moq-below-note">{t("moqBelowNote")}</p>
       ) : null}
 
+      {/* How the goods are really packed, and what goes on the boxes: the
+          factory's figures feed every document; the labels carry the marks
+          and both addresses. A cancelled order ships nothing. */}
+      {order.status !== "cancelled" ? (
+        <>
+          <PackingCard
+            orderId={order.id}
+            version={order.version}
+            lines={rows.map((r) => ({
+              productId: r.productId,
+              name: r.name,
+              sku: r.sku,
+              quantity: r.quantity,
+              perCarton: r.perCarton,
+              cartonCbm: r.cartonCbm,
+              cartonKg: r.cartonWeightKg,
+              cartons: r.cartons,
+              confirmed: r.packingConfirmed,
+            }))}
+          />
+          <div className="scroll-mt-20" id="labels">
+            <LabelsCard
+              orderId={order.id}
+              details={{
+                version: order.version,
+                shippingMarks: order.shippingMarks,
+                labelWarehouse: order.labelWarehouse,
+                labelConsignee: order.labelConsignee,
+                labelCustomsStamp: order.labelCustomsStamp,
+              }}
+              clientConsignee={orderClientConsignee(order, client)}
+              lastWarehouse={await lastLabelWarehouse(companyId, order.id)}
+              canDownload={order.status === "confirmed" || order.status === "shipped"}
+            />
+          </div>
+        </>
+      ) : null}
+
       {/* The follow-up board's shipment card links here to upload the paperwork. */}
       <div className="mt-4 scroll-mt-20" id="dossier">
         <DossierCard
@@ -403,7 +445,6 @@ export default async function OrderDetailPage({
             portOfDestination: order.portOfDestination,
             destinationCountry: order.destinationCountry,
             goodsOrigin: order.goodsOrigin,
-            shippingMarks: order.shippingMarks,
           }}
           suppliersOrigin={suppliersOrigin}
           otherOrigins={otherOrigins}
