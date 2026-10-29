@@ -38,11 +38,12 @@ async function main() {
     const before = (await target.query("SELECT * FROM order_items WHERE order_id=$1", [order])).rows[0];
     await migrate(drizzle(target), { migrationsFolder: "drizzle" });
     const after = (await target.query("SELECT * FROM order_items WHERE order_id=$1", [order])).rows[0];
-    const { supplier_id_snapshot, supplier_name_en_snapshot, supplier_name_zh_snapshot, ...originalFields } = after;
+    const { supplier_id_snapshot, supplier_name_en_snapshot, supplier_name_zh_snapshot, packing_confirmed, ...originalFields } = after;
     assert.deepEqual(originalFields, before, "upgrade preserves every historical field");
     assert.equal(supplier_id_snapshot, null, "today's supplier is not fabricated history");
     assert.equal(supplier_name_en_snapshot, "");
     assert.equal(supplier_name_zh_snapshot, "");
+    assert.equal(packing_confirmed, false, "historical packing stays the quoted figures, not claimed as the factory's");
     await migrate(drizzle(target), { migrationsFolder: "drizzle" });
     assert.equal((await target.query('SELECT count(*)::int AS n FROM drizzle."__drizzle_migrations"')).rows[0].n, journal.entries.length, "repeat migration is a no-op");
     assert.equal((await target.query("SELECT relrowsecurity FROM pg_class WHERE relname='order_items'")).rows[0].relrowsecurity, true, "existing RLS remains enabled");
