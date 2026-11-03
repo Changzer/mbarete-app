@@ -58,6 +58,25 @@ public server. What holds, what was fixed, and what the operator must do.
 - AI transcription gained the per-user cost brake above.
 - HSTS added.
 
+## Injection review follow-up (2026-11-03)
+
+- **CSV formula injection is neutralized**: the shared CSV writer prefixes
+  formula-leading text (including leading whitespace) with Excel's text marker;
+  numeric values, including negative numbers, keep their numeric representation.
+  XLSX writers were separately verified to store such input as strings.
+- **Vision input is explicitly untrusted**: product and card prompts forbid
+  following instructions found in photos or catalog data. Category lists are
+  serialized as JSON instead of instruction-like text lines, and a local
+  adversarial-provider regression test inspects the actual outbound requests.
+- **AI category proposals are review-only**: a photo read can match an existing
+  category but never inserts one. A browser end-to-end test proves the category
+  count is unchanged after a live read that proposes a new category.
+
+The active review also found no SQL wildcard/injection bypass, stored or
+reflected XSS execution, cross-tenant file/record access, or upload traversal
+in the tested paths. External model behavior remains a residual risk; the
+OpenClaw confirmation and least-privilege rules stay mandatory.
+
 ## Accepted trade-offs (known, deliberate)
 
 - Signup says "email taken" — an enumeration vector, kept for UX. The signup

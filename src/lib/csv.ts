@@ -2,11 +2,13 @@
  * The one CSV writer. Extracted from the backup route so the accountant
  * pack and the backup speak identical CSV: CRLF line ends (Excel on the
  * accountant's Windows machine is the reader), quoted only when a value
- * needs it, objects as JSON.
+ * needs it, objects as JSON. Formula-leading TEXT gets Excel's apostrophe
+ * marker: CSV quoting alone still lets a supplier's note run as a formula.
  */
 export function csvCell(value: unknown): string {
   if (value === null || value === undefined) return "";
-  const s = typeof value === "object" ? JSON.stringify(value) : String(value);
+  const raw = typeof value === "object" ? JSON.stringify(value) : String(value);
+  const s = typeof value === "string" && /^\s*[=+\-@]/.test(raw) ? `'${raw}` : raw;
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 

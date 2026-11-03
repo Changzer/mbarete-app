@@ -18,7 +18,7 @@ import {
 } from "../src/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { runWithTenant } from "../src/db/tenant-context";
-import { periodCloses, adminEvents, captureVisits, shippingRates } from "../src/db/schema";
+import { periodCloses, adminEvents, aiUsage, captureVisits, shippingRates } from "../src/db/schema";
 import { listPeriodCloses } from "../src/lib/queries/accountant";
 import { getProducts, getProductById, getCategories } from "../src/lib/queries/catalog";
 import { getContactsByType, getContactById } from "../src/lib/queries/contacts";
@@ -350,6 +350,26 @@ async function main() {
         categoryId: B.category.id,
         price: 1,
         createdBy: A.user.id,
+      }),
+    );
+    await expectFkViolation("FK rejects AI usage attributed to A's user", () =>
+      db.insert(aiUsage).values({
+        companyId: B.company.id,
+        userId: A.user.id,
+        kind: "product",
+        provider: "probe",
+        model: "probe",
+        images: 1,
+        inputTokens: 1,
+        outputTokens: 1,
+      }),
+    );
+    await expectFkViolation("FK rejects an admin event targeting A's user", () =>
+      db.insert(adminEvents).values({
+        companyId: B.company.id,
+        actorUserId: B.user.id,
+        action: "user-updated",
+        targetUserId: A.user.id,
       }),
     );
 
