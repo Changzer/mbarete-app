@@ -111,14 +111,6 @@ export function ProductForm({
         ? String(fallbackCategory.id)
         : "",
   );
-  // Categories the AI created during this registration, deduped against the
-  // server list: the create action's re-render delivers them too.
-  const [createdCategories, setCreatedCategories] = useState<Category[]>([]);
-  const allCategories = [
-    ...categories,
-    ...createdCategories.filter((c) => !categories.some((p) => p.id === c.id)),
-  ];
-
   const formRef = useRef<HTMLFormElement>(null);
   // What the category started as, so a suggestion never overrides a manual pick.
   const initialCategoryId = useRef(categoryId);
@@ -155,7 +147,7 @@ export function ProductForm({
    * then the fields held in state by the same "only if untouched" rule —
    * unless the agent pressed the button and so asked for the reading.
    */
-  function applyReading(fields: TranscribedFields, justCreated: Category | undefined, overwrite: boolean) {
+  function applyReading(fields: TranscribedFields, overwrite: boolean) {
     const form = formRef.current;
     if (!form) return;
     writeReading(form, fields, overwrite);
@@ -176,15 +168,10 @@ export function ProductForm({
         overwrite || prev === "" || prev === "1" ? String(fields.qtyPerBox) : prev,
       );
     }
-    // `justCreated` is passed explicitly because setCreatedCategories has not
-    // re-rendered yet when this runs: `allCategories` is still the array from
-    // the render that started the request, so a brand-new category would fail
-    // the check and the select would keep its old value.
-    const selectable = justCreated ? [...allCategories, justCreated] : allCategories;
     if (
       !lockCategory &&
       fields.categoryId !== undefined &&
-      selectable.some((c) => c.id === fields.categoryId)
+      categories.some((c) => c.id === fields.categoryId)
     ) {
       setCategoryId((prev) =>
         overwrite || prev === initialCategoryId.current ? String(fields.categoryId) : prev,
@@ -198,8 +185,6 @@ export function ProductForm({
     offline: Boolean(outbox?.offline),
     defaults: { thumbPath: defaultValues?.thumbPath, aiNotes: defaultValues?.aiNotes, boardText: defaultValues?.boardText },
     onReading: applyReading,
-    onCategoryCreated: (created) =>
-      setCreatedCategories((prev) => (prev.some((c) => c.id === created.id) ? prev : [...prev, created])),
     onDutySuggestions: setSuggestedDuties,
   });
 
@@ -382,7 +367,7 @@ export function ProductForm({
         returnQuery={returnQuery}
         boardText={reading.boardText}
         aiNotes={reading.notes}
-        categories={allCategories}
+        categories={categories}
         categoryId={categoryId}
         onCategoryChange={setCategoryId}
       />

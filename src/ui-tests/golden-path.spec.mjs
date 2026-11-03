@@ -435,3 +435,36 @@ test("pending and suspended companies are refused at the API boundary", async ()
     await browser.close();
   }
 });
+
+test("an AI category proposal is review-only", async () => {
+  const browser = await launch();
+  const sql = new pg.Client({ connectionString: process.env.DATABASE_ADMIN_URL });
+  await sql.connect();
+  try {
+    const { context, page } = await signedIn(browser);
+    const account = await sql.query("SELECT company_id FROM users WHERE email = $1", [EMAIL]);
+    const companyId = account.rows[0].company_id;
+    const categoryCount = async () => Number(
+      (await sql.query("SELECT count(*) FROM categories WHERE company_id = $1", [companyId])).rows[0].count,
+    );
+    const before = await categoryCount();
+
+    await page.goto(`${BASE}/en/catalog/new`);
+    await page.locator('input[accept="image/*"][multiple]').setInputFiles({
+      name: "booth.png",
+      mimeType: "image/png",
+      buffer: PHOTO,
+    });
+    await page.waitForFunction(
+      (name) => document.querySelector('input[name="nameEn"]')?.value === name,
+      STUB.name,
+      { timeout: 15_000 },
+    );
+
+    assert.equal(await categoryCount(), before, "the photo read must not insert a category");
+    await context.close();
+  } finally {
+    await sql.end();
+    await browser.close();
+  }
+});

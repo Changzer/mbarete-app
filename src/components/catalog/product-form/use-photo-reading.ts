@@ -1,6 +1,6 @@
 import { useRef, useState, type RefObject } from "react";
 import type { TranscribeResult, TranscribedFields } from "@/lib/transcribe-product";
-import type { Category, ExistingImage, AiError, NcmError, DutySuggestions } from "./shared";
+import type { ExistingImage, AiError, NcmError, DutySuggestions } from "./shared";
 
 /**
  * Reading the product off its photos: the automatic read when photos are
@@ -17,7 +17,6 @@ export function usePhotoReading({
   offline,
   defaults,
   onReading,
-  onCategoryCreated,
   onDutySuggestions,
 }: {
   transcribe?: (formData: FormData) => Promise<TranscribeResult>;
@@ -26,8 +25,7 @@ export function usePhotoReading({
   /** The outbox knows the server is unreachable even on a wi-fi that claims otherwise. */
   offline: boolean;
   defaults: { thumbPath?: string; aiNotes?: string; boardText?: string };
-  onReading: (fields: TranscribedFields, justCreated: Category | undefined, overwrite: boolean) => void;
-  onCategoryCreated: (category: Category) => void;
+  onReading: (fields: TranscribedFields, overwrite: boolean) => void;
   onDutySuggestions: (duties: DutySuggestions) => void;
 }) {
   // The cropped product shot the AI pass produced. Posted with the save; the
@@ -86,10 +84,8 @@ export function usePhotoReading({
       const result = await transcribe(data);
       if (current !== run.current) return; // superseded by a newer run
       if (result.ok) {
-        // Must be in the list before the select can show it.
-        if (result.newCategory) onCategoryCreated(result.newCategory);
         setFilled(true);
-        onReading(result.fields, result.newCategory, !auto);
+        onReading(result.fields, !auto);
         if (result.thumbPath) setThumbPath(result.thumbPath);
         setNotes(result.notes);
         setBoardText(result.boardText);

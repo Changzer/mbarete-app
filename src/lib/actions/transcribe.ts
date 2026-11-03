@@ -3,7 +3,6 @@
 import { requireUser } from "@/lib/authz";
 import { reserveAiRead } from "@/lib/ai-budget";
 import { db } from "@/db";
-import { categories as categoriesTable } from "@/db/schema";
 import { getCategories } from "@/lib/queries/catalog";
 import { recordError } from "@/lib/monitoring";
 import { recordAiUsage } from "@/lib/ai-usage";
@@ -136,11 +135,8 @@ export async function transcribeProduct(formData: FormData): Promise<TranscribeR
     return { ok: false, error: "failed" };
   }
 
-  // The model proposed a category the list was missing. Match it against the
-  // existing names first (case-insensitive, either language) so re-scans never
-  // multiply categories; create it only when genuinely new. Creating a
-  // category is the one write transcription makes — it is cheap, visible on
-  // the categories page, and deletable there.
+  // A proposal can match an existing category by name, but a photo read never
+  // creates one. New categories require a person's reviewed action.
   if (result.ok && result.fields.categoryId === undefined && result.proposedCategory) {
     const proposal = result.proposedCategory;
     const existing = categories.find(
@@ -148,16 +144,7 @@ export async function transcribeProduct(formData: FormData): Promise<TranscribeR
         c.nameEn.trim().toLowerCase() === proposal.nameEn.toLowerCase() ||
         c.nameZh.trim() === proposal.nameZh,
     );
-    if (existing) {
-      result.fields.categoryId = existing.id;
-    } else {
-      const [inserted] = await db
-        .insert(categoriesTable)
-        .values({ companyId: user.companyId, nameEn: proposal.nameEn, nameZh: proposal.nameZh })
-        .returning({ id: categoriesTable.id });
-      result.fields.categoryId = inserted.id;
-      result.newCategory = { id: inserted.id, nameEn: proposal.nameEn, nameZh: proposal.nameZh };
-    }
+    if (existing) result.fields.categoryId = existing.id;
   }
 
   // The model located the main product in one of the photos: crop it out and

@@ -1108,7 +1108,9 @@ export const aiUsage = pgTable(
   "ai_usage",
   {
     id: serial("id").primaryKey(),
-    companyId: integer("company_id").notNull(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
     userId: integer("user_id"),
     /** "product" or "card" — the two transcription flows. */
     kind: text("kind").notNull(),
@@ -1119,7 +1121,14 @@ export const aiUsage = pgTable(
     outputTokens: integer("output_tokens").notNull(),
     createdAt: text("created_at").notNull().default(utcNow),
   },
-  (table) => [index("ai_usage_company_idx").on(table.companyId, table.createdAt)],
+  (table) => [
+    index("ai_usage_company_idx").on(table.companyId, table.createdAt),
+    foreignKey({
+      columns: [table.companyId, table.userId],
+      foreignColumns: [users.companyId, users.id],
+      name: "ai_usage_company_user_fk",
+    }),
+  ],
 );
 
 /**
@@ -1452,14 +1461,28 @@ export const adminEvents = pgTable(
   "admin_events",
   {
     id: serial("id").primaryKey(),
-    companyId: integer("company_id").notNull(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id),
     actorUserId: integer("actor_user_id").notNull(),
     action: text("action").notNull(),
     targetUserId: integer("target_user_id"),
     detail: text("detail").notNull().default(""),
     createdAt: text("created_at").notNull().default(utcNow),
   },
-  (table) => [index("admin_events_company_idx").on(table.companyId, table.id)],
+  (table) => [
+    index("admin_events_company_idx").on(table.companyId, table.id),
+    foreignKey({
+      columns: [table.companyId, table.actorUserId],
+      foreignColumns: [users.companyId, users.id],
+      name: "admin_events_company_actor_fk",
+    }),
+    foreignKey({
+      columns: [table.companyId, table.targetUserId],
+      foreignColumns: [users.companyId, users.id],
+      name: "admin_events_company_target_fk",
+    }),
+  ],
 );
 
 export const platformEvents = pgTable(
