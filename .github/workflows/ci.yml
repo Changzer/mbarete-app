@@ -194,6 +194,12 @@ jobs:
         if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
         env:
           UPLOADS_DIR: ${{ runner.temp }}/uploads
+      # Bulk AI sorting: clear customs/invoice documents land on the right
+      # checklist rows with their fapiao metadata; an unknown file stays out.
+      - run: npm run test:dossier-sort
+        if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
+        env:
+          UPLOADS_DIR: ${{ runner.temp }}/uploads
       - name: Upload supplier VAT screenshots
         if: always()
         uses: actions/upload-artifact@v4

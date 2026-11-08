@@ -51,6 +51,7 @@ export async function storeDossierDocument(
   kind: string,
   fapiaoType: string | null,
   file: File,
+  source: "manual" | "ai" = "manual",
 ): Promise<StoreResult> {
   const item = dossierItem(kind);
   if (!item || !(file instanceof File) || file.size === 0) return { error: "invalid" };
@@ -93,7 +94,7 @@ export async function storeDossierDocument(
       });
       await tx.insert(orderEvents).values({
         companyId: user.companyId, orderId, userId: user.id, kind: "document_added",
-        payload: JSON.stringify({ kind, fapiaoType: fapiao, name: file.name || "document" }),
+        payload: JSON.stringify({ kind, fapiaoType: fapiao, name: file.name || "document", source }),
       });
     });
   } catch (error) {
