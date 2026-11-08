@@ -76,6 +76,16 @@ Header fields stored on the order: regime, 报关单号 (18 digits), 外销合�
 - **Uploads** land in `order_documents` with the item's `kind`; the input
   invoice also carries `fapiao_type`. Videos go through
   `POST /api/orders/:id/dossier-video` because of their size.
+- **AI sorting**: with either provider configured, the batch picker accepts up
+  to ten documents (100 MB total). Images use the provider's vision API. With
+  Moonshot, PDF/Word/Excel files use file-extract; with Anthropic, PDFs use
+  Claude's native PDF input and DOCX/Excel text is extracted locally first.
+  Only high-confidence catalog matches are stored; a supplier invoice also
+  needs a recognized fapiao type. Unknown or mixed documents stay out.
+  Temporary remote files are deleted after use, and AI-filed rows carry
+  `source: "ai"` in the order history. Classification never chooses the tax
+  regime or decides that the dossier is legally complete; the existing
+  checklist rules still make that calculation from the stored documents.
 - **Export**: `GET /api/export/dossier?order=<id>` (admin, finance module,
   10 per hour). The zip's root folder is the 报关单号 (else `order_<number>`):
 

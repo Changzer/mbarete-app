@@ -11,6 +11,7 @@ import { groupBySupplier } from "@/lib/order-groups";
 import { compareNames } from "@/lib/name-order";
 import { computeDossierStatus, DOSSIER_KINDS, type TaxRegime } from "@/lib/dossier";
 import { DossierCard } from "@/components/orders/dossier-card";
+import { visionProvider } from "@/lib/vision";
 import { DOSSIER_VIDEO_MAX_MB } from "@/lib/uploads";
 import { pickReportCurrency, resolveFunctionalCurrency } from "@/lib/functional-currency";
 import { Badge } from "@/components/ui/badge";
@@ -451,6 +452,7 @@ export default async function OrderDetailPage({
           status={dossierStatus}
           financeOn={!!modules.finance}
           videoMaxMb={DOSSIER_VIDEO_MAX_MB}
+          aiSort={visionProvider() !== null}
         />
       </div>
 

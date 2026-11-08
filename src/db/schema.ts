@@ -1112,7 +1112,7 @@ export const aiUsage = pgTable(
       .notNull()
       .references(() => companies.id),
     userId: integer("user_id"),
-    /** "product" or "card" — the two transcription flows. */
+    /** Product/card transcription or dossier document classification. */
     kind: text("kind").notNull(),
     provider: text("provider").notNull(),
     model: text("model").notNull(),

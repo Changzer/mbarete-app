@@ -60,21 +60,83 @@ export const STUB_CARD = {
   notes: "WeChat QR on card back",
 };
 
+let extractedDocument = "";
+
 const server = http.createServer((req, res) => {
-  if (req.method !== "POST" || !req.url?.endsWith("/chat/completions")) {
-    res.writeHead(404).end();
-    return;
-  }
-  // Buffer the body — the pipeline sends megabytes of base64 photos and a
-  // response before the request finishes reads as a broken socket to fetch.
-  // Only the user text is looked at: a business-card request (the contact
-  // form, a contact capture, "identify supplier from a photo") gets the
-  // card reading, everything else the product one.
   const chunks = [];
   req.on("data", (c) => chunks.push(c));
   req.on("end", () => {
     const text = Buffer.concat(chunks).toString("utf8");
-    const reading = text.includes("business card") ? STUB_CARD : STUB_READING;
+    if (req.method === "POST" && req.url === "/v1/files?beta=true") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        id: "anthropic-stub-file",
+        created_at: "2026-01-01T00:00:00Z",
+        filename: "document.pdf",
+        mime_type: "application/pdf",
+        size_bytes: 100,
+        type: "file",
+      }));
+      return;
+    }
+    if (req.method === "POST" && req.url === "/v1/messages") {
+      const reading = { kind: "customs_declaration", fapiaoType: null, confidence: "high", reason: "Customs declaration" };
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        id: "msg-stub",
+        type: "message",
+        role: "assistant",
+        model: "claude-opus-5",
+        content: [{ type: "text", text: JSON.stringify(reading) }],
+        stop_reason: "end_turn",
+        stop_sequence: null,
+        usage: { input_tokens: 20, output_tokens: 10 },
+      }));
+      return;
+    }
+    if (req.method === "DELETE" && req.url === "/v1/files/anthropic-stub-file?beta=true") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ id: "anthropic-stub-file", type: "file_deleted" }));
+      return;
+    }
+    if (req.method === "POST" && req.url === "/files") {
+      const name = /filename="([^"]+)"/.exec(text)?.[1] ?? "";
+      extractedDocument = name.includes("customs")
+        ? "中华人民共和国海关出口货物报关单\nCUSTOMS DECLARATION"
+        : name.includes("invoice")
+          ? "增值税专用发票\n税率 3%\nVAT SPECIAL INVOICE"
+          : "An unrelated note with no export document structure";
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ id: "dossier-stub-file" }));
+      return;
+    }
+    if (req.method === "GET" && req.url === "/files/dossier-stub-file/content") {
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end(extractedDocument);
+      return;
+    }
+    if (req.method === "DELETE" && req.url === "/files/dossier-stub-file") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end("{}");
+      return;
+    }
+    if (req.method !== "POST" || !req.url?.endsWith("/chat/completions")) {
+      res.writeHead(404).end();
+      return;
+    }
+    // Buffering above lets megabytes of base64 photos arrive before the answer.
+    // A dossier request classifies the extracted text; the older product/card
+    // paths keep their original fixed readings.
+    const body = JSON.parse(text);
+    const system = body.messages?.[0]?.content ?? "";
+    const documentText = body.messages?.[1]?.content ?? "";
+    const reading = system.includes("fixed export-dossier catalog")
+      ? documentText.includes("出口货物报关单")
+        ? { kind: "customs_declaration", fapiaoType: null, confidence: "high", reason: "Customs declaration title and fields" }
+        : documentText.includes("增值税专用发票")
+          ? { kind: "supplier_invoice", fapiaoType: "special_3", confidence: "high", reason: "3% VAT special invoice" }
+          : { kind: null, fapiaoType: null, confidence: "low", reason: "No recognizable dossier structure" }
+      : text.includes("business card") ? STUB_CARD : STUB_READING;
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(
       JSON.stringify({
