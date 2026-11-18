@@ -74,9 +74,10 @@ no personal data leaves for it).
 - Person-level export + narrowed purge — before public signup.
 - Consent re-prompt on policy version change — before public signup.
 - SMS real-name verification — at mainland public launch.
-- ICP / 公安 filings themselves (the footer slots exist: `ICP_BEIAN`,
-  `GONGAN_BEIAN`) — at mainland deployment; filing requires the mainland
-  host and domain.
+- ICP filing is complete: 浙ICP备2026100480号 (approved 2026-11-18). The
+  mainland footer uses it by default; `ICP_BEIAN` remains an override.
+- 公安备案 filing (the `GONGAN_BEIAN` footer slot) — if required for the
+  mainland host and domain.
 - 大模型 filing questions for the serving model — at mainland launch,
   with counsel.
 
