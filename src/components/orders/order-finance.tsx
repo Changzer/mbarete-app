@@ -2,9 +2,11 @@
 
 import { useActionState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import { useIsAdmin } from "@/components/role-provider";
 import {
   addPayment,
+  assignPaymentSupplier,
   deletePayment,
   addExpense,
   deleteExpense,
@@ -12,6 +14,8 @@ import {
   deleteOrderDocument,
   type FinanceActionResult,
 } from "@/lib/actions/finance";
+import { SupplierPaymentBalances } from "@/components/orders/supplier-payment-balances";
+import type { SupplierBalance } from "@/lib/supplier-balances";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,9 +29,12 @@ import {
 import { useState } from "react";
 import { Paperclip } from "lucide-react";
 
+export type SupplierOption = { id: number; name: string };
+
 export type PaymentRow = {
   id: number;
   direction: "in" | "out";
+  supplierId: number | null;
   amount: number;
   currency: string;
   paidOn: string;
@@ -99,6 +106,8 @@ function useErrorText() {
         return t("badFile");
       case "storageFull":
         return t("storageFull");
+      case "invalidSupplier":
+        return t("invalidSupplier");
       default:
         return t("invalid");
     }
@@ -207,10 +216,12 @@ function PaymentForm({
   orderId,
   direction,
   defaultCurrency,
+  suppliers,
 }: {
   orderId: number;
   direction: "in" | "out";
   defaultCurrency: string;
+  suppliers: SupplierOption[];
 }) {
   const t = useTranslations("finance");
   const errorText = useErrorText();
@@ -231,6 +242,23 @@ function PaymentForm({
       data-testid={`payment-form-${direction}`}
     >
       <input type="hidden" name="direction" value={direction} />
+      {direction === "out" && suppliers.length > 0 ? (
+        <div className="flex min-w-48 flex-col gap-1">
+          <Label className="text-xs">{t("supplier")}</Label>
+          <select
+            name="supplierId"
+            required
+            defaultValue={suppliers.length === 1 ? String(suppliers[0].id) : ""}
+            className="flex h-9 rounded-md border border-line bg-surface px-2 text-sm"
+            data-testid="payment-supplier"
+          >
+            <option value="" disabled>{t("selectSupplier")}</option>
+            {suppliers.map((supplier) => (
+              <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
+            ))}
+          </select>
+        </div>
+      ) : null}
       <div className="flex flex-col gap-1">
         <Label className="text-xs">{t("amount")}</Label>
         <Input
@@ -282,46 +310,81 @@ function PaymentForm({
 function PaymentList({
   orderId,
   rows,
+  suppliers,
 }: {
   orderId: number;
   rows: PaymentRow[];
+  suppliers: SupplierOption[];
 }) {
   const isAdmin = useIsAdmin();
   const t = useTranslations("finance");
+  const errorText = useErrorText();
+  const router = useRouter();
+  const [pending, setPending] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
   if (rows.length === 0) {
     return <p className="text-xs text-sub">{t("none")}</p>;
   }
   return (
-    <ul className="flex flex-col divide-y divide-line">
-      {rows.map((p) => (
-        // flex-wrap + a bounded account chip: on a phone the chip's free-text
-        // bank name otherwise pushes Remove off the card.
-        <li key={p.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-1.5 text-sm">
-          <span className="w-24 shrink-0 text-sub">{p.paidOn}</span>
-          <span className="font-medium text-ink">
-            {money(p.amount)} {p.currency}
-          </span>
-          {p.account ? (
-            <span className="max-w-40 shrink-0 truncate rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-sub">
-              {p.account}
-            </span>
-          ) : null}
-          <span className="min-w-0 flex-1 truncate text-sub">
-            {p.note}
-          </span>
-          {p.receiptPath ? <ReceiptLink path={p.receiptPath} name={p.receiptName} /> : null}
-          {isAdmin ? (
-            <button
-              type="button"
-              onClick={() => deletePayment(orderId, p.id)}
-              className="text-xs text-faint hover:text-danger"
-            >
-              {t("remove")}
-            </button>
-          ) : null}
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul className="flex flex-col divide-y divide-line">
+        {rows.map((p) => {
+          const supplier = p.supplierId === null ? undefined : suppliers.find((s) => s.id === p.supplierId);
+          return (
+            <li key={p.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-1.5 text-sm">
+              <span className="w-24 shrink-0 text-sub">{p.paidOn}</span>
+              <span className="font-medium text-ink">
+                {money(p.amount)} {p.currency}
+              </span>
+              {p.direction === "out" && supplier ? (
+                <span className="max-w-40 truncate rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-sub">
+                  {supplier.name}
+                </span>
+              ) : null}
+              {p.direction === "out" && p.supplierId === null && suppliers.length > 0 ? (
+                <select
+                  value=""
+                  disabled={pending === p.id}
+                  aria-label={t("assignSupplier")}
+                  data-testid={`payment-assign-${p.id}`}
+                  onChange={async (event) => {
+                    setError(null);
+                    setPending(p.id);
+                    const result = await assignPaymentSupplier(orderId, p.id, Number(event.target.value));
+                    if (result.error) setError(result.error);
+                    else router.refresh();
+                    setPending(null);
+                  }}
+                  className="max-w-40 rounded-md border border-warn bg-surface px-1 py-1 text-[11px] text-warn"
+                >
+                  <option value="" disabled>{t("assignSupplier")}</option>
+                  {suppliers.map((option) => (
+                    <option key={option.id} value={option.id}>{option.name}</option>
+                  ))}
+                </select>
+              ) : null}
+              {p.account ? (
+                <span className="max-w-40 shrink-0 truncate rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-sub">
+                  {p.account}
+                </span>
+              ) : null}
+              <span className="min-w-0 flex-1 truncate text-sub">{p.note}</span>
+              {p.receiptPath ? <ReceiptLink path={p.receiptPath} name={p.receiptName} /> : null}
+              {isAdmin ? (
+                <button
+                  type="button"
+                  onClick={() => deletePayment(orderId, p.id)}
+                  className="text-xs text-faint hover:text-danger"
+                >
+                  {t("remove")}
+                </button>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+      {error ? <p className="mt-2 text-xs text-danger">{errorText(error)}</p> : null}
+    </>
   );
 }
 
@@ -581,12 +644,16 @@ export function OrderFinance({
   supplierCurrency,
   payments,
   expenses,
+  suppliers,
+  balances,
 }: {
   orderId: number;
   quoteCurrency: string;
   supplierCurrency: string;
   payments: PaymentRow[];
   expenses: ExpenseRow[];
+  suppliers: SupplierOption[];
+  balances: SupplierBalance[];
 }) {
   const t = useTranslations("finance");
   const paymentsIn = payments.filter((p) => p.direction === "in");
@@ -598,20 +665,21 @@ export function OrderFinance({
 
   return (
     <div className="flex flex-col gap-4">
+      <SupplierPaymentBalances balances={balances} />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className={box} data-testid="section-payments-in">
           <h2 className={heading}>{t("paymentsIn")}</h2>
           <div className="flex flex-col gap-3">
             <p className="text-xs text-sub">{t("gatewayHint")}</p>
-            <PaymentForm orderId={orderId} direction="in" defaultCurrency={quoteCurrency} />
-            <PaymentList orderId={orderId} rows={paymentsIn} />
+            <PaymentForm orderId={orderId} direction="in" defaultCurrency={quoteCurrency} suppliers={[]} />
+            <PaymentList orderId={orderId} rows={paymentsIn} suppliers={[]} />
           </div>
         </div>
         <div className={box} data-testid="section-payments-out">
           <h2 className={heading}>{t("paymentsOut")}</h2>
           <div className="flex flex-col gap-3">
-            <PaymentForm orderId={orderId} direction="out" defaultCurrency={supplierCurrency} />
-            <PaymentList orderId={orderId} rows={paymentsOut} />
+            <PaymentForm orderId={orderId} direction="out" defaultCurrency={supplierCurrency} suppliers={suppliers} />
+            <PaymentList orderId={orderId} rows={paymentsOut} suppliers={suppliers} />
           </div>
         </div>
       </div>

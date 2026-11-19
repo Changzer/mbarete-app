@@ -7,6 +7,7 @@ import { getUserNames } from "@/lib/queries/users";
 import { getBankAccounts, getCompanyProfile } from "@/lib/queries/settings";
 import type { Locale } from "@/i18n/routing";
 import { computeOrderFinanceView, formatCbm } from "@/lib/calculations";
+import { computeSupplierBalances } from "@/lib/supplier-balances";
 import { groupBySupplier } from "@/lib/order-groups";
 import { compareNames } from "@/lib/name-order";
 import { computeDossierStatus, DOSSIER_KINDS, type TaxRegime } from "@/lib/dossier";
@@ -130,6 +131,29 @@ export default async function OrderDetailPage({
     },
     { quote, supplier: supplierCurrency, result: resultCurrency },
     effectiveRates,
+  );
+  const supplierOptions = [...new Map(
+    rows
+      .filter((row) => row.supplierId !== null && row.supplierName)
+      .map((row) => [row.supplierId, { id: row.supplierId as number, name: row.supplierName as string }]),
+  ).values()];
+  const supplierBalances = computeSupplierBalances(
+    rows.map((row) => ({
+      supplierId: row.supplierId,
+      supplierName: row.supplierName,
+      lineTotal: row.lineTotal,
+      currency: row.currencySnapshot,
+    })),
+    finance.payments
+      .filter((payment) => payment.direction === "out")
+      .map((payment) => ({
+        supplierId: payment.supplierId,
+        amount: payment.amount,
+        currency: payment.currency,
+        rates: parseRatesSnapshot(payment.ratesSnapshot),
+      })),
+    effectiveRates,
+    Object.fromEntries(supplierOptions.map((supplier) => [supplier.id, supplier.name])),
   );
   const resultCurrencies = Object.keys(effectiveRates).sort();
 
@@ -462,6 +486,8 @@ export default async function OrderDetailPage({
           supplierCurrency={supplierCurrency}
           payments={finance.payments}
           expenses={finance.expenses}
+          suppliers={supplierOptions}
+          balances={supplierBalances}
         />
       </div>
 

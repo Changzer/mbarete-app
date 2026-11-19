@@ -68,6 +68,7 @@ jobs:
       - run: npm run db:migrate
       - run: npm run test:vat-migration
       - run: npm run test:supplier-migration
+      - run: npm run test:supplier-payment-migration
       - run: npm run check:isolation
 
       # Entitlements only bind in SaaS mode; everything else in this job runs
@@ -117,6 +118,10 @@ jobs:
       - run: npm run test:vat
         if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
       - run: npm run test:order-status
+        if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
+      # Mixed-order supplier payments: historical assignment, new allocations,
+      # and each supplier's own outstanding/overpaid balance.
+      - run: npm run test:supplier-payments
         if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
       - name: Upload order status screenshots
         if: always()
