@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db, one } from "@/db";
-import { orders, orderPayments, orderExpenses, orderDocuments } from "@/db/schema";
+import { orders, orderItems, orderPayments, orderExpenses, orderDocuments } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { requireUser, requireAdmin, requireModuleAction, type SessionUser } from "@/lib/authz";
 import {
@@ -79,12 +79,33 @@ async function readReceipt(
 
 const paymentSchema = z.object({
   direction: z.enum(["in", "out"]),
+  supplierId: z.preprocess(
+    (value) => value === "" || value === undefined ? null : value,
+    z.coerce.number().int().positive().nullable(),
+  ).default(null),
   amount: z.coerce.number().positive(),
   currency: z.string().trim().min(1).max(8).transform((s) => s.toUpperCase()),
   paidOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   account: z.string().trim().max(32).default(""),
   note: z.string().default(""),
 });
+
+async function supplierOnOrder(companyId: number, orderId: number, supplierId: number) {
+  return db
+    .select({
+      id: orderItems.supplierIdSnapshot,
+      nameEn: orderItems.supplierNameEnSnapshot,
+      nameZh: orderItems.supplierNameZhSnapshot,
+    })
+    .from(orderItems)
+    .where(and(
+      eq(orderItems.companyId, companyId),
+      eq(orderItems.orderId, orderId),
+      eq(orderItems.supplierIdSnapshot, supplierId),
+    ))
+    .limit(1)
+    .then(one);
+}
 
 export async function addPayment(
   orderId: number,
@@ -96,6 +117,11 @@ export async function addPayment(
 
   const parsed = paymentSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "invalid" };
+  if (parsed.data.direction === "in") parsed.data.supplierId = null;
+  if (parsed.data.supplierId !== null &&
+      !(await supplierOnOrder(user.companyId, orderId, parsed.data.supplierId))) {
+    return { error: "invalidSupplier" };
+  }
 
   const receipt = await readReceipt(user.companyId, formData);
   if ("error" in receipt) return { error: receipt.error };
@@ -108,6 +134,40 @@ export async function addPayment(
     .insert(orderPayments)
     .values({ companyId: user.companyId, orderId, createdBy: user.id, ratesSnapshot, ...receipt, ...parsed.data });
   await logOrderEvent(orderId, user.id, "payment_added", parsed.data);
+  refresh(orderId);
+  return {};
+}
+
+export async function assignPaymentSupplier(
+  orderId: number,
+  paymentId: number,
+  supplierId: number | null,
+): Promise<FinanceActionResult> {
+  const user = await requireSession();
+  await requireOrder(user, orderId);
+  const row = await db
+    .select()
+    .from(orderPayments)
+    .where(and(
+      eq(orderPayments.companyId, user.companyId),
+      eq(orderPayments.orderId, orderId),
+      eq(orderPayments.id, paymentId),
+    ))
+    .limit(1)
+    .then(one);
+  if (!row || row.direction !== "out") return { error: "notFound" };
+  const supplier = supplierId === null ? null : await supplierOnOrder(user.companyId, orderId, supplierId);
+  if (supplierId !== null && !supplier) return { error: "invalidSupplier" };
+
+  await db
+    .update(orderPayments)
+    .set({ supplierId })
+    .where(and(eq(orderPayments.companyId, user.companyId), eq(orderPayments.id, paymentId)));
+  await logOrderEvent(orderId, user.id, "payment_allocated", {
+    amount: row.amount,
+    currency: row.currency,
+    supplier: supplier ? supplier.nameEn || supplier.nameZh : null,
+  });
   refresh(orderId);
   return {};
 }

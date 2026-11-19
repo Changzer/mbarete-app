@@ -88,6 +88,5 @@ dossier is complete, then for two weeks after shipping.
 ## Not yet
 
 - Translating updates between Chinese and English.
-- Payments attributed to a supplier (each card's "paid X of Y").
 - One fapiao box per factory on the shipment card (needs documents tagged
   with the supplier they came from).

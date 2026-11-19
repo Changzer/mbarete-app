@@ -87,6 +87,12 @@ function describe(kind: string, payload: any, t: T, finT: FinT): string {
       return payload.direction === "in"
         ? t("paymentInAdded", { amount: Number(payload.amount).toFixed(2), currency: payload.currency })
         : t("paymentOutAdded", { amount: Number(payload.amount).toFixed(2), currency: payload.currency });
+    case "payment_allocated":
+      return t("paymentAllocated", {
+        amount: Number(payload.amount).toFixed(2),
+        currency: payload.currency,
+        supplier: payload.supplier ?? t("supplierNotRecorded"),
+      });
     case "payment_removed":
       return t("paymentRemoved", { amount: Number(payload.amount).toFixed(2), currency: payload.currency });
     case "expense_added":
@@ -146,6 +152,7 @@ const ICONS: Record<string, typeof History> = {
   refreshed: RefreshCw,
   status: ArrowRightLeft,
   payment_added: BanknoteArrowDown,
+  payment_allocated: ArrowRightLeft,
   payment_removed: BanknoteArrowUp,
   expense_added: Receipt,
   expense_removed: Receipt,

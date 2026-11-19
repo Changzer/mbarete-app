@@ -281,6 +281,13 @@
       "when": 1793641345910,
       "tag": "0039_audit-foreign-keys",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1795058335438,
+      "tag": "0040_supplier-payments",
+      "breakpoints": true
     }
   ]
 }

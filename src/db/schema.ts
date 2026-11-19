@@ -878,6 +878,8 @@ export const orderPayments = pgTable(
       .references(() => companies.id),
     orderId: integer("order_id").notNull(),
     direction: text("direction", { enum: ["in", "out"] }).notNull(),
+    /** The supplier paid on a mixed order; null is deliberately unassigned. */
+    supplierId: integer("supplier_id"),
     amount: numeric("amount", { precision: 14, scale: 2, mode: "number" }).notNull(),
     currency: text("currency").notNull(),
     /** ISO date the money moved, not the date the row was typed in. */
@@ -903,6 +905,12 @@ export const orderPayments = pgTable(
   },
   (table) => [
     index("order_payments_order_idx").on(table.orderId),
+    index("order_payments_supplier_idx").on(table.companyId, table.orderId, table.supplierId),
+    foreignKey({
+      name: "order_payments_company_supplier_fk",
+      columns: [table.companyId, table.supplierId],
+      foreignColumns: [contacts.companyId, contacts.id],
+    }),
     foreignKey({
       name: "order_payments_company_order_fk",
       columns: [table.companyId, table.orderId],
@@ -981,6 +989,7 @@ export const orderEvents = pgTable(
         "refreshed",
         "status",
         "payment_added",
+        "payment_allocated",
         "payment_removed",
         "expense_added",
         "expense_removed",

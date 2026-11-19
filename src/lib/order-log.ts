@@ -17,6 +17,7 @@ export type OrderEventKind =
   | "refreshed"
   | "status"
   | "payment_added"
+  | "payment_allocated"
   | "payment_removed"
   | "expense_added"
   | "expense_removed"
