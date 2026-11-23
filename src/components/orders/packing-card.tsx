@@ -7,6 +7,7 @@ import { updateOrderPacking } from "@/lib/actions/order-packing";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { OrderSection } from "@/components/orders/order-section";
 import { normalizeDecimalInput } from "@/lib/decimal-input";
 
 export type PackingLine = {
@@ -109,11 +110,12 @@ export function PackingCard({
     setDrafts((prev) => ({ ...prev, [productId]: { ...prev[productId], [field]: value } }));
 
   return (
-    <section className="mt-4 rounded-[12px] border border-line bg-surface p-4" data-testid="packing-card">
-      <div className="mb-3 flex flex-col gap-0.5">
-        <h2 className="text-sm font-semibold text-ink">{t("packingTitle")}</h2>
-        <p className="text-[11.5px] text-sub">{t("packingHelp")}</p>
-      </div>
+    <OrderSection
+      title={t("packingTitle")}
+      description={t("packingHelp")}
+      className="mt-4"
+      data-testid="packing-card"
+    >
       <ul className="flex flex-col divide-y divide-line">
         {lines.map((l) => {
           const d = drafts[l.productId];
@@ -168,7 +170,7 @@ export function PackingCard({
           </span>
         ) : null}
       </div>
-    </section>
+    </OrderSection>
   );
 }
 

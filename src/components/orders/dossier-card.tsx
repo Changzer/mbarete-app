@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useIsAdmin } from "@/components/role-provider";
+import { OrderSection } from "@/components/orders/order-section";
 import { deleteOrderDocument } from "@/lib/actions/finance";
 import { DESTINATION_COUNTRIES, DESTINATION_COUNTRY_CODES } from "@/lib/customs";
 import { updateDossierMeta } from "@/lib/actions/dossier";
@@ -103,14 +104,12 @@ export function DossierCard({
   const set = (field: keyof DossierMeta) => (value: string) => setForm((f) => ({ ...f, [field]: value }));
 
   return (
-    <section className="rounded-lg border border-line bg-surface p-4" data-testid="dossier-card">
-      <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-semibold text-ink">{t("title")}</h2>
-          <p className="mt-0.5 text-xs text-sub">{t("subtitle")}</p>
-          <p className="mt-1 text-xs text-sub">{t("documentHint", { mb: DOSSIER_DOCUMENT_MAX_MB })}</p>
-        </div>
-        <div className="flex items-center gap-2">
+    <OrderSection
+      title={t("title")}
+      description={t("subtitle")}
+      data-testid="dossier-card"
+      headerAside={
+        <>
           <span
             className={`font-mono text-[12px] tabular-nums ${status.complete ? "text-ok" : "text-sub"}`}
             data-testid="dossier-progress"
@@ -134,8 +133,10 @@ export function DossierCard({
               </Button>
             )
           ) : null}
-        </div>
-      </div>
+        </>
+      }
+    >
+      <p className="mb-3 text-xs text-sub">{t("documentHint", { mb: DOSSIER_DOCUMENT_MAX_MB })}</p>
 
       {/* Header: regime, declaration number, the four dates. */}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3" data-testid="dossier-meta">
@@ -315,7 +316,7 @@ export function DossierCard({
           );
         })}
       </ul>
-    </section>
+    </OrderSection>
   );
 }
 

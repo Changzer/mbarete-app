@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import type { OrderFinanceView } from "@/lib/calculations";
+import { OrderSection } from "@/components/orders/order-section";
 
 /**
  * The money position of one order, each side in the currency it is settled
@@ -39,14 +40,7 @@ export async function OrderResult({
   const choices = [...new Set([...currencies, result.currency])].sort();
 
   return (
-    <div
-      className="mt-4 rounded-lg border border-line bg-surface p-4"
-      data-testid="section-net"
-    >
-      <h2 className="mb-3 text-sm font-semibold text-ink">
-        {t("netTitle")}
-      </h2>
-
+    <OrderSection title={t("netTitle")} className="mt-4" data-testid="section-net">
       {fin.missingRates.length > 0 ? (
         <p className="mb-3 rounded-md border bg-warn-soft px-2 py-1.5 text-xs text-warn">
           {orderT("missingRate", { codes: fin.missingRates.join(", ") })}
@@ -175,6 +169,6 @@ export async function OrderResult({
         <p className="mt-1 text-xs text-sub">{t("resultHelp")}</p>
         <p className="text-xs text-sub">{t("netHelp")}</p>
       </div>
-    </div>
+    </OrderSection>
   );
 }

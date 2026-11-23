@@ -18,6 +18,7 @@ import test from "node:test";
 import { chromium } from "playwright";
 import ExcelJS from "exceljs";
 import pg from "pg";
+import { openOrderSection } from "./order-section.mjs";
 
 const EXECUTABLE =
   process.env.CHROMIUM_PATH ??
@@ -263,6 +264,7 @@ test("a booth capture becomes a product, an order, a quote and an invoice", asyn
 
     // The shipment facts go in the dossier; the customs pack carries them.
     await page.getByTestId("export-customs").waitFor();
+    await openOrderSection(page, "dossier-card");
     await page.locator("#portOfLoading").fill("Ningbo, CN");
     await page.locator("#portOfDestination").fill("Montevideo, UY");
     await page.getByTestId("destinationCountry").click();

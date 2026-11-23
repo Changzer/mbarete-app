@@ -15,6 +15,7 @@ import {
   type FinanceActionResult,
 } from "@/lib/actions/finance";
 import { SupplierPaymentBalances } from "@/components/orders/supplier-payment-balances";
+import { OrderSection } from "@/components/orders/order-section";
 import type { SupplierBalance } from "@/lib/supplier-balances";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -631,10 +632,9 @@ export function OrderDocumentsCard({
 }) {
   const t = useTranslations("finance");
   return (
-    <div className="rounded-lg border border-line bg-surface p-4" data-testid="section-documents">
-      <h2 className="mb-3 text-sm font-semibold text-ink">{t("documents")}</h2>
+    <OrderSection title={t("documents")} data-testid="section-documents">
       <DocumentSection orderId={orderId} rows={documents} />
-    </div>
+    </OrderSection>
   );
 }
 
@@ -659,35 +659,28 @@ export function OrderFinance({
   const paymentsIn = payments.filter((p) => p.direction === "in");
   const paymentsOut = payments.filter((p) => p.direction === "out");
 
-  const box =
-    "rounded-lg border border-line bg-surface p-4";
-  const heading = "mb-3 text-sm font-semibold text-ink";
-
   return (
     <div className="flex flex-col gap-4">
       <SupplierPaymentBalances balances={balances} />
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className={box} data-testid="section-payments-in">
-          <h2 className={heading}>{t("paymentsIn")}</h2>
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+        <OrderSection title={t("paymentsIn")} data-testid="section-payments-in">
           <div className="flex flex-col gap-3">
             <p className="text-xs text-sub">{t("gatewayHint")}</p>
             <PaymentForm orderId={orderId} direction="in" defaultCurrency={quoteCurrency} suppliers={[]} />
             <PaymentList orderId={orderId} rows={paymentsIn} suppliers={[]} />
           </div>
-        </div>
-        <div className={box} data-testid="section-payments-out">
-          <h2 className={heading}>{t("paymentsOut")}</h2>
+        </OrderSection>
+        <OrderSection title={t("paymentsOut")} data-testid="section-payments-out">
           <div className="flex flex-col gap-3">
             <PaymentForm orderId={orderId} direction="out" defaultCurrency={supplierCurrency} suppliers={suppliers} />
             <PaymentList orderId={orderId} rows={paymentsOut} suppliers={suppliers} />
           </div>
-        </div>
+        </OrderSection>
       </div>
 
-      <div className={box} data-testid="section-expenses">
-        <h2 className={heading}>{t("expenses")}</h2>
+      <OrderSection title={t("expenses")} data-testid="section-expenses">
         <ExpenseSection orderId={orderId} rows={expenses} defaultCurrency={quoteCurrency} />
-      </div>
+      </OrderSection>
     </div>
   );
 }

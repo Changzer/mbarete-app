@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { chromium } from "playwright";
 import pg from "pg";
+import { openOrderSection } from "./order-section.mjs";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
 const EMAIL = process.env.UI_TEST_EMAIL ?? "admin@example.com";
@@ -45,6 +46,8 @@ test("supplier payments allocate history and track each mixed-order balance", as
     await page.waitForURL(/catalog/, { timeout: 30_000 });
     await page.goto(`${BASE}/en/orders/${orderId}`);
     await page.getByTestId("supplier-balances").waitFor();
+    await openOrderSection(page, "supplier-balances");
+    await openOrderSection(page, "section-payments-out");
     assert.match(await page.getByTestId(`supplier-balance-${supplierA}`).innerText(), /1000\.00 CNY/);
     assert.match(await page.getByTestId(`supplier-balance-${supplierB}`).innerText(), /500\.00 CNY/);
     await page.getByTestId("supplier-balance-unassigned").waitFor();
