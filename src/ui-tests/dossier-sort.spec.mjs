@@ -4,6 +4,7 @@ import { unlink } from "node:fs/promises";
 import path from "node:path";
 import { chromium, request } from "playwright";
 import pg from "pg";
+import { openOrderSection } from "./order-section.mjs";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
 const EMAIL = process.env.UI_TEST_EMAIL ?? "admin@example.com";
@@ -32,6 +33,7 @@ test("Kimi files clear dossier matches and leaves unknown documents untouched", 
     await page.click('button[type="submit"]');
     await page.waitForURL(/catalog/, { timeout: 30_000 });
     await page.goto(`${BASE}/en/orders/${orderId}`);
+    await openOrderSection(page, "dossier-card");
     await page.getByTestId("dossier-ai-sort").waitFor();
 
     await page.getByTestId("dossier-ai-files").setInputFiles([

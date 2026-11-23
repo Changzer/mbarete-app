@@ -5,6 +5,7 @@ import { eq, desc } from "drizzle-orm";
 import { getUserNames } from "@/lib/queries/users";
 import type { OrderChange } from "@/lib/order-log";
 import { formatCbm } from "@/lib/calculations";
+import { OrderSection } from "@/components/orders/order-section";
 import {
   History,
   RefreshCw,
@@ -193,15 +194,16 @@ export async function OrderChangelog({
   ]);
 
   return (
-    <div
-      className="mt-4 rounded-lg border border-line bg-surface p-4"
+    <OrderSection
+      title={
+        <span className="flex items-center gap-2">
+          <History className="h-4 w-4 text-action-chrome" />
+          {t("title")}
+        </span>
+      }
+      className="mt-4"
       data-testid="section-changelog"
     >
-      <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
-        <History className="h-4 w-4 text-action-chrome" />
-        {t("title")}
-      </h2>
-
       {events.length === 0 ? (
         <p className="text-xs text-sub">{t("empty")}</p>
       ) : (
@@ -244,6 +246,6 @@ export async function OrderChangelog({
           })}
         </ol>
       )}
-    </div>
+    </OrderSection>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { OrderSection } from "@/components/orders/order-section";
 import type { SupplierBalance } from "@/lib/supplier-balances";
 
 const money = (value: number) => value.toFixed(2);
@@ -9,10 +10,12 @@ export function SupplierPaymentBalances({ balances }: { balances: SupplierBalanc
   const t = useTranslations("finance");
   if (balances.length === 0) return null;
   return (
-    <section className="rounded-lg border border-line bg-surface p-4" data-testid="supplier-balances">
-      <h2 className="text-sm font-semibold text-ink">{t("supplierBalances")}</h2>
-      <p className="mt-1 text-xs text-sub">{t("supplierBalancesHelp")}</p>
-      <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+    <OrderSection
+      title={t("supplierBalances")}
+      description={t("supplierBalancesHelp")}
+      data-testid="supplier-balances"
+    >
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {balances.map((supplier) => (
           <div
             key={supplier.supplierId ?? "unassigned"}
@@ -51,6 +54,6 @@ export function SupplierPaymentBalances({ balances }: { balances: SupplierBalanc
           </div>
         ))}
       </div>
-    </section>
+    </OrderSection>
   );
 }

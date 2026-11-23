@@ -6,6 +6,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
 import ExcelJS from "exceljs";
 import pg from "pg";
+import { openOrderSection } from "./order-section.mjs";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
 const EMAIL = process.env.UI_TEST_EMAIL ?? "admin@example.com";
@@ -98,6 +99,9 @@ test("each line declares its supplier's place, the marks print everywhere, one l
     await page.goto(`${BASE}/en/orders/${order.id}`);
     const dossier = page.getByTestId("dossier-card");
     await dossier.waitFor();
+    assert.equal(await page.getByTestId("dossier-card-toggle").getAttribute("aria-expanded"), "false");
+    await openOrderSection(page, "dossier-card");
+    assert.equal(await page.getByTestId("dossier-card-toggle").getAttribute("aria-expanded"), "true");
     assert.match(await dossier.innerText(), /From the suppliers: 浙江省义乌市\.[\s\S]*Lines from elsewhere declare their own: 广东省深圳市\./);
     await page.getByTestId("destinationCountry").click();
     await page.getByRole("option", { name: "Paraguay", exact: true }).click();
@@ -108,9 +112,16 @@ test("each line declares its supplier's place, the marks print everywhere, one l
     // The labels card: the title lines (the marks), where the goods are
     // delivered in China, and the final destination — the client until said otherwise.
     const labelsCard = page.getByTestId("labels-card");
+    await openOrderSection(page, "labels-card");
     await page.waitForFunction(() => document.querySelector('[data-testid="labelConsignee"]')?.value.endsWith("PARAGUAY"));
     assert.equal(await page.getByTestId("labelConsignee").inputValue(), `Client ${stamp}\nPARAGUAY`);
     await page.getByTestId("shippingMarks").fill("BLG-88\nPARAGUAY");
+    const labelsToggle = page.getByTestId("labels-card-toggle");
+    await labelsToggle.click();
+    assert.equal(await labelsToggle.getAttribute("aria-expanded"), "false");
+    assert.equal(await page.getByTestId("labelWarehouse").isVisible(), false);
+    await labelsToggle.click();
+    assert.equal(await page.getByTestId("shippingMarks").inputValue(), "BLG-88\nPARAGUAY", "folding a section keeps unsaved input");
     await page.getByTestId("labelWarehouse").fill("Yiwu Hengli Logistics\nNo. 88 Chouzhou Rd, Yiwu\n入仓号 YW-2231");
     await page.getByTestId("labels-save").click();
     await labelsCard.getByTestId("labels-message").waitFor();
@@ -143,6 +154,7 @@ test("each line declares its supplier's place, the marks print everywhere, one l
     // The factory packed the bottles 400 to a carton, not the quoted 600:
     // five boxes, not four. Corrected on the order, every document counts five.
     const packing = page.getByTestId("packing-card");
+    await openOrderSection(page, "packing-card");
     assert.equal(await packing.getByTestId(`packing-state-${bottle}`).innerText(), "As quoted");
     await packing.getByTestId(`per-${bottle}`).fill("400");
     await packing.getByTestId(`kg-${bottle}`).fill("8");
@@ -193,6 +205,7 @@ test("each line declares its supplier's place, the marks print everywhere, one l
 
     // The history says what happened, in words.
     await page.goto(`${BASE}/en/orders/${order.id}`);
+    await openOrderSection(page, "section-changelog");
     assert.match(await page.locator("body").innerText(), /Set the packing as the factory packed it: 50ml Foam Pump Bottle: 600 → 400 pcs per carton, 4 → 5 cartons/);
 
     assert.deepEqual(errors, []);

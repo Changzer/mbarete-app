@@ -8,6 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { chromium, request } from "playwright";
 import pg from "pg";
+import { openOrderSection } from "./order-section.mjs";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
 const EMAIL = process.env.UI_TEST_EMAIL ?? "admin@example.com";
@@ -65,6 +66,7 @@ test("dossier accepts a 100 MiB PDF intact and preserves file/invoice choices th
     await page.waitForURL(/catalog/, { timeout: 30_000 });
     await page.goto(`${BASE}/en/orders/${orderId}`);
     await page.getByTestId("dossier-card").waitFor();
+    await openOrderSection(page, "dossier-card");
     assert.match(await page.getByTestId("dossier-card").innerText(), /100 MB per document/);
 
     const tiny = { name: "scan.pdf", mimeType: "application/pdf", buffer: pdfBytes(1024) };

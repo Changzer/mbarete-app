@@ -8,6 +8,7 @@ import { updateLabelDetails } from "@/lib/actions/dossier";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { OrderSection } from "@/components/orders/order-section";
 
 export type LabelDetails = {
   version: number;
@@ -86,22 +87,20 @@ export function LabelsCard({
   }
 
   return (
-    <section className="mt-4 rounded-[12px] border border-line bg-surface p-4" data-testid="labels-card">
-      <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-        <div className="flex flex-col gap-0.5">
-          <h2 className="text-sm font-semibold text-ink">{t("labelsTitle")}</h2>
-          <p className="text-[11.5px] text-sub">{t("labelsHelp")}</p>
-        </div>
-        {canDownload ? (
-          <Button asChild variant="outline" size="sm">
-            <a href={`/api/orders/${orderId}/export?format=pdf&doc=labels`} data-testid="labels-download">
-              <Tag className="h-4 w-4" strokeWidth={1.5} />
-              {t("labelsDownload")}
-            </a>
-          </Button>
-        ) : null}
-      </div>
-
+    <OrderSection
+      title={t("labelsTitle")}
+      description={t("labelsHelp")}
+      className="mt-4"
+      data-testid="labels-card"
+      headerAside={canDownload ? (
+        <Button asChild variant="outline" size="sm">
+          <a href={`/api/orders/${orderId}/export?format=pdf&doc=labels`} data-testid="labels-download">
+            <Tag className="h-4 w-4" strokeWidth={1.5} />
+            {t("labelsDownload")}
+          </a>
+        </Button>
+      ) : null}
+    >
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="shippingMarks">{t("labelsMarks")}</Label>
@@ -177,6 +176,6 @@ export function LabelsCard({
           </span>
         ) : null}
       </div>
-    </section>
+    </OrderSection>
   );
 }
