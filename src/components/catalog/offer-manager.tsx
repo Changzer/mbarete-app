@@ -46,7 +46,7 @@ const EMPTY: ManagedOffer = {
   supplierId: null,
   supplierName: null,
   price: 0,
-  currency: "RMB",
+  currency: "CNY",
   moq: 1,
   leadTimeDays: 0,
   quotedOn: "",

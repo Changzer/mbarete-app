@@ -201,7 +201,7 @@ export const products = pgTable(
       .notNull()
       .default(0),
     // The currency the selling price is set in. A trading company buys in
-    // RMB and sells in USD, so this is independent of the cost currency;
+    // CNY and sells in USD, so this is independent of the cost currency;
     // "" (rows from before the column) means the cost currency.
     sellCurrency: text("sell_currency").notNull().default(""),
     currency: text("currency").notNull().default("USD"),
@@ -434,7 +434,7 @@ export const companyProfile = pgTable("company_profile", {
 /**
  * Beneficiary accounts a proforma can be paid into. Different clients pay
  * through different rails — a Brazilian client wires USD, a local one
- * transfers RMB — so each order picks which of these prints on its invoice.
+ * transfers CNY — so each order picks which of these prints on its invoice.
  * The default row is what a proforma shows when the order never chose.
  */
 export const bankAccounts = pgTable(
@@ -444,7 +444,7 @@ export const bankAccounts = pgTable(
     companyId: integer("company_id")
       .notNull()
       .references(() => companies.id),
-    /** Short name shown in dropdowns, e.g. "Tailong Bank — RMB". */
+    /** Short name shown in dropdowns, e.g. "Tailong Bank — CNY". */
     label: text("label").notNull(),
     bankName: text("bank_name").notNull().default(""),
     accountName: text("account_name").notNull().default(""),
@@ -622,7 +622,7 @@ export const orders = pgTable(
       .notNull()
       .default("draft"),
     // Quote currency (what the client is billed in) and the secondary currency
-    // shown alongside it, so RMB cost and USD quote are visible together.
+    // shown alongside it, so CNY cost and USD quote are visible together.
     displayCurrency: text("display_currency").notNull().default("USD"),
     secondaryCurrency: text("secondary_currency").notNull().default("CNY"),
     // The company's margin, charged on top of the goods subtotal.
@@ -891,7 +891,7 @@ export const orderPayments = pgTable(
      * which fall back to the order's own snapshot.
      */
     ratesSnapshot: text("rates_snapshot").notNull().default("{}"),
-    /** Which bank account the money touched, e.g. "USD" or "RMB". */
+    /** Which bank account the money touched, e.g. "USD" or "CNY". */
     account: text("account").notNull().default(""),
     /**
      * The payment slip: a photo or PDF of the transfer receipt, stored in the

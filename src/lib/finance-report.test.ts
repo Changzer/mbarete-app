@@ -190,7 +190,7 @@ test("report: unknown currencies are flagged and excluded, not zeroed silently",
 
 test("report: XTransfer settlements split by where the money landed", () => {
   // One client paid 1000 USD that stayed USD; another settlement arrived
-  // already converted: 7100 RMB into the RMB account, on a USD-quoted order.
+  // already converted: a legacy 7100 RMB payment into the RMB account.
   const r = computeFinanceReport(
     [
       order({
@@ -204,14 +204,14 @@ test("report: XTransfer settlements split by where the money landed", () => {
     { USD: 1, CNY: 0.14, RMB: 0.14 },
   );
   assert.equal(r.receivedByAccount.length, 2);
-  // 7100 RMB = 994 USD > 1000 USD? No: 994 < 1000 — USD bucket first.
+  // 7100 CNY = 994 USD > 1000 USD? No: 994 < 1000 — USD bucket first.
   assert.equal(r.receivedByAccount[0].key, "USD");
   assert.deepEqual(r.receivedByAccount[0].native, { USD: 1000 });
-  const rmb = r.receivedByAccount[1];
-  assert.equal(rmb.key, "RMB");
-  assert.deepEqual(rmb.native, { RMB: 7100 });
-  closeTo(rmb.value, 994, 1e-9);
-  closeTo(rmb.pct + r.receivedByAccount[0].pct, 100, 1e-9);
+  const cny = r.receivedByAccount[1];
+  assert.equal(cny.key, "CNY");
+  assert.deepEqual(cny.native, { CNY: 7100 });
+  closeTo(cny.value, 994, 1e-9);
+  closeTo(cny.pct + r.receivedByAccount[0].pct, 100, 1e-9);
 });
 
 test("report: untagged payments land under their own currency", () => {
@@ -231,7 +231,7 @@ test("report: untagged payments land under their own currency", () => {
 });
 
 test("report: a converted settlement counts once, in its landed form only", () => {
-  // The RMB that arrived is the same money the client sent as USD — it must
+  // The CNY that arrived is the same money the client sent as USD — it must
   // not appear under both.
   const r = computeFinanceReport(
     [

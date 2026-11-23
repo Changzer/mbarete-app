@@ -105,7 +105,7 @@ export default async function FinancePage({
         {tiles.map((tile) => (
           <div key={tile.label} className={box}>
             <div className="text-xs text-sub">{tile.label}</div>
-            {/* break-all: a nine-figure RMB total must wrap onto a second
+            {/* break-all: a nine-figure CNY total must wrap onto a second
                 line, never clip — a finance tile that hides digits lies. */}
             <div
               className={`mt-1 break-all font-mono text-[20px] font-semibold leading-snug tabular-nums ${
@@ -230,7 +230,7 @@ export default async function FinancePage({
               <li key={row.key} className="flex flex-col gap-1">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="font-medium text-ink">
-                    {row.key === "RMB"
+                    {row.key === "CNY"
                       ? financeT("accountRmb")
                       : row.key === "USD"
                         ? financeT("accountUsd")

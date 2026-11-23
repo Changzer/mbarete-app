@@ -118,7 +118,7 @@ export function ProductForm({
   // A segmented control rather than a text field, so it is state, not a DOM
   // value the AI pass can poke at — see applyReading.
   const [currency, setCurrency] = useState(defaultValues?.currency ?? "USD");
-  // The selling side has its own currency: a trading company buys in RMB
+  // The selling side has its own currency: a trading company buys in CNY
   // and quotes in USD. A new product starts in USD when the company has a
   // rate for it, else in whatever the cost is in.
   const [sellCurrency, setSellCurrency] = useState(

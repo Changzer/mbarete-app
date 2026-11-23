@@ -8,9 +8,9 @@ import {
   type Offer,
 } from "./offers";
 
-const RATES = { USD: 1, RMB: 0.14, CNY: 0.14 };
+const RATES = { USD: 1, CNY: 0.14 };
 const ctx = (orderedSupplierIds?: number[]) => ({
-  basis: "RMB",
+  basis: "CNY",
   rates: RATES,
   orderedSupplierIds: orderedSupplierIds ? new Set(orderedSupplierIds) : undefined,
 });
@@ -18,7 +18,7 @@ const ctx = (orderedSupplierIds?: number[]) => ({
 const offer = (over: Partial<Offer> & { id: number }): Offer => ({
   supplierId: over.id,
   price: 10,
-  currency: "RMB",
+  currency: "CNY",
   moq: 100,
   leadTimeDays: 0,
   quotedOn: "2026-08-01",
@@ -40,7 +40,7 @@ test("offers: a tie goes to a supplier we have ordered from", () => {
 
 test("offers: a tie goes to a named supplier over a quote with no source", () => {
   const named = offer({ id: 1, supplierId: 11, price: 1.5, currency: "CNY", quotedOn: "2026-01-01" });
-  const unnamed = offer({ id: 2, supplierId: null, price: 1.5, currency: "RMB", quotedOn: "2026-09-01" });
+  const unnamed = offer({ id: 2, supplierId: null, price: 1.5, currency: "CNY", quotedOn: "2026-09-01" });
   // The anonymous quote is newer and still loses: nobody can order from it.
   assert.equal(pickPrimaryOffer([named, unnamed], ctx())?.id, 1);
   // A proven factory still comes first.
@@ -73,16 +73,16 @@ test("offers: a product with no active offers has no primary and no spread", () 
 });
 
 test("offers: mixed currencies are ranked after conversion, not on raw numbers", () => {
-  // 1.42 USD is 10.14 RMB — dearer than a 9.80 RMB quote, though its raw
+  // 1.42 USD is 10.14 CNY — dearer than a 9.80 CNY quote, though its raw
   // number is far smaller.
   const usd = offer({ id: 1, price: 1.42, currency: "USD" });
-  const rmb = offer({ id: 2, price: 9.8, currency: "RMB" });
+  const rmb = offer({ id: 2, price: 9.8, currency: "CNY" });
   assert.equal(pickPrimaryOffer([usd, rmb], ctx())?.id, 2);
 });
 
 test("offers: an unknown currency still ranks instead of disappearing", () => {
   const odd = offer({ id: 1, price: 5, currency: "KRW" });
-  const rmb = offer({ id: 2, price: 9.8, currency: "RMB" });
+  const rmb = offer({ id: 2, price: 9.8, currency: "CNY" });
   const ranked = rankOffers([odd, rmb], ctx());
   assert.equal(ranked.length, 2);
 });
@@ -97,7 +97,7 @@ test("offers: spread reports the range and how much the best actually saves", ()
     ctx(),
   )!;
   assert.equal(s.count, 3);
-  // Basis is RMB and these quotes are RMB, so they compare at face value.
+  // Basis is CNY and these quotes are CNY, so they compare at face value.
   assert.ok(Math.abs(s.lowest - 9.4) < 1e-9);
   assert.ok(Math.abs(s.highest - 12) < 1e-9);
   // 9.40 against a next-best 10.00 is a 6% saving.

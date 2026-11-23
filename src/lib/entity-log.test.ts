@@ -76,7 +76,7 @@ const product = {
   descriptionZh: "",
   price: 12.5,
   sellPrice: 20,
-  currency: "RMB",
+  currency: "CNY",
   moq: 100,
   qtyPerBox: 24,
   lengthCm: 40,
@@ -129,7 +129,7 @@ describe("diffProductEdit", () => {
       changes.map((c) => c.field),
       ["price", "sellPrice"],
     );
-    assert.equal(changes[0].from, "12.5 RMB");
+    assert.equal(changes[0].from, "12.5 CNY");
     assert.equal(changes[0].to, "12.5 USD");
   });
 

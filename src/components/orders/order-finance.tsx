@@ -284,11 +284,11 @@ function PaymentForm({
         <Label className="text-xs">{t("account")}</Label>
         <select
           name="account"
-          defaultValue={defaultCurrency === "USD" ? "USD" : "RMB"}
+          defaultValue={defaultCurrency === "USD" ? "USD" : "CNY"}
           className="flex h-9 rounded-md border border-line bg-surface px-2 text-sm"
           data-testid={`account-${direction}`}
         >
-          <option value="RMB">{t("accountRmb")}</option>
+          <option value="CNY">{t("accountRmb")}</option>
           <option value="USD">{t("accountUsd")}</option>
           <option value="">{t("accountOther")}</option>
         </select>

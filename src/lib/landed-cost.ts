@@ -1,4 +1,5 @@
 import { convert, type CurrencyRates, UnknownCurrencyError } from "@/lib/calculations";
+import { canonicalCurrencyCode, canonicalCurrencyRates } from "@/lib/currency";
 
 /**
  * Product + freight + estimated duty, not the full landed cost. Freight
@@ -102,16 +103,19 @@ export type LandedCost = {
  */
 export function landedCost(input: LandedCostInput): LandedCost {
   const missing: LandedCost["missing"] = [];
+  const target = canonicalCurrencyCode(input.target);
+  const rates = canonicalCurrencyRates(input.rates);
   const conv = (amount: number, from: string) => {
     try {
-      if (from !== input.target) {
-        for (const code of [from, input.target]) {
-          if (!Number.isFinite(input.rates[code]) || !(input.rates[code] > 0)) {
+      const source = canonicalCurrencyCode(from);
+      if (source !== target) {
+        for (const code of [source, target]) {
+          if (!Number.isFinite(rates[code]) || !(rates[code] > 0)) {
             throw new UnknownCurrencyError(code);
           }
         }
       }
-      return convert(amount, from, input.target, input.rates);
+      return convert(amount, source, target, rates);
     } catch (err) {
       if (err instanceof UnknownCurrencyError) {
         if (!missing.includes("currency")) missing.push("currency");
@@ -137,7 +141,7 @@ export function landedCost(input: LandedCostInput): LandedCost {
   else if (costAndFreight !== null) duty = (costAndFreight * input.dutyPct) / 100;
   const round = (n: number | null) => n === null ? null : Math.round(n * 10000) / 10000;
   return {
-    currency: input.target,
+    currency: target,
     unitCost: round(unitCost),
     shipping: round(shipping),
     costAndFreight: round(costAndFreight),

@@ -1,21 +1,22 @@
 import type { CurrencyRates } from "@/lib/calculations";
+import { canonicalCurrencyCode, canonicalCurrencyRates } from "@/lib/currency";
 
 /**
  * The currency profit is real in — the one an order result and the finance
  * report open in. A company that sources in China earns its margin in
- * RMB whatever it bills the client in; a Brazilian importer's is real in
- * BRL. It is a Settings choice; until made, the fallback is the RMB code
- * the rate table carries (CNY, or the RMB alias), then the USD peg.
+ * CNY whatever it bills the client in; a Brazilian importer's is real in
+ * BRL. It is a Settings choice; until made, the fallback is CNY, then USD.
  */
-const FALLBACKS = ["CNY", "RMB", "USD"];
+const FALLBACKS = ["CNY", "USD"];
 
 export function resolveFunctionalCurrency(
   setting: string | null | undefined,
   rates: CurrencyRates,
 ): string {
-  const chosen = (setting ?? "").trim().toUpperCase();
-  if (chosen && rates[chosen] !== undefined) return chosen;
-  for (const code of FALLBACKS) if (rates[code] !== undefined) return code;
+  const chosen = canonicalCurrencyCode(setting ?? "");
+  const canonicalRates = canonicalCurrencyRates(rates);
+  if (chosen && canonicalRates[chosen] !== undefined) return chosen;
+  for (const code of FALLBACKS) if (canonicalRates[code] !== undefined) return code;
   return "USD";
 }
 
@@ -29,6 +30,6 @@ export function pickReportCurrency(
   fallback: string,
   rates: CurrencyRates,
 ): string {
-  const code = (requested ?? "").trim().toUpperCase();
-  return code && rates[code] !== undefined ? code : fallback;
+  const code = canonicalCurrencyCode(requested ?? "");
+  return code && canonicalCurrencyRates(rates)[code] !== undefined ? code : canonicalCurrencyCode(fallback);
 }

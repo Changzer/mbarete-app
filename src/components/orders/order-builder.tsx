@@ -251,7 +251,7 @@ export function OrderBuilder({
   }, [cart, productMap, displayCurrency, listPriceOf, byName]);
 
   // Both currencies are shown side by side: cost is usually quoted by the
-  // supplier in RMB while the client is billed in USD.
+  // supplier in CNY while the client is billed in USD.
   const targets = useMemo(
     () => [...new Set([displayCurrency, secondaryCurrency])],
     [displayCurrency, secondaryCurrency],

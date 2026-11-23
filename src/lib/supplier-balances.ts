@@ -1,4 +1,5 @@
 import { convert, roundMoney, UnknownCurrencyError, type CurrencyRates } from "@/lib/calculations";
+import { canonicalCurrencyCode } from "@/lib/currency";
 
 export type SupplierBalanceLineInput = {
   supplierId: number | null;
@@ -64,9 +65,12 @@ export function computeSupplierBalances(
     if (line.supplierId === null) continue;
     const group = groupFor(line.supplierId);
     group.name = line.supplierName || group.name;
-    group.lines.set(line.currency, roundMoney((group.lines.get(line.currency) ?? 0) + line.lineTotal));
+    const currency = canonicalCurrencyCode(line.currency);
+    group.lines.set(currency, roundMoney((group.lines.get(currency) ?? 0) + line.lineTotal));
   }
-  for (const payment of payments) groupFor(payment.supplierId).payments.push(payment);
+  for (const payment of payments) {
+    groupFor(payment.supplierId).payments.push({ ...payment, currency: canonicalCurrencyCode(payment.currency) });
+  }
 
   return [...groups.values()].map((group) => {
     const currencies = new Set<string>(group.lines.keys());

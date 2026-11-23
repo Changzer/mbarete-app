@@ -1,3 +1,5 @@
+import { canonicalCurrencyCode } from "@/lib/currency";
+
 const CURRENCY_MARK: Record<string, string> = { CNY: "¥", USD: "$", EUR: "€" };
 
 /**
@@ -11,6 +13,7 @@ const CURRENCY_MARK: Record<string, string> = { CNY: "¥", USD: "$", EUR: "€" 
  * and importing it from a component makes a cycle out of what is one function.
  */
 export function formatMoney(value: number, currency: string, maximumFractionDigits = 2) {
+  currency = canonicalCurrencyCode(currency);
   const mark = CURRENCY_MARK[currency];
   const amount = value.toLocaleString("en-US", {
     minimumFractionDigits: 2,

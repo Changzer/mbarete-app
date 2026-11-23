@@ -288,6 +288,13 @@
       "when": 1795058335438,
       "tag": "0040_supplier-payments",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1795451155649,
+      "tag": "0041_canonical-cny",
+      "breakpoints": true
     }
   ]
 }

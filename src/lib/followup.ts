@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { FOLLOWUP_STAGES, type FollowupStage } from "@/lib/followup-stages";
+import { canonicalCurrencyCode } from "@/lib/currency";
 
 /**
  * The follow-up board's rules, kept pure so the board, the card panel and
@@ -158,12 +159,9 @@ export type LineGroup = {
   cost: { currency: string; amount: number }[];
 };
 
-/**
- * RMB and CNY are both kept as codes because suppliers quote either way, but
- * they are the same yuan: a card adds them up instead of showing "¥6,720 + 2,993 RMB".
- */
+/** Legacy RMB rows join the canonical CNY total on every card. */
 function sameMoney(currency: string): string {
-  return currency === "RMB" ? "CNY" : currency;
+  return canonicalCurrencyCode(currency);
 }
 
 export function groupKey(orderId: number, supplierId: number | null): string {

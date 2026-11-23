@@ -8,6 +8,7 @@ import { and, eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/authz";
 import { saveUploadedImage, deleteUpload } from "@/lib/uploads";
 import { shippingRateSchema } from "@/lib/shipping-rate-schema";
+import { canonicalCurrencyCode } from "@/lib/currency";
 
 // Company profile, banks and exchange rates feed the proforma and every
 // price calculation — admin ground, in full.
@@ -16,13 +17,13 @@ async function requireSession() {
 }
 
 const rateSchema = z.object({
-  // Free-form so "RMB" and "CNY" can both exist if that is how suppliers quote.
+  // Other ISO codes stay free-form; the legacy RMB alias canonicalizes to CNY.
   currencyCode: z
     .string()
     .trim()
     .min(1)
     .max(8)
-    .transform((s) => s.toUpperCase()),
+    .transform(canonicalCurrencyCode),
   rateToUsd: z.coerce.number().positive(),
 });
 
@@ -62,6 +63,7 @@ export async function upsertExchangeRate(
 
 export async function deleteExchangeRate(currencyCode: string) {
   const admin = await requireSession();
+  currencyCode = canonicalCurrencyCode(currencyCode);
   if (currencyCode === "USD") return; // USD is the peg; removing it breaks conversion
   await db
     .delete(exchangeRates)
@@ -95,7 +97,7 @@ const companySchema = z.object({
     .trim()
     .max(8)
     .default("")
-    .transform((s) => s.toUpperCase()),
+    .transform(canonicalCurrencyCode),
 });
 
 export async function saveCompanyProfile(
@@ -207,7 +209,7 @@ const bankAccountSchema = z.object({
     .string()
     .trim()
     .max(8)
-    .transform((s) => s.toUpperCase())
+    .transform(canonicalCurrencyCode)
     .default(""),
 });
 

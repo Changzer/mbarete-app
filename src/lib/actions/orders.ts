@@ -37,6 +37,7 @@ import { syncProductsFromOffers } from "@/lib/queries/offers";
 import { logOrderEvent, diffOrderEdit, type OrderChange } from "@/lib/order-log";
 import { formatMoney } from "@/lib/money";
 import { defaultBankAccount } from "@/lib/proforma-bank";
+import { canonicalCurrencyCode } from "@/lib/currency";
 import { contacts } from "@/db/schema";
 
 const orderItemInput = z.object({
@@ -48,8 +49,8 @@ const orderItemInput = z.object({
 
 const orderInput = z.object({
   clientId: z.number().int().positive(),
-  displayCurrency: z.string().min(1),
-  secondaryCurrency: z.string().min(1),
+  displayCurrency: z.string().trim().min(1).max(8).transform(canonicalCurrencyCode),
+  secondaryCurrency: z.string().trim().min(1).max(8).transform(canonicalCurrencyCode),
   commissionPct: z.number().min(0),
   notes: z.string().default(""),
   status: z.enum(["draft", "confirmed"]),

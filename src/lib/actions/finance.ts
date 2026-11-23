@@ -16,6 +16,7 @@ import {
 } from "@/lib/uploads";
 import { logOrderEvent } from "@/lib/order-log";
 import { getExchangeRates } from "@/lib/queries/orders";
+import { canonicalCurrencyCode } from "@/lib/currency";
 
 async function requireSession() {
   const user = await requireUser();
@@ -84,9 +85,9 @@ const paymentSchema = z.object({
     z.coerce.number().int().positive().nullable(),
   ).default(null),
   amount: z.coerce.number().positive(),
-  currency: z.string().trim().min(1).max(8).transform((s) => s.toUpperCase()),
+  currency: z.string().trim().min(1).max(8).transform(canonicalCurrencyCode),
   paidOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  account: z.string().trim().max(32).default(""),
+  account: z.string().trim().max(32).default("").transform(canonicalCurrencyCode),
   note: z.string().default(""),
 });
 
@@ -207,7 +208,7 @@ const expenseSchema = z.object({
     "other",
   ]),
   amount: z.coerce.number().positive(),
-  currency: z.string().trim().min(1).max(8).transform((s) => s.toUpperCase()),
+  currency: z.string().trim().min(1).max(8).transform(canonicalCurrencyCode),
   spentOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   note: z.string().default(""),
 });

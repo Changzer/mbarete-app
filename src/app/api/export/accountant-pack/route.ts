@@ -4,6 +4,7 @@ import { Readable } from "stream";
 import { companyLifecycleBlock, sessionUser, requireModuleAction } from "@/lib/authz";
 import { makeLimiter } from "@/lib/rate-limit";
 import { assembleAccountantPack, periodKey } from "@/lib/accountant-pack-server";
+import { canonicalCurrencyCode } from "@/lib/currency";
 
 /**
  * GET /api/export/accountant-pack?from=YYYY-MM&to=YYYY-MM[&currency=CCY]
@@ -52,9 +53,8 @@ export async function GET(request: NextRequest) {
   if ((ty - fy) * 12 + (tm - fm) > 23) {
     return new NextResponse("range too long (max 24 months)", { status: 400 });
   }
-  const currencyParam = (params.get("currency") ?? "").toUpperCase();
-  // RMB is the functional currency of the audience; anything explicit wins.
-  const reportCurrency = /^[A-Z]{3}$/.test(currencyParam) ? currencyParam : "RMB";
+  const currencyParam = canonicalCurrencyCode(params.get("currency") ?? "");
+  const reportCurrency = /^[A-Z]{3}$/.test(currencyParam) ? currencyParam : "CNY";
 
   const { built, xlsx, fileBuffers } = await assembleAccountantPack({
     companyId: user.companyId,

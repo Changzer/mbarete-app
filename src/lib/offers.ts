@@ -29,9 +29,9 @@ export const STALE_QUOTE_DAYS = 180;
 /**
  * Prices are compared in one currency before being ranked.
  *
- * Sourcing is almost always from China and almost every offer is RMB, so
+ * Sourcing is almost always from China and almost every offer is CNY, so
  * this rarely does anything. It exists because ranking raw numbers across
- * currencies is silently wrong — 1.42 USD would sort below 10.20 RMB — and
+ * currencies is silently wrong — 1.42 USD would sort below 10.20 CNY — and
  * three lines here mean a Japanese or Korean supplier is a non-event later.
  * An unknown currency keeps its own number rather than vanishing from the
  * comparison.
