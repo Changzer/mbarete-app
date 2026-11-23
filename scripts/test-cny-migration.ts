@@ -38,7 +38,7 @@ async function main() {
     const contact = (await target.query("INSERT INTO contacts (company_id,type,company_name) VALUES ($1,'client','CNY QA Client') RETURNING id", [company])).rows[0].id;
     const category = (await target.query("INSERT INTO categories (company_id,name_en,name_zh) VALUES ($1,'QA','测试') RETURNING id", [company])).rows[0].id;
     const product = (await target.query(
-      "INSERT INTO products (company_id,sku,name_en,category_id,price,currency,sell_currency) VALUES ($1,'CNY-QA','QA',$2,20,'RMB','RMB') RETURNING id",
+      "INSERT INTO products (company_id,sku,name_en,name_zh,category_id,price,currency,sell_currency) VALUES ($1,'CNY-QA','QA','测试',$2,20,'RMB','RMB') RETURNING id",
       [company, category],
     )).rows[0].id;
     await target.query("INSERT INTO product_suppliers (company_id,product_id,price,currency,moq,quoted_on) VALUES ($1,$2,20,'RMB',1,'2026-01-01')", [company, product]);
