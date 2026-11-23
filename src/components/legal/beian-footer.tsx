@@ -1,11 +1,12 @@
 /**
  * The filing-number footer a mainland deployment is required to display:
  * ICP 备案 linking to the MIIT registry, 公安备案 linking to the public
- * security registry. Entirely env-driven (ICP_BEIAN / GONGAN_BEIAN) and
- * absent when unset, so non-mainland deployments render nothing.
+ * security registry. ICP_BEIAN / GONGAN_BEIAN can override the mainland
+ * defaults; non-mainland deployments render nothing.
  */
 export function BeianFooter() {
-  const icp = process.env.ICP_BEIAN || "";
+  const mainland = process.env.DEPLOY_REGION === "cn";
+  const icp = process.env.ICP_BEIAN || (mainland ? "浙ICP备2026100480号" : "");
   const gongan = process.env.GONGAN_BEIAN || "";
   if (!icp && !gongan) return null;
   return (

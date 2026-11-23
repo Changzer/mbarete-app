@@ -11,13 +11,19 @@ import { BRAND, INK, LINE, MARGIN, SUB, drawLetterhead, hrule, openPdf, pageFor 
 const PAGE = pageFor("landscape");
 const INNER = PAGE.inner;
 
+export function formatPackingListKg(value: number): string {
+  return value > 0
+    ? value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : "—";
+}
+
 export async function buildPackingListPdf(data: OrderExportData): Promise<Buffer> {
   const { doc, done } = openPdf("landscape");
   const hr = (y: number, color = LINE, width = 0.7) => hrule(doc, PAGE, y, color, width);
   const ensure = (need: number) => {
     if (doc.y + need > PAGE.height - MARGIN) doc.addPage();
   };
-  // Volume to the litre, weight to the gram; a dash where nothing was measured.
+  // Volume stays at millilitre precision; kg uses an unambiguous decimal comma.
   const fig = (n: number) => (n > 0 ? n.toLocaleString("en-US", { minimumFractionDigits: 3, maximumFractionDigits: 3 }) : "—");
 
   drawLetterhead(doc, PAGE, data, data.labels.packingListTitle, [
@@ -88,8 +94,8 @@ export async function buildPackingListPdf(data: OrderExportData): Promise<Buffer
       { text: line.cartons != null ? String(line.cartons) : "—", col: cols[5] },
       { text: fig(line.cartonCbm), col: cols[6] },
       { text: fig(line.lineCbm), col: cols[7] },
-      { text: fig(line.cartonWeightKg), col: cols[8] },
-      { text: fig(line.lineWeightKg), col: cols[9] },
+      { text: formatPackingListKg(line.cartonWeightKg), col: cols[8] },
+      { text: formatPackingListKg(line.lineWeightKg), col: cols[9] },
     ];
     let rowBottom = y;
     doc.fontSize(8.5).font("regular");
@@ -127,7 +133,7 @@ export async function buildPackingListPdf(data: OrderExportData): Promise<Buffer
   doc.text(data.labels.totalCartons, cols[1].x + 2, y + 3, { width: cols[1].w - 4, align: "right" });
   doc.text(String(totalCartons), cols[5].x + 2, y + 3, { width: cols[5].w - 4, align: "right" });
   doc.text(fig(totalCbm), cols[7].x + 2, y + 3, { width: cols[7].w - 4, align: "right" });
-  doc.text(fig(totalKg), cols[9].x + 2, y + 3, { width: cols[9].w - 4, align: "right" });
+  doc.text(formatPackingListKg(totalKg), cols[9].x + 2, y + 3, { width: cols[9].w - 4, align: "right" });
   doc.y = y + 18;
   doc.moveTo(MARGIN, y).lineTo(right, y).lineWidth(0.7).strokeColor(INK).stroke();
 

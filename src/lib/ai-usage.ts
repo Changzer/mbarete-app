@@ -13,7 +13,7 @@ export function recordAiUsage(
     companyId: number;
     /** Null when the scan ran without a signed-in user (draft background read). */
     userId: number | null;
-    kind: "product" | "card";
+    kind: "product" | "card" | "dossier";
     images: number;
   } & VisionUsage,
 ): void {

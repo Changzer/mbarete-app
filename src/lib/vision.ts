@@ -30,7 +30,7 @@ export type VisionUsage = {
   outputTokens: number;
 };
 
-const ANTHROPIC_MODEL = "claude-opus-5";
+export const ANTHROPIC_MODEL = "claude-opus-5";
 
 export function visionProvider(): VisionProvider | null {
   // `||` everywhere, not `??`: docker-compose passes unset vars through as
@@ -124,7 +124,7 @@ async function extractWithAnthropic<S extends z.ZodType>(opts: {
 }
 
 /** The model's text answer, defensively unfenced, parsed and validated. */
-function parseModelJson<S extends z.ZodType>(content: string, schema: S): z.infer<S> | null {
+export function parseModelJson<S extends z.ZodType>(content: string, schema: S): z.infer<S> | null {
   const stripped = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
   let parsed: unknown;
   try {

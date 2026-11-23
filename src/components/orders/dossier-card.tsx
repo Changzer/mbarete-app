@@ -14,6 +14,7 @@ import { OrderSection } from "@/components/orders/order-section";
 import { deleteOrderDocument } from "@/lib/actions/finance";
 import { DESTINATION_COUNTRIES, DESTINATION_COUNTRY_CODES } from "@/lib/customs";
 import { updateDossierMeta } from "@/lib/actions/dossier";
+import { DossierBulkSort } from "@/components/orders/dossier-bulk-sort";
 import { DOSSIER_DOCUMENT_MAX_MB, DOSSIER_DOCUMENT_MAX_BYTES } from "@/lib/upload-limits";
 import {
   DOSSIER_ITEMS,
@@ -51,6 +52,7 @@ export function DossierCard({
   status,
   financeOn,
   videoMaxMb,
+  aiSort,
 }: {
   orderId: number;
   meta: DossierMeta;
@@ -62,6 +64,7 @@ export function DossierCard({
   /** The zip needs the finance module (it carries supplier-side files). */
   financeOn: boolean;
   videoMaxMb: number;
+  aiSort: boolean;
 }) {
   const t = useTranslations("dossier");
   const locale = useLocale();
@@ -251,6 +254,8 @@ export function DossierCard({
           </div>
         ) : null}
       </div>
+
+      {aiSort ? <DossierBulkSort orderId={orderId} /> : null}
 
       {/* The nineteen rows. */}
       <ul className="mt-4 flex flex-col divide-y divide-line" data-testid="dossier-items">
