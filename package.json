@@ -31,6 +31,7 @@
     "test:order-status": "node --test src/ui-tests/order-status.spec.mjs",
     "test:supplier-payments": "node --test src/ui-tests/supplier-payments.spec.mjs",
     "test:followup": "node --test src/ui-tests/followup.spec.mjs",
+    "test:finance-intake": "node --test src/ui-tests/finance-intake.spec.mjs",
     "test:tasks": "node --test src/ui-tests/tasks.spec.mjs",
     "test:customs": "node --test src/ui-tests/customs-docs.spec.mjs",
     "test:nas-setup": "node --test src/ui-tests/nas-setup.spec.mjs",

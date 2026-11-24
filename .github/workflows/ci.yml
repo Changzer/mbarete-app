@@ -124,6 +124,10 @@ jobs:
       # and each supplier's own outstanding/overpaid balance.
       - run: npm run test:supplier-payments
         if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
+      - run: npm run test:finance-intake
+        if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
+        env:
+          UPLOADS_DIR: ${{ runner.temp }}/uploads
       - name: Upload order status screenshots
         if: always()
         uses: actions/upload-artifact@v4

@@ -6,7 +6,7 @@ import {
   orderExpenses,
   contacts,
 } from "@/db/schema";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, desc } from "drizzle-orm";
 import { getExchangeRates, parseRatesSnapshot } from "@/lib/queries/orders";
 import { computeSnapshotTotals } from "@/lib/calculations";
 import type { FinanceOrderInput } from "@/lib/finance-report";
@@ -127,4 +127,52 @@ export async function getFinanceData(companyId: number): Promise<{
   });
 
   return { orders: financeOrders, rates };
+}
+
+export type FinanceIntakeOrder = {
+  id: number;
+  orderNumber: string;
+  clientName: string;
+  status: string;
+  currency: string;
+  suppliers: { id: number; name: string }[];
+};
+
+export async function getFinanceIntakeOrders(companyId: number): Promise<FinanceIntakeOrder[]> {
+  const companyOrders = db.select({ id: orders.id }).from(orders).where(eq(orders.companyId, companyId));
+  const [rows, itemRows] = await Promise.all([
+    db
+      .select({
+        id: orders.id,
+        orderNumber: orders.orderNumber,
+        clientName: contacts.companyName,
+        status: orders.status,
+        currency: orders.displayCurrency,
+      })
+      .from(orders)
+      .leftJoin(contacts, eq(orders.clientId, contacts.id))
+      .where(eq(orders.companyId, companyId))
+      .orderBy(desc(orders.createdAt)),
+    db
+      .select({
+        orderId: orderItems.orderId,
+        supplierId: orderItems.supplierIdSnapshot,
+        nameEn: orderItems.supplierNameEnSnapshot,
+        nameZh: orderItems.supplierNameZhSnapshot,
+      })
+      .from(orderItems)
+      .where(inArray(orderItems.orderId, companyOrders)),
+  ]);
+  return rows.map((order) => ({
+    ...order,
+    clientName: order.clientName ?? "",
+    suppliers: [...new Map(
+      itemRows
+        .filter((row) => row.orderId === order.id && row.supplierId !== null)
+        .map((row) => [row.supplierId, {
+          id: row.supplierId as number,
+          name: row.nameEn || row.nameZh || `#${row.supplierId}`,
+        }]),
+    ).values()],
+  }));
 }
