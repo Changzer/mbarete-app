@@ -1,12 +1,14 @@
 import { getTranslations, getLocale } from "next-intl/server";
 import { Link, redirect } from "@/i18n/navigation";
 import { sessionUser, requireModulePage } from "@/lib/authz";
-import { getFinanceData } from "@/lib/queries/finance";
+import { getFinanceData, getFinanceIntakeOrders } from "@/lib/queries/finance";
 import { listPeriodCloses } from "@/lib/queries/accountant";
 import { AccountantPackCard } from "@/components/finance/accountant-pack-card";
 import { computeFinanceReport } from "@/lib/finance-report";
 import { getCompanyProfile } from "@/lib/queries/settings";
 import { pickReportCurrency, resolveFunctionalCurrency } from "@/lib/functional-currency";
+import { FinanceIntake } from "@/components/finance/finance-intake";
+import { visionProvider } from "@/lib/vision";
 
 /**
  * The whole business on one page: expected results, open balances in both
@@ -31,6 +33,7 @@ export default async function FinancePage({
   const financeT = await getTranslations("finance");
 
   const { orders, rates } = await getFinanceData(user!.companyId);
+  const intakeOrders = await getFinanceIntakeOrders(user!.companyId);
   const closes = await listPeriodCloses(user!.companyId);
   const codes = Object.keys(rates).sort();
   // The company's functional currency (Settings) is where profit is real;
@@ -93,6 +96,8 @@ export default async function FinancePage({
       </div>
 
       <p className="text-xs text-sub">{t("help")}</p>
+
+      <FinanceIntake orders={intakeOrders} aiConfigured={Boolean(visionProvider())} />
 
       {report.missingRates.length > 0 ? (
         <p className="rounded-md border bg-warn-soft px-3 py-2 text-sm text-warn">

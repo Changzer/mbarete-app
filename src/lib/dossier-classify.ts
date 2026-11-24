@@ -58,11 +58,11 @@ export function sanitizeDossierClassification(raw: RawClassification): DossierCl
   };
 }
 
-function moonshotBaseUrl(): string {
+export function moonshotBaseUrl(): string {
   return (process.env.MOONSHOT_BASE_URL || "https://api.moonshot.cn/v1").replace(/\/+$/, "");
 }
 
-function moonshotHeaders(): Record<string, string> {
+export function moonshotHeaders(): Record<string, string> {
   return { Authorization: `Bearer ${process.env.MOONSHOT_API_KEY}` };
 }
 
@@ -70,7 +70,7 @@ async function providerError(response: Response, operation: string): Promise<Err
   return new Error(`moonshot ${operation} ${response.status}: ${(await response.text()).slice(0, 300)}`);
 }
 
-async function extractMoonshotText(file: File): Promise<string> {
+export async function extractMoonshotText(file: File): Promise<string> {
   let fileId = "";
   try {
     const form = new FormData();
@@ -191,7 +191,7 @@ async function classifyAnthropicPdf(file: File, onUsage?: (usage: VisionUsage) =
   }
 }
 
-async function extractOfficeText(file: File): Promise<string> {
+export async function extractOfficeText(file: File): Promise<string> {
   const extension = file.name.split(".").pop()?.toLowerCase();
   const buffer = Buffer.from(await file.arrayBuffer());
   if (extension === "docx") {

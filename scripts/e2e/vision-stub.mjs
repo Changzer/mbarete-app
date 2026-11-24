@@ -103,9 +103,11 @@ const server = http.createServer((req, res) => {
       const name = /filename="([^"]+)"/.exec(text)?.[1] ?? "";
       extractedDocument = name.includes("customs")
         ? "中华人民共和国海关出口货物报关单\nCUSTOMS DECLARATION"
-        : name.includes("invoice")
-          ? "增值税专用发票\n税率 3%\nVAT SPECIAL INVOICE"
-          : "An unrelated note with no export document structure";
+        : name.includes("receipt")
+          ? "SUPPLIER PAYMENT RECEIPT\nAngel Packing\n12500.00 CNY\n2026-11-23\nXT-884912"
+          : name.includes("invoice")
+            ? "增值税专用发票\n税率 3%\nVAT SPECIAL INVOICE"
+            : "An unrelated note with no export document structure";
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ id: "dossier-stub-file" }));
       return;
@@ -130,13 +132,15 @@ const server = http.createServer((req, res) => {
     const body = JSON.parse(text);
     const system = body.messages?.[0]?.content ?? "";
     const documentText = body.messages?.[1]?.content ?? "";
-    const reading = system.includes("fixed export-dossier catalog")
-      ? documentText.includes("出口货物报关单")
-        ? { kind: "customs_declaration", fapiaoType: null, confidence: "high", reason: "Customs declaration title and fields" }
-        : documentText.includes("增值税专用发票")
-          ? { kind: "supplier_invoice", fapiaoType: "special_3", confidence: "high", reason: "3% VAT special invoice" }
-          : { kind: null, fapiaoType: null, confidence: "low", reason: "No recognizable dossier structure" }
-      : text.includes("business card") ? STUB_CARD : STUB_READING;
+    const reading = system.includes("user-selected order")
+      ? { documentType: "supplier_payment", amount: 12500, currency: "CNY", date: "2026-11-23", counterparty: "Angel Packing", reference: "XT-884912", category: null, confidence: "high", reason: "Clear supplier receipt and exact order reference" }
+      : system.includes("fixed export-dossier catalog")
+        ? documentText.includes("出口货物报关单")
+          ? { kind: "customs_declaration", fapiaoType: null, confidence: "high", reason: "Customs declaration title and fields" }
+          : documentText.includes("增值税专用发票")
+            ? { kind: "supplier_invoice", fapiaoType: "special_3", confidence: "high", reason: "3% VAT special invoice" }
+            : { kind: null, fapiaoType: null, confidence: "low", reason: "No recognizable dossier structure" }
+        : text.includes("business card") ? STUB_CARD : STUB_READING;
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(
       JSON.stringify({
