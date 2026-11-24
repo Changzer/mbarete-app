@@ -310,11 +310,11 @@ test("a line left under 'no supplier' by a tied quote moves to its factory with 
     // no supplier and a newer date. The cache still points at the unnamed one,
     // as an earlier ranking left it on a real catalog.
     const [bottle] = await q(
-      "INSERT INTO products(company_id,sku,name_en,name_zh,category_id,price,currency,moq,qty_per_box,supplier_id) VALUES ($1,$2,'50ml Foam Pump Bottle','50毫升泡沫泵瓶',$3,1.5,'RMB',1,600,NULL) RETURNING id",
+      "INSERT INTO products(company_id,sku,name_en,name_zh,category_id,price,currency,moq,qty_per_box,supplier_id) VALUES ($1,$2,'50ml Foam Pump Bottle','50毫升泡沫泵瓶',$3,1.5,'CNY',1,600,NULL) RETURNING id",
       [company, stamp, cat.id],
     );
     ids.products.push(bottle.id);
-    await q("INSERT INTO product_suppliers(company_id,product_id,supplier_id,price,currency,moq,quoted_on) VALUES ($1,$2,$3,1.5,'RMB',3000,'2026-08-01')", [company, bottle.id, angel.id]);
+    await q("INSERT INTO product_suppliers(company_id,product_id,supplier_id,price,currency,moq,quoted_on) VALUES ($1,$2,$3,1.5,'CNY',3000,'2026-08-01')", [company, bottle.id, angel.id]);
     // The factory's other line on the order: worth more, quoted in CNY, with a
     // name long enough that the by-order card has to shorten it.
     const [atomizer] = await q(
@@ -323,15 +323,15 @@ test("a line left under 'no supplier' by a tied quote moves to its factory with 
     );
     ids.products.push(atomizer.id);
     await q("INSERT INTO product_suppliers(company_id,product_id,supplier_id,price,currency,moq,quoted_on) VALUES ($1,$2,$3,4.1,'CNY',1,'2026-08-01')", [company, atomizer.id, angel.id]);
-    await q("INSERT INTO product_suppliers(company_id,product_id,supplier_id,price,currency,moq,quoted_on) VALUES ($1,$2,NULL,1.5,'RMB',1,'2026-09-07')", [company, bottle.id]);
+    await q("INSERT INTO product_suppliers(company_id,product_id,supplier_id,price,currency,moq,quoted_on) VALUES ($1,$2,NULL,1.5,'CNY',1,'2026-09-07')", [company, bottle.id]);
     const [order] = await q(
-      "INSERT INTO orders(company_id,order_number,client_id,status,rates_snapshot,created_by) VALUES ($1,$2,$3,'confirmed','{\"USD\":1,\"CNY\":0.14,\"RMB\":0.14}',$4) RETURNING id",
+      "INSERT INTO orders(company_id,order_number,client_id,status,rates_snapshot,created_by) VALUES ($1,$2,$3,'confirmed','{\"USD\":1,\"CNY\":0.14}',$4) RETURNING id",
       [company, stamp, client.id, admin.id],
     );
     ids.orders.push(order.id);
     await q(
       `INSERT INTO order_items(company_id,order_id,product_id,quantity,unit_price_snapshot,sell_price_snapshot,currency_snapshot,moq_snapshot,line_total,line_cbm,line_weight_kg,cartons_snapshot,sku_snapshot,name_en_snapshot,qty_per_box_snapshot,carton_cbm_snapshot,carton_weight_snapshot,sell_currency_snapshot)
-       VALUES ($1,$2,$3,1995,1.5,0.8,'RMB',1,2992.5,0.01,1,4,$4,'50ml Foam Pump Bottle',600,0,0,'USD')`,
+       VALUES ($1,$2,$3,1995,1.5,0.8,'CNY',1,2992.5,0.01,1,4,$4,'50ml Foam Pump Bottle',600,0,0,'USD')`,
       [company, order.id, bottle.id, stamp],
     );
     await q(
@@ -361,13 +361,13 @@ test("a line left under 'no supplier' by a tied quote moves to its factory with 
     await dialog.getByTestId("catalog-refresh-apply").click();
     await dialog.waitFor({ state: "hidden" });
     const [line] = await q("SELECT supplier_id_snapshot, currency_snapshot, moq_snapshot, quantity FROM order_items WHERE order_id=$1 AND product_id=$2", [order.id, bottle.id]);
-    assert.deepEqual(line, { supplier_id_snapshot: angel.id, currency_snapshot: "RMB", moq_snapshot: 3000, quantity: 1995 });
+    assert.deepEqual(line, { supplier_id_snapshot: angel.id, currency_snapshot: "CNY", moq_snapshot: 3000, quantity: 1995 });
     assert.deepEqual(await kinds(), ["supplier"], "the bottle now sits on the factory's card");
 
-    // One yuan total for the factory, not "¥4,920 + 2,993 RMB".
+    // One yuan total for the factory, not "¥4,920 + 2,993 CNY".
     const tileText = await page.getByTestId("followup-card").innerText();
     assert.match(tileText, /\+1 more · 3,195 pcs · ¥7,913/);
-    assert.doesNotMatch(tileText, /RMB/);
+    assert.doesNotMatch(tileText, /CNY/);
 
     // By order: the long name shortens but "+1 more" stays in view.
     await page.getByTestId("followup-view-orders").click();

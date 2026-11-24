@@ -11,7 +11,7 @@ import {
 /** Everything else a Yiwu quote is ever written in, behind the ones that matter. */
 const OTHER_CURRENCIES = ["EUR", "GBP", "PYG", "BRL", "ARS", "JPY", "HKD", "AUD"];
 
-const LABELS: Record<string, string> = { CNY: "¥ RMB", USD: "$ USD", BRL: "R$ BRL" };
+const LABELS: Record<string, string> = { CNY: "¥ CNY", USD: "$ USD", BRL: "R$ BRL" };
 
 /** What the supplier's price is written in: yuan or dollars cover every capture. */
 export const COST_CHOICES: readonly string[] = ["CNY", "USD"];

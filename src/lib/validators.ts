@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { isHsCode, normalizeHsCode, isCnHsCode, CUSTOMS_UNITS } from "@/lib/customs";
 import { normalizeDecimalInput } from "@/lib/decimal-input";
+import { canonicalCurrencyCode } from "@/lib/currency";
 
 /**
  * What a product actually needs to exist.
@@ -74,8 +75,8 @@ export const productSchema = z
     supplierVatPct: supplierVatPctSchema,
     sellPrice: z.coerce.number().nonnegative().default(0),
     // "" keeps the cost currency; a code sets the selling side apart.
-    sellCurrency: z.string().trim().max(8).transform((s) => s.toUpperCase()).default(""),
-    currency: z.string().min(1),
+    sellCurrency: z.string().trim().max(8).transform(canonicalCurrencyCode).default(""),
+    currency: z.string().trim().min(1).max(8).transform(canonicalCurrencyCode),
     moq: z.coerce.number().int().positive(),
     qtyPerBox: z.coerce.number().int().positive(),
     // Blank means "not measured yet", which is stored as 0 and surfaced as

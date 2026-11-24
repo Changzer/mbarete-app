@@ -1,13 +1,14 @@
 import { db, one } from "@/db";
 import { orders, orderItems, contacts, exchangeRates, users, orderPayments, orderExpenses, orderDocuments } from "@/db/schema";
 import { eq, and, desc, asc, ne } from "drizzle-orm";
+import { canonicalCurrencyRates } from "@/lib/currency";
 
 export async function getExchangeRates(companyId: number) {
   const rows = await db
     .select()
     .from(exchangeRates)
     .where(eq(exchangeRates.companyId, companyId));
-  return Object.fromEntries(rows.map((r) => [r.currencyCode, r.rateToUsd]));
+  return canonicalCurrencyRates(Object.fromEntries(rows.map((r) => [r.currencyCode, r.rateToUsd])));
 }
 
 export async function getOrders(companyId: number) {
@@ -84,7 +85,7 @@ export function parseRatesSnapshot(json: string): Record<string, number> | undef
   try {
     const parsed = JSON.parse(json || "{}");
     return parsed && typeof parsed === "object" && Object.keys(parsed).length > 0
-      ? parsed
+      ? canonicalCurrencyRates(parsed)
       : undefined;
   } catch {
     return undefined;

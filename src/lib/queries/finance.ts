@@ -10,6 +10,7 @@ import { eq, inArray } from "drizzle-orm";
 import { getExchangeRates, parseRatesSnapshot } from "@/lib/queries/orders";
 import { computeSnapshotTotals } from "@/lib/calculations";
 import type { FinanceOrderInput } from "@/lib/finance-report";
+import { canonicalCurrencyCode } from "@/lib/currency";
 
 /**
  * Every order as the finance report wants it: expected figures computed with
@@ -70,15 +71,10 @@ export async function getFinanceData(companyId: number): Promise<{
   }
 
   const financeOrders: FinanceOrderInput[] = orderRows.map((order) => {
-    let snapshot: Record<string, number> = {};
-    try {
-      snapshot = JSON.parse(order.ratesSnapshot || "{}");
-    } catch {
-      snapshot = {};
-    }
+    const snapshot = parseRatesSnapshot(order.ratesSnapshot) ?? {};
     const effectiveRates = { ...rates, ...snapshot };
 
-    const quote = order.displayCurrency;
+    const quote = canonicalCurrencyCode(order.displayCurrency);
     const items = itemsByOrder.get(order.id) ?? [];
     const totals = computeSnapshotTotals(
       items.map((i) => ({
@@ -109,9 +105,9 @@ export async function getFinanceData(companyId: number): Promise<{
       payments: (paymentsByOrder.get(order.id) ?? []).map((p) => ({
         direction: p.direction,
         amount: p.amount,
-        currency: p.currency,
+        currency: canonicalCurrencyCode(p.currency),
         paidOn: p.paidOn,
-        account: p.account,
+        account: canonicalCurrencyCode(p.account),
         rates: parseRatesSnapshot(p.ratesSnapshot),
         note: p.note,
         receiptPath: p.receiptPath || undefined,
@@ -120,7 +116,7 @@ export async function getFinanceData(companyId: number): Promise<{
       expenses: (expensesByOrder.get(order.id) ?? []).map((e) => ({
         category: e.category,
         amount: e.amount,
-        currency: e.currency,
+        currency: canonicalCurrencyCode(e.currency),
         spentOn: e.spentOn,
         rates: parseRatesSnapshot(e.ratesSnapshot),
         note: e.note,

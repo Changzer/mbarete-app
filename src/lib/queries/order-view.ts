@@ -1,9 +1,10 @@
-import { getOrderById, getExchangeRates } from "@/lib/queries/orders";
+import { getOrderById, getExchangeRates, parseRatesSnapshot } from "@/lib/queries/orders";
 import { getProducts } from "@/lib/queries/catalog";
 import { localizeField } from "@/lib/localize";
 import type { Locale } from "@/i18n/routing";
 import { computeSnapshotTotals, type OrderTotals } from "@/lib/calculations";
 import { sortByName } from "@/lib/name-order";
+import { canonicalCurrencyCode } from "@/lib/currency";
 
 export type OrderViewRow = {
   id: number;
@@ -59,15 +60,15 @@ export async function getOrderView(companyId: number, orderId: number, locale: L
   ]);
   if (!data) return null;
 
-  const { order, items, client } = data;
+  const { items, client } = data;
+  const order = {
+    ...data.order,
+    displayCurrency: canonicalCurrencyCode(data.order.displayCurrency),
+    secondaryCurrency: canonicalCurrencyCode(data.order.secondaryCurrency),
+  };
   const productMap = new Map(products.map((p) => [p.id, p]));
 
-  let snapshot: Record<string, number> = {};
-  try {
-    snapshot = JSON.parse(order.ratesSnapshot || "{}");
-  } catch {
-    snapshot = {};
-  }
+  const snapshot = parseRatesSnapshot(order.ratesSnapshot) ?? {};
   const effectiveRates = { ...rates, ...snapshot };
 
   const unsorted: OrderViewRow[] = items.map((item) => {
@@ -102,8 +103,8 @@ export async function getOrderView(companyId: number, orderId: number, locale: L
       sellTotal:
         (item.sellPriceSnapshot > 0 ? item.sellPriceSnapshot : item.unitPriceSnapshot) *
         item.quantity,
-      currencySnapshot: item.currencySnapshot,
-      sellCurrency: item.sellCurrencySnapshot || item.currencySnapshot,
+      currencySnapshot: canonicalCurrencyCode(item.currencySnapshot),
+      sellCurrency: canonicalCurrencyCode(item.sellCurrencySnapshot || item.currencySnapshot),
       moqSnapshot: item.moqSnapshot,
       lineTotal: item.lineTotal,
       lineCbm: item.lineCbm,

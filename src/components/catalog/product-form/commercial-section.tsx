@@ -131,7 +131,7 @@ export function CommercialSection({
           />
         </Field>
         {/* The market the price is for is a switch, like the cost currency:
-            USD, RMB or BRL at a tap, anything else one tap further. */}
+            USD, CNY or BRL at a tap, anything else one tap further. */}
         <CurrencyField
           value={sellCurrency}
           onChange={onSellCurrencyChange}

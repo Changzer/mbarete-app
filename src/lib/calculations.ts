@@ -1,3 +1,5 @@
+import { canonicalCurrencyCode, canonicalCurrencyRates } from "@/lib/currency";
+
 export type ProductForCalc = {
   /** What the supplier charges per unit — the cost side. */
   price: number;
@@ -15,7 +17,7 @@ export type ProductForCalc = {
   /**
    * The currency the selling price is in. Absent (or "") means the cost
    * currency, which is what every product had before selling currencies
-   * existed; a company that buys in RMB and sells in USD sets it apart.
+   * existed; a company that buys in CNY and sells in USD sets it apart.
    */
   sellCurrency?: string;
   moq: number;
@@ -42,13 +44,13 @@ export function sellUnitPrice(product: Pick<ProductForCalc, "price" | "sellPrice
  * sold at cost is denominated in anyway.
  */
 export function sellCurrencyOf(product: Pick<ProductForCalc, "currency" | "sellCurrency" | "sellPrice">) {
-  return product.sellPrice && product.sellPrice > 0
-    ? product.sellCurrency || product.currency : product.currency;
+  return canonicalCurrencyCode(product.sellPrice && product.sellPrice > 0
+    ? product.sellCurrency || product.currency : product.currency);
 }
 
 /**
  * A selling price re-expressed in the order's quote currency, to the cent.
- * The catalog's default may be in RMB while the client is quoted in USD;
+ * The catalog's default may be in CNY while the client is quoted in USD;
  * this is the number the builder starts from. With no rate for either
  * side the figure comes back unchanged and the totals name the gap — a
  * silent 1:1 would be a 7× pricing error on a quote.
@@ -190,7 +192,7 @@ export class UnknownCurrencyError extends Error {
  * Convert between currencies via USD.
  *
  * Throws on an unconfigured currency rather than assuming 1:1. A silent
- * fallback here reads as "10 RMB = 10 USD" on a quote, which is a 7x pricing
+ * fallback here reads as "10 CNY = 10 USD" on a quote, which is a 7x pricing
  * error, so this must fail loudly.
  */
 export function convert(
@@ -199,11 +201,14 @@ export function convert(
   toCurrency: string,
   rates: CurrencyRates,
 ) {
-  if (fromCurrency === toCurrency) return amount;
-  const fromRate = rates[fromCurrency];
-  const toRate = rates[toCurrency];
-  if (fromRate === undefined) throw new UnknownCurrencyError(fromCurrency);
-  if (toRate === undefined) throw new UnknownCurrencyError(toCurrency);
+  const from = canonicalCurrencyCode(fromCurrency);
+  const to = canonicalCurrencyCode(toCurrency);
+  if (from === to) return amount;
+  const canonicalRates = canonicalCurrencyRates(rates);
+  const fromRate = canonicalRates[from];
+  const toRate = canonicalRates[to];
+  if (fromRate === undefined) throw new UnknownCurrencyError(from);
+  if (toRate === undefined) throw new UnknownCurrencyError(to);
   return (amount * fromRate) / toRate;
 }
 
@@ -247,14 +252,16 @@ export function computeOrderTotals(
   const commission: Record<string, number> = {};
   const grandTotal: Record<string, number> = {};
   const missing = new Set<string>();
+  const targets = [...new Set(targetCurrencies.map(canonicalCurrencyCode))];
+  const canonicalRates = canonicalCurrencyRates(rates);
 
   let totalCbm = 0;
   let totalWeightKg = 0;
   let totalCartons = 0;
   let hasMoqViolation = false;
 
-  for (const target of targetCurrencies) {
-    if (rates[target] === undefined) missing.add(target);
+  for (const target of targets) {
+    if (canonicalRates[target] === undefined) missing.add(target);
     goods[target] = 0;
     cost[target] = 0;
   }
@@ -272,7 +279,7 @@ export function computeOrderTotals(
     // The sell side converts from the currency it was quoted in, which is
     // the order's quote currency in the builder and may differ from cost.
     const sellCurrency = sellCurrencyOf(product);
-    for (const target of targetCurrencies) {
+    for (const target of targets) {
       try {
         goods[target] += convert(rawSell, sellCurrency, target, rates);
         cost[target] += convert(rawCost, product.currency, target, rates);
@@ -290,7 +297,7 @@ export function computeOrderTotals(
   // top of any per-line markup rather than replacing it.
   // Conversions run unrounded; each final figure lands on exact cents, and
   // grand total = goods + commission holds to the cent by construction.
-  for (const target of targetCurrencies) {
+  for (const target of targets) {
     goods[target] = roundMoney(goods[target]);
     cost[target] = roundMoney(cost[target]);
     commission[target] = roundMoney(goods[target] * (commissionPct / 100));
@@ -392,14 +399,16 @@ export function computeSnapshotTotals(
   const commission: Record<string, number> = {};
   const grandTotal: Record<string, number> = {};
   const missing = new Set<string>();
+  const targets = [...new Set(targetCurrencies.map(canonicalCurrencyCode))];
+  const canonicalRates = canonicalCurrencyRates(rates);
 
   let totalCbm = 0;
   let totalWeightKg = 0;
   let totalCartons = 0;
   let hasMoqViolation = false;
 
-  for (const target of targetCurrencies) {
-    if (rates[target] === undefined) missing.add(target);
+  for (const target of targets) {
+    if (canonicalRates[target] === undefined) missing.add(target);
     goods[target] = 0;
     cost[target] = 0;
   }
@@ -418,7 +427,7 @@ export function computeSnapshotTotals(
     // The sell side converts from ITS OWN quoted currency; a catalog refresh
     // that moved the cost currency must not silently re-denominate the quote.
     const sellCurrency = line.sellCurrency || line.currency;
-    for (const target of targetCurrencies) {
+    for (const target of targets) {
       try {
         goods[target] += convert(rawSell, sellCurrency, target, rates);
         cost[target] += convert(rawCost, line.currency, target, rates);
@@ -434,7 +443,7 @@ export function computeSnapshotTotals(
 
   // Conversions run unrounded; each final figure lands on exact cents, and
   // grand total = goods + commission holds to the cent by construction.
-  for (const target of targetCurrencies) {
+  for (const target of targets) {
     goods[target] = roundMoney(goods[target]);
     cost[target] = roundMoney(cost[target]);
     commission[target] = roundMoney(goods[target] * (commissionPct / 100));
@@ -709,24 +718,27 @@ export function computeOrderFinanceView(
   currencies: { quote: string; supplier: string; result: string },
   rates: CurrencyRates,
 ): OrderFinanceView {
-  const client = financeIn(input, currencies.quote, currencies.quote, rates);
-  const supplier = financeIn(input, currencies.quote, currencies.supplier, rates);
-  const result = financeIn(input, currencies.quote, currencies.result, rates);
+  const quote = canonicalCurrencyCode(currencies.quote);
+  const supplierCurrency = canonicalCurrencyCode(currencies.supplier);
+  const resultCurrency = canonicalCurrencyCode(currencies.result);
+  const client = financeIn(input, quote, quote, rates);
+  const supplier = financeIn(input, quote, supplierCurrency, rates);
+  const result = financeIn(input, quote, resultCurrency, rates);
   return {
     client: {
-      currency: currencies.quote,
+      currency: quote,
       expected: client.received + client.clientOutstanding,
       received: client.received,
       outstanding: client.clientOutstanding,
     },
     supplier: {
-      currency: currencies.supplier,
+      currency: supplierCurrency,
       expected: supplier.paidOut + supplier.supplierOutstanding,
       paid: supplier.paidOut,
       outstanding: supplier.supplierOutstanding,
     },
     result: {
-      currency: currencies.result,
+      currency: resultCurrency,
       expensesTotal: result.expensesTotal,
       fxGainLoss: result.fxGainLoss,
       netActual: result.netActual,

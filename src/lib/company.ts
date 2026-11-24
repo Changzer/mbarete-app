@@ -58,11 +58,9 @@ export async function seedCompanyDefaults(
     await tx.insert(categories).values(STARTER_CATEGORIES.map((c) => ({ companyId, ...c })));
   }
 
-  // RMB and CNY are the same currency under two codes; suppliers quote in both.
   const starterRates = [
     { currencyCode: "USD", rateToUsd: 1 },
     { currencyCode: "CNY", rateToUsd: 0.14 },
-    { currencyCode: "RMB", rateToUsd: 0.14 },
     { currencyCode: "BRL", rateToUsd: 0.18 },
   ];
   const existingRates = new Set(

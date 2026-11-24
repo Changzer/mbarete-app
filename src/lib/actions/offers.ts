@@ -9,6 +9,7 @@ import { and, eq } from "drizzle-orm";
 import { requireUser } from "@/lib/authz";
 import { logEntityEvent } from "@/lib/entity-log";
 import { syncProductFromOffers } from "@/lib/queries/offers";
+import { canonicalCurrencyCode } from "@/lib/currency";
 
 async function requireSession() {
   return await requireUser();
@@ -32,7 +33,7 @@ const offerSchema = z.object({
     .transform((v) => (typeof v === "number" ? v : null)),
   price: z.coerce.number().positive(),
   supplierVatPct: supplierVatPctSchema,
-  currency: z.string().trim().min(1).max(8).transform((s) => s.toUpperCase()),
+  currency: z.string().trim().min(1).max(8).transform(canonicalCurrencyCode),
   moq: z.coerce.number().int().min(1),
   // Never a deal breaker: most China lead times are the same 30 days.
   leadTimeDays: z.coerce.number().int().min(0).max(3650).default(0),

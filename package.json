@@ -22,6 +22,7 @@
     "test:landing": "node --test src/ui-tests/landing.spec.mjs",
     "test:supplier-migration": "tsx scripts/test-order-supplier-migration.ts",
     "test:supplier-payment-migration": "tsx scripts/test-supplier-payment-migration.ts",
+    "test:cny-migration": "tsx scripts/test-cny-migration.ts",
     "test:landed-cost": "node --test src/ui-tests/landed-cost.spec.mjs",
     "test:vat": "node --test src/ui-tests/supplier-vat.spec.mjs",
     "test:vat-migration": "tsx scripts/test-supplier-vat-migration.ts",

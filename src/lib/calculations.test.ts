@@ -69,12 +69,15 @@ test("convert applies the rate, not a 1:1 passthrough", () => {
   assert.equal(convert(100, "CNY", "CNY", RATES), 100);
 });
 
+test("legacy RMB converts through the canonical CNY rate", () => {
+  closeTo(convert(100, "RMB", "USD", RATES), 14);
+  assert.equal(convert(100, "RMB", "CNY", RATES), 100);
+});
+
 test("an unconfigured currency throws instead of silently passing through", () => {
-  // The real defect: product priced in "RMB" while the table only knew "CNY"
-  // reported 100 RMB as 100 USD.
   assert.throws(
-    () => convert(100, "RMB", "USD", RATES),
-    (err: unknown) => err instanceof UnknownCurrencyError && err.currency === "RMB",
+    () => convert(100, "GBP", "USD", RATES),
+    (err: unknown) => err instanceof UnknownCurrencyError && err.currency === "GBP",
   );
 });
 
@@ -126,13 +129,13 @@ test("mixed-currency lines are each converted before summing", () => {
 });
 
 test("a missing rate is reported rather than silently mispriced", () => {
-  const rmbProduct = { ...chicken, currency: "RMB" };
+  const gbpProduct = { ...chicken, currency: "GBP" };
   const totals = computeOrderTotals(
-    [{ product: rmbProduct, quantity: 10 }],
+    [{ product: gbpProduct, quantity: 10 }],
     ["USD"],
     RATES,
   );
-  assert.deepEqual(totals.missingRates, ["RMB"]);
+  assert.deepEqual(totals.missingRates, ["GBP"]);
   assert.equal(totals.goods.USD, 0, "unpriceable lines must not inflate the total");
 });
 
@@ -302,22 +305,20 @@ test("snapshot totals convert and apply commission", () => {
 });
 
 test("snapshot totals flag a currency with no rate instead of assuming 1:1", () => {
-  // What the deployed app hit: products priced in RMB, a rate table holding
-  // only USD and CNY, and every total rendering 0.00.
   const totals = computeSnapshotTotals(
-    [snapshotLine({ currency: "RMB" })],
+    [snapshotLine({ currency: "GBP" })],
     ["CNY"],
     RATES,
   );
-  assert.deepEqual(totals.missingRates, ["RMB"]);
+  assert.deepEqual(totals.missingRates, ["GBP"]);
   assert.equal(totals.goods.CNY, 0);
 });
 
-test("snapshot totals price RMB once a rate exists", () => {
+test("snapshot totals price legacy RMB through the CNY rate", () => {
   const totals = computeSnapshotTotals(
     [snapshotLine({ quantity: 10, unitPrice: 10, currency: "RMB" })],
     ["CNY", "USD"],
-    { ...RATES, RMB: 0.14 },
+    RATES,
   );
   assert.deepEqual(totals.missingRates, []);
   closeTo(totals.goods.CNY, 100);
@@ -411,8 +412,8 @@ test("a product with no measurements is reported as missing them", () => {
 // --- order finance -----------------------------------------------------------
 
 test("order finance: a settled order nets the commission minus expenses", () => {
-  // 5352 RMB of goods quoted to the client at +15% in USD: revenue 861.67,
-  // cost 749.28. Client paid in full in USD, supplier paid in full in RMB.
+  // 5352 CNY of goods quoted to the client at +15% in USD: revenue 861.67,
+  // cost 749.28. Client paid in full in USD, supplier paid in full in CNY.
   const fin = computeOrderFinance(
     {
       expectedRevenue: 861.67,
@@ -614,7 +615,7 @@ test("roundMoney lands on exact cents for classic float traps", () => {
 });
 
 test("line totals are exact for sub-cent unit prices", () => {
-  // 0.115 RMB per piece × 3000 pieces: raw floats give 344.99999999999994.
+  // 0.115 CNY per piece × 3000 pieces: raw floats give 344.99999999999994.
   const cheap = { ...chicken, price: 0.115, sellPrice: 0 };
   assert.equal(lineTotal(cheap, 3000), 345);
 });

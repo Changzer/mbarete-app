@@ -31,7 +31,7 @@ export async function closePeriod(from: string, to: string): Promise<ClosePeriod
     const { built } = await assembleAccountantPack({
       companyId: user.companyId,
       period,
-      reportCurrency: "RMB",
+      reportCurrency: "CNY",
       generatedBy: { id: user.id, email: user.email },
     });
     await db

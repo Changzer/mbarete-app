@@ -11,7 +11,7 @@ export type OfferRow = typeof productSuppliers.$inferSelect & {
 };
 
 /** The comparison basis: what most sourcing is priced in. */
-export const OFFER_BASIS = "RMB";
+export const OFFER_BASIS = "CNY";
 
 /**
  * Which suppliers a product has actually been ordered from.

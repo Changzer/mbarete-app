@@ -22,7 +22,7 @@ import { runWithTenant } from "@/db/tenant-context";
  */
 
 /** The currencies refreshed automatically; anything else stays hand-entered. */
-export const AUTO_CURRENCIES = ["USD", "CNY", "RMB", "BRL"] as const;
+export const AUTO_CURRENCIES = ["USD", "CNY", "BRL"] as const;
 
 const DEFAULT_PROVIDERS = [
   "https://open.er-api.com/v6/latest/USD",
@@ -51,11 +51,7 @@ function parseProviderBody(body: unknown): Record<string, number> | null {
   const usdPer = rates as Record<string, unknown>;
   const cny = Number(usdPer["CNY"]);
   const brl = Number(usdPer["BRL"]);
-  if (Number.isFinite(cny) && cny > 0) {
-    out.CNY = 1 / cny;
-    // RMB and CNY are one currency under two codes; both stay in step.
-    out.RMB = 1 / cny;
-  }
+  if (Number.isFinite(cny) && cny > 0) out.CNY = 1 / cny;
   if (Number.isFinite(brl) && brl > 0) out.BRL = 1 / brl;
 
   // A provider that answered but carried neither currency is no provider.

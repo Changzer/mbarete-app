@@ -4,6 +4,7 @@ import {
   UnknownCurrencyError,
   type CurrencyRates,
 } from "@/lib/calculations";
+import { canonicalCurrencyCode, canonicalCurrencyRates } from "@/lib/currency";
 
 /**
  * Cross-order financial reporting.
@@ -11,7 +12,7 @@ import {
  * Each order's own maths stays true to its rate snapshot — expected revenue
  * and cost arrive here already computed in the order's quote currency. Only
  * the aggregation across currencies uses the live rate table, because a
- * report that sums USD and RMB orders needs one consistent basis. The page
+ * report that sums USD and CNY orders needs one consistent basis. The page
  * says so next to the currency picker.
  */
 
@@ -32,7 +33,7 @@ export type FinanceOrderInput = {
     amount: number;
     currency: string;
     paidOn: string;
-    /** which bank account the money touched, e.g. "RMB" or "USD" */
+    /** which bank account the money touched, e.g. "CNY" or "USD" */
     account?: string;
     /** the rate table frozen when the payment was recorded, when present */
     rates?: CurrencyRates;
@@ -77,13 +78,13 @@ export type ClientRow = {
 
 /**
  * Where client money actually landed. XTransfer settlements often arrive
- * already converted to RMB; this is the view that says how much did, and how
+ * already converted to CNY; this is the view that says how much did, and how
  * much stayed in USD (or anything else).
  */
 export type LandingRow = {
   /** the account tag, falling back to the payment's own currency */
   key: string;
-  /** native sums per currency inside this bucket, e.g. { RMB: 7100 } */
+  /** native sums per currency inside this bucket, e.g. { CNY: 7100 } */
   native: Record<string, number>;
   /** the bucket valued in the report currency */
   value: number;
@@ -141,13 +142,14 @@ export function computeFinanceReport(
   reportCurrency: string,
   rates: CurrencyRates,
 ): FinanceReport {
+  reportCurrency = canonicalCurrencyCode(reportCurrency);
   const missing = new Set<string>();
   const conv = (amount: number, from: string, own?: CurrencyRates) => {
     try {
       // Money that recorded its own day's rates is valued at them; the
       // report currency leg still needs today's table when the snapshot
       // does not carry the report currency.
-      const table = own && own[reportCurrency] !== undefined ? own : rates;
+      const table = own && canonicalCurrencyRates(own)[reportCurrency] !== undefined ? own : rates;
       return convert(amount, from, reportCurrency, table);
     } catch (err) {
       if (err instanceof UnknownCurrencyError) {
@@ -205,13 +207,14 @@ export function computeFinanceReport(
         totals.cashIn += amount;
 
         // An untagged payment landed wherever its own currency says.
-        const key = p.account?.trim() || p.currency;
+        const currency = canonicalCurrencyCode(p.currency);
+        const key = canonicalCurrencyCode(p.account ?? "") || currency;
         let bucket = landing.get(key);
         if (!bucket) {
           bucket = { native: {}, value: 0 };
           landing.set(key, bucket);
         }
-        bucket.native[p.currency] = (bucket.native[p.currency] ?? 0) + p.amount;
+        bucket.native[currency] = (bucket.native[currency] ?? 0) + p.amount;
         bucket.value += amount;
       } else {
         paidOut += amount;
@@ -426,7 +429,7 @@ export function computeAgingAsOf(
     if (month(order.createdAt) > asOfMonthEnd) continue;
     const conv = (amount: number, from: string, own?: CurrencyRates) => {
       try {
-        const table = own && own[reportCurrency] !== undefined ? own : rates;
+        const table = own && canonicalCurrencyRates(own)[reportCurrency] !== undefined ? own : rates;
         return convert(amount, from, reportCurrency, table);
       } catch (err) {
         if (err instanceof UnknownCurrencyError) return 0;

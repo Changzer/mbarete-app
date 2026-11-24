@@ -59,7 +59,7 @@ export function ProductPicker({
     });
 
   // One estimate only when every picked product quotes the same currency —
-  // adding RMB and USD together would be a lie.
+  // adding CNY and USD together would be a lie.
   const picked = [...sel].map((id) => products.find((p) => p.id === id)!).filter(Boolean);
   const oneCurrency = new Set(picked.map((p) => sellCurrencyOf(p))).size === 1 && picked.length > 0;
   const estimate = oneCurrency

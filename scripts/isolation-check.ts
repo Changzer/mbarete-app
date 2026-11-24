@@ -117,7 +117,7 @@ async function makeCompany(name: string) {
       productId: product.id,
       supplierId: supplier.id,
       price: 1,
-      currency: "RMB",
+      currency: "CNY",
       quotedOn: "2026-01-01",
       createdBy: user.id,
     })
@@ -318,7 +318,7 @@ async function main() {
         productId: A.product.id,
         supplierId: B.supplier.id,
         price: 1,
-        currency: "RMB",
+        currency: "CNY",
         quotedOn: "2026-01-01",
       }),
     );
@@ -382,7 +382,7 @@ async function main() {
         productId: B.product.id,
         quantity: 1,
         unitPriceSnapshot: 1,
-        currencySnapshot: "RMB",
+        currencySnapshot: "CNY",
         moqSnapshot: 1,
         lineTotal: 1,
         lineCbm: 0,
@@ -396,7 +396,7 @@ async function main() {
         productId: A.product.id,
         quantity: 1,
         unitPriceSnapshot: 1,
-        currencySnapshot: "RMB",
+        currencySnapshot: "CNY",
         moqSnapshot: 1,
         lineTotal: 1,
         lineCbm: 0,
@@ -431,7 +431,7 @@ async function main() {
         orderId: A.order.id,
         direction: "in",
         amount: 1,
-        currency: "RMB",
+        currency: "CNY",
         paidOn: "2026-01-01",
       }),
     );
@@ -441,7 +441,7 @@ async function main() {
         orderId: A.order.id,
         category: "freight",
         amount: 1,
-        currency: "RMB",
+        currency: "CNY",
         spentOn: "2026-01-01",
       }),
     );
