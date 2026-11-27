@@ -20,12 +20,13 @@ test("each line declares its supplier's place, the marks print everywhere, one l
   await sql.connect();
   const q = async (text, values) => (await sql.query(text, values)).rows;
   const browser = await chromium.launch(executablePath ? { executablePath } : {});
-  const created = { orders: [], products: [], contacts: [], categories: [], profile: null };
+  const created = { orders: [], products: [], contacts: [], categories: [], profile: null, companyId: 0 };
   const errors = [];
   try {
     await mkdir(SHOTS, { recursive: true });
     const [admin] = await q("SELECT id, company_id FROM users WHERE email=$1", [EMAIL]);
     const company = admin.company_id;
+    created.companyId = company;
     const stamp = `cd-${Date.now()}`;
     const clientAddress = "Av. Central 123, Asunción";
     [created.profile] = await q("SELECT company_name,address_lines,phone,email,website,tax_id FROM company_profile WHERE company_id=$1", [company]);
@@ -235,10 +236,10 @@ test("each line declares its supplier's place, the marks print everywhere, one l
       if (created.profile) {
         await q(
           "UPDATE company_profile SET company_name=$2,address_lines=$3,phone=$4,email=$5,website=$6,tax_id=$7 WHERE company_id=$1",
-          [company, created.profile.company_name, created.profile.address_lines, created.profile.phone, created.profile.email, created.profile.website, created.profile.tax_id],
+          [created.companyId, created.profile.company_name, created.profile.address_lines, created.profile.phone, created.profile.email, created.profile.website, created.profile.tax_id],
         );
       } else {
-        await q("DELETE FROM company_profile WHERE company_id=$1", [company]);
+        await q("DELETE FROM company_profile WHERE company_id=$1", [created.companyId]);
       }
       if (created.orders.length) await q("DELETE FROM orders WHERE id = ANY($1)", [created.orders]);
       if (created.products.length) await q("DELETE FROM product_suppliers WHERE product_id = ANY($1)", [created.products]);
