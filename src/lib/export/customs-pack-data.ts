@@ -7,9 +7,15 @@ import { parsePartiesSnapshot, usesFrozenParties } from "@/lib/parties-snapshot"
 import { buildCustomsPack, formatConsignee, type CustomsPack } from "@/lib/customs-pack";
 import type { CustomsUnit } from "@/lib/customs";
 import { orderClientConsignee } from "@/lib/label-details";
+import { groupBySupplier } from "@/lib/order-groups";
+import { compareNames } from "@/lib/name-order";
 
 function splitLines(text: string): string[] {
   return text.split("\n").map((l) => l.trim()).filter(Boolean);
+}
+
+export function orderCustomsRows<T extends { supplierId: number | null; supplierName: string | null }>(rows: T[]): T[] {
+  return groupBySupplier(rows, compareNames("en")).flatMap((group) => group.rows);
 }
 
 /**
@@ -83,7 +89,7 @@ export async function getCustomsPackData(companyId: number, orderId: number): Pr
     destinationCountry: order.destinationCountry,
     goodsOrigin: order.goodsOrigin,
     shippingMarks: order.shippingMarks,
-    lines: rows.map((r) => {
+    lines: orderCustomsRows(rows).map((r) => {
       const product = productMap.get(r.productId);
       // Each language sorts its own names, so pair the lines by id.
       const zhRow = zh.rows.find((z) => z.id === r.id);
