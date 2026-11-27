@@ -20,13 +20,21 @@ test("each line declares its supplier's place, the marks print everywhere, one l
   await sql.connect();
   const q = async (text, values) => (await sql.query(text, values)).rows;
   const browser = await chromium.launch(executablePath ? { executablePath } : {});
-  const created = { orders: [], products: [], contacts: [], categories: [] };
+  const created = { orders: [], products: [], contacts: [], categories: [], profile: null };
   const errors = [];
   try {
     await mkdir(SHOTS, { recursive: true });
     const [admin] = await q("SELECT id, company_id FROM users WHERE email=$1", [EMAIL]);
     const company = admin.company_id;
     const stamp = `cd-${Date.now()}`;
+    const clientAddress = "Av. Central 123, Asunción";
+    [created.profile] = await q("SELECT company_name,address_lines,phone,email,website,tax_id FROM company_profile WHERE company_id=$1", [company]);
+    await q(
+      `INSERT INTO company_profile(company_id,company_name,address_lines,phone,email,website,tax_id)
+       VALUES ($1,'Mbarete Export','Yiwu HQ\nRoom 1452','+86 195 0000 0000','export@mbarete.example','https://mbarete.example','91330782MBARETE001')
+       ON CONFLICT(company_id) DO UPDATE SET company_name=EXCLUDED.company_name,address_lines=EXCLUDED.address_lines,phone=EXCLUDED.phone,email=EXCLUDED.email,website=EXCLUDED.website,tax_id=EXCLUDED.tax_id`,
+      [company],
+    );
 
     const context = await browser.newContext({ viewport: { width: 1440, height: 960 }, acceptDownloads: true });
     const page = await context.newPage();
@@ -69,7 +77,10 @@ test("each line declares its supplier's place, the marks print everywhere, one l
     // A confirmed order: four cartons of bottles from Yiwu, two of cameras from Shenzhen.
     const [cat] = await q("INSERT INTO categories(company_id,name_en,name_zh) VALUES ($1,$2,'报关') RETURNING id", [company, stamp]);
     created.categories.push(cat.id);
-    const [client] = await q("INSERT INTO contacts(company_id,type,company_name) VALUES ($1,'client',$2) RETURNING id", [company, `Client ${stamp}`]);
+    const [client] = await q(
+      "INSERT INTO contacts(company_id,type,company_name,booth_location,contact_person,phone,email,whatsapp,wechat,tax_id) VALUES ($1,'client',$2,$3,'María López','+595 21 555 010','compras@jota.example','+595 981 555 010','jota-trading','80012345-6') RETURNING id",
+      [company, `Client ${stamp}`, clientAddress],
+    );
     created.contacts.push(client.id);
     const product = async (en, zh, code) => {
       const [row] = await q(
@@ -114,7 +125,7 @@ test("each line declares its supplier's place, the marks print everywhere, one l
     const labelsCard = page.getByTestId("labels-card");
     await openOrderSection(page, "labels-card");
     await page.waitForFunction(() => document.querySelector('[data-testid="labelConsignee"]')?.value.endsWith("PARAGUAY"));
-    assert.equal(await page.getByTestId("labelConsignee").inputValue(), `Client ${stamp}\nPARAGUAY`);
+    assert.equal(await page.getByTestId("labelConsignee").inputValue(), `Client ${stamp}\n${clientAddress}\nPARAGUAY`);
     await page.getByTestId("shippingMarks").fill("BLG-88\nPARAGUAY");
     const labelsToggle = page.getByTestId("labels-card-toggle");
     await labelsToggle.click();
@@ -142,6 +153,15 @@ test("each line declares its supplier's place, the marks print everywhere, one l
     assert.deepEqual(book.worksheets.map((w) => w.name), ["出货清单", "inv", "pck", "合同", "报关单", "委托书"]);
     const decl = book.getWorksheet("报关单");
     assert.equal(decl.getCell("O11").value, "浙江省义乌市");
+    assert.equal(decl.getCell("F13").value, "FOB", "blank company terms default to FOB");
+    const invoice = book.getWorksheet("inv");
+    assert.equal(invoice.getCell("A4").value, "TEL: +86 195 0000 0000 · EMAIL: export@mbarete.example · WEB: https://mbarete.example · TAX ID: 91330782MBARETE001");
+    const consignee = String(invoice.getCell("B7").value);
+    for (const fact of [`Client ${stamp}`, clientAddress, "María López", "+595 21 555 010", "compras@jota.example", "+595 981 555 010", "80012345-6"]) {
+      assert.ok(consignee.includes(fact), `invoice consignee includes ${fact}`);
+    }
+    assert.ok(!consignee.includes("WeChat"), "WeChat is not printed in the customs pack");
+    assert.match(String(book.getWorksheet("合同").getCell("A3").value), /Yiwu HQ Room 1452 · TEL: \+86 195 0000 0000 · EMAIL: export@mbarete\.example/);
     const origins = {};
     for (const r of [22, 23]) origins[decl.getCell(`D${r}`).value] = decl.getCell(`H${r}`).value;
     assert.deepEqual(origins, { "50毫升泡沫泵瓶": "浙江省义乌市", "迷你数码相机": "广东省深圳市" });
@@ -212,6 +232,14 @@ test("each line declares its supplier's place, the marks print everywhere, one l
   } finally {
     await browser.close();
     try {
+      if (created.profile) {
+        await q(
+          "UPDATE company_profile SET company_name=$2,address_lines=$3,phone=$4,email=$5,website=$6,tax_id=$7 WHERE company_id=$1",
+          [company, created.profile.company_name, created.profile.address_lines, created.profile.phone, created.profile.email, created.profile.website, created.profile.tax_id],
+        );
+      } else {
+        await q("DELETE FROM company_profile WHERE company_id=$1", [company]);
+      }
       if (created.orders.length) await q("DELETE FROM orders WHERE id = ANY($1)", [created.orders]);
       if (created.products.length) await q("DELETE FROM product_suppliers WHERE product_id = ANY($1)", [created.products]);
       if (created.products.length) await q("DELETE FROM products WHERE id = ANY($1)", [created.products]);

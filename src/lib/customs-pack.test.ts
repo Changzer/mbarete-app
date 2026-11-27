@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildCustomsPack, mainGoodsOrigin, shippingMarkLines, splitCompanyName, type CustomsPackInput } from "./customs-pack";
+import { buildCustomsPack, formatConsignee, mainGoodsOrigin, shippingMarkLines, splitCompanyName, type CustomsPackInput } from "./customs-pack";
 
 const base: CustomsPackInput = {
   docNo: "ORD-20260524-001",
@@ -107,4 +107,26 @@ test("shipping marks print line by line, N/M when the order has none", () => {
   assert.deepEqual(shippingMarkLines(""), ["N/M"]);
   assert.deepEqual(shippingMarkLines(" BLG-88 \n\n ORD-1\nPARAGUAY "), ["BLG-88", "ORD-1", "PARAGUAY"]);
   assert.deepEqual(buildCustomsPack({ ...base, shippingMarks: "BLG-88\nPARAGUAY" }).marks, ["BLG-88", "PARAGUAY"]);
+});
+
+test("consignee details include the client's full address and contact block", () => {
+  const details = formatConsignee({
+    companyName: "JOTA TRADING SA.",
+    address: "Av. Central 123, Asunción",
+    contactPerson: "María López",
+    phone: "+595 21 555 010",
+    email: "compras@jota.example",
+    whatsapp: "+595 981 555 010",
+    taxId: "80012345-6",
+  });
+  assert.deepEqual(details.split("\n"), [
+    "JOTA TRADING SA.",
+    "Av. Central 123, Asunción",
+    "Attn: María López",
+    "Tel: +595 21 555 010",
+    "Email: compras@jota.example",
+    "WhatsApp: +595 981 555 010",
+    "Tax ID: 80012345-6",
+  ]);
+  assert.equal(formatConsignee({ companyName: "Client", boothLocation: "Client address" }), "Client\nClient address");
 });
