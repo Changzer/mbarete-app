@@ -44,9 +44,23 @@ function band(ws: ExcelJS.Worksheet, range: string, value: ExcelJS.CellValue, st
 function letterhead(ws: ExcelJS.Worksheet, pack: CustomsPack, lastCol: string, withPhone = true) {
   band(ws, `A1:${lastCol}1`, pack.companyZh, { bold: true, size: 16, align: "center" });
   band(ws, `A2:${lastCol}2`, pack.companyEn.toUpperCase(), { bold: true, size: 12, align: "center" });
-  band(ws, `A3:${lastCol}3`, pack.addressLines.join(" "), { size: 9, align: "center", wrap: true });
-  if (withPhone) band(ws, `A4:${lastCol}4`, pack.phone ? `TEL: ${pack.phone}` : "", { size: 9, align: "center" });
-  ws.getRow(3).height = 28;
+  const contact = [
+    pack.phone ? `TEL: ${pack.phone}` : "",
+    pack.email ? `EMAIL: ${pack.email}` : "",
+    pack.website ? `WEB: ${pack.website}` : "",
+    pack.taxId ? `TAX ID: ${pack.taxId}` : "",
+  ].filter(Boolean).join(" · ");
+  band(
+    ws,
+    `A3:${lastCol}3`,
+    `${pack.addressLines.join(" ")}${withPhone ? "" : `${contact ? " · " : ""}${contact}`}`,
+    { size: 9, align: "center", wrap: true },
+  );
+  if (withPhone) {
+    band(ws, `A4:${lastCol}4`, contact, { size: 9, align: "center", wrap: true });
+    ws.getRow(4).height = 28;
+  }
+  ws.getRow(3).height = withPhone ? 28 : 42;
 }
 
 /** The marks down column A from `row`, one line per row; returns the first row after them. */
@@ -63,7 +77,8 @@ function summarySheet(wb: ExcelJS.Workbook, pack: CustomsPack) {
   put(ws, "E3", "开票工厂", { bold: true });
   band(ws, "F3:L3", pack.factories);
   put(ws, "A5", "收货人", { bold: true });
-  band(ws, "B5:D5", pack.consignee);
+  band(ws, "B5:D5", pack.consignee, { wrap: true });
+  ws.getRow(5).height = Math.max(30, pack.consignee.split("\n").length * 14);
   put(ws, "E5", "境内货源地", { bold: true });
   band(ws, "F5:L5", pack.goodsOrigin);
   put(ws, "A7", "装柜日期", { bold: true });
@@ -107,7 +122,8 @@ function invoiceSheet(wb: ExcelJS.Workbook, pack: CustomsPack) {
   ws.columns = [14, 8, 6, 34, 10, 7, 13, 13, 6].map((width) => ({ width }));
   letterhead(ws, pack, "I");
   put(ws, "A7", "TO：", { bold: true });
-  band(ws, "B7:D7", pack.consignee, { bold: true });
+  band(ws, "B7:D7", pack.consignee, { bold: true, wrap: true });
+  ws.getRow(7).height = Math.max(30, pack.consignee.split("\n").length * 14);
   band(ws, "E8:F9", "发     票", { bold: true, size: 16, align: "center" });
   band(ws, "E10:F11", "INVOICE", { bold: true, size: 16, align: "center" });
   put(ws, "G9", "发票号码");
@@ -209,7 +225,8 @@ function contractSheet(wb: ExcelJS.Workbook, pack: CustomsPack) {
   band(ws, "A5:J5", "SALES CONTRACT", { bold: true, size: 14, align: "center" });
   put(ws, "H6", "合同号码:");
   put(ws, "A7", "买   方:", { bold: true });
-  band(ws, "B7:F7", pack.consignee, { bold: true });
+  band(ws, "B7:F7", pack.consignee, { bold: true, wrap: true });
+  ws.getRow(7).height = Math.max(30, pack.consignee.split("\n").length * 14);
   put(ws, "H7", "Contract No.:");
   band(ws, "I7:J7", pack.docNo);
   put(ws, "A8", "Buyer:");
@@ -218,7 +235,8 @@ function contractSheet(wb: ExcelJS.Workbook, pack: CustomsPack) {
   band(ws, "I9:J9", pack.contractDate);
   put(ws, "H10", "签约地点");
   put(ws, "A11", "卖    方:", { bold: true });
-  band(ws, "B11:F11", pack.companyEn.toUpperCase(), { bold: true });
+  band(ws, "B11:F11", `${pack.companyEn.toUpperCase()}\n${pack.addressLines.join(" ")}`, { bold: true, wrap: true });
+  ws.getRow(11).height = 42;
   put(ws, "H11", "Concluded at:");
   band(ws, "I11:J11", /yiwu|义乌/i.test(`${pack.companyEn}${pack.addressLines.join(" ")}`) ? "YIWU" : "");
   put(ws, "A12", "Seller:");

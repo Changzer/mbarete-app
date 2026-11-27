@@ -4,7 +4,7 @@ import { getProducts } from "@/lib/queries/catalog";
 import { getSupplierOrigins } from "@/lib/queries/contacts";
 import { convert, roundMoney, UnknownCurrencyError } from "@/lib/calculations";
 import { parsePartiesSnapshot, usesFrozenParties } from "@/lib/parties-snapshot";
-import { buildCustomsPack, type CustomsPack } from "@/lib/customs-pack";
+import { buildCustomsPack, formatConsignee, type CustomsPack } from "@/lib/customs-pack";
 import type { CustomsUnit } from "@/lib/customs";
 import { orderClientConsignee } from "@/lib/label-details";
 
@@ -44,10 +44,13 @@ export async function getCustomsPackData(companyId: number, orderId: number): Pr
     companyName: company.companyName,
     addressLines: company.addressLines,
     phone: company.phone,
+    email: company.email,
+    website: company.website,
+    taxId: company.taxId,
     incoterms: company.incoterms,
     paymentTerms: company.paymentTerms,
   };
-  const consignee = frozen?.client?.companyName ?? client?.companyName ?? "";
+  const consignee = formatConsignee(frozen?.client ?? client ?? { companyName: "" });
 
   const inQuote = (amount: number, from: string) => {
     if (from === quote) return amount;
@@ -67,8 +70,11 @@ export async function getCustomsPackData(companyId: number, orderId: number): Pr
     companyName: seller.companyName,
     addressLines: splitLines(seller.addressLines),
     phone: seller.phone,
+    email: seller.email,
+    website: seller.website,
+    taxId: seller.taxId,
     consignee,
-    incoterms: seller.incoterms,
+    incoterms: seller.incoterms.trim() || "FOB",
     paymentTerms: splitLines(seller.paymentTerms),
     notes: order.notes ?? "",
     currency: quote,

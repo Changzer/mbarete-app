@@ -50,6 +50,9 @@ export type CustomsPackInput = {
   companyName: string;
   addressLines: string[];
   phone: string;
+  email?: string;
+  website?: string;
+  taxId?: string;
   consignee: string;
   incoterms: string;
   paymentTerms: string[];
@@ -117,6 +120,27 @@ export function splitCompanyName(name: string): { zh: string; en: string } {
   const zh = parts.find((p) => CJK.test(p)) ?? "";
   const en = parts.find((p) => !CJK.test(p)) ?? "";
   return { zh: zh || name.trim(), en: en || name.trim() };
+}
+
+export function formatConsignee(contact: {
+  companyName: string;
+  address?: string;
+  boothLocation?: string;
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
+  whatsapp?: string;
+  taxId?: string;
+}): string {
+  return [
+    contact.companyName,
+    contact.address ?? contact.boothLocation ?? "",
+    contact.contactPerson ? `Attn: ${contact.contactPerson}` : "",
+    contact.phone ? `Tel: ${contact.phone}` : "",
+    contact.email ? `Email: ${contact.email}` : "",
+    contact.whatsapp ? `WhatsApp: ${contact.whatsapp}` : "",
+    contact.taxId ? `Tax ID: ${contact.taxId}` : "",
+  ].filter((line) => line.trim()).join("\n");
 }
 
 const round3 = (n: number) => Math.round(n * 1000) / 1000;

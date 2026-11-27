@@ -12,7 +12,10 @@ const pack = buildCustomsPack({
   companyName: "义乌玻汭进出口有限公司 | Yiwu Mbarete Import Export Co. Ltd.",
   addressLines: ["浙江省义乌市", "Room 1452"],
   phone: "+8619550534361",
-  consignee: "JOTA TRADING SA.",
+  email: "export@mbarete.example",
+  website: "https://mbarete.example",
+  taxId: "91330782MBARETE001",
+  consignee: "JOTA TRADING SA.\nAv. Central 123, Asunción\nAttn: María López\nTel: +595 21 555 010\nEmail: compras@jota.example\nWhatsApp: +595 981 555 010\nTax ID: 80012345-6",
   incoterms: "FOB",
   paymentTerms: ["100% T/T"],
   notes: "The seller shall bear all transportation costs from domestic to designated overseas warehouses.",
@@ -91,6 +94,18 @@ test("each line declares its supplier's origin, and the marks replace N/M", asyn
   assert.equal(pck.getCell("A15").value, "BLG-88");
   assert.ok(text(wb.getWorksheet("合同")!).includes("Shipping Marks 唛头: BLG-88 / ORD-20260524-001"));
   assert.equal(wb.getWorksheet("出货清单")!.getCell("L13").value, "山东省临沂市");
+});
+
+test("the shipper letterhead and consignee carry complete party details", async () => {
+  const wb = await load();
+  const inv = wb.getWorksheet("inv")!;
+  assert.equal(inv.getCell("A3").value, "浙江省义乌市 Room 1452");
+  assert.equal(inv.getCell("A4").value, "TEL: +8619550534361 · EMAIL: export@mbarete.example · WEB: https://mbarete.example · TAX ID: 91330782MBARETE001");
+  assert.equal(inv.getCell("B7").value, pack.consignee);
+  assert.equal(wb.getWorksheet("出货清单")!.getCell("B5").value, pack.consignee);
+  assert.equal(wb.getWorksheet("合同")!.getCell("B7").value, pack.consignee);
+  assert.equal(wb.getWorksheet("合同")!.getCell("B11").value, `${pack.companyEn.toUpperCase()}\n${pack.addressLines.join(" ")}`);
+  assert.equal(wb.getWorksheet("合同")!.getCell("A3").value, "浙江省义乌市 Room 1452 · TEL: +8619550534361 · EMAIL: export@mbarete.example · WEB: https://mbarete.example · TAX ID: 91330782MBARETE001");
 });
 
 test("the 委托书 carries the seller's half of the agreement", async () => {
