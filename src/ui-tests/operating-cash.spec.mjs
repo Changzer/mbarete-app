@@ -56,7 +56,7 @@ test("only the two Tailong cash accounts reconcile expenses and bank checks", { 
 
     await page.getByTestId("operating-category").selectOption("rent");
     await page.getByTestId("operating-amount").fill("5000");
-    await page.getByTestId("operating-currency").fill("CNY");
+    assert.equal(await page.getByTestId("operating-currency").inputValue(), "CNY");
     await page.getByTestId("operating-account").selectOption(String(accountId));
     await page.getByTestId("operating-vendor").fill("QA Landlord");
     await page.getByTestId("operating-note").fill("January rent");
@@ -67,9 +67,10 @@ test("only the two Tailong cash accounts reconcile expenses and bank checks", { 
     await page.getByTestId(`check-form-${accountId}`).getByRole("button", { name: "Record balance check" }).click();
     await page.getByText("Difference: 0.00 CNY", { exact: false }).waitFor({ timeout: 15_000 });
 
+    await page.getByText("Add another bank movement", { exact: true }).click();
     await page.getByTestId("cash-kind").selectOption("other_income");
     await page.getByTestId("cash-amount").fill("1000");
-    await page.getByTestId("cash-currency").fill("CNY");
+    assert.equal(await page.getByTestId("cash-currency").inputValue(), "CNY");
     await page.getByTestId("cash-account").selectOption(String(accountId));
     await page.getByTestId("cash-transaction-save").click();
     await page.getByText("96,000.00 CNY", { exact: false }).first().waitFor({ timeout: 15_000 });

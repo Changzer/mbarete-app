@@ -4,10 +4,12 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { db, one } from "@/db";
-import { bankAccounts, cashBalanceChecks, cashTransactions, operatingExpenses } from "@/db/schema";
+import { bankAccounts, cashBalanceChecks, cashTransactions, operatingExpenses, orderExpenses, orderPayments } from "@/db/schema";
 import { requireAdmin, requireModuleAction } from "@/lib/authz";
 import { canonicalCurrencyCode } from "@/lib/currency";
 import { isTailongAccount } from "@/lib/operating-cash";
+import { calculateConversion } from "@/lib/conversion";
+import { getExchangeRates } from "@/lib/queries/orders";
 import {
   deleteUpload,
   FileTooLargeError,
@@ -34,6 +36,7 @@ type ActionResult = { error?: string };
 
 function refresh() {
   revalidatePath("/[locale]/finance", "page");
+  revalidatePath("/[locale]/orders/[id]", "page");
 }
 
 async function session() {
@@ -148,15 +151,18 @@ export async function recordBalanceCheck(_prev: ActionResult | undefined, formDa
 }
 
 const transactionSchema = z.object({
-  kind: z.enum(["other_income", "transfer", "adjustment"]),
+  kind: z.enum(["other_income", "other_expense", "transfer", "exchange", "adjustment"]),
   direction: z.enum(["in", "out"]),
   amount: money,
   currency,
   transactedOn: date,
   accountId,
   destinationAccountId: z.coerce.number().int().positive().nullable().default(null),
+  destinationAmount: z.preprocess((value) => value === "" || value === undefined ? null : value, money.nullable()).default(null),
+  destinationCurrency: z.string().trim().max(8).default("").transform(canonicalCurrencyCode),
   counterparty: z.string().trim().max(160).default(""),
   note: z.string().trim().max(500).default(""),
+  bankReference: z.string().trim().max(120).default(""),
 });
 
 export async function addCashTransaction(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
@@ -171,14 +177,81 @@ export async function addCashTransaction(_prev: ActionResult | undefined, formDa
   if (!source?.openingDate) return { error: "notFound" };
   if (canonicalCurrencyCode(source.currency) !== data.currency) return { error: "accountCurrency" };
   if (data.kind === "other_income" && data.direction !== "in") return { error: "invalid" };
-  if (data.kind !== "transfer") data.destinationAccountId = null;
-  if (data.kind === "transfer") {
+  if (["other_expense", "transfer", "exchange"].includes(data.kind) && data.direction !== "out") return { error: "invalid" };
+  if (data.kind !== "transfer" && data.kind !== "exchange") {
+    data.destinationAccountId = null;
+    data.destinationAmount = null;
+    data.destinationCurrency = "";
+  } else {
     if (data.destinationAccountId === null || data.destinationAccountId === data.accountId) return { error: "invalid" };
     const destination = await account(user.companyId, data.destinationAccountId);
     if (!destination?.openingDate) return { error: "notFound" };
-    if (canonicalCurrencyCode(destination.currency) !== data.currency) return { error: "accountCurrency" };
+    if (data.kind === "transfer") {
+      if (canonicalCurrencyCode(destination.currency) !== data.currency) return { error: "accountCurrency" };
+      data.destinationAmount = null;
+      data.destinationCurrency = "";
+    } else {
+      if (data.destinationAmount === null || canonicalCurrencyCode(destination.currency) !== data.destinationCurrency) return { error: "accountCurrency" };
+    }
   }
-  await db.insert(cashTransactions).values({ companyId: user.companyId, createdBy: user.id, ...data });
+  const receipt = await optionalReceipt(user.companyId, formData);
+  if ("error" in receipt) return { error: receipt.error };
+  await db.insert(cashTransactions).values({ companyId: user.companyId, createdBy: user.id, ...data, ...receipt });
+  refresh();
+  return {};
+}
+
+export async function deleteCashTransaction(id: number): Promise<void> {
+  const user = await session();
+  const row = await db.select().from(cashTransactions)
+    .where(and(eq(cashTransactions.companyId, user.companyId), eq(cashTransactions.id, id)))
+    .limit(1).then(one);
+  if (!row) return;
+  await db.delete(cashTransactions).where(eq(cashTransactions.id, id));
+  if (row.receiptPath) await deleteUpload(row.receiptPath);
+  refresh();
+}
+
+export async function assignPaymentAccount(id: number, cashAccountId: number, settlementAmount?: number): Promise<ActionResult> {
+  const user = await session();
+  const payment = await db.select().from(orderPayments)
+    .where(and(eq(orderPayments.companyId, user.companyId), eq(orderPayments.id, id)))
+    .limit(1).then(one);
+  const target = await account(user.companyId, cashAccountId);
+  if (!payment || !target?.openingDate) return { error: "notFound" };
+  if (payment.channel === "xtransfer") {
+    if (payment.direction !== "in" || !settlementAmount || settlementAmount <= 0) return { error: "invalid" };
+    const conversion = calculateConversion({
+      sourceAmount: payment.amount,
+      sourceCurrency: payment.currency,
+      settlementAmount,
+      settlementCurrency: target.currency,
+      rates: await getExchangeRates(user.companyId),
+    });
+    await db.update(orderPayments).set({
+      settlementAmount,
+      settlementCurrency: target.currency,
+      settlementAccountId: target.id,
+      effectiveRate: conversion.effectiveRate,
+      conversionCost: conversion.conversionCost,
+    }).where(eq(orderPayments.id, id));
+  } else {
+    if (canonicalCurrencyCode(target.currency) !== canonicalCurrencyCode(payment.currency)) return { error: "accountCurrency" };
+    await db.update(orderPayments).set({ cashAccountId }).where(eq(orderPayments.id, id));
+  }
+  refresh();
+  return {};
+}
+
+export async function assignExpenseAccount(id: number, accountId: number): Promise<ActionResult> {
+  const user = await session();
+  const expense = await db.select().from(orderExpenses)
+    .where(and(eq(orderExpenses.companyId, user.companyId), eq(orderExpenses.id, id)))
+    .limit(1).then(one);
+  const target = await account(user.companyId, accountId);
+  if (!expense || !target?.openingDate) return { error: "notFound" };
+  if (canonicalCurrencyCode(target.currency) !== canonicalCurrencyCode(expense.currency)) return { error: "accountCurrency" };
+  await db.update(orderExpenses).set({ accountId }).where(eq(orderExpenses.id, id));
   refresh();
   return {};
 }

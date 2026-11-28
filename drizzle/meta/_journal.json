@@ -323,6 +323,13 @@
       "when": 1795875720955,
       "tag": "0045_two-tailong-cash-accounts",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1795877922124,
+      "tag": "0046_explicit-bank-ledger",
+      "breakpoints": true
     }
   ]
 }

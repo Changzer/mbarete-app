@@ -53,6 +53,7 @@ export default async function FinancePage({
   const cashView = computeOperatingCash(cashData, new Date().toISOString().slice(0, 10), rates);
   const overhead = cashData.operatingExpenses.reduce((sum, expense) => sum + convert(expense.amount, expense.currency, reportCurrency, rates), 0);
   const companyNet = report.totals.expectedNet - overhead;
+  const tailongBookCash = cashView.accounts.reduce((sum, account) => sum + convert(account.bookBalance, account.currency, reportCurrency, rates), 0);
 
   const money = (n: number) =>
     `${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${reportCurrency}`;
@@ -72,7 +73,11 @@ export default async function FinancePage({
     },
     { label: t("tileReceivables"), value: money(report.totals.receivables), tone: report.totals.receivables > 0.005 ? "warn" : undefined },
     { label: t("tilePayables"), value: money(report.totals.payables), tone: report.totals.payables > 0.005 ? "warn" : undefined },
-    { label: t("tileNetCash"), value: money(report.totals.netCash), tone: report.totals.netCash >= 0 ? "good" : "bad" },
+    {
+      label: t("tileNetCash"),
+      value: money(tailongBookCash),
+      tone: tailongBookCash >= 0 ? "good" : "bad",
+    },
     {
       label: t("tileQuoted", { count: report.totals.quotedOrders }),
       value: money(report.totals.quotedRevenue),
@@ -105,7 +110,7 @@ export default async function FinancePage({
 
       <p className="text-xs text-sub">{t("help")}</p>
 
-      <FinanceIntake orders={intakeOrders} aiConfigured={Boolean(visionProvider())} />
+      <FinanceIntake orders={intakeOrders} accounts={cashView.accounts} aiConfigured={Boolean(visionProvider())} />
 
       {report.missingRates.length > 0 ? (
         <p className="rounded-md border bg-warn-soft px-3 py-2 text-sm text-warn">
