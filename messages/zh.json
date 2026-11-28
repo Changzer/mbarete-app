@@ -935,6 +935,7 @@
     "error_invalid": "请检查金额、日期、账户和资金类型。",
     "error_notFound": "找不到该账户，或尚未启用现金跟踪。",
     "error_accountCurrency": "请选择与现金账户相同的币种。",
+    "error_unsupportedAccount": "只能使用泰隆人民币或美元账户跟踪现金。",
     "error_receiptType": "凭证必须是照片或 PDF。",
     "error_receiptSize": "凭证文件过大。",
     "error_storageFull": "套餐存储空间已满。"

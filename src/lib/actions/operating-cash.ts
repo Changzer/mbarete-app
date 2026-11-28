@@ -7,6 +7,7 @@ import { db, one } from "@/db";
 import { bankAccounts, cashBalanceChecks, cashTransactions, operatingExpenses } from "@/db/schema";
 import { requireAdmin, requireModuleAction } from "@/lib/authz";
 import { canonicalCurrencyCode } from "@/lib/currency";
+import { isTailongAccount } from "@/lib/operating-cash";
 import {
   deleteUpload,
   FileTooLargeError,
@@ -45,7 +46,7 @@ async function account(companyId: number, id: number, tracked = true) {
   const row = await db.select().from(bankAccounts)
     .where(and(eq(bankAccounts.companyId, companyId), eq(bankAccounts.id, id)))
     .limit(1).then(one);
-  if (!row || (tracked && !row.trackBalance)) return null;
+  if (!row || (tracked && (!row.trackBalance || !isTailongAccount(row)))) return null;
   return row;
 }
 
@@ -122,6 +123,7 @@ export async function saveCashAccount(_prev: ActionResult | undefined, formData:
   const { id, ...data } = parsed.data;
   const existing = await account(user.companyId, id, false);
   if (!existing) return { error: "notFound" };
+  if (data.trackBalance && !isTailongAccount(existing)) return { error: "unsupportedAccount" };
   if (data.trackBalance && (!existing.currency || !date.safeParse(data.openingDate).success)) {
     return { error: "invalid" };
   }

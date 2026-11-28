@@ -935,6 +935,7 @@
     "error_invalid": "Check the amount, date, account and movement type.",
     "error_notFound": "That account was not found or cash tracking is disabled.",
     "error_accountCurrency": "Choose the same currency as the cash account.",
+    "error_unsupportedAccount": "Only Tailong RMB and Tailong USD accounts can be used for cash tracking.",
     "error_receiptType": "Receipts must be a photo or PDF.",
     "error_receiptSize": "The receipt is too large.",
     "error_storageFull": "Your plan's storage is full."

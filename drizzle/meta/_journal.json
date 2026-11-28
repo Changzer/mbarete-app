@@ -309,6 +309,13 @@
       "when": 1795865801414,
       "tag": "0043_converted-settlements",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1795870083118,
+      "tag": "0044_tailong-cash-accounts",
+      "breakpoints": true
     }
   ]
 }
