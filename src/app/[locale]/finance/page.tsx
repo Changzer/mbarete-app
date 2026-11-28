@@ -9,6 +9,10 @@ import { getCompanyProfile } from "@/lib/queries/settings";
 import { pickReportCurrency, resolveFunctionalCurrency } from "@/lib/functional-currency";
 import { FinanceIntake } from "@/components/finance/finance-intake";
 import { visionProvider } from "@/lib/vision";
+import { getOperatingCashData } from "@/lib/queries/operating-cash";
+import { computeOperatingCash } from "@/lib/operating-cash";
+import { OperatingCash } from "@/components/finance/operating-cash";
+import { convert } from "@/lib/calculations";
 
 /**
  * The whole business on one page: expected results, open balances in both
@@ -45,6 +49,10 @@ export default async function FinancePage({
     rates,
   );
   const report = computeFinanceReport(orders, reportCurrency, rates);
+  const cashData = await getOperatingCashData(user!.companyId);
+  const cashView = computeOperatingCash(cashData, new Date().toISOString().slice(0, 10), rates);
+  const overhead = cashData.operatingExpenses.reduce((sum, expense) => sum + convert(expense.amount, expense.currency, reportCurrency, rates), 0);
+  const companyNet = report.totals.expectedNet - overhead;
 
   const money = (n: number) =>
     `${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${reportCurrency}`;
@@ -126,6 +134,8 @@ export default async function FinancePage({
           </div>
         ))}
       </div>
+
+      <OperatingCash data={cashData} view={cashView} companyNet={companyNet} reportCurrency={reportCurrency} />
 
       {/* --- open balances, the actionable part --- */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

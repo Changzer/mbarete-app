@@ -295,6 +295,13 @@
       "when": 1795451155649,
       "tag": "0041_canonical-cny",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1795800296889,
+      "tag": "0042_operating-cash",
+      "breakpoints": true
     }
   ]
 }
