@@ -302,6 +302,13 @@
       "when": 1795800296889,
       "tag": "0042_operating-cash",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1795865801414,
+      "tag": "0043_converted-settlements",
+      "breakpoints": true
     }
   ]
 }

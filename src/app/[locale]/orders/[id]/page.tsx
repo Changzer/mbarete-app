@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getOrderView } from "@/lib/queries/order-view";
 import { getProducts } from "@/lib/queries/catalog";
-import { getOrderFinanceRows, parseRatesSnapshot } from "@/lib/queries/orders";
+import { getOrderFinanceRows, parseRatesSnapshot, getExchangeRates } from "@/lib/queries/orders";
 import { getUserNames } from "@/lib/queries/users";
 import { getBankAccounts, getCompanyProfile } from "@/lib/queries/settings";
 import type { Locale } from "@/i18n/routing";
@@ -157,6 +157,7 @@ export default async function OrderDetailPage({
     Object.fromEntries(supplierOptions.map((supplier) => [supplier.id, supplier.name])),
   );
   const resultCurrencies = Object.keys(effectiveRates).sort();
+  const liveRates = await getExchangeRates(companyId);
 
   // Lines whose product had no measurements when the order was saved.
   const hasUnmeasured = rows.some((r) => r.lineCbm <= 0 || r.lineWeightKg <= 0);
@@ -490,6 +491,8 @@ export default async function OrderDetailPage({
           expenses={finance.expenses}
           suppliers={supplierOptions}
           balances={supplierBalances}
+          cashAccounts={bankAccounts.filter((account) => account.trackBalance).map((account) => ({ id: account.id, label: account.label, currency: account.currency }))}
+          rates={liveRates}
         />
       </div>
 

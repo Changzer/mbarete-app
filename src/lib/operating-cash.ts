@@ -17,6 +17,9 @@ export type OrderPaymentCashInput = {
   account: string;
   paidOn: string;
   ratesSnapshot: string;
+  settlementAmount?: number | null;
+  settlementCurrency?: string;
+  settlementAccountId?: number | null;
 };
 
 export type OrderExpenseCashInput = {
@@ -103,6 +106,10 @@ export function computeOperatingCash(input: OperatingCashInput, asOf: string, ra
     let total = 0;
     for (const payment of input.payments) {
       if (!relevant(payment.paidOn)) continue;
+      if (payment.settlementAccountId != null && payment.settlementAmount != null) {
+        if (payment.settlementAccountId === account.id) total += payment.settlementAmount;
+        continue;
+      }
       const candidates = forCurrency(payment.account || payment.currency);
       if (candidates.length === 1 && candidates[0].id === account.id) {
         const amount = payment.direction === "in" ? payment.amount : -payment.amount;
@@ -132,6 +139,7 @@ export function computeOperatingCash(input: OperatingCashInput, asOf: string, ra
   };
 
   for (const payment of input.payments) {
+    if (payment.settlementAccountId != null && payment.settlementAmount != null) continue;
     if (forCurrency(payment.account || payment.currency).length !== 1) {
       const code = canonicalCurrencyCode(payment.account || payment.currency);
       unassigned.set(code, roundMoney((unassigned.get(code) ?? 0) + (payment.direction === "in" ? payment.amount : -payment.amount)));

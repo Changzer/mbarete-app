@@ -29,8 +29,10 @@ import {
 } from "@/components/ui/select";
 import { useState } from "react";
 import { Paperclip } from "lucide-react";
+import { calculateConversion } from "@/lib/conversion";
 
 export type SupplierOption = { id: number; name: string };
+export type CashAccountOption = { id: number; label: string; currency: string };
 
 export type PaymentRow = {
   id: number;
@@ -40,6 +42,16 @@ export type PaymentRow = {
   currency: string;
   paidOn: string;
   account: string;
+  channel: "bank" | "xtransfer";
+  settlementAmount: number | null;
+  settlementCurrency: string;
+  settlementAccountId: number | null;
+  effectiveRate: number | null;
+  conversionCost: number | null;
+  inboundReceiptPath: string;
+  inboundReceiptName: string;
+  outboundReceiptPath: string;
+  outboundReceiptName: string;
   receiptPath: string;
   receiptName: string;
   note: string;
@@ -109,6 +121,14 @@ function useErrorText() {
         return t("storageFull");
       case "invalidSupplier":
         return t("invalidSupplier");
+      case "settlementRequired":
+        return t("settlementRequired");
+      case "invalidSettlementAccount":
+        return t("invalidSettlementAccount");
+      case "accountCurrency":
+        return t("accountCurrency");
+      case "missingDocuments":
+        return t("missingDocuments");
       default:
         return t("invalid");
     }
@@ -195,7 +215,7 @@ function ReceiptField({ testid }: { testid: string }) {
 }
 
 /** The link a recorded slip renders as, opening in its own tab. */
-function ReceiptLink({ path, name }: { path: string; name: string }) {
+function ReceiptLink({ path, name, label }: { path: string; name: string; label?: string }) {
   const t = useTranslations("finance");
   return (
     <a
@@ -206,7 +226,7 @@ function ReceiptLink({ path, name }: { path: string; name: string }) {
       className="flex shrink-0 items-center gap-1 text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
     >
       <Paperclip className="h-3.5 w-3.5" />
-      {t("viewReceipt")}
+      {label ?? t("viewReceipt")}
     </a>
   );
 }
@@ -218,11 +238,15 @@ function PaymentForm({
   direction,
   defaultCurrency,
   suppliers,
+  cashAccounts,
+  rates,
 }: {
   orderId: number;
   direction: "in" | "out";
   defaultCurrency: string;
   suppliers: SupplierOption[];
+  cashAccounts: CashAccountOption[];
+  rates: Record<string, number>;
 }) {
   const t = useTranslations("finance");
   const errorText = useErrorText();
@@ -234,6 +258,25 @@ function PaymentForm({
     return result;
   }
   const [result, formAction, isPending] = useActionState(action, undefined);
+  const [channel, setChannel] = useState<"bank" | "xtransfer">("bank");
+  const [amount, setAmount] = useState("");
+  const [sourceCurrency, setSourceCurrency] = useState(defaultCurrency);
+  const [settlementAmount, setSettlementAmount] = useState("");
+  const [settlementCurrency, setSettlementCurrency] = useState("CNY");
+  let conversion: ReturnType<typeof calculateConversion> | null = null;
+  if (channel === "xtransfer" && Number(amount) > 0 && Number(settlementAmount) > 0) {
+    try {
+      conversion = calculateConversion({
+        sourceAmount: Number(amount),
+        sourceCurrency,
+        settlementAmount: Number(settlementAmount),
+        settlementCurrency,
+        rates,
+      });
+    } catch {
+      conversion = null;
+    }
+  }
 
   return (
     <form
@@ -243,6 +286,21 @@ function PaymentForm({
       data-testid={`payment-form-${direction}`}
     >
       <input type="hidden" name="direction" value={direction} />
+      {direction === "in" ? (
+        <div className="flex min-w-40 flex-col gap-1">
+          <Label className="text-xs">{t("channel")}</Label>
+          <select
+            name="channel"
+            value={channel}
+            onChange={(event) => setChannel(event.target.value as "bank" | "xtransfer")}
+            className="flex h-9 rounded-md border border-line bg-surface px-2 text-sm"
+            data-testid="payment-channel"
+          >
+            <option value="bank">{t("channelBank")}</option>
+            <option value="xtransfer">{t("channelXtransfer")}</option>
+          </select>
+        </div>
+      ) : <input type="hidden" name="channel" value="bank" />}
       {direction === "out" && suppliers.length > 0 ? (
         <div className="flex min-w-48 flex-col gap-1">
           <Label className="text-xs">{t("supplier")}</Label>
@@ -270,11 +328,14 @@ function PaymentForm({
           min="0.01"
           required
           className="w-32"
+          value={amount}
+          onChange={(event) => setAmount(event.target.value)}
+          data-testid="payment-amount"
         />
       </div>
       <div className="flex flex-col gap-1">
         <Label className="text-xs">{t("currency")}</Label>
-        <Input name="currency" defaultValue={defaultCurrency} required className="w-20" />
+        <Input name="currency" value={sourceCurrency} onChange={(event) => setSourceCurrency(event.target.value)} required className="w-20" data-testid="payment-currency" />
       </div>
       <div className="flex flex-col gap-1">
         <Label className="text-xs">{t("date")}</Label>
@@ -297,7 +358,43 @@ function PaymentForm({
         <Label className="text-xs">{t("note")}</Label>
         <Input name="note" placeholder={t("notePlaceholder")} />
       </div>
-      <ReceiptField testid={`receipt-${direction}`} />
+      {channel === "xtransfer" ? (
+        <>
+          <div className="flex flex-col gap-1">
+            <Label className="text-xs">{t("settlementAmount")}</Label>
+            <Input
+              name="settlementAmount"
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              min="0.01"
+              required
+              className="w-32"
+              value={settlementAmount}
+              onChange={(event) => setSettlementAmount(event.target.value)}
+              data-testid="settlement-amount"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label className="text-xs">{t("settlementCurrency")}</Label>
+            <Input name="settlementCurrency" value={settlementCurrency} onChange={(event) => setSettlementCurrency(event.target.value)} maxLength={8} required className="w-20" data-testid="settlement-currency" />
+          </div>
+          <div className="flex min-w-48 flex-col gap-1">
+            <Label className="text-xs">{t("settlementAccount")}</Label>
+            <select name="settlementAccountId" required defaultValue={cashAccounts[0]?.id ?? ""} className="flex h-9 rounded-md border border-line bg-surface px-2 text-sm" data-testid="settlement-account">
+              {cashAccounts.map((account) => <option key={account.id} value={account.id}>{account.label} · {account.currency}</option>)}
+            </select>
+          </div>
+          <FileButton name="inboundReceipt" accept="image/*,.pdf" required testid="inbound-receipt" />
+          <FileButton name="outboundReceipt" accept="image/*,.pdf" required testid="outbound-receipt" />
+          {conversion ? (
+            <div className="w-full rounded-md bg-surface-2 px-3 py-2 text-[11px] text-sub" data-testid="conversion-preview">
+              {t("effectiveRate", { rate: conversion.effectiveRate.toFixed(4), currency: settlementCurrency })}
+              <span className="ml-2">{t("impliedCost", { amount: conversion.conversionCost.toFixed(2), currency: settlementCurrency })}</span>
+            </div>
+          ) : null}
+        </>
+      ) : <ReceiptField testid={`receipt-${direction}`} />}
       <Button type="submit" size="sm" disabled={isPending}>
         {t("add")}
       </Button>
@@ -370,6 +467,15 @@ function PaymentList({
                 </span>
               ) : null}
               <span className="min-w-0 flex-1 truncate text-sub">{p.note}</span>
+              {p.settlementAmount !== null ? (
+                <span className="text-[11px] text-sub" data-testid={`settlement-${p.id}`}>
+                  → {money(p.settlementAmount)} {p.settlementCurrency}
+                  {p.effectiveRate !== null ? ` · ${p.effectiveRate.toFixed(4)} ${p.settlementCurrency}/${p.currency}` : ""}
+                  {p.conversionCost !== null && Math.abs(p.conversionCost) > 0.005 ? ` · ${t("impliedCostShort", { amount: p.conversionCost.toFixed(2), currency: p.settlementCurrency })}` : ""}
+                </span>
+              ) : null}
+              {p.inboundReceiptPath ? <ReceiptLink path={p.inboundReceiptPath} name={p.inboundReceiptName} label={t("inboundSlip")} /> : null}
+              {p.outboundReceiptPath ? <ReceiptLink path={p.outboundReceiptPath} name={p.outboundReceiptName} label={t("outboundSlip")} /> : null}
               {p.receiptPath ? <ReceiptLink path={p.receiptPath} name={p.receiptName} /> : null}
               {isAdmin ? (
                 <button
@@ -646,6 +752,8 @@ export function OrderFinance({
   expenses,
   suppliers,
   balances,
+  cashAccounts,
+  rates,
 }: {
   orderId: number;
   quoteCurrency: string;
@@ -654,6 +762,8 @@ export function OrderFinance({
   expenses: ExpenseRow[];
   suppliers: SupplierOption[];
   balances: SupplierBalance[];
+  cashAccounts: CashAccountOption[];
+  rates: Record<string, number>;
 }) {
   const t = useTranslations("finance");
   const paymentsIn = payments.filter((p) => p.direction === "in");
@@ -666,13 +776,13 @@ export function OrderFinance({
         <OrderSection title={t("paymentsIn")} data-testid="section-payments-in">
           <div className="flex flex-col gap-3">
             <p className="text-xs text-sub">{t("gatewayHint")}</p>
-            <PaymentForm orderId={orderId} direction="in" defaultCurrency={quoteCurrency} suppliers={[]} />
+            <PaymentForm orderId={orderId} direction="in" defaultCurrency={quoteCurrency} suppliers={[]} cashAccounts={cashAccounts} rates={rates} />
             <PaymentList orderId={orderId} rows={paymentsIn} suppliers={[]} />
           </div>
         </OrderSection>
         <OrderSection title={t("paymentsOut")} data-testid="section-payments-out">
           <div className="flex flex-col gap-3">
-            <PaymentForm orderId={orderId} direction="out" defaultCurrency={supplierCurrency} suppliers={suppliers} />
+            <PaymentForm orderId={orderId} direction="out" defaultCurrency={supplierCurrency} suppliers={suppliers} cashAccounts={cashAccounts} rates={rates} />
             <PaymentList orderId={orderId} rows={paymentsOut} suppliers={suppliers} />
           </div>
         </OrderSection>

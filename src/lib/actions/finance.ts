@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db, one } from "@/db";
-import { orders, orderItems, orderPayments, orderExpenses, orderDocuments } from "@/db/schema";
+import { orders, orderItems, orderPayments, orderExpenses, orderDocuments, bankAccounts } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { requireUser, requireAdmin, requireModuleAction, type SessionUser } from "@/lib/authz";
 import {
@@ -17,6 +17,7 @@ import {
 import { logOrderEvent } from "@/lib/order-log";
 import { getExchangeRates } from "@/lib/queries/orders";
 import { canonicalCurrencyCode } from "@/lib/currency";
+import { calculateConversion } from "@/lib/conversion";
 
 async function requireSession() {
   const user = await requireUser();
@@ -57,11 +58,12 @@ export type FinanceActionResult = { error?: string };
 async function readReceipt(
   companyId: number,
   formData: FormData,
+  fieldName = "receipt",
 ): Promise<
   | { receiptPath: string; receiptName: string }
   | { error: "receiptType" | "receiptSize" | "storageFull" }
 > {
-  const file = formData.get("receipt");
+  const file = formData.get(fieldName);
   if (!(file instanceof File) || file.size === 0) {
     return { receiptPath: "", receiptName: "" };
   }
@@ -80,6 +82,16 @@ async function readReceipt(
 
 const paymentSchema = z.object({
   direction: z.enum(["in", "out"]),
+  channel: z.enum(["bank", "xtransfer"]).default("bank"),
+  settlementAmount: z.preprocess(
+    (value) => value === "" || value === undefined ? null : value,
+    z.coerce.number().positive().nullable(),
+  ).default(null),
+  settlementCurrency: z.string().trim().max(8).default("").transform(canonicalCurrencyCode),
+  settlementAccountId: z.preprocess(
+    (value) => value === "" || value === undefined ? null : value,
+    z.coerce.number().int().positive().nullable(),
+  ).default(null),
   supplierId: z.preprocess(
     (value) => value === "" || value === undefined ? null : value,
     z.coerce.number().int().positive().nullable(),
@@ -124,16 +136,58 @@ export async function addPayment(
     return { error: "invalidSupplier" };
   }
 
-  const receipt = await readReceipt(user.companyId, formData);
-  if ("error" in receipt) return { error: receipt.error };
+  const converted = parsed.data.settlementAmount !== null;
+  if (parsed.data.channel === "xtransfer" && !converted) return { error: "settlementRequired" };
+  let settlement = { effectiveRate: null as number | null, conversionCost: null as number | null };
+  let documents: Record<string, string> = {};
+  const rates = await getExchangeRates(user.companyId);
+  if (converted) {
+    if (parsed.data.direction !== "in" || !parsed.data.settlementCurrency || !parsed.data.settlementAccountId) {
+      return { error: "invalid" };
+    }
+    const account = await db.select().from(bankAccounts)
+      .where(and(eq(bankAccounts.companyId, user.companyId), eq(bankAccounts.id, parsed.data.settlementAccountId)))
+      .limit(1).then(one);
+    if (!account || !account.trackBalance) return { error: "invalidSettlementAccount" };
+    if (canonicalCurrencyCode(account.currency) !== parsed.data.settlementCurrency) return { error: "accountCurrency" };
+    settlement = calculateConversion({
+      sourceAmount: parsed.data.amount,
+      sourceCurrency: parsed.data.currency,
+      settlementAmount: parsed.data.settlementAmount!,
+      settlementCurrency: parsed.data.settlementCurrency,
+      rates,
+    });
+    const inbound = await readReceipt(user.companyId, formData, "inboundReceipt");
+    if ("error" in inbound) return { error: inbound.error };
+    const outbound = await readReceipt(user.companyId, formData, "outboundReceipt");
+    if ("error" in outbound) {
+      if (inbound.receiptPath) await deleteUpload(inbound.receiptPath);
+      return { error: outbound.error };
+    }
+    if (!inbound.receiptPath || !outbound.receiptPath) {
+      if (inbound.receiptPath) await deleteUpload(inbound.receiptPath);
+      if (outbound.receiptPath) await deleteUpload(outbound.receiptPath);
+      return { error: "missingDocuments" };
+    }
+    documents = {
+      inboundReceiptPath: inbound.receiptPath,
+      inboundReceiptName: inbound.receiptName,
+      outboundReceiptPath: outbound.receiptPath,
+      outboundReceiptName: outbound.receiptName,
+    };
+  } else {
+    const receipt = await readReceipt(user.companyId, formData);
+    if ("error" in receipt) return { error: receipt.error };
+    documents = receipt;
+  }
 
   // Freeze today's rates onto the payment: what this money was worth the day
   // it was recorded must not drift when rates move later.
-  const ratesSnapshot = JSON.stringify(await getExchangeRates(user.companyId));
+  const ratesSnapshot = JSON.stringify(rates);
 
   await db
     .insert(orderPayments)
-    .values({ companyId: user.companyId, orderId, createdBy: user.id, ratesSnapshot, ...receipt, ...parsed.data });
+    .values({ companyId: user.companyId, orderId, createdBy: user.id, ratesSnapshot, ...settlement, ...documents, ...parsed.data });
   await logOrderEvent(orderId, user.id, "payment_added", parsed.data);
   refresh(orderId);
   return {};

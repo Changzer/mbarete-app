@@ -130,6 +130,10 @@ jobs:
           UPLOADS_DIR: ${{ runner.temp }}/uploads
       - run: npm run test:operating-cash
         if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
+      - run: npm run test:converted-settlement
+        if: ${{ !cancelled() && steps.start_app.outcome == 'success' }}
+        env:
+          UPLOADS_DIR: ${{ runner.temp }}/uploads
       - name: Upload order status screenshots
         if: always()
         uses: actions/upload-artifact@v4

@@ -995,6 +995,16 @@ export const orderPayments = pgTable(
     ratesSnapshot: text("rates_snapshot").notNull().default("{}"),
     /** Which bank account the money touched, e.g. "USD" or "CNY". */
     account: text("account").notNull().default(""),
+    channel: text("channel", { enum: ["bank", "xtransfer"] }).notNull().default("bank"),
+    settlementAmount: numeric("settlement_amount", { precision: 18, scale: 4, mode: "number" }),
+    settlementCurrency: text("settlement_currency").notNull().default(""),
+    settlementAccountId: integer("settlement_account_id"),
+    effectiveRate: numeric("effective_rate", { precision: 18, scale: 8, mode: "number" }),
+    conversionCost: numeric("conversion_cost", { precision: 18, scale: 4, mode: "number" }),
+    inboundReceiptPath: text("inbound_receipt_path").notNull().default(""),
+    inboundReceiptName: text("inbound_receipt_name").notNull().default(""),
+    outboundReceiptPath: text("outbound_receipt_path").notNull().default(""),
+    outboundReceiptName: text("outbound_receipt_name").notNull().default(""),
     /**
      * The payment slip: a photo or PDF of the transfer receipt, stored in the
      * uploads volume under a session-gated name. Empty when none was attached.
@@ -1012,6 +1022,11 @@ export const orderPayments = pgTable(
       name: "order_payments_company_supplier_fk",
       columns: [table.companyId, table.supplierId],
       foreignColumns: [contacts.companyId, contacts.id],
+    }),
+    foreignKey({
+      name: "order_payments_company_settlement_account_fk",
+      columns: [table.companyId, table.settlementAccountId],
+      foreignColumns: [bankAccounts.companyId, bankAccounts.id],
     }),
     foreignKey({
       name: "order_payments_company_order_fk",
