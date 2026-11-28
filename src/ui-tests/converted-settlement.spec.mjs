@@ -19,6 +19,10 @@ test("an XTransfer conversion keeps the client's USD payment and Tailong CNY set
   try {
     const account = (await sql.query("SELECT id,company_id FROM users WHERE email=$1", [EMAIL])).rows[0];
     const company = account.company_id;
+    await sql.query(
+      "INSERT INTO exchange_rates(company_id,currency_code,rate_to_usd) VALUES ($1,'CNY',0.14) ON CONFLICT(company_id,currency_code) DO UPDATE SET rate_to_usd=0.14",
+      [company],
+    );
     clientId = (await sql.query("INSERT INTO contacts(company_id,type,company_name) VALUES ($1,'client','Conversion QA Client') RETURNING id", [company])).rows[0].id;
     supplierId = (await sql.query("INSERT INTO contacts(company_id,type,company_name) VALUES ($1,'supplier','Conversion QA Supplier') RETURNING id", [company])).rows[0].id;
     bankId = (await sql.query(
