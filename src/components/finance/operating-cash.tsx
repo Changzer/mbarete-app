@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Plus, Trash2 } from "lucide-react";
 import type { OperatingCashInput, OperatingCashView } from "@/lib/operating-cash";
+import { isTailongAccount } from "@/lib/operating-cash";
 import {
   addCashTransaction,
   addOperatingExpense,
@@ -227,9 +228,9 @@ export function OperatingCash({
   const t = useTranslations("operatingCash");
   const router = useRouter();
   const [deleting, startDelete] = useTransition();
-  const trackedAccounts = data.accounts.filter((account) => account.trackBalance);
+  const trackedAccounts = data.accounts.filter((account) => account.trackBalance && isTailongAccount(account));
   const computed = new Map(view.accounts.map((account) => [account.id, account]));
-  const accountRows = data.accounts.map((account) => computed.get(account.id) ?? {
+  const accountRows = data.accounts.filter(isTailongAccount).map((account) => computed.get(account.id) ?? {
     ...account,
     bookBalance: 0,
     bookAtCheck: 0,

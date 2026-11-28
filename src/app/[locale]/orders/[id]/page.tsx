@@ -8,6 +8,7 @@ import { getBankAccounts, getCompanyProfile } from "@/lib/queries/settings";
 import type { Locale } from "@/i18n/routing";
 import { computeOrderFinanceView, formatCbm } from "@/lib/calculations";
 import { computeSupplierBalances } from "@/lib/supplier-balances";
+import { isTailongAccount } from "@/lib/operating-cash";
 import { groupBySupplier } from "@/lib/order-groups";
 import { compareNames } from "@/lib/name-order";
 import { computeDossierStatus, DOSSIER_KINDS, type TaxRegime } from "@/lib/dossier";
@@ -491,7 +492,7 @@ export default async function OrderDetailPage({
           expenses={finance.expenses}
           suppliers={supplierOptions}
           balances={supplierBalances}
-          cashAccounts={bankAccounts.filter((account) => account.trackBalance).map((account) => ({ id: account.id, label: account.label, currency: account.currency }))}
+          cashAccounts={bankAccounts.filter((account) => account.trackBalance && isTailongAccount(account)).map((account) => ({ id: account.id, label: account.label, currency: account.currency }))}
           rates={liveRates}
         />
       </div>

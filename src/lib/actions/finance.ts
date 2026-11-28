@@ -18,6 +18,7 @@ import { logOrderEvent } from "@/lib/order-log";
 import { getExchangeRates } from "@/lib/queries/orders";
 import { canonicalCurrencyCode } from "@/lib/currency";
 import { calculateConversion } from "@/lib/conversion";
+import { isTailongAccount } from "@/lib/operating-cash";
 
 async function requireSession() {
   const user = await requireUser();
@@ -148,7 +149,7 @@ export async function addPayment(
     const account = await db.select().from(bankAccounts)
       .where(and(eq(bankAccounts.companyId, user.companyId), eq(bankAccounts.id, parsed.data.settlementAccountId)))
       .limit(1).then(one);
-    if (!account || !account.trackBalance) return { error: "invalidSettlementAccount" };
+    if (!account || !account.trackBalance || !isTailongAccount(account)) return { error: "invalidSettlementAccount" };
     if (canonicalCurrencyCode(account.currency) !== parsed.data.settlementCurrency) return { error: "accountCurrency" };
     settlement = calculateConversion({
       sourceAmount: parsed.data.amount,

@@ -10,6 +10,10 @@ export type CashAccountInput = {
   trackBalance: boolean;
 };
 
+export function isTailongAccount(account: Pick<CashAccountInput, "label">): boolean {
+  return account.label.trim().toLowerCase().startsWith("tailong");
+}
+
 export type OrderPaymentCashInput = {
   direction: "in" | "out";
   amount: number;
@@ -90,7 +94,7 @@ function parseSnapshot(raw: string, fallback: CurrencyRates): CurrencyRates {
 }
 
 export function computeOperatingCash(input: OperatingCashInput, asOf: string, rates: CurrencyRates): OperatingCashView {
-  const accounts = input.accounts.filter((account) => account.trackBalance && account.openingDate);
+  const accounts = input.accounts.filter((account) => account.trackBalance && account.openingDate && isTailongAccount(account));
   const unassigned = new Map<string, number>();
   const forCurrency = (currency: string) => {
     const code = canonicalCurrencyCode(currency);

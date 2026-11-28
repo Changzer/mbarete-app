@@ -15,7 +15,7 @@ test("operating expenses and actual-bank checks reconcile from an opening balanc
   try {
     const account = (await sql.query("SELECT id,company_id FROM users WHERE email=$1", [EMAIL])).rows[0];
     accountId = (await sql.query(
-      "INSERT INTO bank_accounts(company_id,label,currency) VALUES ($1,'QA Operating CNY','CNY') RETURNING id",
+      "INSERT INTO bank_accounts(company_id,label,currency) VALUES ($1,'Tailong RMB QA','CNY') RETURNING id",
       [account.company_id],
     )).rows[0].id;
     const page = await browser.newPage();

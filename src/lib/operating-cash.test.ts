@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { computeOperatingCash, type OperatingCashInput } from "./operating-cash";
+import { computeOperatingCash, isTailongAccount, type OperatingCashInput } from "./operating-cash";
 
 const accounts: OperatingCashInput["accounts"] = [
-  { id: 1, label: "Operating CNY", currency: "CNY", openingBalance: 100000, openingDate: "2026-01-01", trackBalance: true },
-  { id: 2, label: "Operating USD", currency: "USD", openingBalance: 1000, openingDate: "2026-01-01", trackBalance: true },
+  { id: 1, label: "Tailong RMB", currency: "CNY", openingBalance: 100000, openingDate: "2026-01-01", trackBalance: true },
+  { id: 2, label: "Tailong USD", currency: "USD", openingBalance: 1000, openingDate: "2026-01-01", trackBalance: true },
   { id: 99, label: "Untracked savings", currency: "CNY", openingBalance: 0, openingDate: "", trackBalance: false },
 ];
 
@@ -48,4 +48,19 @@ test("untracked accounts and missing balance checks never invent actual cash", (
   assert.equal(view.accounts.some((account) => account.id === 99), false);
   assert.equal(view.accounts.find((account) => account.id === 2)!.actualBalance, null);
   assert.equal(view.accounts.find((account) => account.id === 2)!.difference, null);
+});
+
+test("XTransfer accounts stay out of cash tracking even when incorrectly enabled", () => {
+  const withXTransfer = {
+    ...input,
+    accounts: [
+      ...input.accounts,
+      { id: 3, label: "XTransfer-HK", currency: "USD", openingBalance: 500, openingDate: "2026-01-01", trackBalance: true },
+    ],
+  };
+  const view = computeOperatingCash(withXTransfer, "2026-01-31", { CNY: 0.14, USD: 1 });
+  assert.equal(view.accounts.some((account) => account.id === 3), false);
+  assert.equal(isTailongAccount({ label: "XTransfer-HK" }), false);
+  assert.equal(isTailongAccount({ label: "Tailong RMB" }), true);
+  assert.equal(isTailongAccount({ label: "Tailong USD" }), true);
 });
