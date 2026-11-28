@@ -75,7 +75,7 @@ export async function seed() {
     }
   }
 
-  // Starter categories and rates — the same set signup gives a new company.
+  // Starter categories, rates and cash accounts — the same set signup gives a new company.
   // Wrapped because the boot seed runs outside any signed-in request, and the
   // defaults live in RLS-guarded tables.
   await runWithTenant(companyId, () => seedCompanyDefaults(companyId));

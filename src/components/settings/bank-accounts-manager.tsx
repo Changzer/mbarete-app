@@ -22,17 +22,19 @@ function Field({
   defaultValue,
   required,
   hint,
+  readOnly,
 }: {
   name: string;
   label: string;
   defaultValue: string;
   required?: boolean;
   hint?: string;
+  readOnly?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={`bank-${name}`}>{label}</Label>
-      <Input id={`bank-${name}`} name={name} defaultValue={defaultValue} required={required} />
+      <Input id={`bank-${name}`} name={name} defaultValue={defaultValue} required={required} readOnly={readOnly} />
       {hint ? (
         <p className="text-xs text-sub">{hint}</p>
       ) : null}
@@ -128,18 +130,20 @@ export function BankAccountsManager({ accounts }: { accounts: BankAccount[] }) {
                           {t("bankMakeDefault")}
                         </Button>
                       ) : null}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          if (confirm(t("bankDeleteConfirm", { label: account.label }))) {
-                            deleteBankAccount(account.id);
-                            if (editing?.id === account.id) setEditing(null);
-                          }
-                        }}
-                      >
-                        {common("delete")}
-                      </Button>
+                      {!account.trackBalance ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            if (confirm(t("bankDeleteConfirm", { label: account.label }))) {
+                              deleteBankAccount(account.id);
+                              if (editing?.id === account.id) setEditing(null);
+                            }
+                          }}
+                        >
+                          {common("delete")}
+                        </Button>
+                      ) : null}
                     </div>
                   </td>
                 </tr>
@@ -174,9 +178,16 @@ export function BankAccountsManager({ accounts }: { accounts: BankAccount[] }) {
                 label={t("bankLabel")}
                 defaultValue={current.label}
                 required
-                hint={t("bankLabelHint")}
+                hint={current.trackBalance ? t("bankCashHint") : t("bankLabelHint")}
+                readOnly={current.trackBalance}
               />
-              <Field name="currency" label={t("bankCurrency")} defaultValue={current.currency} hint={t("bankCurrencyHint")} />
+              <Field
+                name="currency"
+                label={t("bankCurrency")}
+                defaultValue={current.currency}
+                hint={current.trackBalance ? t("bankCashHint") : t("bankCurrencyHint")}
+                readOnly={current.trackBalance}
+              />
               <Field name="accountName" label={t("bankAccountName")} defaultValue={current.accountName} />
               <Field name="bankName" label={t("bankName")} defaultValue={current.bankName} />
               <Field name="accountNumber" label={t("bankAccountNumber")} defaultValue={current.accountNumber} />
@@ -193,7 +204,7 @@ export function BankAccountsManager({ accounts }: { accounts: BankAccount[] }) {
             </div>
             {errorMessage ? (
               <p className="text-sm text-danger">
-                {errorMessage === "missing" ? t("bankGone") : t("bankInvalid")}
+                {errorMessage === "missing" ? t("bankGone") : errorMessage === "managed" ? t("bankProtected") : t("bankInvalid")}
               </p>
             ) : null}
             <div>

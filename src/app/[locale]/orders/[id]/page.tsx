@@ -492,7 +492,7 @@ export default async function OrderDetailPage({
           expenses={finance.expenses}
           suppliers={supplierOptions}
           balances={supplierBalances}
-          cashAccounts={bankAccounts.filter((account) => account.trackBalance && isTailongAccount(account)).map((account) => ({ id: account.id, label: account.label, currency: account.currency }))}
+          cashAccounts={bankAccounts.filter((account) => account.trackBalance && account.openingDate && isTailongAccount(account)).map((account) => ({ id: account.id, label: account.label, currency: account.currency }))}
           rates={liveRates}
         />
       </div>

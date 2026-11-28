@@ -119,10 +119,6 @@ function AccountRow({ account }: { account: OperatingCashView["accounts"][number
             <Label htmlFor={`opening-date-${account.id}`}>{t("openingDate")}</Label>
             <Input id={`opening-date-${account.id}`} name="openingDate" type="date" defaultValue={account.openingDate || today()} className="w-36" data-testid={`opening-date-${account.id}`} />
           </div>
-          <label className="flex min-h-9 items-center gap-1.5 text-xs text-sub">
-            <input type="checkbox" name="trackBalance" defaultChecked={account.trackBalance} className="h-4 w-4 accent-[var(--mb-action)]" data-testid={`track-balance-${account.id}`} />
-            {t("trackBalance")}
-          </label>
           <Button type="submit" size="sm" variant="outline" disabled={settingsPending}>{t("saveOpening")}</Button>
         </form>
         <form action={checkAction} className="flex flex-wrap items-end gap-2" data-testid={`check-form-${account.id}`}>
@@ -135,7 +131,7 @@ function AccountRow({ account }: { account: OperatingCashView["accounts"][number
             <Label htmlFor={`actual-date-${account.id}`}>{t("date")}</Label>
             <Input id={`actual-date-${account.id}`} name="checkedOn" type="date" defaultValue={today()} required className="w-36" data-testid={`actual-date-${account.id}`} />
           </div>
-          <Button type="submit" size="sm" variant="outline" disabled={checkPending || !account.trackBalance}>{t("recordCheck")}</Button>
+          <Button type="submit" size="sm" variant="outline" disabled={checkPending || !account.openingDate}>{t("recordCheck")}</Button>
         </form>
       </div>
       <ErrorMessage error={settingsState?.error || checkState?.error} />
@@ -228,9 +224,12 @@ export function OperatingCash({
   const t = useTranslations("operatingCash");
   const router = useRouter();
   const [deleting, startDelete] = useTransition();
-  const trackedAccounts = data.accounts.filter((account) => account.trackBalance && isTailongAccount(account));
+  const trackedAccounts = data.accounts
+    .filter((account) => account.trackBalance && isTailongAccount(account))
+    .sort((a, b) => a.currency.localeCompare(b.currency));
+  const activeAccounts = trackedAccounts.filter((account) => account.openingDate);
   const computed = new Map(view.accounts.map((account) => [account.id, account]));
-  const accountRows = data.accounts.filter(isTailongAccount).map((account) => computed.get(account.id) ?? {
+  const accountRows = trackedAccounts.map((account) => computed.get(account.id) ?? {
     ...account,
     bookBalance: 0,
     bookAtCheck: 0,
@@ -250,7 +249,7 @@ export function OperatingCash({
             {t("companyNet")}<div className="font-mono text-[18px] font-semibold text-ink">{money(companyNet, reportCurrency)}</div>
           </div>
         </div>
-        <OperatingExpenseForm accounts={trackedAccounts} />
+        <OperatingExpenseForm accounts={activeAccounts} />
         {data.operatingExpenses.length > 0 ? (
           <ul className="mt-4 flex flex-col divide-y divide-line text-sm">
             {data.operatingExpenses.slice(0, 8).map((expense) => (
@@ -294,7 +293,7 @@ export function OperatingCash({
         </div>
         <div className="mt-5 border-t border-line pt-3">
           <h3 className="text-[13px] font-semibold text-ink">{t("otherMovements")}</h3>
-          <CashTransactionForm accounts={trackedAccounts} />
+          <CashTransactionForm accounts={activeAccounts} />
         </div>
       </section>
     </div>

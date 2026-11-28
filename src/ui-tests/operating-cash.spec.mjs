@@ -7,15 +7,25 @@ const BASE = process.env.BASE_URL ?? "http://localhost:3000";
 const EMAIL = process.env.UI_TEST_EMAIL ?? "admin@example.com";
 const PASSWORD = process.env.UI_TEST_PASSWORD ?? "change-me";
 
-test("operating expenses and actual-bank checks reconcile from an opening balance", { timeout: 90_000 }, async () => {
+test("only the two Tailong cash accounts reconcile expenses and bank checks", { timeout: 90_000 }, async () => {
   const browser = await chromium.launch();
   const sql = new pg.Client({ connectionString: process.env.DATABASE_ADMIN_URL });
   await sql.connect();
-  let accountId;
+  let accountId, xtransferId;
   try {
     const account = (await sql.query("SELECT id,company_id FROM users WHERE email=$1", [EMAIL])).rows[0];
     accountId = (await sql.query(
-      "INSERT INTO bank_accounts(company_id,label,currency) VALUES ($1,'Tailong RMB QA','CNY') RETURNING id",
+      "SELECT id FROM bank_accounts WHERE company_id=$1 AND label='Tailong RMB' AND currency='CNY' AND track_balance=true",
+      [account.company_id],
+    )).rows[0].id;
+    assert.ok(accountId, "Tailong RMB is provisioned automatically");
+    const usd = (await sql.query(
+      "SELECT id FROM bank_accounts WHERE company_id=$1 AND label='Tailong USD' AND currency='USD' AND track_balance=true",
+      [account.company_id],
+    )).rows[0];
+    assert.ok(usd, "Tailong USD is provisioned automatically");
+    xtransferId = (await sql.query(
+      "INSERT INTO bank_accounts(company_id,label,currency) VALUES ($1,'XTransfer QA','USD') RETURNING id",
       [account.company_id],
     )).rows[0].id;
     const page = await browser.newPage();
@@ -26,11 +36,23 @@ test("operating expenses and actual-bank checks reconcile from an opening balanc
     await page.waitForURL(/catalog/, { timeout: 30_000 });
     await page.goto(`${BASE}/en/finance`);
 
+    const cash = page.getByTestId("operating-cash");
+    await page.getByTestId(`cash-account-${accountId}`).waitFor();
+    await page.getByTestId(`cash-account-${usd.id}`).waitFor();
+    assert.equal(await cash.locator('[data-testid^="cash-account-"]').count(), 2);
+    assert.equal(await cash.getByText("XTransfer QA", { exact: false }).count(), 0);
+    assert.deepEqual(
+      await cash.locator('[data-testid^="cash-account-"] h3').allTextContents(),
+      ["Tailong RMB · CNY", "Tailong USD · USD"],
+    );
+
     await page.getByTestId(`opening-balance-${accountId}`).fill("100000");
     await page.getByTestId(`opening-date-${accountId}`).fill("2026-01-01");
-    await page.getByTestId(`track-balance-${accountId}`).check();
     await page.getByTestId(`opening-form-${accountId}`).getByRole("button", { name: "Save opening" }).click();
-    await page.getByTestId("operating-category").waitFor();
+    await page.waitForFunction((id) => {
+      const select = document.querySelector('[data-testid="operating-account"]');
+      return select instanceof HTMLSelectElement && [...select.options].some((option) => option.value === id);
+    }, String(accountId));
 
     await page.getByTestId("operating-category").selectOption("rent");
     await page.getByTestId("operating-amount").fill("5000");
@@ -60,8 +82,9 @@ test("operating expenses and actual-bank checks reconcile from an opening balanc
       await sql.query("DELETE FROM operating_expenses WHERE account_id=$1", [accountId]);
       await sql.query("DELETE FROM cash_transactions WHERE account_id=$1 OR destination_account_id=$1", [accountId]);
       await sql.query("DELETE FROM cash_balance_checks WHERE account_id=$1", [accountId]);
-      await sql.query("DELETE FROM bank_accounts WHERE id=$1", [accountId]);
+      await sql.query("UPDATE bank_accounts SET opening_balance=0,opening_date='' WHERE id=$1", [accountId]);
     }
+    if (xtransferId) await sql.query("DELETE FROM bank_accounts WHERE id=$1", [xtransferId]);
     await browser.close();
     await sql.end();
   }

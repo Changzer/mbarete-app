@@ -455,6 +455,7 @@ export const bankAccounts = pgTable(
     currency: text("currency").notNull().default(""),
     openingBalance: numeric("opening_balance", { precision: 18, scale: 4, mode: "number" }).notNull().default(0),
     openingDate: text("opening_date").notNull().default(""),
+    /** Fixed Tailong cash account; one per currency, managed from Finance. */
     trackBalance: boolean("track_balance").notNull().default(false),
     isDefault: boolean("is_default").notNull().default(false),
     createdAt: text("created_at").notNull().default(utcNow),
@@ -462,6 +463,9 @@ export const bankAccounts = pgTable(
   (table) => [
     index("bank_accounts_company_idx").on(table.companyId),
     uniqueIndex("bank_accounts_company_id_uq").on(table.companyId, table.id),
+    uniqueIndex("bank_accounts_tracked_currency_uq")
+      .on(table.companyId, sql`upper(trim(${table.currency}))`)
+      .where(sql`${table.trackBalance} = true`),
   ],
 );
 
