@@ -50,6 +50,9 @@ const EMPTY: BankAccount = {
   swift: "",
   bankAddress: "",
   currency: "",
+  openingBalance: 0,
+  openingDate: "",
+  trackBalance: false,
   isDefault: false,
   createdAt: "",
 };

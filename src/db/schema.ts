@@ -453,12 +453,114 @@ export const bankAccounts = pgTable(
     bankAddress: text("bank_address").notNull().default(""),
     /** Which currency this account receives, informational only. */
     currency: text("currency").notNull().default(""),
+    openingBalance: numeric("opening_balance", { precision: 18, scale: 4, mode: "number" }).notNull().default(0),
+    openingDate: text("opening_date").notNull().default(""),
+    trackBalance: boolean("track_balance").notNull().default(false),
     isDefault: boolean("is_default").notNull().default(false),
     createdAt: text("created_at").notNull().default(utcNow),
   },
   (table) => [
     index("bank_accounts_company_idx").on(table.companyId),
     uniqueIndex("bank_accounts_company_id_uq").on(table.companyId, table.id),
+  ],
+);
+
+export const operatingExpenses = pgTable(
+  "operating_expenses",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id").notNull().references(() => companies.id),
+    category: text("category").notNull(),
+    amount: numeric("amount", { precision: 18, scale: 4, mode: "number" }).notNull(),
+    currency: text("currency").notNull(),
+    spentOn: date("spent_on", { mode: "string" }).notNull(),
+    accountId: integer("account_id").notNull(),
+    vendor: text("vendor").notNull().default(""),
+    note: text("note").notNull().default(""),
+    receiptPath: text("receipt_path").notNull().default(""),
+    receiptName: text("receipt_name").notNull().default(""),
+    createdBy: integer("created_by"),
+    createdAt: text("created_at").notNull().default(utcNow),
+  },
+  (table) => [
+    uniqueIndex("operating_expenses_company_id_uq").on(table.companyId, table.id),
+    index("operating_expenses_company_date_idx").on(table.companyId, table.spentOn),
+    foreignKey({
+      name: "operating_expenses_company_account_fk",
+      columns: [table.companyId, table.accountId],
+      foreignColumns: [bankAccounts.companyId, bankAccounts.id],
+    }),
+    foreignKey({
+      name: "operating_expenses_company_creator_fk",
+      columns: [table.companyId, table.createdBy],
+      foreignColumns: [users.companyId, users.id],
+    }),
+  ],
+);
+
+export const cashTransactions = pgTable(
+  "cash_transactions",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id").notNull().references(() => companies.id),
+    kind: text("kind", { enum: ["other_income", "transfer", "adjustment"] }).notNull(),
+    direction: text("direction", { enum: ["in", "out"] }).notNull().default("in"),
+    amount: numeric("amount", { precision: 18, scale: 4, mode: "number" }).notNull(),
+    currency: text("currency").notNull(),
+    transactedOn: date("transacted_on", { mode: "string" }).notNull(),
+    accountId: integer("account_id").notNull(),
+    destinationAccountId: integer("destination_account_id"),
+    counterparty: text("counterparty").notNull().default(""),
+    note: text("note").notNull().default(""),
+    createdBy: integer("created_by"),
+    createdAt: text("created_at").notNull().default(utcNow),
+  },
+  (table) => [
+    uniqueIndex("cash_transactions_company_id_uq").on(table.companyId, table.id),
+    index("cash_transactions_company_date_idx").on(table.companyId, table.transactedOn),
+    foreignKey({
+      name: "cash_transactions_company_account_fk",
+      columns: [table.companyId, table.accountId],
+      foreignColumns: [bankAccounts.companyId, bankAccounts.id],
+    }),
+    foreignKey({
+      name: "cash_transactions_company_destination_fk",
+      columns: [table.companyId, table.destinationAccountId],
+      foreignColumns: [bankAccounts.companyId, bankAccounts.id],
+    }),
+    foreignKey({
+      name: "cash_transactions_company_creator_fk",
+      columns: [table.companyId, table.createdBy],
+      foreignColumns: [users.companyId, users.id],
+    }),
+  ],
+);
+
+export const cashBalanceChecks = pgTable(
+  "cash_balance_checks",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id").notNull().references(() => companies.id),
+    accountId: integer("account_id").notNull(),
+    amount: numeric("amount", { precision: 18, scale: 4, mode: "number" }).notNull(),
+    checkedOn: date("checked_on", { mode: "string" }).notNull(),
+    note: text("note").notNull().default(""),
+    createdBy: integer("created_by"),
+    createdAt: text("created_at").notNull().default(utcNow),
+  },
+  (table) => [
+    uniqueIndex("cash_balance_checks_company_id_uq").on(table.companyId, table.id),
+    index("cash_balance_checks_company_account_date_idx").on(table.companyId, table.accountId, table.checkedOn),
+    foreignKey({
+      name: "cash_balance_checks_company_account_fk",
+      columns: [table.companyId, table.accountId],
+      foreignColumns: [bankAccounts.companyId, bankAccounts.id],
+    }),
+    foreignKey({
+      name: "cash_balance_checks_company_creator_fk",
+      columns: [table.companyId, table.createdBy],
+      foreignColumns: [users.companyId, users.id],
+    }),
   ],
 );
 
