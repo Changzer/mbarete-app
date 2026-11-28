@@ -53,7 +53,7 @@ test("operating expenses and actual-bank checks reconcile from an opening balanc
     await page.getByText("96,000.00 CNY", { exact: false }).first().waitFor({ timeout: 15_000 });
 
     assert.equal((await sql.query("SELECT category,amount,vendor FROM operating_expenses WHERE account_id=$1", [accountId])).rows[0].category, "rent");
-    assert.equal((await sql.query("SELECT amount FROM cash_balance_checks WHERE account_id=$1", [accountId])).rows[0].amount, "95000.00");
+    assert.equal(Number((await sql.query("SELECT amount FROM cash_balance_checks WHERE account_id=$1", [accountId])).rows[0].amount), 95000);
     assert.equal((await sql.query("SELECT kind,amount FROM cash_transactions WHERE account_id=$1", [accountId])).rows[0].kind, "other_income");
   } finally {
     if (accountId) {
