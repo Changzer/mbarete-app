@@ -1,4 +1,4 @@
-/** Full 0045 → 0046 upgrade in an isolated, disposable database. */
+/** Full 0044 → 0046 upgrade in an isolated, disposable database. */
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { mkdtemp, mkdir, readFile, writeFile, copyFile, rm } from "node:fs/promises";
@@ -31,9 +31,10 @@ async function main() {
       for (const entry of entries) await copyFile(`drizzle/${entry.tag}.sql`, path.join(folder, `${entry.tag}.sql`));
       return folder;
     };
-    await migrate(drizzle(target), { migrationsFolder: await upTo(45) });
+    await migrate(drizzle(target), { migrationsFolder: await upTo(44) });
     const company = (await target.query("INSERT INTO companies (name) VALUES ('Bank Ledger Upgrade QA') RETURNING id")).rows[0].id;
     const user = (await target.query("INSERT INTO users (company_id,email,password_hash,name) VALUES ($1,'bank-ledger@example.com','unused-test-hash','Bank Ledger QA') RETURNING id", [company])).rows[0].id;
+    await migrate(drizzle(target), { migrationsFolder: await upTo(45) });
     const account = (await target.query("SELECT id FROM bank_accounts WHERE company_id=$1 AND currency='CNY' AND track_balance=true", [company])).rows[0].id;
 
     await migrate(drizzle(target), { migrationsFolder: await upTo(46) });
