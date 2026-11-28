@@ -9,10 +9,15 @@ import { isTailongAccount } from "@/lib/operating-cash";
 import {
   addCashTransaction,
   addOperatingExpense,
+  assignExpenseAccount,
+  assignPaymentAccount,
+  deleteCashTransaction,
   deleteOperatingExpense,
   recordBalanceCheck,
   saveCashAccount,
 } from "@/lib/actions/operating-cash";
+import { Link } from "@/i18n/navigation";
+import type { BankLedgerEntry, StatementDocumentInput } from "@/lib/operating-cash";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,6 +36,7 @@ function OperatingExpenseForm({ accounts }: { accounts: OperatingCashInput["acco
   const t = useTranslations("operatingCash");
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
+  const [accountId, setAccountId] = useState(String(accounts[0]?.id ?? ""));
   const [state, action, pending] = useActionState(addOperatingExpense, undefined);
   useEffect(() => {
     if (state && !state.error) {
@@ -53,7 +59,7 @@ function OperatingExpenseForm({ accounts }: { accounts: OperatingCashInput["acco
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="operating-currency">{t("currency")}</Label>
-          <Input id="operating-currency" name="currency" defaultValue={accounts[0]?.currency || "CNY"} maxLength={8} required className="w-full" data-testid="operating-currency" />
+          <Input id="operating-currency" name="currency" value={accounts.find((account) => account.id === Number(accountId))?.currency ?? ""} readOnly required className="w-full" data-testid="operating-currency" />
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="operating-date">{t("date")}</Label>
@@ -61,7 +67,7 @@ function OperatingExpenseForm({ accounts }: { accounts: OperatingCashInput["acco
         </div>
         <div className="flex flex-col gap-1 md:col-span-2">
           <Label htmlFor="operating-account">{t("account")}</Label>
-          <select id="operating-account" name="accountId" required className={inputClass} data-testid="operating-account">
+          <select id="operating-account" name="accountId" required value={accountId} onChange={(event) => setAccountId(event.target.value)} className={inputClass} data-testid="operating-account">
             {accounts.map((account) => <option key={account.id} value={account.id}>{account.label} · {account.currency}</option>)}
           </select>
         </div>
@@ -144,9 +150,16 @@ function CashTransactionForm({ accounts }: { accounts: OperatingCashInput["accou
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [kind, setKind] = useState("other_income");
+  const [accountId, setAccountId] = useState(String(accounts[0]?.id ?? ""));
+  const [destinationAccountId, setDestinationAccountId] = useState(String(accounts[1]?.id ?? ""));
   const [state, action, pending] = useActionState(addCashTransaction, undefined);
+  const source = accounts.find((account) => account.id === Number(accountId));
+  const destinations = accounts.filter((account) => account.id !== Number(accountId));
   useEffect(() => {
-    if (state && !state.error) router.refresh();
+    if (state && !state.error) {
+      formRef.current?.reset();
+      router.refresh();
+    }
   }, [state, router]);
   return (
     <form ref={formRef} action={action} className="mt-3 flex flex-col gap-3" data-testid="cash-transaction-form">
@@ -155,51 +168,77 @@ function CashTransactionForm({ accounts }: { accounts: OperatingCashInput["accou
           <Label htmlFor="cash-kind">{t("transactionKind")}</Label>
           <select id="cash-kind" name="kind" value={kind} onChange={(event) => setKind(event.target.value)} className={inputClass} data-testid="cash-kind">
             <option value="other_income">{t("otherIncome")}</option>
-            <option value="transfer">{t("transfer")}</option>
-            <option value="adjustment">{t("adjustment")}</option>
+            <option value="other_expense">{t("otherExpense")}</option>
+            <option value="exchange">{t("exchange")}</option>
           </select>
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="cash-direction">{t("direction")}</Label>
-          <select id="cash-direction" name="direction" defaultValue="in" disabled={kind !== "adjustment"} className={inputClass} data-testid="cash-direction">
+          <select id="cash-direction" name="direction" value={kind === "other_income" ? "in" : "out"} disabled={kind !== "adjustment"} className={inputClass} data-testid="cash-direction">
             <option value="in">{t("moneyIn")}</option>
             <option value="out">{t("moneyOut")}</option>
           </select>
-          {kind !== "adjustment" ? <input type="hidden" name="direction" value={kind === "transfer" ? "out" : "in"} /> : null}
+          {kind !== "adjustment" ? <input type="hidden" name="direction" value={kind === "other_income" ? "in" : "out"} /> : null}
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="cash-account">{t("sourceAccount")}</Label>
+          <select
+            id="cash-account"
+            name="accountId"
+            required
+            value={accountId}
+            onChange={(event) => {
+              setAccountId(event.target.value);
+              setDestinationAccountId(String(accounts.find((account) => account.id !== Number(event.target.value))?.id ?? ""));
+            }}
+            className={inputClass}
+            data-testid="cash-account"
+          >
+            {accounts.map((account) => <option key={account.id} value={account.id}>{account.label} · {account.currency}</option>)}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="cash-currency">{t("currency")}</Label>
+          <Input id="cash-currency" name="currency" value={source?.currency ?? ""} readOnly required className="w-full" data-testid="cash-currency" />
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="cash-amount">{t("amount")}</Label>
           <Input id="cash-amount" name="amount" type="number" min="0.01" step="0.01" required className="w-full" data-testid="cash-amount" />
         </div>
         <div className="flex flex-col gap-1">
-          <Label htmlFor="cash-currency">{t("currency")}</Label>
-          <Input id="cash-currency" name="currency" defaultValue={accounts[0]?.currency || "CNY"} maxLength={8} required className="w-full" data-testid="cash-currency" />
-        </div>
-        <div className="flex flex-col gap-1">
           <Label htmlFor="cash-date">{t("date")}</Label>
           <Input id="cash-date" name="transactedOn" type="date" defaultValue={today()} required className="w-full" data-testid="cash-date" />
         </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="cash-account">{t("sourceAccount")}</Label>
-          <select id="cash-account" name="accountId" required className={inputClass} data-testid="cash-account">
-            {accounts.map((account) => <option key={account.id} value={account.id}>{account.label} · {account.currency}</option>)}
-          </select>
-        </div>
-        {kind === "transfer" ? (
-          <div className="flex flex-col gap-1 md:col-span-2">
-            <Label htmlFor="cash-destination">{t("destinationAccount")}</Label>
-            <select id="cash-destination" name="destinationAccountId" required className={inputClass} data-testid="cash-destination">
-              {accounts.map((account) => <option key={account.id} value={account.id}>{account.label} · {account.currency}</option>)}
-            </select>
-          </div>
+        {kind === "exchange" ? (
+          <>
+            <div className="flex flex-col gap-1 md:col-span-2">
+              <Label htmlFor="cash-destination">{t("destinationAccount")}</Label>
+              <select id="cash-destination" name="destinationAccountId" required value={destinationAccountId} onChange={(event) => setDestinationAccountId(event.target.value)} className={inputClass} data-testid="cash-destination">
+                {destinations.map((account) => <option key={account.id} value={account.id}>{account.label} · {account.currency}</option>)}
+              </select>
+              <input type="hidden" name="destinationCurrency" value={accounts.find((account) => account.id === Number(destinationAccountId))?.currency ?? ""} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="cash-destination-amount">{t("destinationAmount")}</Label>
+              <Input id="cash-destination-amount" name="destinationAmount" type="number" min="0.01" step="0.01" required className="w-full" data-testid="cash-destination-amount" />
+            </div>
+          </>
         ) : null}
         <div className="col-span-2 flex flex-col gap-1 md:col-span-2">
           <Label htmlFor="cash-counterparty">{t("counterparty")}</Label>
           <Input id="cash-counterparty" name="counterparty" maxLength={160} className="w-full" data-testid="cash-counterparty" />
         </div>
-        <div className="col-span-2 flex flex-col gap-1 md:col-span-4">
+        <div className="col-span-2 flex flex-col gap-1 md:col-span-2">
+          <Label htmlFor="cash-reference">{t("bankReference")}</Label>
+          <Input id="cash-reference" name="bankReference" maxLength={120} className="w-full" data-testid="cash-reference" />
+        </div>
+        <div className="col-span-2 flex flex-col gap-1 md:col-span-3">
           <Label htmlFor="cash-note">{t("note")}</Label>
           <Input id="cash-note" name="note" maxLength={500} className="w-full" data-testid="cash-note" />
+        </div>
+        <div className="col-span-2 flex flex-col gap-1 md:col-span-1">
+          <Label htmlFor="cash-receipt">{t("receipt")}</Label>
+          <input id="cash-receipt" name="receipt" type="file" accept="image/*,.pdf" className="text-xs text-sub" data-testid="cash-receipt" />
         </div>
       </div>
       <Button type="submit" size="sm" disabled={pending || accounts.length === 0} className="w-fit" data-testid="cash-transaction-save">
@@ -207,6 +246,151 @@ function CashTransactionForm({ accounts }: { accounts: OperatingCashInput["accou
       </Button>
       <ErrorMessage error={state?.error} />
     </form>
+  );
+}
+
+function PaymentAssignment({ payment, accounts }: { payment: OperatingCashView["unassignedPayments"][number]; accounts: OperatingCashInput["accounts"] }) {
+  const t = useTranslations("operatingCash");
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string>();
+  const [accountId, setAccountId] = useState("");
+  const [settlement, setSettlement] = useState("");
+  if (payment.id === undefined) return null;
+  const save = (settlementAmount?: number) => {
+    if (!accountId) return;
+    setError(undefined);
+    start(async () => {
+      const result = await assignPaymentAccount(payment.id!, Number(accountId), settlementAmount);
+      if (result.error) setError(result.error);
+      else router.refresh();
+    });
+  };
+  return (
+    <div className="rounded-md border border-line bg-surface-2 p-2" data-testid={`unassigned-payment-${payment.id}`}>
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <span className="text-sub">{payment.paidOn}</span>
+        <Link href={`/orders/${payment.orderId}`} className="text-action-chrome hover:underline">#{payment.orderId}</Link>
+        <span className="font-medium text-ink">{money(payment.amount, payment.currency)}</span>
+        <span className="text-sub">{payment.direction === "in" ? t("moneyIn") : t("moneyOut")} · {payment.channel === "xtransfer" ? "XTransfer" : payment.note}</span>
+      </div>
+      <div className="mt-2 flex flex-wrap items-end gap-2">
+        {payment.channel === "xtransfer" ? (
+          <div className="flex flex-col gap-1">
+            <Label>{t("settlementAmount")}</Label>
+            <Input type="number" min="0.01" step="0.01" value={settlement} onChange={(event) => setSettlement(event.target.value)} className="w-32" data-testid={`settlement-unassigned-${payment.id}`} />
+          </div>
+        ) : null}
+        <select value={accountId} onChange={(event) => setAccountId(event.target.value)} className={inputClass} data-testid={`assign-payment-${payment.id}`}>
+          <option value="">{t("assignAccount")}</option>
+          {accounts.map((account) => <option key={account.id} value={account.id}>{account.label} · {account.currency}</option>)}
+        </select>
+        <Button type="button" size="sm" variant="outline" disabled={pending || !accountId} onClick={() => save(payment.channel === "xtransfer" ? Number(settlement) : undefined)}>
+          {t("assign")}
+        </Button>
+      </div>
+      <ErrorMessage error={error} />
+    </div>
+  );
+}
+
+function UnassignedReview({ view, accounts }: { view: OperatingCashView; accounts: OperatingCashInput["accounts"] }) {
+  const t = useTranslations("operatingCash");
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const count = view.unassignedPayments.length + view.unassignedExpenses.length;
+  if (count === 0) return null;
+  return (
+    <details className="rounded-lg border border-warn bg-warn-soft p-3" data-testid="bank-assignment-review">
+      <summary className="cursor-pointer text-xs font-semibold text-warn">{t("reviewUnassigned", { count })}</summary>
+      <div className="mt-3 flex flex-col gap-2">
+        {view.unassignedPayments.map((payment) => <PaymentAssignment key={`p-${payment.id}`} payment={payment} accounts={accounts} />)}
+        {view.unassignedExpenses.map((expense) => expense.id === undefined ? null : (
+          <div key={`e-${expense.id}`} className="flex flex-wrap items-center gap-2 rounded-md border border-line bg-surface-2 p-2 text-xs" data-testid={`unassigned-expense-${expense.id}`}>
+            <span className="text-sub">{expense.spentOn}</span>
+            <Link href={`/orders/${expense.orderId}`} className="text-action-chrome hover:underline">#{expense.orderId}</Link>
+            <span className="font-medium text-ink">{money(expense.amount, expense.currency)}</span>
+            <span className="min-w-32 flex-1 text-sub">{expense.note}</span>
+            <select
+              value=""
+              disabled={pending}
+              onChange={(event) => start(async () => { await assignExpenseAccount(expense.id!, Number(event.target.value)); router.refresh(); })}
+              className={inputClass}
+              data-testid={`assign-expense-${expense.id}`}
+            >
+              <option value="">{t("assignAccount")}</option>
+              {accounts.map((account) => <option key={account.id} value={account.id}>{account.label} · {account.currency}</option>)}
+            </select>
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function BankLedger({ view, accounts, documents }: { view: OperatingCashView; accounts: OperatingCashInput["accounts"]; documents: StatementDocumentInput[] }) {
+  const t = useTranslations("operatingCash");
+  const router = useRouter();
+  const [accountId, setAccountId] = useState(accounts[0]?.id ?? 0);
+  const [deleting, startDelete] = useTransition();
+  const account = accounts.find((candidate) => candidate.id === accountId) ?? accounts[0];
+  if (!account) return null;
+  const documentMap = new Map(documents.map((document) => [document.id, document]));
+  const rows = view.entries
+    .filter((entry) => entry.accountId === account.id && entry.date >= account.openingDate)
+    .reduce<{ entry: BankLedgerEntry; running: number }[]>((result, entry) => {
+      const running = (result.at(-1)?.running ?? account.openingBalance) + (entry.direction === "in" ? entry.amount : -entry.amount);
+      return [...result, { entry, running }];
+    }, [])
+    .slice(-50)
+    .reverse();
+  const label = (entry: BankLedgerEntry) => {
+    if (["client_payment", "supplier_payment", "xtransfer_settlement", "other_income", "other_expense", "exchange", "transfer", "adjustment"].includes(entry.kind)) {
+      return t(`kind_${entry.kind}` as "kind_other_income");
+    }
+    return t(`category_${entry.kind}` as "category_other");
+  };
+  return (
+    <section className="rounded-lg border border-line bg-surface p-4" data-testid="bank-ledger">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="text-[13px] font-semibold text-ink">{t("ledgerTitle")}</h3>
+          <p className="mt-0.5 text-xs text-sub">{t("ledgerHelp")}</p>
+        </div>
+        <div className="flex gap-1">
+          {accounts.map((item) => (
+            <button key={item.id} type="button" onClick={() => setAccountId(item.id)} className={`rounded-md px-2 py-1 text-xs ${item.id === account.id ? "bg-action text-white" : "text-sub hover:bg-surface-2"}`} data-testid={`ledger-account-${item.id}`}>
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead className="border-b border-line text-left text-sub">
+            <tr><th className="px-2 py-2">{t("date")}</th><th className="px-2 py-2">{t("description")}</th><th className="px-2 py-2 text-right">{t("moneyIn")}</th><th className="px-2 py-2 text-right">{t("moneyOut")}</th><th className="px-2 py-2 text-right">{t("runningBalance")}</th><th className="px-2 py-2">{t("evidence")}</th><th className="px-2 py-2" /></tr>
+          </thead>
+          <tbody className="divide-y divide-line">
+            <tr data-testid="ledger-opening"><td className="px-2 py-2 text-sub">{account.openingDate}</td><td className="px-2 py-2 font-medium text-ink">{t("openingBalance")}</td><td /><td /><td className="px-2 py-2 text-right font-mono text-ink">{money(account.openingBalance, account.currency)}</td><td /><td /></tr>
+            {rows.map(({ entry, running: balance }) => {
+              const document = entry.statementDocumentId === null ? null : documentMap.get(entry.statementDocumentId);
+              const receipt = entry.receiptPath || document?.path || "";
+              return (
+                <tr key={entry.key} data-testid={`ledger-${entry.source}-${entry.sourceId ?? "row"}`}>
+                  <td className="whitespace-nowrap px-2 py-2 text-sub">{entry.date}</td>
+                  <td className="min-w-48 px-2 py-2"><span className="font-medium text-ink">{label(entry)}</span><span className="ml-1 text-sub">{entry.description}</span>{entry.orderId ? <Link href={`/orders/${entry.orderId}`} className="ml-1 text-action-chrome hover:underline">#{entry.orderId}</Link> : null}</td>
+                  <td className="px-2 py-2 text-right font-mono text-ok">{entry.direction === "in" ? money(entry.amount, entry.currency) : ""}</td>
+                  <td className="px-2 py-2 text-right font-mono text-danger">{entry.direction === "out" ? money(entry.amount, entry.currency) : ""}</td>
+                  <td className="px-2 py-2 text-right font-mono text-ink">{money(balance, account.currency)}</td>
+                  <td className="px-2 py-2">{receipt ? <a href={receipt} target="_blank" rel="noreferrer" className="text-action-chrome hover:underline">{document?.originalName || t("viewReceipt")}</a> : "—"}</td>
+                  <td className="px-2 py-2 text-right">{entry.source === "cash_transaction" && entry.sourceId !== null ? <button type="button" aria-label={t("deleteTransaction")} disabled={deleting} onClick={() => { if (window.confirm(t("deleteTransactionConfirm"))) startDelete(async () => { await deleteCashTransaction(entry.sourceId!); router.refresh(); }); }} className="text-faint hover:text-danger"><Trash2 className="h-3.5 w-3.5" /></button> : null}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
@@ -249,7 +433,7 @@ export function OperatingCash({
             {t("companyNet")}<div className="font-mono text-[18px] font-semibold text-ink">{money(companyNet, reportCurrency)}</div>
           </div>
         </div>
-        <OperatingExpenseForm accounts={activeAccounts} />
+        <OperatingExpenseForm key={`expenses-${activeAccounts.map((account) => account.id).join("-")}`} accounts={activeAccounts} />
         {data.operatingExpenses.length > 0 ? (
           <ul className="mt-4 flex flex-col divide-y divide-line text-sm">
             {data.operatingExpenses.slice(0, 8).map((expense) => (
@@ -291,10 +475,12 @@ export function OperatingCash({
         <div className="mt-3 flex flex-col gap-3">
           {accountRows.map((account) => <AccountRow key={account.id} account={account} />)}
         </div>
-        <div className="mt-5 border-t border-line pt-3">
-          <h3 className="text-[13px] font-semibold text-ink">{t("otherMovements")}</h3>
-          <CashTransactionForm accounts={activeAccounts} />
-        </div>
+        <div className="mt-3"><UnassignedReview view={view} accounts={activeAccounts} /></div>
+        <div className="mt-3"><BankLedger view={view} accounts={activeAccounts} documents={data.statementDocuments ?? []} /></div>
+        <details className="mt-5 border-t border-line pt-3">
+          <summary className="cursor-pointer text-[13px] font-semibold text-ink">{t("otherMovements")}</summary>
+          <CashTransactionForm key={`transactions-${activeAccounts.map((account) => account.id).join("-")}`} accounts={activeAccounts} />
+        </details>
       </section>
     </div>
   );

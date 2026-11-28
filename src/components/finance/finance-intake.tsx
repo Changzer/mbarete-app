@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { FileUp, Sparkles } from "lucide-react";
 import type { FinanceIntakeOrder } from "@/lib/queries/finance";
+import type { OperatingCashInput } from "@/lib/operating-cash";
 import { saveFinanceIntake } from "@/lib/actions/finance-intake";
+import { BankStatementIntake } from "@/components/finance/bank-statement-intake";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,21 +36,25 @@ type Draft = {
   reference: string;
   category: string;
   account: string;
+  cashAccountId: string;
   supplierId: string;
   note: string;
 };
 
 export function FinanceIntake({
   orders,
+  accounts,
   aiConfigured,
 }: {
   orders: FinanceIntakeOrder[];
+  accounts: OperatingCashInput["accounts"];
   aiConfigured: boolean;
 }) {
   const t = useTranslations("financeIntake");
   const financeT = useTranslations("finance");
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
+  const [mode, setMode] = useState<"order" | "bank">("order");
   const [orderId, setOrderId] = useState(orders[0]?.id ?? 0);
   const [intent, setIntent] = useState<Intent>("auto");
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
@@ -108,6 +114,7 @@ export function FinanceIntake({
         reference: extraction.reference,
         category: extraction.category || "other",
         account: extraction.currency === "USD" ? "USD" : "CNY",
+        cashAccountId: String(accounts.find((account) => account.currency === (extraction.currency || order?.currency))?.id ?? ""),
         supplierId: order?.suppliers.length === 1 ? String(order.suppliers[0].id) : "",
         note: [extraction.counterparty, extraction.reference].filter(Boolean).join(" · "),
       });
@@ -135,6 +142,7 @@ export function FinanceIntake({
     if (resolvedIntent === "expense") body.set("category", draft.category);
     if (resolvedIntent === "payment_out") body.set("supplierId", draft.supplierId);
     if (resolvedIntent === "payment_in" || resolvedIntent === "payment_out") body.set("account", draft.account);
+    if (needsMoney) body.set("cashAccountId", draft.cashAccountId);
     setError(null);
     startSave(async () => {
       const result = await saveFinanceIntake(undefined, body);
@@ -160,10 +168,16 @@ export function FinanceIntake({
         <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-action" strokeWidth={1.5} />
         <div>
           <h2 className="text-sm font-semibold text-ink">{t("title")}</h2>
-          <p className="mt-0.5 text-xs leading-relaxed text-sub">{t("help")}</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-sub">{t(mode === "order" ? "help" : "bankHelp")}</p>
         </div>
       </div>
+      <div className="mb-3 mt-3 flex gap-1 border-b border-line" data-testid="intake-modes">
+        <button type="button" onClick={() => setMode("order")} className={`px-3 py-2 text-xs ${mode === "order" ? "border-b-2 border-action font-semibold text-ink" : "text-sub"}`} data-testid="intake-mode-order">{t("modeOrder")}</button>
+        <button type="button" onClick={() => setMode("bank")} className={`px-3 py-2 text-xs ${mode === "bank" ? "border-b-2 border-action font-semibold text-ink" : "text-sub"}`} data-testid="intake-mode-bank">{t("modeBank")}</button>
+      </div>
 
+      {mode === "bank" ? <BankStatementIntake accounts={accounts} orders={orders} aiConfigured={aiConfigured} /> : (
+      <>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <div className="flex flex-col gap-1.5 md:col-span-2">
           <Label htmlFor="intake-order">{t("order")}</Label>
@@ -271,10 +285,18 @@ export function FinanceIntake({
               {resolvedIntent === "payment_in" || resolvedIntent === "payment_out" ? (
                 <div className="flex flex-col gap-1">
                   <Label htmlFor="intake-account">{financeT("account")}</Label>
-                  <select id="intake-account" value={draft.account} onChange={(event) => set("account", event.target.value)} className="h-9 rounded-md border border-line bg-surface px-2 text-sm text-ink" data-testid="intake-account">
-                    <option value="CNY">{financeT("accountRmb")}</option>
-                    <option value="USD">{financeT("accountUsd")}</option>
-                    <option value="">{financeT("accountOther")}</option>
+                  <select
+                    id="intake-account"
+                    value={draft.cashAccountId}
+                    onChange={(event) => {
+                      const cashAccount = accounts.find((account) => account.id === Number(event.target.value));
+                      setDraft((current) => current ? { ...current, cashAccountId: event.target.value, account: cashAccount?.currency ?? "", currency: cashAccount?.currency ?? current.currency } : current);
+                    }}
+                    className="h-9 rounded-md border border-line bg-surface px-2 text-sm text-ink"
+                    data-testid="intake-account"
+                  >
+                    <option value="">{financeT("cashAccountUnassigned")}</option>
+                    {accounts.map((cashAccount) => <option key={cashAccount.id} value={cashAccount.id}>{cashAccount.label} · {cashAccount.currency}</option>)}
                   </select>
                 </div>
               ) : null}
@@ -294,6 +316,8 @@ export function FinanceIntake({
         </div>
       ) : null}
       {saved && !analysis ? <p role="status" className="mt-3 text-xs text-ok" data-testid="intake-saved">{t("saved")}</p> : null}
+      </>
+      )}
     </section>
   );
 }

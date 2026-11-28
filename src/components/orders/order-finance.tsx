@@ -263,6 +263,8 @@ function PaymentForm({
   const [sourceCurrency, setSourceCurrency] = useState(defaultCurrency);
   const [settlementAmount, setSettlementAmount] = useState("");
   const [settlementCurrency, setSettlementCurrency] = useState("CNY");
+  const [settlementAccountId, setSettlementAccountId] = useState(String(cashAccounts[0]?.id ?? ""));
+  const [cashAccountId, setCashAccountId] = useState(String(cashAccounts.find((account) => account.currency === defaultCurrency)?.id ?? ""));
   let conversion: ReturnType<typeof calculateConversion> | null = null;
   if (channel === "xtransfer" && Number(amount) > 0 && Number(settlementAmount) > 0) {
     try {
@@ -335,7 +337,17 @@ function PaymentForm({
       </div>
       <div className="flex flex-col gap-1">
         <Label className="text-xs">{t("currency")}</Label>
-        <Input name="currency" value={sourceCurrency} onChange={(event) => setSourceCurrency(event.target.value)} required className="w-20" data-testid="payment-currency" />
+        <Input
+          name="currency"
+          value={sourceCurrency}
+          onChange={(event) => {
+            setSourceCurrency(event.target.value);
+            setCashAccountId(String(cashAccounts.find((account) => account.currency === event.target.value)?.id ?? ""));
+          }}
+          required
+          className="w-20"
+          data-testid="payment-currency"
+        />
       </div>
       <div className="flex flex-col gap-1">
         <Label className="text-xs">{t("date")}</Label>
@@ -354,6 +366,21 @@ function PaymentForm({
           <option value="">{t("accountOther")}</option>
         </select>
       </div>
+      {channel === "bank" ? (
+        <div className="flex min-w-48 flex-col gap-1">
+          <Label className="text-xs">{t("cashAccount")}</Label>
+          <select
+            name="cashAccountId"
+            value={cashAccountId}
+            onChange={(event) => setCashAccountId(event.target.value)}
+            className="flex h-9 rounded-md border border-line bg-surface px-2 text-sm"
+            data-testid={`cash-account-${direction}`}
+          >
+            <option value="">{t("cashAccountUnassigned")}</option>
+            {cashAccounts.map((account) => <option key={account.id} value={account.id}>{account.label} · {account.currency}</option>)}
+          </select>
+        </div>
+      ) : null}
       <div className="flex min-w-32 flex-1 flex-col gap-1">
         <Label className="text-xs">{t("note")}</Label>
         <Input name="note" placeholder={t("notePlaceholder")} />
@@ -381,7 +408,18 @@ function PaymentForm({
           </div>
           <div className="flex min-w-48 flex-col gap-1">
             <Label className="text-xs">{t("settlementAccount")}</Label>
-            <select name="settlementAccountId" required defaultValue={cashAccounts[0]?.id ?? ""} className="flex h-9 rounded-md border border-line bg-surface px-2 text-sm" data-testid="settlement-account">
+            <select
+              name="settlementAccountId"
+              required
+              value={settlementAccountId}
+              onChange={(event) => {
+                setSettlementAccountId(event.target.value);
+                const account = cashAccounts.find((candidate) => candidate.id === Number(event.target.value));
+                if (account) setSettlementCurrency(account.currency);
+              }}
+              className="flex h-9 rounded-md border border-line bg-surface px-2 text-sm"
+              data-testid="settlement-account"
+            >
               {cashAccounts.map((account) => <option key={account.id} value={account.id}>{account.label} · {account.currency}</option>)}
             </select>
           </div>
@@ -501,16 +539,20 @@ function ExpenseSection({
   orderId,
   rows,
   defaultCurrency,
+  cashAccounts,
 }: {
   orderId: number;
   rows: ExpenseRow[];
   defaultCurrency: string;
+  cashAccounts: CashAccountOption[];
 }) {
   const isAdmin = useIsAdmin();
   const t = useTranslations("finance");
   const errorText = useErrorText();
   const formRef = useRef<HTMLFormElement>(null);
   const [category, setCategory] = useState<string>("freight");
+  const [currency, setCurrency] = useState(defaultCurrency);
+  const [accountId, setAccountId] = useState(String(cashAccounts.find((account) => account.currency === defaultCurrency)?.id ?? ""));
 
   async function action(prev: FinanceActionResult | undefined, formData: FormData) {
     const result = await addExpense(orderId, prev, formData);
@@ -557,7 +599,23 @@ function ExpenseSection({
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-xs">{t("currency")}</Label>
-          <Input name="currency" defaultValue={defaultCurrency} required className="w-20" />
+          <Input
+            name="currency"
+            value={currency}
+            onChange={(event) => {
+              setCurrency(event.target.value);
+              setAccountId(String(cashAccounts.find((account) => account.currency === event.target.value)?.id ?? ""));
+            }}
+            required
+            className="w-20"
+          />
+        </div>
+        <div className="flex min-w-48 flex-col gap-1">
+          <Label className="text-xs">{t("cashAccount")}</Label>
+          <select name="accountId" value={accountId} onChange={(event) => setAccountId(event.target.value)} className="flex h-9 rounded-md border border-line bg-surface px-2 text-sm" data-testid="expense-cash-account">
+            <option value="">{t("cashAccountUnassigned")}</option>
+            {cashAccounts.map((account) => <option key={account.id} value={account.id}>{account.label} · {account.currency}</option>)}
+          </select>
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-xs">{t("date")}</Label>
@@ -789,7 +847,7 @@ export function OrderFinance({
       </div>
 
       <OrderSection title={t("expenses")} data-testid="section-expenses">
-        <ExpenseSection orderId={orderId} rows={expenses} defaultCurrency={quoteCurrency} />
+        <ExpenseSection orderId={orderId} rows={expenses} defaultCurrency={quoteCurrency} cashAccounts={cashAccounts} />
       </OrderSection>
     </div>
   );

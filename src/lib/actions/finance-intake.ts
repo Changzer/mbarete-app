@@ -81,6 +81,7 @@ export async function saveFinanceIntake(
     body.set("amount", String(amount));
     body.set("currency", currency);
     body.set("spentOn", date);
+    body.set("accountId", String(formData.get("cashAccountId") ?? ""));
     body.set("note", note);
     body.set("receipt", file, file.name);
     return addExpense(orderId, undefined, body);
@@ -105,6 +106,7 @@ export async function saveFinanceIntake(
   body.set("currency", currency);
   body.set("paidOn", date);
   body.set("account", canonicalCurrencyCode(String(formData.get("account") ?? "")));
+  body.set("cashAccountId", String(formData.get("cashAccountId") ?? ""));
   body.set("note", note);
   const supplierId = String(formData.get("supplierId") ?? "");
   if (intent === "payment_out" && supplierId) body.set("supplierId", supplierId);

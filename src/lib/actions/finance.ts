@@ -46,6 +46,7 @@ function refresh(orderId: number) {
   revalidatePath("/[locale]/orders/[id]", "page");
   revalidatePath("/[locale]/orders/[id]/proforma", "page");
   revalidatePath("/[locale]/orders", "page");
+  revalidatePath("/[locale]/finance", "page");
   void orderId;
 }
 
@@ -90,6 +91,10 @@ const paymentSchema = z.object({
   ).default(null),
   settlementCurrency: z.string().trim().max(8).default("").transform(canonicalCurrencyCode),
   settlementAccountId: z.preprocess(
+    (value) => value === "" || value === undefined ? null : value,
+    z.coerce.number().int().positive().nullable(),
+  ).default(null),
+  cashAccountId: z.preprocess(
     (value) => value === "" || value === undefined ? null : value,
     z.coerce.number().int().positive().nullable(),
   ).default(null),
@@ -177,6 +182,13 @@ export async function addPayment(
       outboundReceiptName: outbound.receiptName,
     };
   } else {
+    if (parsed.data.cashAccountId !== null) {
+      const account = await db.select().from(bankAccounts)
+        .where(and(eq(bankAccounts.companyId, user.companyId), eq(bankAccounts.id, parsed.data.cashAccountId)))
+        .limit(1).then(one);
+      if (!account || !account.trackBalance || !account.openingDate || !isTailongAccount(account)) return { error: "invalidSettlementAccount" };
+      if (canonicalCurrencyCode(account.currency) !== parsed.data.currency) return { error: "accountCurrency" };
+    }
     const receipt = await readReceipt(user.companyId, formData);
     if ("error" in receipt) return { error: receipt.error };
     documents = receipt;
@@ -265,6 +277,10 @@ const expenseSchema = z.object({
   amount: z.coerce.number().positive(),
   currency: z.string().trim().min(1).max(8).transform(canonicalCurrencyCode),
   spentOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  accountId: z.preprocess(
+    (value) => value === "" || value === undefined ? null : value,
+    z.coerce.number().int().positive().nullable(),
+  ).default(null),
   note: z.string().default(""),
 });
 
@@ -278,6 +294,13 @@ export async function addExpense(
 
   const parsed = expenseSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "invalid" };
+  if (parsed.data.accountId !== null) {
+    const account = await db.select().from(bankAccounts)
+      .where(and(eq(bankAccounts.companyId, user.companyId), eq(bankAccounts.id, parsed.data.accountId)))
+      .limit(1).then(one);
+    if (!account || !account.trackBalance || !account.openingDate || !isTailongAccount(account)) return { error: "invalidSettlementAccount" };
+    if (canonicalCurrencyCode(account.currency) !== parsed.data.currency) return { error: "accountCurrency" };
+  }
 
   const receipt = await readReceipt(user.companyId, formData);
   if ("error" in receipt) return { error: receipt.error };

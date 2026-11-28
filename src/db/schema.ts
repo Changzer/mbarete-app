@@ -469,6 +469,35 @@ export const bankAccounts = pgTable(
   ],
 );
 
+export const bankStatementDocuments = pgTable(
+  "bank_statement_documents",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id").notNull().references(() => companies.id),
+    accountId: integer("account_id").notNull(),
+    path: text("path").notNull(),
+    originalName: text("original_name").notNull(),
+    sha256: text("sha256").notNull(),
+    createdBy: integer("created_by"),
+    createdAt: text("created_at").notNull().default(utcNow),
+  },
+  (table) => [
+    uniqueIndex("bank_statement_documents_company_id_uq").on(table.companyId, table.id),
+    uniqueIndex("bank_statement_documents_company_account_sha_uq").on(table.companyId, table.accountId, table.sha256),
+    index("bank_statement_documents_company_account_idx").on(table.companyId, table.accountId),
+    foreignKey({
+      name: "bank_statement_documents_company_account_fk",
+      columns: [table.companyId, table.accountId],
+      foreignColumns: [bankAccounts.companyId, bankAccounts.id],
+    }),
+    foreignKey({
+      name: "bank_statement_documents_company_creator_fk",
+      columns: [table.companyId, table.createdBy],
+      foreignColumns: [users.companyId, users.id],
+    }),
+  ],
+);
+
 export const operatingExpenses = pgTable(
   "operating_expenses",
   {
@@ -483,11 +512,17 @@ export const operatingExpenses = pgTable(
     note: text("note").notNull().default(""),
     receiptPath: text("receipt_path").notNull().default(""),
     receiptName: text("receipt_name").notNull().default(""),
+    bankReference: text("bank_reference").notNull().default(""),
+    statementDocumentId: integer("statement_document_id"),
+    statementRow: text("statement_row").notNull().default(""),
     createdBy: integer("created_by"),
     createdAt: text("created_at").notNull().default(utcNow),
   },
   (table) => [
     uniqueIndex("operating_expenses_company_id_uq").on(table.companyId, table.id),
+    uniqueIndex("operating_expenses_statement_row_uq")
+      .on(table.companyId, table.statementDocumentId, table.statementRow)
+      .where(sql`${table.statementDocumentId} is not null`),
     index("operating_expenses_company_date_idx").on(table.companyId, table.spentOn),
     foreignKey({
       name: "operating_expenses_company_account_fk",
@@ -499,6 +534,11 @@ export const operatingExpenses = pgTable(
       columns: [table.companyId, table.createdBy],
       foreignColumns: [users.companyId, users.id],
     }),
+    foreignKey({
+      name: "operating_expenses_company_statement_fk",
+      columns: [table.companyId, table.statementDocumentId],
+      foreignColumns: [bankStatementDocuments.companyId, bankStatementDocuments.id],
+    }),
   ],
 );
 
@@ -507,20 +547,30 @@ export const cashTransactions = pgTable(
   {
     id: serial("id").primaryKey(),
     companyId: integer("company_id").notNull().references(() => companies.id),
-    kind: text("kind", { enum: ["other_income", "transfer", "adjustment"] }).notNull(),
+    kind: text("kind", { enum: ["other_income", "other_expense", "transfer", "exchange", "adjustment"] }).notNull(),
     direction: text("direction", { enum: ["in", "out"] }).notNull().default("in"),
     amount: numeric("amount", { precision: 18, scale: 4, mode: "number" }).notNull(),
     currency: text("currency").notNull(),
     transactedOn: date("transacted_on", { mode: "string" }).notNull(),
     accountId: integer("account_id").notNull(),
     destinationAccountId: integer("destination_account_id"),
+    destinationAmount: numeric("destination_amount", { precision: 18, scale: 4, mode: "number" }),
+    destinationCurrency: text("destination_currency").notNull().default(""),
     counterparty: text("counterparty").notNull().default(""),
     note: text("note").notNull().default(""),
+    receiptPath: text("receipt_path").notNull().default(""),
+    receiptName: text("receipt_name").notNull().default(""),
+    bankReference: text("bank_reference").notNull().default(""),
+    statementDocumentId: integer("statement_document_id"),
+    statementRow: text("statement_row").notNull().default(""),
     createdBy: integer("created_by"),
     createdAt: text("created_at").notNull().default(utcNow),
   },
   (table) => [
     uniqueIndex("cash_transactions_company_id_uq").on(table.companyId, table.id),
+    uniqueIndex("cash_transactions_statement_row_uq")
+      .on(table.companyId, table.statementDocumentId, table.statementRow)
+      .where(sql`${table.statementDocumentId} is not null`),
     index("cash_transactions_company_date_idx").on(table.companyId, table.transactedOn),
     foreignKey({
       name: "cash_transactions_company_account_fk",
@@ -536,6 +586,11 @@ export const cashTransactions = pgTable(
       name: "cash_transactions_company_creator_fk",
       columns: [table.companyId, table.createdBy],
       foreignColumns: [users.companyId, users.id],
+    }),
+    foreignKey({
+      name: "cash_transactions_company_statement_fk",
+      columns: [table.companyId, table.statementDocumentId],
+      foreignColumns: [bankStatementDocuments.companyId, bankStatementDocuments.id],
     }),
   ],
 );
@@ -997,8 +1052,9 @@ export const orderPayments = pgTable(
      * which fall back to the order's own snapshot.
      */
     ratesSnapshot: text("rates_snapshot").notNull().default("{}"),
-    /** Which bank account the money touched, e.g. "USD" or "CNY". */
+    /** Legacy currency tag used by order reports, not proof of a bank movement. */
     account: text("account").notNull().default(""),
+    cashAccountId: integer("cash_account_id"),
     channel: text("channel", { enum: ["bank", "xtransfer"] }).notNull().default("bank"),
     settlementAmount: numeric("settlement_amount", { precision: 18, scale: 4, mode: "number" }),
     settlementCurrency: text("settlement_currency").notNull().default(""),
@@ -1015,12 +1071,19 @@ export const orderPayments = pgTable(
      */
     receiptPath: text("receipt_path").notNull().default(""),
     receiptName: text("receipt_name").notNull().default(""),
+    bankReference: text("bank_reference").notNull().default(""),
+    statementDocumentId: integer("statement_document_id"),
+    statementRow: text("statement_row").notNull().default(""),
     note: text("note").notNull().default(""),
     createdBy: integer("created_by"),
     createdAt: text("created_at").notNull().default(utcNow),
   },
   (table) => [
     index("order_payments_order_idx").on(table.orderId),
+    index("order_payments_company_cash_account_idx").on(table.companyId, table.cashAccountId),
+    uniqueIndex("order_payments_statement_row_uq")
+      .on(table.companyId, table.statementDocumentId, table.statementRow)
+      .where(sql`${table.statementDocumentId} is not null`),
     index("order_payments_supplier_idx").on(table.companyId, table.orderId, table.supplierId),
     foreignKey({
       name: "order_payments_company_supplier_fk",
@@ -1028,9 +1091,19 @@ export const orderPayments = pgTable(
       foreignColumns: [contacts.companyId, contacts.id],
     }),
     foreignKey({
+      name: "order_payments_company_cash_account_fk",
+      columns: [table.companyId, table.cashAccountId],
+      foreignColumns: [bankAccounts.companyId, bankAccounts.id],
+    }),
+    foreignKey({
       name: "order_payments_company_settlement_account_fk",
       columns: [table.companyId, table.settlementAccountId],
       foreignColumns: [bankAccounts.companyId, bankAccounts.id],
+    }),
+    foreignKey({
+      name: "order_payments_company_statement_fk",
+      columns: [table.companyId, table.statementDocumentId],
+      foreignColumns: [bankStatementDocuments.companyId, bankStatementDocuments.id],
     }),
     foreignKey({
       name: "order_payments_company_order_fk",
@@ -1062,17 +1135,34 @@ export const orderExpenses = pgTable(
     amount: numeric("amount", { precision: 14, scale: 2, mode: "number" }).notNull(),
     currency: text("currency").notNull(),
     spentOn: text("spent_on").notNull(),
+    accountId: integer("account_id"),
     /** Same freezing as payments; see order_payments.rates_snapshot. */
     ratesSnapshot: text("rates_snapshot").notNull().default("{}"),
     /** Receipt for the expense, same shape as order_payments.receipt_path. */
     receiptPath: text("receipt_path").notNull().default(""),
     receiptName: text("receipt_name").notNull().default(""),
+    bankReference: text("bank_reference").notNull().default(""),
+    statementDocumentId: integer("statement_document_id"),
+    statementRow: text("statement_row").notNull().default(""),
     note: text("note").notNull().default(""),
     createdBy: integer("created_by"),
     createdAt: text("created_at").notNull().default(utcNow),
   },
   (table) => [
     index("order_expenses_order_idx").on(table.orderId),
+    uniqueIndex("order_expenses_statement_row_uq")
+      .on(table.companyId, table.statementDocumentId, table.statementRow)
+      .where(sql`${table.statementDocumentId} is not null`),
+    foreignKey({
+      name: "order_expenses_company_account_fk",
+      columns: [table.companyId, table.accountId],
+      foreignColumns: [bankAccounts.companyId, bankAccounts.id],
+    }),
+    foreignKey({
+      name: "order_expenses_company_statement_fk",
+      columns: [table.companyId, table.statementDocumentId],
+      foreignColumns: [bankStatementDocuments.companyId, bankStatementDocuments.id],
+    }),
     foreignKey({
       name: "order_expenses_company_order_fk",
       columns: [table.companyId, table.orderId],

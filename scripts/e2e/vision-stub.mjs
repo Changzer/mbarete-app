@@ -101,7 +101,11 @@ const server = http.createServer((req, res) => {
     }
     if (req.method === "POST" && req.url === "/files") {
       const name = /filename="([^"]+)"/.exec(text)?.[1] ?? "";
-      extractedDocument = name.includes("customs")
+      extractedDocument = name.includes("statement-a")
+        ? "TAILONG STATEMENT A\nSTATEMENT QA CLIENT 20000 CNY\nANGEL PACKING 12500 CNY"
+        : name.includes("statement-b")
+          ? "TAILONG STATEMENT B\nANGEL PACKING 12500 CNY"
+          : name.includes("customs")
         ? "中华人民共和国海关出口货物报关单\nCUSTOMS DECLARATION"
         : name.includes("receipt")
           ? "SUPPLIER PAYMENT RECEIPT\nAngel Packing\n12500.00 CNY\n2026-11-23\nXT-884912"
@@ -132,7 +136,14 @@ const server = http.createServer((req, res) => {
     const body = JSON.parse(text);
     const system = body.messages?.[0]?.content ?? "";
     const documentText = body.messages?.[1]?.content ?? "";
-    const reading = system.includes("user-selected order")
+    const reading = system.includes("Tailong bank statement bulk extraction")
+      ? documentText.includes("STATEMENT B")
+        ? { closingBalance: null, closingDate: null, transactions: [{ date: "2026-11-23", description: "Supplier transfer", counterparty: "Angel Packing", reference: "STATEMENT-OUT", direction: "out", amount: 12500, kind: "supplier_payment", orderNumber: "STATEMENT-QA", supplierName: "Angel Packing", expenseCategory: null, destinationAmount: null, confidence: "high", reason: "Overlapping statement row" }] }
+        : { closingBalance: 7500, closingDate: "2026-11-28", transactions: [
+            { date: "2026-11-24", description: "Client receipt", counterparty: "Statement QA Client", reference: "STATEMENT-IN", direction: "in", amount: 20000, kind: "client_payment", orderNumber: "STATEMENT-QA", supplierName: null, expenseCategory: null, destinationAmount: null, confidence: "high", reason: "Exact client and order reference" },
+            { date: "2026-11-23", description: "Supplier transfer", counterparty: "Angel Packing", reference: "STATEMENT-OUT", direction: "out", amount: 12500, kind: "supplier_payment", orderNumber: "STATEMENT-QA", supplierName: "Angel Packing", expenseCategory: null, destinationAmount: null, confidence: "high", reason: "Exact supplier and order reference" },
+          ] }
+      : system.includes("user-selected order")
       ? { documentType: "supplier_payment", amount: 12500, currency: "CNY", date: "2026-11-23", counterparty: "Angel Packing", reference: "XT-884912", category: null, confidence: "high", reason: "Clear supplier receipt and exact order reference" }
       : system.includes("fixed export-dossier catalog")
         ? documentText.includes("出口货物报关单")
