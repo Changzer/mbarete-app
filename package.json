@@ -33,6 +33,7 @@
     "test:followup": "node --test src/ui-tests/followup.spec.mjs",
     "test:finance-intake": "node --test src/ui-tests/finance-intake.spec.mjs",
     "test:operating-cash": "node --test src/ui-tests/operating-cash.spec.mjs",
+    "test:converted-settlement": "node --test src/ui-tests/converted-settlement.spec.mjs",
     "test:tasks": "node --test src/ui-tests/tasks.spec.mjs",
     "test:customs": "node --test src/ui-tests/customs-docs.spec.mjs",
     "test:nas-setup": "node --test src/ui-tests/nas-setup.spec.mjs",
