@@ -26,9 +26,10 @@ test("an XTransfer conversion keeps the client's USD payment and Tailong CNY set
     clientId = (await sql.query("INSERT INTO contacts(company_id,type,company_name) VALUES ($1,'client','Conversion QA Client') RETURNING id", [company])).rows[0].id;
     supplierId = (await sql.query("INSERT INTO contacts(company_id,type,company_name) VALUES ($1,'supplier','Conversion QA Supplier') RETURNING id", [company])).rows[0].id;
     bankId = (await sql.query(
-      "INSERT INTO bank_accounts(company_id,label,currency,opening_balance,opening_date,track_balance) VALUES ($1,'Tailong RMB','CNY',0,'2026-01-01',true) RETURNING id",
+      "SELECT id FROM bank_accounts WHERE company_id=$1 AND label='Tailong RMB' AND currency='CNY' AND track_balance=true",
       [company],
     )).rows[0].id;
+    await sql.query("UPDATE bank_accounts SET opening_balance=0,opening_date='2026-01-01' WHERE id=$1", [bankId]);
     orderId = (await sql.query(
       "INSERT INTO orders(company_id,order_number,client_id,status,display_currency,secondary_currency,rates_snapshot,created_by) VALUES ($1,'CONVERT-QA',$2,'confirmed','USD','CNY','{\"USD\":1,\"CNY\":0.14}',$3) RETURNING id",
       [company, clientId, account.id],
@@ -94,7 +95,7 @@ test("an XTransfer conversion keeps the client's USD payment and Tailong CNY set
     if (productId) await sql.query("DELETE FROM products WHERE id=$1", [productId]);
     if (bankId) {
       await sql.query("DELETE FROM cash_balance_checks WHERE account_id=$1", [bankId]);
-      await sql.query("DELETE FROM bank_accounts WHERE id=$1", [bankId]);
+      await sql.query("UPDATE bank_accounts SET opening_balance=0,opening_date='' WHERE id=$1", [bankId]);
     }
     if (clientId) await sql.query("DELETE FROM contacts WHERE id=$1", [clientId]);
     if (supplierId) await sql.query("DELETE FROM contacts WHERE id=$1", [supplierId]);

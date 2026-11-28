@@ -229,7 +229,7 @@ export async function saveBankAccount(
     // The row may have been deleted from another tab; a silent no-op would
     // close the form and discard what was typed as if it had been saved.
     const target = await db
-      .select({ id: bankAccounts.id })
+      .select()
       .from(bankAccounts)
       .where(and(eq(bankAccounts.companyId, admin.companyId), eq(bankAccounts.id, id)))
       .limit(1)
@@ -238,19 +238,23 @@ export async function saveBankAccount(
       revalidatePath("/settings");
       return "missing";
     }
+    if (target.trackBalance && (data.label !== target.label || data.currency !== target.currency)) {
+      return "managed";
+    }
     await db
       .update(bankAccounts)
       .set(data)
       .where(and(eq(bankAccounts.companyId, admin.companyId), eq(bankAccounts.id, id)));
   } else {
-    // The first account registered becomes the default automatically.
+    // Seeded cash placeholders do not take the invoice default away from the
+    // first beneficiary account the admin registers.
     const existing = await db
-      .select({ id: bankAccounts.id })
+      .select({ isDefault: bankAccounts.isDefault })
       .from(bankAccounts)
       .where(eq(bankAccounts.companyId, admin.companyId));
     await db
       .insert(bankAccounts)
-      .values({ ...data, companyId: admin.companyId, isDefault: existing.length === 0 });
+      .values({ ...data, companyId: admin.companyId, isDefault: !existing.some((account) => account.isDefault) });
   }
 
   revalidatePath("/settings");
@@ -291,7 +295,7 @@ export async function deleteBankAccount(id: number) {
       .where(and(eq(bankAccounts.companyId, admin.companyId), eq(bankAccounts.id, id)))
       .limit(1)
       .then(one);
-    if (!target) return;
+    if (!target || target.trackBalance) return;
 
     // Orders that pointed here fall back to the default account; done by hand
     // rather than trusting the FK's SET NULL, so it holds on any database.

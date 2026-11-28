@@ -1,15 +1,21 @@
 import { planOf } from "@/lib/plans";
 import { db } from "@/db";
-import { companies, users, categories, exchangeRates } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { companies, users, categories, exchangeRates, bankAccounts } from "@/db/schema";
+import { and, eq, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+import { canonicalCurrencyCode } from "@/lib/currency";
+
+const TAILONG_CASH_ACCOUNTS = [
+  { label: "Tailong RMB", currency: "CNY" },
+  { label: "Tailong USD", currency: "USD" },
+];
 
 /**
  * Creating a company and its people.
  *
  * One place so the boot seed (self-hosted) and the public signup flow (SaaS)
  * produce byte-for-byte the same starting state: a company, its owner, and the
- * starter categories and exchange rates every tenant begins with.
+ * starter categories, exchange rates and two Tailong cash accounts every tenant begins with.
  */
 
 /**
@@ -74,6 +80,21 @@ export async function seedCompanyDefaults(
   const missing = starterRates.filter((r) => !existingRates.has(r.currencyCode));
   if (missing.length > 0) {
     await tx.insert(exchangeRates).values(missing.map((r) => ({ ...r, companyId })));
+  }
+
+  const trackedCurrencies = new Set(
+    (
+      await tx
+        .select({ currency: bankAccounts.currency })
+        .from(bankAccounts)
+        .where(and(eq(bankAccounts.companyId, companyId), eq(bankAccounts.trackBalance, true)))
+    ).map((account) => canonicalCurrencyCode(account.currency)),
+  );
+  const missingCashAccounts = TAILONG_CASH_ACCOUNTS.filter((account) => !trackedCurrencies.has(account.currency));
+  if (missingCashAccounts.length > 0) {
+    await tx.insert(bankAccounts).values(
+      missingCashAccounts.map((account) => ({ ...account, companyId, trackBalance: true })),
+    );
   }
 }
 

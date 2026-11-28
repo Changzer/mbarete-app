@@ -149,7 +149,7 @@ export async function addPayment(
     const account = await db.select().from(bankAccounts)
       .where(and(eq(bankAccounts.companyId, user.companyId), eq(bankAccounts.id, parsed.data.settlementAccountId)))
       .limit(1).then(one);
-    if (!account || !account.trackBalance || !isTailongAccount(account)) return { error: "invalidSettlementAccount" };
+    if (!account || !account.trackBalance || !account.openingDate || !isTailongAccount(account)) return { error: "invalidSettlementAccount" };
     if (canonicalCurrencyCode(account.currency) !== parsed.data.settlementCurrency) return { error: "accountCurrency" };
     settlement = calculateConversion({
       sourceAmount: parsed.data.amount,

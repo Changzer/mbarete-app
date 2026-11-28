@@ -42,11 +42,11 @@ async function session() {
   return user;
 }
 
-async function account(companyId: number, id: number, tracked = true) {
+async function account(companyId: number, id: number) {
   const row = await db.select().from(bankAccounts)
     .where(and(eq(bankAccounts.companyId, companyId), eq(bankAccounts.id, id)))
     .limit(1).then(one);
-  if (!row || (tracked && (!row.trackBalance || !isTailongAccount(row)))) return null;
+  if (!row || !row.trackBalance || !isTailongAccount(row)) return null;
   return row;
 }
 
@@ -84,7 +84,7 @@ export async function addOperatingExpense(_prev: ActionResult | undefined, formD
   if (!parsed.success) return { error: "invalid" };
   const data = parsed.data;
   const accountRow = await account(user.companyId, data.accountId);
-  if (!accountRow) return { error: "notFound" };
+  if (!accountRow?.openingDate) return { error: "notFound" };
   if (canonicalCurrencyCode(accountRow.currency) !== data.currency) return { error: "accountCurrency" };
   const receipt = await optionalReceipt(user.companyId, formData);
   if ("error" in receipt) return { error: receipt.error };
@@ -107,8 +107,7 @@ export async function deleteOperatingExpense(id: number): Promise<void> {
 const accountSchema = z.object({
   id: accountId,
   openingBalance: z.coerce.number().finite().default(0),
-  openingDate: z.string().default(""),
-  trackBalance: z.coerce.boolean().default(false),
+  openingDate: date,
 });
 
 export async function saveCashAccount(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
@@ -117,16 +116,12 @@ export async function saveCashAccount(_prev: ActionResult | undefined, formData:
     id: formData.get("id"),
     openingBalance: formData.get("openingBalance") || "0",
     openingDate: formData.get("openingDate") || "",
-    trackBalance: formData.get("trackBalance") === "on",
   });
   if (!parsed.success) return { error: "invalid" };
   const { id, ...data } = parsed.data;
-  const existing = await account(user.companyId, id, false);
+  const existing = await account(user.companyId, id);
   if (!existing) return { error: "notFound" };
-  if (data.trackBalance && !isTailongAccount(existing)) return { error: "unsupportedAccount" };
-  if (data.trackBalance && (!existing.currency || !date.safeParse(data.openingDate).success)) {
-    return { error: "invalid" };
-  }
+  if (!existing.currency) return { error: "invalid" };
   await db.update(bankAccounts).set(data)
     .where(and(eq(bankAccounts.companyId, user.companyId), eq(bankAccounts.id, id)));
   refresh();
@@ -145,7 +140,8 @@ export async function recordBalanceCheck(_prev: ActionResult | undefined, formDa
   const parsed = checkSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "invalid" };
   const data = parsed.data;
-  if (!await account(user.companyId, data.accountId)) return { error: "notFound" };
+  const accountRow = await account(user.companyId, data.accountId);
+  if (!accountRow?.openingDate) return { error: "notFound" };
   await db.insert(cashBalanceChecks).values({ companyId: user.companyId, createdBy: user.id, ...data });
   refresh();
   return {};
@@ -172,14 +168,14 @@ export async function addCashTransaction(_prev: ActionResult | undefined, formDa
   if (!parsed.success) return { error: "invalid" };
   const data = parsed.data;
   const source = await account(user.companyId, data.accountId);
-  if (!source) return { error: "notFound" };
+  if (!source?.openingDate) return { error: "notFound" };
   if (canonicalCurrencyCode(source.currency) !== data.currency) return { error: "accountCurrency" };
   if (data.kind === "other_income" && data.direction !== "in") return { error: "invalid" };
   if (data.kind !== "transfer") data.destinationAccountId = null;
   if (data.kind === "transfer") {
     if (data.destinationAccountId === null || data.destinationAccountId === data.accountId) return { error: "invalid" };
     const destination = await account(user.companyId, data.destinationAccountId);
-    if (!destination) return { error: "notFound" };
+    if (!destination?.openingDate) return { error: "notFound" };
     if (canonicalCurrencyCode(destination.currency) !== data.currency) return { error: "accountCurrency" };
   }
   await db.insert(cashTransactions).values({ companyId: user.companyId, createdBy: user.id, ...data });
